@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from "next";
-import { Suspense } from "react";
 import Script from "next/script";
 import "./globals.css";
-import { Header } from "@/components/Header";
-import { Footer } from "@/components/Footer";
+import { SiteChrome } from "@/components/SiteChrome";
 import { Providers } from "@/components/Providers";
 
 // Metadata ported from the original frontend's <head> block
@@ -123,11 +121,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </noscript>
         )}
         <Providers>
-          <Suspense fallback={null}>
-            <Header />
-          </Suspense>
-          {children}
-          <Footer />
+          <SiteChrome>{children}</SiteChrome>
         </Providers>
       </body>
     </html>
