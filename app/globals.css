@@ -1,0 +1,7 @@
+@import "tailwindcss";
+
+/* The bulk of the site's visual design lives in site.css, ported
+   verbatim from the original frontend's <style> block so every color,
+   spacing value, and selector matches exactly (see docs/architecture.md
+   for why we didn't re-derive this as Tailwind utilities). */
+@import "./site.css";

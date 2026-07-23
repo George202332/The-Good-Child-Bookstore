@@ -1,0 +1,608 @@
+// ============================================================
+// The Good Child Bookstore — Prisma schema
+// Phase 2 of the incremental build (architecture -> DATABASE -> auth -> ...)
+//
+// Role model (confirmed with the project owner):
+//   READER, AUTHOR, AFFILIATE  -> existing public-facing frontend roles
+//   ADMIN, EDITOR              -> new, backend/internal-only roles, no
+//                                  matching UI in the original frontend
+//
+// Revenue model (confirmed with the project owner — overrides the
+// generic brief numbers, which were wrong):
+//   Organic sale:            company 25% / author 75%
+//   Affiliate-referred sale: company 25% / affiliate 10% / author 65%
+//   Referral commission:     affiliate earns 5% of the COMPANY's revenue,
+//                            for life, from any author they referred onto
+//                            the platform (separate from the per-sale cut)
+//   No refund/return deductions: store policy is no returns once a
+//   product has been purchased, so unlike the original frontend prototype,
+//   the author's share is NOT reduced by a modeled refund/return rate.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  READER
+  AUTHOR
+  AFFILIATE
+  EDITOR
+  ADMIN
+}
+
+enum ContentStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+}
+
+enum SaleType {
+  ORGANIC
+  AFFILIATE
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PayoutStatus {
+  REQUESTED
+  APPROVED
+  PAID
+  REJECTED
+}
+
+enum PaymentGateway {
+  PAYPAL
+  PAYSTACK
+  STRIPE
+  FLUTTERWAVE
+}
+
+enum BookFormat {
+  EBOOK
+  PRINT
+  AUDIOBOOK
+}
+
+// ---------- Core identity ----------
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  name          String
+  role          Role     @default(READER)
+  avatarUrl     String?
+  emailVerified DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Role-specific profile extensions (only the relevant one is populated)
+  authorProfile    AuthorProfile?
+  affiliateProfile AffiliateProfile?
+  readerProfile    ReaderProfile?
+
+  settings      Settings?
+  sessions      Session[]
+  notifications Notification[]
+  reviews       Review[]
+  ratings       Rating[]
+  wishlists     Wishlist[]
+  bookmarks     Bookmark[]
+  supportTickets SupportTicket[]
+  auditLogs     AuditLog[]        @relation("AuditActor")
+  messagesSent  Message[]         @relation("MessageSender")
+  messagesReceived Message[]      @relation("MessageRecipient")
+  wiseRecipients WiseRecipient[]
+  payoutRequests PayoutRequest[]
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Settings {
+  id                String  @id @default(cuid())
+  userId            String  @unique
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  darkMode          Boolean @default(false)
+  reduceMotion      Boolean @default(false)
+  notifyPayouts     Boolean @default(true)
+  notifyReviews     Boolean @default(true)
+  notifyBlogComments Boolean @default(true)
+}
+
+// ---------- Role-specific profiles ----------
+
+model AuthorProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio                String?
+  pressKitUrl        String?
+  availableForCollabs Boolean @default(false)
+  showEmailPublicly  Boolean  @default(false)
+  primaryGenre       String?
+  penName            String?
+  // If this author was referred onto the platform by an affiliate, that
+  // affiliate earns a lifetime 5% cut of the COMPANY's revenue from this
+  // author's sales (see AffiliateProfile.referredAuthors below).
+  referredById       String?
+  referredBy         AffiliateProfile? @relation("AffiliateReferrals", fields: [referredById], references: [id])
+  books              Book[]
+  blogs               Blog[]
+  followers          AuthorFollow[]
+}
+
+model AffiliateProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referralCode       String   @unique
+  referredAuthors    AuthorProfile[] @relation("AffiliateReferrals")
+  affiliateLinks     AffiliateLink[]
+  campaigns          Campaign[]
+}
+
+model ReaderProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredFormat       BookFormat?
+  shoppingForAgeRanges  String[] @default([])
+  affiliateAccess       Boolean  @default(false)
+  orders                Order[]
+  subscriptions         Subscription[]
+  downloads             Download[]
+  addresses             Address[]
+  following             AuthorFollow[]
+  savedPaymentMethods   SavedPaymentMethod[]
+}
+
+/**
+ * A reader's saved payment method for faster future checkout — stores
+ * only what Paystack's own tokenized "authorization" gives back after a
+ * successful charge (a reusable charge token, plus display-only card
+ * metadata for the reader to recognize it), never raw card numbers or
+ * CVV. Charging it again later goes through Paystack's charge-
+ * authorization endpoint (lib/payments/paystack.ts chargeAuthorization),
+ * so the actual card details never pass through our servers at all,
+ * either the first time or on reuse.
+ */
+model SavedPaymentMethod {
+  id                String        @id @default(cuid())
+  readerId          String
+  reader            ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  gateway           PaymentGateway
+  authorizationCode String
+  cardType          String?
+  last4             String?
+  bank              String?
+  isDefault         Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+}
+
+model Address {
+  id              String        @id @default(cuid())
+  readerId        String
+  reader          ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  label           String
+  line            String
+  city            String
+  country         String
+  isDefault       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+}
+
+model AuthorFollow {
+  id         String        @id @default(cuid())
+  readerId   String
+  reader     ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  authorId   String
+  author     AuthorProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+
+  @@unique([readerId, authorId])
+}
+
+// ---------- Catalog ----------
+
+model Book {
+  id           String        @id @default(cuid())
+  title        String
+  slug         String        @unique
+  description  String?
+  isbn         String?
+  price        Decimal       @db.Decimal(10, 2)
+  coverImageUrl String?
+  status       ContentStatus @default(DRAFT)
+  authorId     String
+  author       AuthorProfile @relation(fields: [authorId], references: [id])
+  categories   CategoryOnBook[]
+  genres       GenreOnBook[]
+  tags         TagOnBook[]
+  ageGroup     String?
+  language     String        @default("en")
+  files        BookFile[]
+  reviews      Review[]
+  ratings      Rating[]
+  saleLines    SaleLine[]
+  wishlists    Wishlist[]
+  bookmarks    Bookmark[]
+  affiliateLinks AffiliateLink[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([status])
+  @@index([authorId])
+}
+
+model BookFile {
+  id       String   @id @default(cuid())
+  bookId   String
+  book     Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  kind     String   // PDF | EPUB | SAMPLE | COVER
+  url      String
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id    String @id @default(cuid())
+  name  String @unique
+  books CategoryOnBook[]
+}
+model CategoryOnBook {
+  bookId     String
+  categoryId String
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  @@id([bookId, categoryId])
+}
+
+model Genre {
+  id    String @id @default(cuid())
+  name  String @unique
+  books GenreOnBook[]
+}
+model GenreOnBook {
+  bookId  String
+  genreId String
+  book    Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  genre   Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  @@id([bookId, genreId])
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  books TagOnBook[]
+}
+model TagOnBook {
+  bookId String
+  tagId  String
+  book   Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([bookId, tagId])
+}
+
+model Country {
+  id   String @id @default(cuid())
+  code String @unique // ISO 3166-1 alpha-2
+  name String
+}
+
+// ---------- Blog / editorial workflow ----------
+
+model Blog {
+  id           String        @id @default(cuid())
+  title        String
+  slug         String        @unique
+  content      String
+  coverImageUrl String?
+  status       ContentStatus @default(DRAFT)
+  authorId     String
+  author       AuthorProfile @relation(fields: [authorId], references: [id])
+  publishAt    DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([status])
+}
+
+// ---------- Reviews / ratings / social ----------
+
+model Review {
+  id        String   @id @default(cuid())
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+}
+
+model Rating {
+  id     String @id @default(cuid())
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stars  Int
+  @@unique([bookId, userId])
+}
+
+model Wishlist {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  @@unique([userId, bookId])
+}
+
+model Bookmark {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  @@unique([userId, bookId])
+}
+
+// ---------- Orders / sales / the financial engine ----------
+
+model Order {
+  id            String      @id @default(cuid())
+  readerId      String
+  reader        ReaderProfile @relation(fields: [readerId], references: [id])
+  status        OrderStatus @default(PENDING)
+  totalAmount   Decimal     @db.Decimal(10, 2)
+  couponId      String?
+  coupon        Coupon?     @relation(fields: [couponId], references: [id])
+  lines         SaleLine[]
+  invoice       Invoice?
+  paymentLogs   PaymentLog[]
+  createdAt     DateTime    @default(now())
+}
+
+// One SaleLine per book in an order. This is where the confirmed revenue
+// split is computed and permanently stored (never re-derived on the fly).
+model SaleLine {
+  id                 String   @id @default(cuid())
+  orderId            String
+  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  bookId             String
+  book               Book     @relation(fields: [bookId], references: [id])
+  affiliateLinkId    String?
+  affiliateLink      AffiliateLink? @relation(fields: [affiliateLinkId], references: [id])
+
+  saleType           SaleType
+  grossAmount        Decimal  @db.Decimal(10, 2)
+  companyShare       Decimal  @db.Decimal(10, 2)
+  authorShare        Decimal  @db.Decimal(10, 2)
+  affiliateShare     Decimal  @db.Decimal(10, 2) @default(0)
+
+  createdAt          DateTime @default(now())
+
+  @@index([bookId])
+  @@index([affiliateLinkId])
+}
+
+model Invoice {
+  id        String   @id @default(cuid())
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  number    String   @unique
+  pdfUrl    String?
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  percentOff Decimal  @db.Decimal(5, 2)
+  expiresAt  DateTime?
+  orders     Order[]
+}
+
+model PaymentLog {
+  id         String         @id @default(cuid())
+  orderId    String
+  order      Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  gateway    PaymentGateway
+  rawPayload Json
+  verified   Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+}
+
+model Subscription {
+  id            String   @id @default(cuid())
+  readerId      String
+  reader        ReaderProfile @relation(fields: [readerId], references: [id])
+  planName      String
+  active        Boolean  @default(true)
+  startedAt     DateTime @default(now())
+  cancelledAt   DateTime?
+}
+
+model Download {
+  id        String   @id @default(cuid())
+  readerId  String
+  reader    ReaderProfile @relation(fields: [readerId], references: [id])
+  bookId    String
+  downloadedAt DateTime @default(now())
+}
+
+// ---------- Affiliate system ----------
+
+model AffiliateLink {
+  id           String   @id @default(cuid())
+  affiliateId  String
+  affiliate    AffiliateProfile @relation(fields: [affiliateId], references: [id])
+  bookId       String?
+  book         Book?    @relation(fields: [bookId], references: [id])
+  campaignId   String?
+  campaign     Campaign? @relation(fields: [campaignId], references: [id])
+  code         String   @unique
+  clicks       AffiliateClick[]
+  saleLines    SaleLine[]
+  createdAt    DateTime @default(now())
+}
+
+/** A named grouping of referral links for a marketing push (e.g. "Back
+ * to school 2026"), so an affiliate can track aggregate clicks/sales
+ * across several promoted books at once instead of only per-link. */
+model Campaign {
+  id          String   @id @default(cuid())
+  affiliateId String
+  affiliate   AffiliateProfile @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  name        String
+  links       AffiliateLink[]
+  createdAt   DateTime @default(now())
+}
+
+model AffiliateClick {
+  id              String   @id @default(cuid())
+  affiliateLinkId String
+  affiliateLink   AffiliateLink @relation(fields: [affiliateLinkId], references: [id], onDelete: Cascade)
+  ipHash          String?
+  country         String?
+  createdAt       DateTime @default(now())
+}
+
+model PayoutRequest {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  recipientId    String
+  recipient      WiseRecipient @relation(fields: [recipientId], references: [id])
+  amount         Decimal      @db.Decimal(10, 2)
+  currency       String
+  status         PayoutStatus @default(REQUESTED)
+  wiseQuoteId    String?
+  wiseTransferId String?
+  failureReason  String?
+  requestedAt    DateTime     @default(now())
+  resolvedAt     DateTime?
+}
+
+/**
+ * A payout destination on Wise — replaces direct Paystack payouts, since
+ * Paystack payouts are limited to a small set of countries and this
+ * platform needs to pay out authors/affiliates internationally
+ * (explicitly requested: "all payouts will be done through Wise").
+ * `type` matches Wise's own recipient account types (e.g. "mpesa" for
+ * Kenyan M-Pesa mobile money, "iban"/"sort_code" for bank transfers,
+ * "email" for some currencies) — see lib/payments/wise.ts.
+ */
+model WiseRecipient {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  currency          String
+  accountHolderName String
+  details           Json
+  wiseRecipientId   String?
+  isDefault         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  payoutRequests    PayoutRequest[]
+}
+
+// ---------- Support / comms / admin ----------
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id])
+  recipientId String
+  recipient  User     @relation("MessageRecipient", fields: [recipientId], references: [id])
+  body       String
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+}
+
+model SupportTicket {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   String
+  body      String
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actor     User     @relation("AuditActor", fields: [actorId], references: [id])
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+}
+
+model SeoEntry {
+  id          String @id @default(cuid())
+  path        String @unique
+  title       String?
+  description String?
+  ogImageUrl  String?
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  type      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model MonthlyReport {
+  id        String   @id @default(cuid())
+  year      Int
+  month     Int
+  scopeType String   // AUTHOR | AFFILIATE | COMPANY
+  scopeId   String?
+  data      Json
+  createdAt DateTime @default(now())
+
+  @@unique([year, month, scopeType, scopeId])
+}
