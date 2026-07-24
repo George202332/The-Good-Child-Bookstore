@@ -103,6 +103,32 @@ export interface SubmissionMetadata {
   foilColor?: string;
   trimSizeCode?: string;
   podPackageId?: string;
+  // Print-specific fields (Submit a print copy) — matches the exact
+  // reference design: dual paperback/hardcover editions, shipping/
+  // contact details required by Lulu's Print API, foil stamp text, and
+  // print-specific distribution toggles.
+  paperbackEnabled?: boolean;
+  hardcoverEnabled?: boolean;
+  paperbackRetailPrice?: number;
+  hardcoverRetailPrice?: number;
+  foilStampTitleText?: string;
+  foilStampAuthorText?: string;
+  printReadyPdfFileId?: string;
+  frontCoverImageUrl?: string;
+  customBackCoverPdfFileId?: string;
+  contactEmail?: string;
+  streetAddress?: string;
+  city?: string;
+  countryCode?: string;
+  stateRegionCode?: string;
+  postalCode?: string;
+  phoneNumber?: string;
+  shippingLevel?: string;
+  sellThroughWebsite?: boolean;
+  luluGlobalDistribution?: boolean;
+  privatePrinting?: boolean;
+  affiliateEligiblePrint?: boolean;
+  promotionalCampaignEligible?: boolean;
 }
 
 export interface SubmitBookInput {
