@@ -5,24 +5,22 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 /**
- * Real book submission — a much fuller port of the original's actual
- * submission form (collectSubmissionFormData(), the-good-child-bookstore
- * _54_1.html:10651-10689), covering every field it collected: basic
- * info, contributors, edition/series, categorization, educational
- * details, pricing/rights, marketing toggles, SEO, and format-specific
- * fields (ISBN/file type for eBook, trim size for print, narrator for
- * audiobook). Creates a genuine Book row, entering the same Draft →
- * Pending Review workflow as everything else in the editorial system.
+ * Real book submission — a full port of the original's submission form
+ * (collectSubmissionFormData()), rebuilt to match the exact reference
+ * design provided (11 numbered sections: Book information, Author
+ * information, Book classification, Book description, Files, Pricing,
+ * Distribution, Rights, SEO, Preview, Submission checklist). Creates a
+ * genuine Book row plus BookFile rows for the manuscript/sample-pages/
+ * promotional-image uploads, entering the same Draft → Pending Review
+ * workflow as everything else.
  *
- * Still not replicated from the original: the live print-cover-wrap
- * preview and the full Lulu print-configuration UI (trim/paper/binding/
- * finish pickers, EAN-13 barcode rendering) — that's a real, separate,
- * much larger feature (see LULU_CONFIG in the original file) that isn't
- * built yet. Cover image is a real upload (converted to WebP), not a
- * file-to-dataURL simulation.
+ * Still not replicated: the live print-cover-wrap preview and the full
+ * Lulu print-configuration UI's actual API call (the configuration
+ * fields themselves — trim/paper/binding/finish — are built, see
+ * lib/lulu-config.ts) — a real, separate, larger feature.
  */
 
-/** Ported from ean13CheckDigit()/ensureGeneratedISBN() (the-good-child-bookstore_54_1.html:8336-8341). */
+/** Ported from ean13CheckDigit()/ensureGeneratedISBN() (the-good-child-bookstore_54_1.html:8336-8341) — used only as a fallback when the author doesn't provide their own ISBN. */
 function generateIsbn(): string {
   const first12 = [9, 7, 8, 1, ...Array.from({ length: 8 }, () => Math.floor(Math.random() * 10))];
   let sum = 0;
@@ -40,8 +38,17 @@ function slugify(s: string): string {
   );
 }
 
-/** Everything from the original form that doesn't have its own Book
- * column — stored as JSON (Book.submissionMetadata). */
+export interface MarketplaceLinks {
+  amazon?: string;
+  appleBooks?: string;
+  google?: string;
+  barnesNoble?: string;
+  kobo?: string;
+  overdrive?: string;
+}
+
+/** Everything from the form that doesn't have its own Book column —
+ * stored as JSON (Book.submissionMetadata). */
 export interface SubmissionMetadata {
   authorFirstName: string;
   authorLastName: string;
@@ -49,6 +56,8 @@ export interface SubmissionMetadata {
   seriesName?: string;
   seriesNumber?: number;
   publisher?: string;
+  publicationDate?: string;
+  originalPublicationDate?: string;
   copyrightYear?: number;
   coAuthors?: string;
   illustrator?: string;
@@ -59,6 +68,8 @@ export interface SubmissionMetadata {
   readingLevel?: string;
   schoolGrade?: string;
   curriculum?: string;
+  longDescriptionHtml?: string;
+  backCoverDescription?: string;
   learningObjectives?: string;
   educationalBenefits?: string;
   discountPrice?: number;
@@ -75,11 +86,11 @@ export interface SubmissionMetadata {
   allowDiscounts: boolean;
   allowBundles: boolean;
   affiliateEnabled: boolean;
+  marketplaceLinks?: MarketplaceLinks;
   seoTitle?: string;
   seoDescription?: string;
   keywords?: string;
   fileType?: string;
-  trimSize?: string;
   narrator?: string;
   // Real Lulu print-configuration fields (see lib/lulu-config.ts) — only
   // meaningful when the print format is enabled.
@@ -97,13 +108,17 @@ export interface SubmissionMetadata {
 export interface SubmitBookInput {
   title: string;
   subtitle?: string;
+  isbn?: string;
   description: string;
-  backCoverDescription?: string;
   price: number;
   ageGroup: string;
+  category: string;
   genre: string;
   language: string;
   coverImageUrl?: string;
+  manuscriptFileId?: string;
+  samplePagesFileId?: string;
+  promotionalImageUrls?: string[];
   formats: { ebook: boolean; print: boolean; audiobook: boolean };
   metadata: SubmissionMetadata;
   submitForReview: boolean;
@@ -115,7 +130,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
     return { ok: false, error: "Only author accounts can submit books." };
   }
   if (!input.title.trim()) return { ok: false, error: "Title is required." };
-  if (!input.description.trim()) return { ok: false, error: "Description is required." };
+  if (!input.description.trim()) return { ok: false, error: "Short description is required." };
   if (input.price <= 0) return { ok: false, error: "Price must be greater than $0." };
   if (!input.formats.ebook && !input.formats.print && !input.formats.audiobook) {
     return { ok: false, error: "Select at least one format (eBook, print, or audiobook)." };
@@ -131,13 +146,18 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
     slug = `${baseSlug}-${++attempt}`;
   }
 
+  const bookFiles: { kind: string; url: string }[] = [];
+  if (input.manuscriptFileId) bookFiles.push({ kind: "MANUSCRIPT", url: `/api/files/${input.manuscriptFileId}` });
+  if (input.samplePagesFileId) bookFiles.push({ kind: "SAMPLE", url: `/api/files/${input.samplePagesFileId}` });
+  for (const url of input.promotionalImageUrls ?? []) bookFiles.push({ kind: "PROMOTIONAL", url });
+
   const book = await prisma.book.create({
     data: {
       title: input.title.trim(),
       subtitle: input.subtitle?.trim() || null,
       slug,
-      description: input.backCoverDescription?.trim() || input.description.trim(),
-      isbn: input.formats.ebook || input.formats.print ? generateIsbn() : null,
+      description: input.description.trim(),
+      isbn: input.isbn?.trim() || (input.formats.ebook || input.formats.print ? generateIsbn() : null),
       price: input.price,
       status: input.submitForReview ? "PENDING_REVIEW" : "DRAFT",
       authorId: user.authorProfile.id,
@@ -148,6 +168,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       hasPrint: input.formats.print,
       hasAudiobook: input.formats.audiobook,
       submissionMetadata: JSON.parse(JSON.stringify(input.metadata)),
+      files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
     },
   });
 

@@ -644,6 +644,18 @@ model UploadedImage {
   createdAt DateTime @default(now())
 }
 
+/** Generic file storage for non-image uploads (manuscript PDF/EPUB/MOBI,
+ * sample-page PDF excerpts) — same idea as UploadedImage but without the
+ * WebP conversion, since these aren't images. Served back out through
+ * app/api/files/[id]/route.ts. */
+model UploadedFile {
+  id           String   @id @default(cuid())
+  data         Bytes
+  mimeType     String
+  originalName String
+  createdAt    DateTime @default(now())
+}
+
 model SeoEntry {
   id          String @id @default(cuid())
   path        String @unique
