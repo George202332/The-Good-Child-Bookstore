@@ -14,6 +14,27 @@ import { BOOKS, CATS } from "../lib/data/catalog";
 
 const prisma = new PrismaClient();
 
+// Same role-sequenced account number ranges as lib/account-number.ts —
+// duplicated here (rather than imported) since this script runs
+// standalone via tsx, outside the Next.js app's module resolution.
+const ROLE_BASE: Record<string, number> = {
+  READER: 10_000_000,
+  AUTHOR: 30_000_000,
+  AFFILIATE: 50_000_000,
+  EDITOR: 70_000_000,
+  ADMIN: 80_000_000,
+  ACCOUNTANT: 90_000_000,
+};
+
+async function generateAccountNumber(role: string): Promise<string> {
+  const sequence = await prisma.idSequence.upsert({
+    where: { role: role as "AUTHOR" },
+    update: { lastValue: { increment: 1 } },
+    create: { role: role as "AUTHOR", lastValue: 1 },
+  });
+  return String(ROLE_BASE[role] + sequence.lastValue);
+}
+
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
@@ -48,11 +69,13 @@ async function main() {
     let authorProfileId = authorProfileIdByName.get(book.author);
     if (!authorProfileId) {
       const email = `catalog+${slugify(book.author)}@seed.local`;
+      const accountNumber = await generateAccountNumber("AUTHOR");
       const user = await prisma.user.upsert({
         where: { email },
         update: {},
         create: {
           email,
+          accountNumber,
           name: book.author,
           passwordHash: "seed-placeholder-not-a-real-login",
           role: "AUTHOR",
