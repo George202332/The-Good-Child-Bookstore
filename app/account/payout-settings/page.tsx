@@ -3,22 +3,24 @@ import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { listMyWiseRecipients } from "@/actions/wise-recipients";
 import { RecipientManager } from "./RecipientManager";
+import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 
 /**
  * Payout Settings — where authors and affiliates add the accounts they
  * want to be paid out to via Wise (M-Pesa, bank transfer, etc). Shared
- * between both roles since the underlying WiseRecipient model and flow
- * are identical either way.
+ * between both roles, and also reachable by a Reader who's enabled
+ * affiliate access from their own dashboard.
  */
 export default async function PayoutSettingsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "AUTHOR" && session.user.role !== "AFFILIATE") redirect("/account");
+  const role = session.user.role;
+  if (role !== "AUTHOR" && role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) redirect("/account");
 
   const recipients = await listMyWiseRecipients();
 
   return (
-    <DashboardShell role={session.user.role} activeKey="payout-settings" displayName={session.user.name ?? ""}>
+    <DashboardShell role={role} activeKey="payout-settings" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Payout Settings</h2>

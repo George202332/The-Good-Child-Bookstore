@@ -31,12 +31,12 @@ export interface AffiliateLinkWithStats {
 
 export async function getOrCreateAffiliateLink(bookId: string, campaignId?: string): Promise<{ ok: boolean; code?: string; error?: string }> {
   const session = await auth();
-  if (session?.user?.role !== "AFFILIATE") {
-    return { ok: false, error: "Only affiliate accounts can generate promotional links." };
+  if (!session?.user) {
+    return { ok: false, error: "You need to be signed in." };
   }
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { affiliateProfile: true } });
   if (!user?.affiliateProfile) {
-    return { ok: false, error: "Affiliate profile not found." };
+    return { ok: false, error: "Enable affiliate access from your dashboard first." };
   }
 
   const existing = await prisma.affiliateLink.findFirst({
@@ -74,7 +74,7 @@ export async function recordAffiliateClick(code: string): Promise<void> {
 
 export async function listMyAffiliateLinks(): Promise<AffiliateLinkWithStats[]> {
   const session = await auth();
-  if (session?.user?.role !== "AFFILIATE") return [];
+  if (!session?.user) return [];
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { affiliateProfile: true } });
   if (!user?.affiliateProfile) return [];
 

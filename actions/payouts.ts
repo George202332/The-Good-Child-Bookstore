@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getMyWallet } from "@/actions/wallet";
+import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 
 /**
  * Payout requests — now Wise-only (see docs/architecture.md and
@@ -24,7 +25,9 @@ export interface PayoutRow {
 
 export async function getMyPayoutRequests(): Promise<PayoutRow[]> {
   const session = await auth();
-  if (session?.user?.role !== "AUTHOR" && session?.user?.role !== "AFFILIATE") return [];
+  if (!session?.user) return [];
+  const role = session.user.role;
+  if (role !== "AUTHOR" && role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) return [];
 
   const payouts = await prisma.payoutRequest.findMany({
     where: { userId: session.user.id },
@@ -43,7 +46,9 @@ export async function getMyPayoutRequests(): Promise<PayoutRow[]> {
 
 export async function requestPayout(recipientId: string): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
-  if (session?.user?.role !== "AUTHOR" && session?.user?.role !== "AFFILIATE") {
+  if (!session?.user) return { ok: false, error: "Not authorized." };
+  const role = session.user.role;
+  if (role !== "AUTHOR" && role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) {
     return { ok: false, error: "Not authorized." };
   }
 

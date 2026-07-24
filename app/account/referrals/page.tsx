@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { DashboardShell } from "@/components/DashboardShell";
 import { listMyAffiliateLinks } from "@/actions/affiliate";
 import { GenerateLinkForm } from "./GenerateLinkForm";
@@ -14,12 +15,13 @@ import { GenerateLinkForm } from "./GenerateLinkForm";
 export default async function ReferralLinksPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "AFFILIATE") redirect("/account");
+  const role = session.user.role;
+  if (role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) redirect("/account");
 
   const links = await listMyAffiliateLinks();
 
   return (
-    <DashboardShell role="AFFILIATE" activeKey="referrals" displayName={session.user.name ?? ""}>
+    <DashboardShell role={role} activeKey="referrals" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Referral Links</h2>

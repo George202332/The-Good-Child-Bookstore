@@ -13,7 +13,7 @@ import { auth } from "@/lib/auth";
 
 async function getAffiliateProfileId(): Promise<string | null> {
   const session = await auth();
-  if (session?.user?.role !== "AFFILIATE") return null;
+  if (!session?.user) return null;
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { affiliateProfile: true } });
   return user?.affiliateProfile?.id ?? null;
 }

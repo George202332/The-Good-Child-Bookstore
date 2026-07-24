@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitBook } from "@/actions/submissions";
 import { ImageUploadField } from "@/components/ImageUploadField";
+import { LULU_CONFIG, buildPodPackageId } from "@/lib/lulu-config";
 
 const AGE_RANGES = ["0-2", "3-5", "6-8", "9-12", "12-15"];
 const GENRES = ["Picture Book", "Bedtime Story", "Fairy Tale", "Fantasy", "Adventure", "Animal Story", "Educational", "Poetry", "Middle Grade Fiction"];
@@ -12,7 +13,6 @@ const LICENSE_TYPES = ["All Rights Reserved", "Exclusive Distribution", "Non-Exc
 const CURRENCIES = ["USD", "EUR", "GBP"];
 const TAX_SETTINGS = ["Standard", "Tax Exempt", "Reduced Rate"];
 const FILE_TYPES = ["EPUB", "PDF", "MOBI"];
-const TRIM_SIZES = ["5 x 8 in", "5.5 x 8.5 in", "6 x 9 in", "8.5 x 11 in", "8.27 x 11.69 in (A4)"];
 
 /**
  * Converted from the original's actual submission form fields
@@ -80,8 +80,16 @@ export function SubmitBookForm() {
   const [keywords, setKeywords] = useState("");
 
   const [fileType, setFileType] = useState(FILE_TYPES[0]);
-  const [trimSize, setTrimSize] = useState(TRIM_SIZES[2]);
   const [narrator, setNarrator] = useState("");
+
+  const [trimCode, setTrimCode] = useState(LULU_CONFIG.trimSizes[2].code);
+  const [interiorColor, setInteriorColor] = useState(LULU_CONFIG.interiorColors[0].code);
+  const [printQuality, setPrintQuality] = useState(LULU_CONFIG.printQualities[0].code);
+  const [binding, setBinding] = useState(LULU_CONFIG.bindings[0].code);
+  const [paperType, setPaperType] = useState(LULU_CONFIG.paperTypes[0].code);
+  const [coverFinish, setCoverFinish] = useState(LULU_CONFIG.coverFinishes[0].code);
+  const [linenColor, setLinenColor] = useState(LULU_CONFIG.linenColors[0].code);
+  const [foilColor, setFoilColor] = useState(LULU_CONFIG.foilColors[0].code);
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -137,8 +145,27 @@ export function SubmitBookForm() {
         seoDescription,
         keywords,
         fileType: ebook ? fileType : undefined,
-        trimSize: print ? trimSize : undefined,
         narrator: audiobook ? narrator : undefined,
+        interiorColor: print ? interiorColor : undefined,
+        printQuality: print ? printQuality : undefined,
+        binding: print ? binding : undefined,
+        paperType: print ? paperType : undefined,
+        coverFinish: print ? coverFinish : undefined,
+        linenColor: print && binding === "LW" ? linenColor : undefined,
+        foilColor: print && binding === "LW" ? foilColor : undefined,
+        trimSizeCode: print ? trimCode : undefined,
+        podPackageId: print
+          ? buildPodPackageId({
+              trimCode,
+              colorCode: interiorColor,
+              qualityCode: printQuality,
+              bindingCode: binding,
+              paperCode: paperType,
+              finishCode: coverFinish,
+              linenCode: linenColor,
+              foilCode: foilColor,
+            })
+          : undefined,
       },
       submitForReview,
     });
@@ -226,14 +253,72 @@ export function SubmitBookForm() {
         </div>
       )}
       {print && (
-        <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="sub-trim">Print trim size</label>
-            <select className="field" id="sub-trim" value={trimSize} onChange={(e) => setTrimSize(e.target.value)}>
-              {TRIM_SIZES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+        <div style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>
+            Real Lulu print-on-demand configuration — trim size, ink, quality, binding, paper, and finish, exactly
+            matching Lulu&apos;s own print-job specification.
           </div>
-          <div />
+          <div className="form-grid-2">
+            <div>
+              <label className="field-label" htmlFor="sub-trim">Trim size</label>
+              <select className="field" id="sub-trim" value={trimCode} onChange={(e) => setTrimCode(e.target.value)}>
+                {LULU_CONFIG.trimSizes.map((t) => <option key={t.code} value={t.code}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="sub-color">Interior color</label>
+              <select className="field" id="sub-color" value={interiorColor} onChange={(e) => setInteriorColor(e.target.value)}>
+                {LULU_CONFIG.interiorColors.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-grid-2">
+            <div>
+              <label className="field-label" htmlFor="sub-quality">Print quality</label>
+              <select className="field" id="sub-quality" value={printQuality} onChange={(e) => setPrintQuality(e.target.value)}>
+                {LULU_CONFIG.printQualities.map((q) => <option key={q.code} value={q.code}>{q.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="sub-binding">Binding</label>
+              <select className="field" id="sub-binding" value={binding} onChange={(e) => setBinding(e.target.value)}>
+                {LULU_CONFIG.bindings.map((b) => <option key={b.code} value={b.code}>{b.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="form-grid-2">
+            <div>
+              <label className="field-label" htmlFor="sub-paper">Paper type</label>
+              <select className="field" id="sub-paper" value={paperType} onChange={(e) => setPaperType(e.target.value)}>
+                {LULU_CONFIG.paperTypes.map((p) => <option key={p.code} value={p.code}>{p.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="sub-finish">Cover finish</label>
+              <select className="field" id="sub-finish" value={coverFinish} onChange={(e) => setCoverFinish(e.target.value)}>
+                {LULU_CONFIG.coverFinishes.map((f) => <option key={f.code} value={f.code}>{f.label}</option>)}
+              </select>
+            </div>
+          </div>
+          {binding === "LW" && (
+            <div className="form-grid-2">
+              <div>
+                <label className="field-label" htmlFor="sub-linen">Linen wrap color</label>
+                <select className="field" id="sub-linen" value={linenColor} onChange={(e) => setLinenColor(e.target.value)}>
+                  {LULU_CONFIG.linenColors.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="field-label" htmlFor="sub-foil">Foil stamp color</label>
+                <select className="field" id="sub-foil" value={foilColor} onChange={(e) => setFoilColor(e.target.value)}>
+                  {LULU_CONFIG.foilColors.map((f) => <option key={f.code} value={f.code}>{f.label}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
+          <div className="field-hint" style={{ marginTop: 4 }}>
+            Lulu package ID: <code>{buildPodPackageId({ trimCode, colorCode: interiorColor, qualityCode: printQuality, bindingCode: binding, paperCode: paperType, finishCode: coverFinish, linenCode: linenColor, foilCode: foilColor })}</code>
+          </div>
         </div>
       )}
       {audiobook && (

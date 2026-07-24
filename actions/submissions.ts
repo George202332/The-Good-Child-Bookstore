@@ -81,6 +81,17 @@ export interface SubmissionMetadata {
   fileType?: string;
   trimSize?: string;
   narrator?: string;
+  // Real Lulu print-configuration fields (see lib/lulu-config.ts) — only
+  // meaningful when the print format is enabled.
+  interiorColor?: string;
+  printQuality?: string;
+  binding?: string;
+  paperType?: string;
+  coverFinish?: string;
+  linenColor?: string;
+  foilColor?: string;
+  trimSizeCode?: string;
+  podPackageId?: string;
 }
 
 export interface SubmitBookInput {

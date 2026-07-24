@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getMyWallet } from "@/actions/wallet";
+import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
+import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
 
 interface SaleLineShare {
   authorShare: unknown;
@@ -43,11 +45,16 @@ export default async function AccountPage() {
   if (role === "READER") {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { readerProfile: { include: { orders: { include: { lines: { include: { book: true } } }, orderBy: { createdAt: "desc" } } } } },
+      include: {
+        readerProfile: { include: { orders: { include: { lines: { include: { book: true } } }, orderBy: { createdAt: "desc" } } } },
+        _count: { select: { wishlists: true } },
+      },
     });
     const orders = (user?.readerProfile?.orders ?? []) as OrderWithLines[];
     const booksPurchased = orders.reduce((sum: number, o: OrderWithLines) => sum + o.lines.length, 0);
     const recentOrders = orders.slice(0, 3);
+    const wishlistCount = user?._count.wishlists ?? 0;
+    const affiliateStatus = await getReaderAffiliateStatus();
 
     return (
       <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
@@ -71,16 +78,18 @@ export default async function AccountPage() {
             <div className="stat-sub">Available across all devices</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Orders</div>
-            <div className="stat-value">{orders.length}</div>
-            <div className="stat-sub">Lifetime orders</div>
+            <div className="stat-label">Wishlist</div>
+            <div className="stat-value">{wishlistCount}</div>
+            <div className="stat-sub">Saved titles</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Affiliate earnings</div>
-            <div className="stat-value">—</div>
-            <div className="stat-sub">Not enrolled</div>
+            <div className="stat-value">{affiliateStatus.enabled ? `$${affiliateStatus.totalEarnings.toFixed(2)}` : "—"}</div>
+            <div className="stat-sub">{affiliateStatus.enabled ? "All time" : "Not enrolled"}</div>
           </div>
         </div>
+
+        {!affiliateStatus.enabled && <EnableAffiliateBanner />}
 
         <h3 style={{ fontSize: 16, marginBottom: 14 }}>Recent orders</h3>
         <div className="map-card" style={{ padding: "6px 16px", marginBottom: 34 }}>
@@ -117,6 +126,12 @@ export default async function AccountPage() {
             <h4>Orders</h4>
             <p>Review past purchases and receipts.</p>
           </Link>
+          {affiliateStatus.enabled && (
+            <Link href="/account/referrals" className="account-link-card">
+              <h4>Affiliate Dashboard</h4>
+              <p>Track clicks, sales, and commission.</p>
+            </Link>
+          )}
         </div>
       </DashboardShell>
     );

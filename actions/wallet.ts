@@ -19,17 +19,27 @@ export interface WalletResult extends Wallet {
 
 const EMPTY_WALLET: WalletResult = { totalEarned: 0, onHold: 0, available: 0, saleCount: 0 };
 
-export async function getMyWallet(): Promise<WalletResult> {
+/**
+ * Real wallet balance (On Hold / Available) for the signed-in user's
+ * author or affiliate earnings — see lib/wallet.ts for the 10-day hold
+ * rule. `perspective` picks which one explicitly (a Reader or Author
+ * with affiliate access enabled — see actions/reader-affiliate.ts — has
+ * no AUTHOR role but still has real affiliate earnings to show on the
+ * Earnings page), defaulting to whichever matches the user's primary
+ * role if not given.
+ */
+export async function getMyWallet(perspective?: "author" | "affiliate"): Promise<WalletResult> {
   const session = await auth();
-  const role = session?.user?.role;
-  if (role !== "AUTHOR" && role !== "AFFILIATE") return EMPTY_WALLET;
+  if (!session?.user) return EMPTY_WALLET;
+  const role = session.user.role;
+  const view = perspective ?? (role === "AUTHOR" ? "author" : "affiliate");
 
   try {
     let lines: { createdAt: Date; amount: number }[] = [];
 
-    if (role === "AUTHOR") {
+    if (view === "author") {
       const user = await prisma.user.findUnique({
-        where: { id: session!.user.id },
+        where: { id: session.user.id },
         include: { authorProfile: { include: { books: { include: { saleLines: true } } } } },
       });
       const books = user?.authorProfile?.books ?? [];
@@ -38,7 +48,7 @@ export async function getMyWallet(): Promise<WalletResult> {
       );
     } else {
       const user = await prisma.user.findUnique({
-        where: { id: session!.user.id },
+        where: { id: session.user.id },
         include: { affiliateProfile: { include: { affiliateLinks: { include: { saleLines: true } } } } },
       });
       const links = user?.affiliateProfile?.affiliateLinks ?? [];
@@ -47,7 +57,7 @@ export async function getMyWallet(): Promise<WalletResult> {
       );
     }
 
-    const payouts = await prisma.payoutRequest.findMany({ where: { userId: session!.user.id } });
+    const payouts = await prisma.payoutRequest.findMany({ where: { userId: session.user.id } });
     const paidOut = payouts
       .filter((p: { status: string }) => p.status === "PAID")
       .reduce((sum: number, p: { amount: unknown }) => sum + Number(p.amount), 0);

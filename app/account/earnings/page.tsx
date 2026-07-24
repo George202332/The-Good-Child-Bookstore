@@ -6,21 +6,27 @@ import { getMyPayoutRequests } from "@/actions/payouts";
 import { listMyWiseRecipients } from "@/actions/wise-recipients";
 import { RequestPayoutForm } from "@/components/RequestPayoutForm";
 import { HOLD_DAYS } from "@/lib/wallet";
+import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 
 /**
  * Affiliate Earnings — real wallet (On Hold / Available, see
  * lib/wallet.ts) and real payout requests via Wise. Replaces the
  * original's simulated buildAffEarningsTimeline() fake monthly numbers.
+ * Reachable by a dedicated Affiliate account, or a Reader/Author who's
+ * enabled affiliate access from their own dashboard (see
+ * actions/reader-affiliate.ts) — the real signal is having an
+ * AffiliateProfile, not the primary role.
  */
 export default async function EarningsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "AFFILIATE") redirect("/account");
+  const role = session.user.role;
+  if (role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) redirect("/account");
 
-  const [wallet, payouts, recipients] = await Promise.all([getMyWallet(), getMyPayoutRequests(), listMyWiseRecipients()]);
+  const [wallet, payouts, recipients] = await Promise.all([getMyWallet("affiliate"), getMyPayoutRequests(), listMyWiseRecipients()]);
 
   return (
-    <DashboardShell role="AFFILIATE" activeKey="earnings" displayName={session.user.name ?? ""}>
+    <DashboardShell role={role} activeKey="earnings" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Earnings</h2>

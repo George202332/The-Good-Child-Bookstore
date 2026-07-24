@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
 import { SignOutButton } from "./SignOutButton";
 import { getUnreadNotificationCount } from "@/actions/notifications";
+import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 
 interface NavItem {
   key: string;
@@ -19,9 +20,9 @@ interface NavItem {
  * the rest of the original's ~30 sub-pages across all three roles aren't
  * ported yet, so their nav items are intentionally left out rather than
  * linking to pages that don't exist. */
-function navItemsForRole(role: Role): NavItem[] {
+function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
   if (role === "READER") {
-    return [
+    const items: NavItem[] = [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "library", label: "My Library", href: "/account/library", section: "Library" },
       { key: "wishlist", label: "Wishlist", href: "/wishlist", section: "Library" },
@@ -33,6 +34,15 @@ function navItemsForRole(role: Role): NavItem[] {
       { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Account extras" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Account extras" },
     ];
+    if (hasAffiliateAccess) {
+      items.push(
+        { key: "referrals", label: "Referral Links", href: "/account/referrals", section: "Affiliate" },
+        { key: "campaigns", label: "Campaigns", href: "/account/campaigns", section: "Affiliate" },
+        { key: "earnings", label: "Earnings", href: "/account/earnings", section: "Affiliate" },
+        { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Affiliate" }
+      );
+    }
+    return items;
   }
   if (role === "AFFILIATE") {
     return [
@@ -80,7 +90,13 @@ export async function DashboardShell({
   children: ReactNode;
 }) {
   const unread = await getUnreadNotificationCount();
-  const items = navItemsForRole(role).map((it) => (it.key === "notifications" ? { ...it, badge: unread || undefined } : it));
+  let affiliateAccess = false;
+  if (role === "READER") {
+    const { auth } = await import("@/lib/auth");
+    const session = await auth();
+    if (session?.user?.id) affiliateAccess = await hasAffiliateCapability(session.user.id);
+  }
+  const items = navItemsForRole(role, affiliateAccess).map((it) => (it.key === "notifications" ? { ...it, badge: unread || undefined } : it));
   const sections: { name: string; items: NavItem[] }[] = [];
   items.forEach((it) => {
     let sec = sections.find((s) => s.name === it.section);
