@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { Motif } from "@/components/Motif";
 import type { MotifKind } from "@/lib/data/catalog";
 import { hashStr } from "@/lib/hash";
+import { getPagesContent } from "@/actions/page-content";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ interface PublishedBlog {
 
 /** Public blog listing — real published posts only (status PUBLISHED). */
 export default async function BlogListPage() {
+  const { blog } = await getPagesContent();
   let posts: PublishedBlog[] = [];
   try {
     const result = await prisma.blog.findMany({
@@ -37,8 +39,8 @@ export default async function BlogListPage() {
     <div className="wrap" style={{ paddingTop: 48, paddingBottom: 60 }}>
       <div className="section-head" style={{ marginBottom: 24 }}>
         <div>
-          <h1>The Journal</h1>
-          <p style={{ color: "var(--ink-soft)" }}>Notes from our authors and the shelf team.</p>
+          <h1>{blog.heading}</h1>
+          <p style={{ color: "var(--ink-soft)" }}>{blog.introText}</p>
         </div>
       </div>
       {posts.length === 0 ? (

@@ -13,7 +13,7 @@ export default async function AnalyticsPage() {
   const session = await auth();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");
+  if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");
 
   const data = await getAnalyticsSummary();
   const maxMonthly = Math.max(1, ...data.monthlyRevenue.map((m) => m.amount));

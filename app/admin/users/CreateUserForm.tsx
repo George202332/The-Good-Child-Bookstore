@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createUserAccount } from "@/actions/users-admin";
 import type { Role } from "@/lib/roles";
 
-const ROLES: Role[] = ["READER", "AUTHOR", "AFFILIATE", "EDITOR", "ADMIN"];
+const ROLES: Role[] = ["READER", "AUTHOR", "AFFILIATE", "EDITOR", "ADMIN", "ACCOUNTANT"];
 
 export function CreateUserForm() {
   const router = useRouter();

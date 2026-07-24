@@ -14,6 +14,7 @@ const ROLE_TABS: { key: Role | "ALL"; label: string }[] = [
   { key: "AFFILIATE", label: "Affiliate" },
   { key: "EDITOR", label: "Editor" },
   { key: "ADMIN", label: "Admin" },
+  { key: "ACCOUNTANT", label: "Accountant" },
 ];
 
 /**

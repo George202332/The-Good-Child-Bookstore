@@ -2,10 +2,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
+import { getPublicBlogComments } from "@/actions/blog-comments";
+import { BlogCommentSection } from "@/components/BlogCommentSection";
 
 export const dynamic = "force-dynamic";
 
 interface PublishedBlog {
+  id: string;
   title: string;
   content: string;
   status: string;
@@ -41,6 +44,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   })) as PublishedBlog | null;
 
   if (!post || post.status !== "PUBLISHED") notFound();
+  const comments = await getPublicBlogComments(post.id);
 
   return (
     <div className="wrap" style={{ paddingTop: 48, paddingBottom: 60, maxWidth: 720, margin: "0 auto" }}>
@@ -50,6 +54,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         by {post.author.user.name} · {(post.publishAt ?? post.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
       </div>
       <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{post.content}</div>
+      <BlogCommentSection blogId={post.id} initial={comments} />
     </div>
   );
 }

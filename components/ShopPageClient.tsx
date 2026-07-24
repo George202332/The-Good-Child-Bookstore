@@ -8,7 +8,7 @@ import { BookCard } from "@/components/BookCard";
 import { ShopSidebar } from "@/components/ShopSidebar";
 
 /** Converted from shopHTML() (the-good-child-bookstore_54_1.html:4049-4170). */
-export function ShopPageClient() {
+export function ShopPageClient({ eyebrow, heading, introText }: { eyebrow: string; heading: string; introText: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -59,6 +59,13 @@ export function ShopPageClient() {
 
   return (
     <div className="wrap" style={{ paddingTop: 48 }}>
+      <div className="section-head" style={{ marginBottom: 20 }}>
+        <div>
+          <span className="eyebrow">{eyebrow}</span>
+          <h1 style={{ marginTop: 6 }}>{heading}</h1>
+          <p style={{ color: "var(--ink-soft)", marginTop: 4 }}>{introText}</p>
+        </div>
+      </div>
       <div className="shop-searchbar">
         <button className="shop-filter-toggle" onClick={() => setSidebarOpen(true)} aria-label="Open filters">
           <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2}>

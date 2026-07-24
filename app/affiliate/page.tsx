@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { Motif } from "@/components/Motif";
+import { getPagesContent } from "@/actions/page-content";
+
+export const dynamic = "force-dynamic";
 
 /** Converted from affiliateMarketingHTML() (the-good-child-bookstore_54_1.html:5443-5549).
  * This was never converted in the initial build — 404 in production until now. */
@@ -88,18 +91,16 @@ const AFFILIATE_FAQ: [string, string][] = [
   ["What marketing tools are provided?", "Trackable links, QR codes, ready-made banners, and social-ready assets are generated automatically for every book."],
 ];
 
-export default function AffiliateMarketingPage() {
+export default async function AffiliateMarketingPage() {
+  const { affiliate } = await getPagesContent();
   return (
     <main>
       <section className="hero recruit-hero fade-in-section visible">
         <div className="wrap hero-inner">
           <div className="hero-plain-inner">
-            <div className="eyebrow">✦ Affiliate program</div>
-            <h1>Share books you love. <span className="accent">Get paid for it.</span></h1>
-            <p className="lede">
-              Anyone passionate about children&apos;s books can earn commission promoting titles from our shelf,
-              with a real-time dashboard, transparent payouts, and lifetime earnings from the authors you refer.
-            </p>
+            <div className="eyebrow">{affiliate.eyebrow}</div>
+            <h1>{affiliate.heading}</h1>
+            <p className="lede">{affiliate.introText}</p>
             <div className="hero-ctas">
               <Link href="/signup/affiliate" className="btn btn-primary">Become an affiliate</Link>
               <a href="#why-join" className="btn btn-ghost">See how it works</a>

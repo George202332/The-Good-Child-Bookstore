@@ -17,7 +17,7 @@ export default async function AdminDashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");
+  if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");
 
   const [userCount, usersByRole, bookCounts, pendingBooks, pendingBlogs, pendingPayouts] = await Promise.all([
     prisma.user.count(),
@@ -54,7 +54,7 @@ export default async function AdminDashboardPage() {
     <AdminShell role={role} activeKey="dashboard" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>{role === "ADMIN" ? "Admin" : "Editor"} dashboard</h2>
+          <h2 style={{ fontSize: 20 }}>{role === "ADMIN" ? "Admin" : role === "EDITOR" ? "Editor" : "Accountant"} dashboard</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Platform-wide overview.</p>
         </div>
       </div>

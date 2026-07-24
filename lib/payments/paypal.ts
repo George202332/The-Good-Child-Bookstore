@@ -13,14 +13,16 @@
  * actions/orders.ts.
  */
 
+import { getApiKey } from "@/lib/api-keys";
+
 const PAYPAL_BASE_URL =
   process.env.PAYPAL_ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
 
 async function getPayPalAccessToken(): Promise<string> {
-  const clientId = process.env.PAYPAL_CLIENT_ID;
-  const clientSecret = process.env.PAYPAL_CLIENT_SECRET;
+  const clientId = await getApiKey("paypalClientId", "PAYPAL_CLIENT_ID");
+  const clientSecret = await getApiKey("paypalClientSecret", "PAYPAL_CLIENT_SECRET");
   if (!clientId || !clientSecret) {
-    throw new Error("PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET are not set.");
+    throw new Error("PayPal isn't configured yet — set it up in Site Settings or the PAYPAL_CLIENT_ID/SECRET environment variables.");
   }
 
   const res = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {

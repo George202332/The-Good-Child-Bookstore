@@ -5,8 +5,8 @@ import type { MotifKind } from "@/lib/data/catalog";
 import { prisma } from "@/lib/prisma";
 import { hashStr } from "@/lib/hash";
 import { NewsletterForm } from "@/components/NewsletterForm";
-import { getHomepageContent } from "@/actions/cms";
-import { DEFAULT_HOMEPAGE_CONTENT } from "@/lib/homepage-content";
+import { getPagesContent } from "@/actions/page-content";
+import { DEFAULT_PAGES_CONTENT } from "@/lib/page-content";
 
 export const dynamic = "force-dynamic";
 import { BookCard } from "@/components/BookCard";
@@ -61,7 +61,8 @@ interface HomeBlogPost {
 
 export default async function HomePage() {
   const featured = BOOKS.slice(0, 12);
-  const hero = await getHomepageContent();
+  const content = await getPagesContent();
+  const hero = content.home;
   let blogPosts: HomeBlogPost[] = [];
   try {
     const result = await prisma.blog.findMany({
@@ -83,7 +84,7 @@ export default async function HomePage() {
           <div className="hero-plain-inner">
             <span className="eyebrow">{hero.eyebrow}</span>
             <h1>
-              {hero.heading === DEFAULT_HOMEPAGE_CONTENT.heading ? (
+              {hero.heading === DEFAULT_PAGES_CONTENT.home.heading ? (
                 <>Where young minds <span className="accent">fall in love</span> with reading.</>
               ) : (
                 hero.heading

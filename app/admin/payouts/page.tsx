@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/AdminShell";
 import { ModerationActions } from "./ModerationActions";
+import type { Role } from "@/lib/roles";
 
 interface PendingPayout {
   id: string;
@@ -14,14 +15,17 @@ interface PendingPayout {
   recipient: { type: string; accountHolderName: string; currency: string };
 }
 
-/** Admin-only payout queue — now Wise-only, covering both authors and
- * affiliates (previously affiliate-only). "Mark paid" actually executes
- * a real Wise transfer (create quote → create transfer → fund) via
- * lib/payments/wise.ts. */
+/** Payout queue — Wise-only, covering both authors and affiliates.
+ * "Mark paid" actually executes a real Wise transfer (create quote →
+ * create transfer → fund) via lib/payments/wise.ts, and is deliberately
+ * Admin-only (see actions/admin.ts requireAdminRole()). Accountant can
+ * view this queue (their whole reason for backend access) but the
+ * approve/reject buttons only render for Admin. */
 export default async function PayoutsPage() {
   const session = await auth();
   if (!session?.user) redirect("/admin/login");
-  if (session.user.role !== "ADMIN") redirect("/admin");
+  const role = session.user.role as Role;
+  if (role !== "ADMIN" && role !== "ACCOUNTANT") redirect("/admin");
 
   const pending = (await prisma.payoutRequest.findMany({
     where: { status: "REQUESTED" },
@@ -30,7 +34,7 @@ export default async function PayoutsPage() {
   })) as PendingPayout[];
 
   return (
-    <AdminShell role="ADMIN" activeKey="payouts" displayName={session.user.name ?? ""}>
+    <AdminShell role={role} activeKey="payouts" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Payout Requests</h2>
@@ -54,7 +58,7 @@ export default async function PayoutsPage() {
                   <div style={{ fontSize: 12, color: "var(--coral-deep)", marginTop: 4 }}>Last attempt failed: {p.failureReason}</div>
                 )}
               </div>
-              <ModerationActions payoutId={p.id} />
+              {role === "ADMIN" ? <ModerationActions payoutId={p.id} /> : <span className="age-pill">View only</span>}
             </div>
           ))}
         </div>

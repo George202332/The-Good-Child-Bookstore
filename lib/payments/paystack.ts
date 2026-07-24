@@ -1,18 +1,19 @@
 import { createHmac } from "crypto";
+import { getApiKey } from "@/lib/api-keys";
 
 /**
  * Paystack integration — Transactions API. The brief's other "live"
  * gateway (cards: Visa, Mastercard, Amex, Verve). Same caveat as
  * lib/payments/paypal.ts: real, correct integration code against
  * Paystack's documented REST API, not exercised against a live account
- * in this sandbox (no network access, no real PAYSTACK_SECRET_KEY).
+ * in this sandbox (no network access, no real key configured).
  */
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
-function requireSecretKey(): string {
-  const key = process.env.PAYSTACK_SECRET_KEY;
-  if (!key) throw new Error("PAYSTACK_SECRET_KEY is not set.");
+async function requireSecretKey(): Promise<string> {
+  const key = await getApiKey("paystackSecretKey", "PAYSTACK_SECRET_KEY");
+  if (!key) throw new Error("Paystack isn't configured yet — set it up in Site Settings or the PAYSTACK_SECRET_KEY environment variable.");
   return key;
 }
 
@@ -29,9 +30,10 @@ export async function initializePaystackTransaction(
   callbackUrl: string,
   options?: { channels?: string[] }
 ): Promise<{ authorizationUrl: string; reference: string }> {
+  const secretKey = await requireSecretKey();
   const res = await fetch(`${PAYSTACK_BASE_URL}/transaction/initialize`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${requireSecretKey()}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       email,
       amount: amountMinorUnits,
@@ -55,8 +57,9 @@ export async function verifyPaystackTransaction(reference: string): Promise<{
   ourOrderId: string | null;
   authorization: { code: string; reusable: boolean; cardType: string; last4: string; bank: string } | null;
 }> {
+  const secretKey = await requireSecretKey();
   const res = await fetch(`${PAYSTACK_BASE_URL}/transaction/verify/${reference}`, {
-    headers: { Authorization: `Bearer ${requireSecretKey()}` },
+    headers: { Authorization: `Bearer ${secretKey}` },
   });
   if (!res.ok) return { success: false, ourOrderId: null, authorization: null };
   const data = await res.json();
@@ -79,9 +82,10 @@ export async function chargeAuthorization(
   amountMinorUnits: number,
   ourOrderId: string
 ): Promise<{ success: boolean; reference?: string }> {
+  const secretKey = await requireSecretKey();
   const res = await fetch(`${PAYSTACK_BASE_URL}/transaction/charge_authorization`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${requireSecretKey()}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       authorization_code: authorizationCode,
       email,
@@ -95,9 +99,11 @@ export async function chargeAuthorization(
 }
 
 /** Verifies the `x-paystack-signature` header via HMAC-SHA512 of the raw
- * body with the secret key — Paystack's documented webhook verification. */
-export function verifyPaystackWebhookSignature(rawBody: string, signatureHeader: string | null): boolean {
+ * body with the secret key — Paystack's documented webhook verification.
+ * Now async since the secret key may come from the database. */
+export async function verifyPaystackWebhookSignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
   if (!signatureHeader) return false;
-  const expected = createHmac("sha512", requireSecretKey()).update(rawBody).digest("hex");
+  const secretKey = await requireSecretKey();
+  const expected = createHmac("sha512", secretKey).update(rawBody).digest("hex");
   return expected === signatureHeader;
 }

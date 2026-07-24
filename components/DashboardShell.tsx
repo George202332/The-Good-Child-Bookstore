@@ -65,6 +65,7 @@ const ROLE_LABEL: Record<Role, string> = {
   AFFILIATE: "Affiliate",
   EDITOR: "Editor",
   ADMIN: "Admin",
+  ACCOUNTANT: "Accountant",
 };
 
 export async function DashboardShell({

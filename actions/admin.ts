@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { BACKEND_ROLES } from "@/lib/roles";
+import { canModerateContent } from "@/lib/roles";
 import { createNotification } from "@/actions/notifications";
 
 /**
@@ -11,20 +11,35 @@ import { createNotification } from "@/actions/notifications";
  * Pending Review → Published, "Editors approve, Admins override") — this
  * is new functionality with no equivalent in the original frontend, which
  * had no admin/editor surface at all.
+ *
+ * Book/blog moderation is ADMIN + EDITOR only (canModerateContent()) —
+ * ACCOUNTANT can see the backend but has no moderation power. Payout
+ * *execution* (actually moving money via Wise) is ADMIN-only, deliberately
+ * narrower than "any backend role" — ACCOUNTANT can view payout requests
+ * but not approve/reject them.
  */
 
-async function requireBackendRole() {
+async function requireModerationRole() {
   const session = await auth();
   const role = session?.user?.role;
-  if (!role || !BACKEND_ROLES.includes(role)) {
+  if (!role || !canModerateContent(role)) {
     throw new Error("Not authorized.");
+  }
+  return role;
+}
+
+async function requireAdminRole() {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (role !== "ADMIN") {
+    throw new Error("Only Admins can approve or reject payouts.");
   }
   return role;
 }
 
 export async function approveBook(bookId: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireBackendRole();
+    await requireModerationRole();
     const book = await prisma.book.update({
       where: { id: bookId },
       data: { status: "PUBLISHED" },
@@ -40,13 +55,13 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
 
 export async function rejectBook(bookId: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireBackendRole();
+    await requireModerationRole();
     const book = await prisma.book.update({
       where: { id: bookId },
       data: { status: "REJECTED" },
       include: { author: { include: { user: true } } },
     });
-    await createNotification(book.author.user.id, "Book needs changes", `"${book.title}" was not approved this time.`);
+    await createNotification(book.author.user.id, "Book needs changes", `"${book.title}" was not approved this time — please revise and resubmit.`);
     revalidatePath("/admin/books");
     return { ok: true };
   } catch (e) {
@@ -56,7 +71,7 @@ export async function rejectBook(bookId: string): Promise<{ ok: boolean; error?:
 
 export async function approvePayoutRequest(payoutId: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireBackendRole();
+    await requireAdminRole();
     const payout = await prisma.payoutRequest.findUnique({ where: { id: payoutId }, include: { recipient: true } });
     if (!payout) return { ok: false, error: "Payout request not found." };
 
@@ -90,7 +105,7 @@ export async function approvePayoutRequest(payoutId: string): Promise<{ ok: bool
 
 export async function rejectPayoutRequest(payoutId: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    await requireBackendRole();
+    await requireAdminRole();
     const payout = await prisma.payoutRequest.update({
       where: { id: payoutId },
       data: { status: "REJECTED", resolvedAt: new Date() },

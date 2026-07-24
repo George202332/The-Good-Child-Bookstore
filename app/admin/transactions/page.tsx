@@ -11,7 +11,7 @@ export default async function TransactionsPage() {
   const session = await auth();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
-  if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");
+  if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");
   if (!canViewFinancials(role)) redirect("/admin");
 
   const rows = await getTransactionLedger();

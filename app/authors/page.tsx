@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { BOOKS } from "@/lib/data/catalog";
 import { Motif } from "@/components/Motif";
+import { getPagesContent } from "@/actions/page-content";
+
+export const dynamic = "force-dynamic";
 
 /** Converted from authorsHTML() (the-good-child-bookstore_54_1.html:5289-5398).
- * This was never converted in the initial build — 404 in production until now. */
+ * This was never converted in the initial build — 404 in production until now.
+ * Hero eyebrow/heading/intro are editable from /admin/site-settings; the
+ * detailed sections below are not (see the note on that admin page). */
 
 const AUTHORSHIP_SECTIONS: { title: string; paragraphs: string[]; list?: string[]; followup: string }[] = [
   {
@@ -90,21 +95,19 @@ const AUTHORSHIP_FAQ: [string, string][] = [
   ["How long does review take?", "Most submissions are reviewed within a few business days. You can track the status from your author dashboard the whole time."],
 ];
 
-export default function AuthorsPage() {
+export default async function AuthorsPage() {
   const authorCount = new Set(BOOKS.map((b) => b.author)).size;
+  const content = await getPagesContent();
+  const { authors } = content;
 
   return (
     <main>
       <section className="hero recruit-hero fade-in-section visible">
         <div className="wrap hero-inner">
           <div className="hero-plain-inner">
-            <div className="eyebrow">✦ Authorship</div>
-            <h1>Publish your story. <span className="accent">Keep the rights.</span></h1>
-            <p className="lede">
-              Join the children&apos;s authors already publishing eBooks, print, and audiobooks through The Good
-              Child Bookstore, with real-time sales tracking, transparent royalties, and a modern dashboard built
-              for writers, not spreadsheets.
-            </p>
+            <div className="eyebrow">{authors.eyebrow}</div>
+            <h1>{authors.heading}</h1>
+            <p className="lede">{authors.introText}</p>
             <div className="hero-ctas">
               <Link href="/signup/author" className="btn btn-primary">Become an author</Link>
               <a href="#why-publish" className="btn btn-ghost">See how it works</a>

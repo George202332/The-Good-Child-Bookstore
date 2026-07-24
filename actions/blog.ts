@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { BACKEND_ROLES } from "@/lib/roles";
+import { canModerateContent } from "@/lib/roles";
 
 /**
  * New functionality — the original frontend had no real blog *writing*
@@ -80,7 +80,7 @@ export async function submitBlogForReview(blogId: string): Promise<{ ok: boolean
 export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   const role = session?.user?.role;
-  if (!role || !BACKEND_ROLES.includes(role)) return { ok: false, error: "Not authorized." };
+  if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
   const blog = await prisma.blog.update({
     where: { id: blogId },
     data: { status: "PUBLISHED", publishAt: new Date() },
@@ -96,7 +96,7 @@ export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?
 export async function rejectBlog(blogId: string): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   const role = session?.user?.role;
-  if (!role || !BACKEND_ROLES.includes(role)) return { ok: false, error: "Not authorized." };
+  if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
   const blog = await prisma.blog.update({
     where: { id: blogId },
     data: { status: "REJECTED" },

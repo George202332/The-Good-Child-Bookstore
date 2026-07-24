@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Logo } from "./Logo";
+import { PaymentBadgeIcon } from "./PaymentBadgeIcon";
 import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-settings";
 
 const PAYMENT_BADGE_LABELS: { key: keyof PaymentBadgeUrls; label: string }[] = [
   { key: "paypal", label: "PayPal" },
+  { key: "mpesa", label: "M-Pesa" },
   { key: "mastercard", label: "Mastercard" },
   { key: "visa", label: "Visa" },
   { key: "amex", label: "American Express" },
@@ -11,19 +13,17 @@ const PAYMENT_BADGE_LABELS: { key: keyof PaymentBadgeUrls; label: string }[] = [
 ];
 
 /** Renders each payment badge as an admin-uploaded image if one is set
- * (/admin/site-settings), otherwise falls back to the original plain-text
- * badge — same pattern as the logo. */
+ * (/admin/site-settings), otherwise a real card-style icon (see
+ * PaymentBadgeIcon.tsx) — no more plain text placeholders. */
 function PaymentBadges({ badges }: { badges: PaymentBadgeUrls }) {
   return (
     <div className="footer-payment-badges">
       {PAYMENT_BADGE_LABELS.map(({ key, label }) =>
         badges[key] ? (
           // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded badge image, not a static asset
-          <img key={key} src={badges[key]} alt={label} className="payment-badge-img" style={{ height: 20 }} />
+          <img key={key} src={badges[key]} alt={label} className="payment-badge-img" style={{ height: 22 }} />
         ) : (
-          <span key={key} className="payment-badge">
-            {label}
-          </span>
+          <PaymentBadgeIcon key={key} type={key} />
         )
       )}
     </div>

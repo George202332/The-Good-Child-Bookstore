@@ -36,6 +36,7 @@ enum Role {
   AFFILIATE
   EDITOR
   ADMIN
+  ACCOUNTANT
 }
 
 enum ContentStatus {
@@ -102,6 +103,7 @@ model User {
   sessions      Session[]
   notifications Notification[]
   reviews       Review[]
+  blogComments  BlogComment[]
   ratings       Rating[]
   wishlists     Wishlist[]
   bookmarks     Bookmark[]
@@ -334,8 +336,21 @@ model Blog {
   publishAt    DateTime?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  comments     BlogComment[]
 
   @@index([status])
+}
+
+/** Reader comments on a published blog post — new functionality, added
+ * for the admin Blog Moderation dashboard to show alongside each post. */
+model BlogComment {
+  id        String   @id @default(cuid())
+  blogId    String
+  blog      Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
 }
 
 // ---------- Reviews / ratings / social ----------

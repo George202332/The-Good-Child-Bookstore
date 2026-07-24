@@ -14,16 +14,24 @@ import { SignOutButton } from "./SignOutButton";
  * information" rule).
  */
 function navItemsForRole(role: Role) {
+  if (role === "ACCOUNTANT") {
+    return [
+      { key: "dashboard", label: "Dashboard", href: "/admin" },
+      { key: "analytics", label: "Analytics", href: "/admin/analytics" },
+      { key: "transactions", label: "Transactions", href: "/admin/transactions" },
+      { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },
+    ];
+  }
+
   const base = [
     { key: "dashboard", label: "Dashboard", href: "/admin" },
-    { key: "books", label: "Book Moderation", href: "/admin/books" },
+    { key: "books", label: "Book Management", href: "/admin/books" },
     { key: "blog", label: "Blog Moderation", href: "/admin/blog" },
     { key: "analytics", label: "Analytics", href: "/admin/analytics" },
   ];
   if (role === "ADMIN") {
     return [
       ...base,
-      { key: "homepage", label: "Homepage", href: "/admin/homepage" },
       { key: "site-settings", label: "Site Settings", href: "/admin/site-settings" },
       { key: "users", label: "Users", href: "/admin/users" },
       { key: "coupons", label: "Coupons", href: "/admin/coupons" },
@@ -62,7 +70,7 @@ export function AdminShell({
           <div className="admin-user-avatar">{initials}</div>
           <div>
             <div className="admin-user-name">{displayName}</div>
-            <div className="admin-user-role">{role === "ADMIN" ? "Admin" : "Editor"}</div>
+            <div className="admin-user-role">{role === "ADMIN" ? "Admin" : role === "EDITOR" ? "Editor" : "Accountant"}</div>
           </div>
         </div>
         <nav aria-label="Admin navigation" style={{ display: "flex", flexDirection: "column", gap: 2 }}>

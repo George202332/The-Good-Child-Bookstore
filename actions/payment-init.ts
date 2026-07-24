@@ -2,6 +2,7 @@
 
 import { createPayPalOrder } from "@/lib/payments/paypal";
 import { initializePaystackTransaction } from "@/lib/payments/paystack";
+import { getApiKey } from "@/lib/api-keys";
 
 /**
  * Starts a real hosted checkout with PayPal or Paystack when credentials
@@ -37,7 +38,11 @@ export async function initiateGatewayCheckout(
   const base = siteUrl();
 
   if (method === "paypal") {
-    if (!process.env.PAYPAL_CLIENT_ID || !process.env.PAYPAL_CLIENT_SECRET) {
+    const [clientId, clientSecret] = await Promise.all([
+      getApiKey("paypalClientId", "PAYPAL_CLIENT_ID"),
+      getApiKey("paypalClientSecret", "PAYPAL_CLIENT_SECRET"),
+    ]);
+    if (!clientId || !clientSecret) {
       return { ok: true, configured: false };
     }
     try {
@@ -54,7 +59,8 @@ export async function initiateGatewayCheckout(
   }
 
   // paystack (card) or mpesa (Paystack's mobile_money channel) — both USD
-  if (!process.env.PAYSTACK_SECRET_KEY) {
+  const paystackKey = await getApiKey("paystackSecretKey", "PAYSTACK_SECRET_KEY");
+  if (!paystackKey) {
     return { ok: true, configured: false };
   }
   try {
