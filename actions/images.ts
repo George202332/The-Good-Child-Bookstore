@@ -53,7 +53,7 @@ export async function uploadImage(formData: FormData): Promise<UploadImageResult
       .toBuffer();
 
     const record = await prisma.uploadedImage.create({
-      data: { data: webpBuffer, mimeType: "image/webp" },
+      data: { data: new Uint8Array(webpBuffer), mimeType: "image/webp" },
     });
 
     return { ok: true, url: `/api/images/${record.id}` };
