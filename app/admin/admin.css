@@ -165,7 +165,18 @@
   border: 1px solid var(--admin-border);
   border-radius: 12px;
 }
-.admin-shell .form-section { padding: 20px; }
+.admin-shell .form-section {
+  padding: 20px;
+  /* Forms with short fields (name, email, a single toggle) look wrong
+     stretched across an ultra-wide content area — capped here so they
+     read as a sensible form, while tables and stat grids (which don't
+     use this class) still use the full available width. */
+  max-width: 640px;
+}
+.admin-shell .form-grid-2 .field,
+.admin-shell .form-grid-2 select {
+  margin-bottom: 0;
+}
 
 .admin-shell .field, .admin-shell select, .admin-shell textarea, .admin-shell input {
   background: var(--admin-bg);

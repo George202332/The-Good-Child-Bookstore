@@ -1,20 +1,28 @@
 import { createHmac } from "crypto";
-import { getApiKey } from "@/lib/api-keys";
+import { getPaystackCredentials } from "@/lib/api-keys";
 
 /**
  * Paystack integration — Transactions API. The brief's other "live"
- * gateway (cards: Visa, Mastercard, Amex, Verve). Same caveat as
- * lib/payments/paypal.ts: real, correct integration code against
- * Paystack's documented REST API, not exercised against a live account
- * in this sandbox (no network access, no real key configured).
+ * gateway (cards: Visa, Mastercard, Amex, Verve). Credentials (separate
+ * test/live secret+public key pairs) come from Site Settings if saved
+ * there, falling back to PAYSTACK_SECRET_KEY/PUBLIC_KEY env vars — see
+ * lib/api-keys.ts getPaystackCredentials(). Not exercised against a live
+ * Paystack account in this sandbox (no network access).
  */
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
 async function requireSecretKey(): Promise<string> {
-  const key = await getApiKey("paystackSecretKey", "PAYSTACK_SECRET_KEY");
-  if (!key) throw new Error("Paystack isn't configured yet — set it up in Site Settings or the PAYSTACK_SECRET_KEY environment variable.");
-  return key;
+  const { secretKey } = await getPaystackCredentials();
+  if (!secretKey) throw new Error("Paystack isn't configured yet — set it up in Site Settings or the PAYSTACK_SECRET_KEY environment variable.");
+  return secretKey;
+}
+
+/** The public key is safe to expose to the browser (e.g. for Paystack's
+ * inline JS popup, if that's used instead of the hosted redirect flow). */
+export async function getPaystackPublicKey(): Promise<string | undefined> {
+  const { publicKey } = await getPaystackCredentials();
+  return publicKey;
 }
 
 /** Initializes a transaction and returns Paystack's hosted checkout URL.
@@ -100,7 +108,7 @@ export async function chargeAuthorization(
 
 /** Verifies the `x-paystack-signature` header via HMAC-SHA512 of the raw
  * body with the secret key — Paystack's documented webhook verification.
- * Now async since the secret key may come from the database. */
+ * Async since the secret key may come from the database. */
 export async function verifyPaystackWebhookSignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
   if (!signatureHeader) return false;
   const secretKey = await requireSecretKey();

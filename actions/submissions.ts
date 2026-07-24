@@ -5,17 +5,21 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
 /**
- * Real book submission — creates an actual Book row (status DRAFT or
- * PENDING_REVIEW, same workflow as everything else in the editorial
- * system) with format flags for eBook/print/audiobook. This is a
- * streamlined version of the original's much larger submission flow
- * (which included a step-by-step checklist, live cover-wrap preview,
- * auto-generated ISBN, and direct file uploads for manuscript/cover/
- * sample pages) — those file-upload pieces need real file storage
- * (e.g. S3/Cloudinary) wired in to work properly server-side, which
- * isn't set up yet, so this version takes a cover image URL instead of
- * an upload. The core result is the same: a real book, in the real
- * database, going through the real approval workflow.
+ * Real book submission — a much fuller port of the original's actual
+ * submission form (collectSubmissionFormData(), the-good-child-bookstore
+ * _54_1.html:10651-10689), covering every field it collected: basic
+ * info, contributors, edition/series, categorization, educational
+ * details, pricing/rights, marketing toggles, SEO, and format-specific
+ * fields (ISBN/file type for eBook, trim size for print, narrator for
+ * audiobook). Creates a genuine Book row, entering the same Draft →
+ * Pending Review workflow as everything else in the editorial system.
+ *
+ * Still not replicated from the original: the live print-cover-wrap
+ * preview and the full Lulu print-configuration UI (trim/paper/binding/
+ * finish pickers, EAN-13 barcode rendering) — that's a real, separate,
+ * much larger feature (see LULU_CONFIG in the original file) that isn't
+ * built yet. Cover image is a real upload (converted to WebP), not a
+ * file-to-dataURL simulation.
  */
 
 /** Ported from ean13CheckDigit()/ensureGeneratedISBN() (the-good-child-bookstore_54_1.html:8336-8341). */
@@ -36,14 +40,61 @@ function slugify(s: string): string {
   );
 }
 
+/** Everything from the original form that doesn't have its own Book
+ * column — stored as JSON (Book.submissionMetadata). */
+export interface SubmissionMetadata {
+  authorFirstName: string;
+  authorLastName: string;
+  edition?: string;
+  seriesName?: string;
+  seriesNumber?: number;
+  publisher?: string;
+  copyrightYear?: number;
+  coAuthors?: string;
+  illustrator?: string;
+  editor?: string;
+  translator?: string;
+  authorBio?: string;
+  subgenre?: string;
+  readingLevel?: string;
+  schoolGrade?: string;
+  curriculum?: string;
+  learningObjectives?: string;
+  educationalBenefits?: string;
+  discountPrice?: number;
+  promoPrice?: number;
+  currency: string;
+  taxSetting: string;
+  worldwideRights: boolean;
+  countryRestrictions?: string;
+  copyrightHolder?: string;
+  licenseType: string;
+  sellOnStore: boolean;
+  includeInPromotions: boolean;
+  featuredRequest: boolean;
+  allowDiscounts: boolean;
+  allowBundles: boolean;
+  affiliateEnabled: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+  keywords?: string;
+  fileType?: string;
+  trimSize?: string;
+  narrator?: string;
+}
+
 export interface SubmitBookInput {
   title: string;
+  subtitle?: string;
   description: string;
+  backCoverDescription?: string;
   price: number;
   ageGroup: string;
+  genre: string;
   language: string;
-  formats: { ebook: boolean; print: boolean; audiobook: boolean };
   coverImageUrl?: string;
+  formats: { ebook: boolean; print: boolean; audiobook: boolean };
+  metadata: SubmissionMetadata;
   submitForReview: boolean;
 }
 
@@ -72,9 +123,10 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   const book = await prisma.book.create({
     data: {
       title: input.title.trim(),
+      subtitle: input.subtitle?.trim() || null,
       slug,
-      description: input.description.trim(),
-      isbn: generateIsbn(),
+      description: input.backCoverDescription?.trim() || input.description.trim(),
+      isbn: input.formats.ebook || input.formats.print ? generateIsbn() : null,
       price: input.price,
       status: input.submitForReview ? "PENDING_REVIEW" : "DRAFT",
       authorId: user.authorProfile.id,
@@ -84,6 +136,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       hasEbook: input.formats.ebook,
       hasPrint: input.formats.print,
       hasAudiobook: input.formats.audiobook,
+      submissionMetadata: JSON.parse(JSON.stringify(input.metadata)),
     },
   });
 

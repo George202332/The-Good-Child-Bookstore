@@ -44,16 +44,35 @@ export async function getSiteSettings(): Promise<SiteSettings> {
  * populating the Site Settings form; getSiteSettings() (with real values)
  * is what the payment services actually call.
  */
-export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSettings; apiKeysSet: Record<keyof ApiKeys, boolean> }> {
+export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSettings; apiKeysSet: Record<string, boolean> }> {
   const settings = await getSiteSettings();
-  const apiKeysSet: Record<keyof ApiKeys, boolean> = {
+  const apiKeysSet: Record<string, boolean> = {
     luluApiKey: !!settings.apiKeys.luluApiKey,
-    paypalClientId: !!settings.apiKeys.paypalClientId,
-    paypalClientSecret: !!settings.apiKeys.paypalClientSecret,
-    paystackSecretKey: !!settings.apiKeys.paystackSecretKey,
+    paypalSandboxClientId: !!settings.apiKeys.paypalSandboxClientId,
+    paypalSandboxClientSecret: !!settings.apiKeys.paypalSandboxClientSecret,
+    paypalLiveClientId: !!settings.apiKeys.paypalLiveClientId,
+    paypalLiveClientSecret: !!settings.apiKeys.paypalLiveClientSecret,
+    paystackTestSecretKey: !!settings.apiKeys.paystackTestSecretKey,
+    paystackTestPublicKey: !!settings.apiKeys.paystackTestPublicKey,
+    paystackLiveSecretKey: !!settings.apiKeys.paystackLiveSecretKey,
+    paystackLivePublicKey: !!settings.apiKeys.paystackLivePublicKey,
   };
   return {
-    settings: { ...settings, apiKeys: { luluApiKey: "", paypalClientId: "", paypalClientSecret: "", paystackSecretKey: "" } },
+    settings: {
+      ...settings,
+      apiKeys: {
+        paymentMode: settings.apiKeys.paymentMode,
+        luluApiKey: "",
+        paypalSandboxClientId: "",
+        paypalSandboxClientSecret: "",
+        paypalLiveClientId: "",
+        paypalLiveClientSecret: "",
+        paystackTestSecretKey: "",
+        paystackTestPublicKey: "",
+        paystackLiveSecretKey: "",
+        paystackLivePublicKey: "",
+      },
+    },
     apiKeysSet,
   };
 }
@@ -69,10 +88,16 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
   // retype it (the form never shows the real value back, on purpose).
   const existing = await getSiteSettings();
   const apiKeys: ApiKeys = {
+    paymentMode: settings.apiKeys.paymentMode,
     luluApiKey: settings.apiKeys.luluApiKey?.trim() || existing.apiKeys.luluApiKey,
-    paypalClientId: settings.apiKeys.paypalClientId?.trim() || existing.apiKeys.paypalClientId,
-    paypalClientSecret: settings.apiKeys.paypalClientSecret?.trim() || existing.apiKeys.paypalClientSecret,
-    paystackSecretKey: settings.apiKeys.paystackSecretKey?.trim() || existing.apiKeys.paystackSecretKey,
+    paypalSandboxClientId: settings.apiKeys.paypalSandboxClientId?.trim() || existing.apiKeys.paypalSandboxClientId,
+    paypalSandboxClientSecret: settings.apiKeys.paypalSandboxClientSecret?.trim() || existing.apiKeys.paypalSandboxClientSecret,
+    paypalLiveClientId: settings.apiKeys.paypalLiveClientId?.trim() || existing.apiKeys.paypalLiveClientId,
+    paypalLiveClientSecret: settings.apiKeys.paypalLiveClientSecret?.trim() || existing.apiKeys.paypalLiveClientSecret,
+    paystackTestSecretKey: settings.apiKeys.paystackTestSecretKey?.trim() || existing.apiKeys.paystackTestSecretKey,
+    paystackTestPublicKey: settings.apiKeys.paystackTestPublicKey?.trim() || existing.apiKeys.paystackTestPublicKey,
+    paystackLiveSecretKey: settings.apiKeys.paystackLiveSecretKey?.trim() || existing.apiKeys.paystackLiveSecretKey,
+    paystackLivePublicKey: settings.apiKeys.paystackLivePublicKey?.trim() || existing.apiKeys.paystackLivePublicKey,
   };
 
   const value = JSON.parse(JSON.stringify({ ...settings, apiKeys }));

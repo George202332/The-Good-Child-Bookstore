@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import type { Role } from "@/lib/roles";
+import { generateAccountNumber } from "@/lib/account-number";
 
 /**
  * Admin-side account creation and management — "Admin can manage all
@@ -42,9 +43,11 @@ export async function createUserAccount(input: CreateUserInput): Promise<{ ok: b
   if (existing) return { ok: false, error: "An account with that email already exists." };
 
   const passwordHash = await bcrypt.hash(input.password, 10);
+  const accountNumber = await generateAccountNumber(input.role);
 
   await prisma.user.create({
     data: {
+      accountNumber,
       email,
       name,
       passwordHash,
@@ -64,6 +67,7 @@ export async function createUserAccount(input: CreateUserInput): Promise<{ ok: b
 
 export interface UserListRow {
   id: string;
+  accountNumber: string;
   name: string;
   email: string;
   role: Role;
@@ -81,7 +85,7 @@ export async function listUsers(role: Role | "ALL"): Promise<UserListRow[]> {
     where: role === "ALL" ? {} : { role },
     orderBy: { createdAt: "desc" },
     take: 300,
-    select: { id: true, name: true, email: true, role: true, suspended: true, createdAt: true },
+    select: { id: true, accountNumber: true, name: true, email: true, role: true, suspended: true, createdAt: true },
   });
 }
 
@@ -103,6 +107,7 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
 
   return {
     id: user.id,
+    accountNumber: user.accountNumber,
     name: user.name,
     email: user.email,
     role: user.role,

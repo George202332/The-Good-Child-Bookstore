@@ -3,29 +3,23 @@
  * the two "live" gateways (Stripe/Flutterwave are architecture-only —
  * see lib/payments/stripe.ts, lib/payments/flutterwave.ts).
  *
- * This is real, correct integration code against PayPal's documented
- * REST API — but it has not been exercised against a live PayPal
- * sandbox account, since this build environment has no network access
- * and no real PAYPAL_CLIENT_ID/SECRET configured. Wire it in by setting
- * those two env vars (see .env.example) and connecting checkout's
- * "PayPal" payment option to createPayPalOrder()/capturePayPalOrder()
- * instead of the current demo-mode immediate order creation in
- * actions/orders.ts.
+ * Credentials (separate sandbox/live pairs) come from Site Settings if
+ * saved there, falling back to PAYPAL_CLIENT_ID/SECRET/ENV env vars —
+ * see lib/api-keys.ts getPayPalCredentials(). This is real, correct
+ * integration code against PayPal's documented REST API, not exercised
+ * against a live PayPal account in this sandbox (no network access).
  */
 
-import { getApiKey } from "@/lib/api-keys";
+import { getPayPalCredentials } from "@/lib/api-keys";
 
-const PAYPAL_BASE_URL =
-  process.env.PAYPAL_ENV === "live" ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
-
-async function getPayPalAccessToken(): Promise<string> {
-  const clientId = await getApiKey("paypalClientId", "PAYPAL_CLIENT_ID");
-  const clientSecret = await getApiKey("paypalClientSecret", "PAYPAL_CLIENT_SECRET");
+async function getPayPalAccessToken(): Promise<{ token: string; baseUrl: string }> {
+  const { clientId, clientSecret, live } = await getPayPalCredentials();
+  const baseUrl = live ? "https://api-m.paypal.com" : "https://api-m.sandbox.paypal.com";
   if (!clientId || !clientSecret) {
     throw new Error("PayPal isn't configured yet — set it up in Site Settings or the PAYPAL_CLIENT_ID/SECRET environment variables.");
   }
 
-  const res = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
+  const res = await fetch(`${baseUrl}/v1/oauth2/token`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
@@ -35,7 +29,7 @@ async function getPayPalAccessToken(): Promise<string> {
   });
   if (!res.ok) throw new Error(`PayPal auth failed: ${res.status}`);
   const data = await res.json();
-  return data.access_token;
+  return { token: data.access_token, baseUrl };
 }
 
 /** Creates a PayPal order for the given USD amount, tagged with our own
@@ -49,8 +43,8 @@ export async function createPayPalOrder(
   returnUrl: string,
   cancelUrl: string
 ): Promise<{ paypalOrderId: string; approveUrl: string }> {
-  const token = await getPayPalAccessToken();
-  const res = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+  const { token, baseUrl } = await getPayPalAccessToken();
+  const res = await fetch(`${baseUrl}/v2/checkout/orders`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -74,8 +68,8 @@ export async function createPayPalOrder(
 /** Captures an approved PayPal order — call this from the webhook handler
  * (or the return redirect) once the buyer has approved on PayPal's side. */
 export async function capturePayPalOrder(paypalOrderId: string): Promise<{ captured: boolean; ourOrderId: string | null }> {
-  const token = await getPayPalAccessToken();
-  const res = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${paypalOrderId}/capture`, {
+  const { token, baseUrl } = await getPayPalAccessToken();
+  const res = await fetch(`${baseUrl}/v2/checkout/orders/${paypalOrderId}/capture`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
   });
@@ -91,9 +85,9 @@ export async function capturePayPalOrder(paypalOrderId: string): Promise<{ captu
 export async function verifyPayPalWebhookSignature(headers: Headers, body: string): Promise<boolean> {
   const webhookId = process.env.PAYPAL_WEBHOOK_ID;
   if (!webhookId) return false;
-  const token = await getPayPalAccessToken();
+  const { token, baseUrl } = await getPayPalAccessToken();
 
-  const res = await fetch(`${PAYPAL_BASE_URL}/v1/notifications/verify-webhook-signature`, {
+  const res = await fetch(`${baseUrl}/v1/notifications/verify-webhook-signature`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({

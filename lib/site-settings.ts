@@ -14,12 +14,23 @@ export interface PaymentBadgeUrls {
  * priority over the equivalent environment variables (see
  * lib/api-keys.ts) — set here, or leave blank to keep using whatever's
  * configured in Vercel.
+ *
+ * Both PayPal and Paystack issue separate credential pairs for their
+ * test/sandbox and live environments — paymentMode picks which pair is
+ * actually used at checkout, so switching from testing to going live is
+ * one toggle, not re-entering keys.
  */
 export interface ApiKeys {
   luluApiKey?: string;
-  paypalClientId?: string;
-  paypalClientSecret?: string;
-  paystackSecretKey?: string;
+  paymentMode: "test" | "live";
+  paypalSandboxClientId?: string;
+  paypalSandboxClientSecret?: string;
+  paypalLiveClientId?: string;
+  paypalLiveClientSecret?: string;
+  paystackTestSecretKey?: string;
+  paystackTestPublicKey?: string;
+  paystackLiveSecretKey?: string;
+  paystackLivePublicKey?: string;
 }
 
 export interface SiteSettings {
@@ -46,5 +57,5 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     "Storybooks chosen for the way they read aloud, the questions they raise at bedtime, and the shelf-worthy art on every cover. Trusted by parents, teachers, and school librarians.",
   footerCopyright: "© 2026 The Good Child Bookstore. Every cover here is invented for storytime.",
   paymentBadges: {},
-  apiKeys: {},
+  apiKeys: { paymentMode: "test" },
 };

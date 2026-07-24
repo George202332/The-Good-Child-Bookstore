@@ -105,7 +105,7 @@ export default async function BookManagementPage({
               {b.status === "PENDING_REVIEW" ? (
                 <ModerationActions bookId={b.id} />
               ) : (
-                <Link href={`/book/${b.id}`} className="btn btn-ghost btn-small">View</Link>
+                <Link href={`/admin/books/${b.id}`} className="btn btn-ghost btn-small">View reviews</Link>
               )}
             </div>
           ))

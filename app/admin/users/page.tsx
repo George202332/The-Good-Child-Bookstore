@@ -81,7 +81,7 @@ export default async function UsersPage({
                 <div style={{ fontWeight: 700, fontSize: 13.5 }}>
                   {u.name} {u.suspended && <span className="age-pill" style={{ marginLeft: 6, background: "var(--admin-danger, #EF6262)", color: "#fff" }}>Suspended</span>}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{u.email} · {u.role}</div>
+                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{u.email} · {u.role} · #{u.accountNumber}</div>
               </Link>
               {u.id === session.user.id ? (
                 <span className="age-pill">You</span>

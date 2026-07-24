@@ -94,3 +94,11 @@ export async function getBlogCommentsForModeration(blogId: string): Promise<Blog
     createdAt: c.createdAt,
   }));
 }
+
+export async function deleteCommentAsModerator(commentId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
+  await prisma.blogComment.delete({ where: { id: commentId } });
+  return { ok: true };
+}

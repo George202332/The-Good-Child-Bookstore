@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/roles";
+import { generateAccountNumber } from "@/lib/account-number";
 
 /**
  * Converted from doSignup() and handleReaderSignup()/handleAuthorSignup()/
@@ -63,9 +64,11 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
 
   const passwordHash = await bcrypt.hash(input.password, 10);
   const role: Role = input.role;
+  const accountNumber = await generateAccountNumber(role);
 
   await prisma.user.create({
     data: {
+      accountNumber,
       email,
       name,
       passwordHash,

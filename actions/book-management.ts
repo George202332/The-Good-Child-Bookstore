@@ -99,3 +99,11 @@ export async function getBookReviewsForModeration(bookId: string): Promise<BookR
     createdAt: r.createdAt,
   }));
 }
+
+export async function deleteReviewAsModerator(reviewId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
+  await prisma.review.delete({ where: { id: reviewId } });
+  return { ok: true };
+}

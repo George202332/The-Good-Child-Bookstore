@@ -38,8 +38,18 @@ export function CreateUserForm() {
 
   return (
     <form onSubmit={handleSubmit} className="form-section" style={{ marginBottom: 24 }}>
-      <label className="field-label" htmlFor="cu-name">Full name</label>
-      <input className="field" id="cu-name" type="text" required value={name} onChange={(e) => setName(e.target.value)} />
+      <div className="form-grid-2">
+        <div>
+          <label className="field-label" htmlFor="cu-name">Full name</label>
+          <input className="field" id="cu-name" type="text" required value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label" htmlFor="cu-role">Account type</label>
+          <select className="field" id="cu-role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
+            {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          </select>
+        </div>
+      </div>
 
       <div className="form-grid-2">
         <div>
@@ -51,11 +61,6 @@ export function CreateUserForm() {
           <input className="field" id="cu-password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
       </div>
-
-      <label className="field-label" htmlFor="cu-role">Account type</label>
-      <select className="field" id="cu-role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-        {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-      </select>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       {success && <div className="field-hint" style={{ color: "#1F6B48" }}>{success}</div>}

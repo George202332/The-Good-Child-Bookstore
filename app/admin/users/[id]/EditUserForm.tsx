@@ -52,11 +52,16 @@ export function EditUserForm({ user, isSelf }: { user: UserDetail; isSelf: boole
   return (
     <>
       <form onSubmit={handleSave} className="form-section" style={{ marginBottom: 20 }}>
-        <label className="field-label" htmlFor="edit-name">Full name</label>
-        <input className="field" id="edit-name" type="text" required value={name} onChange={(e) => setName(e.target.value)} />
-
-        <label className="field-label" htmlFor="edit-email">Email</label>
-        <input className="field" id="edit-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="edit-name">Full name</label>
+            <input className="field" id="edit-name" type="text" required value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="edit-email">Email</label>
+            <input className="field" id="edit-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </div>
+        </div>
 
         {user.role === "AUTHOR" && (
           <>

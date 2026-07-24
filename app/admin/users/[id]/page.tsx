@@ -19,7 +19,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         <div>
           <h2 style={{ fontSize: 20 }}>{user.name}</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            {user.role} · joined {user.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+            #{user.accountNumber} · {user.role} · joined {user.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
             {user.suspended ? " · Suspended" : ""}
           </p>
         </div>

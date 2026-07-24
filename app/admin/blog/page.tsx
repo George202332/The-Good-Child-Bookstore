@@ -102,7 +102,7 @@ export default async function BlogModerationPage({
               {p.status === "PENDING_REVIEW" ? (
                 <ModerationActions blogId={p.id} />
               ) : (
-                <span className="age-pill">{p.status}</span>
+                <Link href={`/admin/blog/${p.id}`} className="btn btn-ghost btn-small">View comments</Link>
               )}
             </div>
           ))

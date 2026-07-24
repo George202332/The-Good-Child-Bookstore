@@ -84,6 +84,7 @@ enum BookFormat {
 
 model User {
   id            String   @id @default(cuid())
+  accountNumber String   @unique
   email         String   @unique
   passwordHash  String
   name          String
@@ -236,6 +237,7 @@ model AuthorFollow {
 model Book {
   id           String        @id @default(cuid())
   title        String
+  subtitle     String?
   slug         String        @unique
   description  String?
   isbn         String?
@@ -254,6 +256,18 @@ model Book {
   hasEbook     Boolean       @default(false)
   hasPrint     Boolean       @default(false)
   hasAudiobook Boolean       @default(false)
+  /**
+   * Every other field from the original submission form
+   * (the-good-child-bookstore_54_1.html:10651-10689) that doesn't have
+   * its own dedicated column — edition, series, contributors (co-authors/
+   * illustrator/editor/translator), curriculum details, back-cover copy,
+   * pricing/rights/marketing toggles, format-specific fields (narrator,
+   * trim size, file type), and SEO fields. Kept as one JSON blob rather
+   * than ~30 new dedicated columns, since most of these are optional,
+   * rarely-queried metadata — see SubmissionMetadata in actions/submissions.ts
+   * for the full shape.
+   */
+  submissionMetadata Json?
   files        BookFile[]
   reviews      Review[]
   ratings      Rating[]
@@ -593,6 +607,18 @@ model AuditLog {
   action    String
   metadata  Json?
   createdAt DateTime @default(now())
+}
+
+/**
+ * Backs the human-readable, role-sequenced account numbers assigned to
+ * every user (see lib/account-number.ts) — Authors get their own
+ * sequence, distinct from Readers/Affiliates, and every other role
+ * (Editor/Admin/Accountant) gets its own too. One row per role, holding
+ * the last number issued.
+ */
+model IdSequence {
+  role      Role   @id
+  lastValue Int    @default(0)
 }
 
 model Setting {
