@@ -1,29 +1,61 @@
 import Link from "next/link";
 import { Logo } from "./Logo";
+import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-settings";
 
-const PAYMENT_BADGES = ["PayPal", "Mastercard", "Visa", "American Express", "Verve"];
+const PAYMENT_BADGE_LABELS: { key: keyof PaymentBadgeUrls; label: string }[] = [
+  { key: "paypal", label: "PayPal" },
+  { key: "mastercard", label: "Mastercard" },
+  { key: "visa", label: "Visa" },
+  { key: "amex", label: "American Express" },
+  { key: "verve", label: "Verve" },
+];
 
-function PaymentBadges() {
+/** Renders each payment badge as an admin-uploaded image if one is set
+ * (/admin/site-settings), otherwise falls back to the original plain-text
+ * badge — same pattern as the logo. */
+function PaymentBadges({ badges }: { badges: PaymentBadgeUrls }) {
   return (
     <div className="footer-payment-badges">
-      {PAYMENT_BADGES.map((b) => (
-        <span key={b} className="payment-badge">
-          {b}
-        </span>
-      ))}
+      {PAYMENT_BADGE_LABELS.map(({ key, label }) =>
+        badges[key] ? (
+          // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded badge image, not a static asset
+          <img key={key} src={badges[key]} alt={label} className="payment-badge-img" style={{ height: 20 }} />
+        ) : (
+          <span key={key} className="payment-badge">
+            {label}
+          </span>
+        )
+      )}
     </div>
   );
 }
 
-/** Converted from footerHTML(minimal) (the-good-child-bookstore_54_1.html:3265). */
-export function Footer({ minimal = false }: { minimal?: boolean }) {
+/**
+ * Converted from footerHTML(minimal) (the-good-child-bookstore_54_1.html:3265).
+ * Tagline, copyright, and payment badge images are all admin-editable now
+ * (see /admin/site-settings, actions/site-settings.ts) — falls back to
+ * the original hardcoded text when nothing's been overridden yet.
+ */
+export function Footer({
+  minimal = false,
+  logoImageUrl,
+  footerTagline = DEFAULT_SITE_SETTINGS.footerTagline,
+  footerCopyright = DEFAULT_SITE_SETTINGS.footerCopyright,
+  paymentBadges = DEFAULT_SITE_SETTINGS.paymentBadges,
+}: {
+  minimal?: boolean;
+  logoImageUrl?: string;
+  footerTagline?: string;
+  footerCopyright?: string;
+  paymentBadges?: PaymentBadgeUrls;
+}) {
   if (minimal) {
     return (
       <footer className="footer-minimal">
         <div className="wrap">
           <div className="footer-bottom" style={{ borderTop: "none", paddingTop: 0 }}>
-            <span>© 2026 The Good Child Bookstore. Every cover here is invented for storytime.</span>
-            <PaymentBadges />
+            <span>{footerCopyright}</span>
+            <PaymentBadges badges={paymentBadges} />
           </div>
         </div>
       </footer>
@@ -35,11 +67,8 @@ export function Footer({ minimal = false }: { minimal?: boolean }) {
       <div className="wrap">
         <div className="footer-grid">
           <div>
-            <Logo subColor="#F0A6C0" />
-            <p className="tag">
-              Storybooks chosen for the way they read aloud, the questions they raise at bedtime, and the
-              shelf-worthy art on every cover. Trusted by parents, teachers, and school librarians.
-            </p>
+            <Logo subColor="#F0A6C0" logoImageUrl={logoImageUrl} />
+            <p className="tag">{footerTagline}</p>
             <div className="footer-social">
               <a href="#" aria-label="Facebook">
                 <svg viewBox="0 0 24 24" fill="currentColor">
@@ -105,8 +134,8 @@ export function Footer({ minimal = false }: { minimal?: boolean }) {
           </div>
         </div>
         <div className="footer-bottom">
-          <span>© 2026 The Good Child Bookstore. Every cover here is invented for storytime.</span>
-          <PaymentBadges />
+          <span>{footerCopyright}</span>
+          <PaymentBadges badges={paymentBadges} />
         </div>
       </div>
     </footer>

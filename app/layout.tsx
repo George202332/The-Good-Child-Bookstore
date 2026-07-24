@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { SiteChrome } from "@/components/SiteChrome";
+import { getSiteSettings } from "@/actions/site-settings";
 import { Providers } from "@/components/Providers";
 
 // Metadata ported from the original frontend's <head> block
@@ -74,7 +75,8 @@ const JSON_LD = {
   },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const settings = await getSiteSettings();
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 
@@ -121,7 +123,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </noscript>
         )}
         <Providers>
-          <SiteChrome>{children}</SiteChrome>
+          <SiteChrome settings={settings}>{children}</SiteChrome>
         </Providers>
       </body>
     </html>

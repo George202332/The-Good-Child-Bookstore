@@ -9,7 +9,21 @@ import { BACKEND_ROLES, canViewFinancials } from "@/lib/roles";
  * Orders, Books Sold, Top Books, Monthly Growth) built entirely from
  * actual SaleLine/Order rows, not simulated data. Financial figures are
  * gated by canViewFinancials() (EDITOR sees volume metrics, not money).
+ *
+ * revenueBreakdown is the 7-column month-by-month table showing exactly
+ * how a given month's revenue splits between the company, authors, and
+ * affiliates — the explicit "how much money belongs to whom" view.
  */
+
+export interface RevenueBreakdownRow {
+  month: string;
+  orders: number;
+  booksSold: number;
+  grossRevenue: number;
+  companyShare: number;
+  authorShare: number;
+  affiliateShare: number;
+}
 
 export interface AnalyticsSummary {
   totalOrders: number;
@@ -19,6 +33,7 @@ export interface AnalyticsSummary {
   totalAffiliateRevenue: number | null;
   monthlyRevenue: { month: string; amount: number }[];
   topBooks: { title: string; unitsSold: number; revenue: number }[];
+  revenueBreakdown: RevenueBreakdownRow[];
 }
 
 async function requireBackendAccess() {
@@ -40,14 +55,17 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     totalAffiliateRevenue: showFinancials ? 0 : null,
     monthlyRevenue: [],
     topBooks: [],
+    revenueBreakdown: [],
   };
 
   try {
-    const [totalOrders, saleLines] = await Promise.all([
-      prisma.order.count({ where: { status: "PAID" } }),
+    const [orders, saleLines] = await Promise.all([
+      prisma.order.findMany({ where: { status: "PAID" }, select: { createdAt: true } }),
       prisma.saleLine.findMany({ include: { book: true }, orderBy: { createdAt: "asc" } }),
     ]);
 
+    const orderList = Array.isArray(orders) ? orders : [];
+    const totalOrders = orderList.length;
     const lines = Array.isArray(saleLines) ? saleLines : [];
     const totalBooksSold = lines.length;
 
@@ -56,6 +74,21 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
     let totalAffiliateRevenue: number | null = showFinancials ? 0 : null;
     const monthlyMap = new Map<string, number>();
     const bookMap = new Map<string, { title: string; unitsSold: number; revenue: number }>();
+    const breakdownMap = new Map<string, RevenueBreakdownRow>();
+
+    function getMonthRow(monthKey: string): RevenueBreakdownRow {
+      let row = breakdownMap.get(monthKey);
+      if (!row) {
+        row = { month: monthKey, orders: 0, booksSold: 0, grossRevenue: 0, companyShare: 0, authorShare: 0, affiliateShare: 0 };
+        breakdownMap.set(monthKey, row);
+      }
+      return row;
+    }
+
+    for (const o of orderList as { createdAt: Date }[]) {
+      const monthKey = o.createdAt.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      getMonthRow(monthKey).orders += 1;
+    }
 
     for (const l of lines as {
       createdAt: Date;
@@ -66,12 +99,18 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
       bookId: string;
       book: { title: string };
     }[]) {
+      const monthKey = l.createdAt.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      const row = getMonthRow(monthKey);
+      row.booksSold += 1;
+      row.grossRevenue += Number(l.grossAmount);
+      row.companyShare += Number(l.companyShare);
+      row.authorShare += Number(l.authorShare);
+      row.affiliateShare += Number(l.affiliateShare);
+
       if (showFinancials) {
         totalCompanyRevenue = (totalCompanyRevenue ?? 0) + Number(l.companyShare);
         totalAuthorRevenue = (totalAuthorRevenue ?? 0) + Number(l.authorShare);
         totalAffiliateRevenue = (totalAffiliateRevenue ?? 0) + Number(l.affiliateShare);
-
-        const monthKey = l.createdAt.toLocaleDateString("en-US", { month: "short", year: "numeric" });
         monthlyMap.set(monthKey, (monthlyMap.get(monthKey) ?? 0) + Number(l.grossAmount));
       }
 
@@ -96,10 +135,9 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
       totalAffiliateRevenue,
       monthlyRevenue: Array.from(monthlyMap.entries()).map(([month, amount]) => ({ month, amount })),
       topBooks,
+      revenueBreakdown: showFinancials ? Array.from(breakdownMap.values()).reverse() : [],
     };
   } catch {
-    // Degrade to zeroed-out analytics rather than a 500 if the database
-    // is unreachable.
     return empty;
   }
 }

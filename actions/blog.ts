@@ -81,7 +81,13 @@ export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?
   const session = await auth();
   const role = session?.user?.role;
   if (!role || !BACKEND_ROLES.includes(role)) return { ok: false, error: "Not authorized." };
-  await prisma.blog.update({ where: { id: blogId }, data: { status: "PUBLISHED", publishAt: new Date() } });
+  const blog = await prisma.blog.update({
+    where: { id: blogId },
+    data: { status: "PUBLISHED", publishAt: new Date() },
+    include: { author: { include: { user: true } } },
+  });
+  const { createNotification } = await import("@/actions/notifications");
+  await createNotification(blog.author.user.id, "Blog post published", `"${blog.title}" is now live on the journal.`);
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
   return { ok: true };
@@ -91,7 +97,13 @@ export async function rejectBlog(blogId: string): Promise<{ ok: boolean; error?:
   const session = await auth();
   const role = session?.user?.role;
   if (!role || !BACKEND_ROLES.includes(role)) return { ok: false, error: "Not authorized." };
-  await prisma.blog.update({ where: { id: blogId }, data: { status: "REJECTED" } });
+  const blog = await prisma.blog.update({
+    where: { id: blogId },
+    data: { status: "REJECTED" },
+    include: { author: { include: { user: true } } },
+  });
+  const { createNotification } = await import("@/actions/notifications");
+  await createNotification(blog.author.user.id, "Blog post needs changes", `"${blog.title}" was not approved this time.`);
   revalidatePath("/admin/blog");
   return { ok: true };
 }

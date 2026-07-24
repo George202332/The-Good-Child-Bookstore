@@ -32,7 +32,7 @@ function routeMatch(pathname: string): string {
   return seg || "home";
 }
 
-export function Header() {
+export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -75,7 +75,7 @@ export function Header() {
   return (
     <header className="site-header">
       <div className="wrap header-inner">
-        <Logo />
+        <Logo logoImageUrl={logoImageUrl} />
         <nav className="main-nav">
           {NAV_ITEMS.map((item) => (
             <Link key={item.href} href={item.href} className={active === item.match ? "active" : ""}>

@@ -246,6 +246,11 @@ model Book {
   tags         TagOnBook[]
   ageGroup     String?
   language     String        @default("en")
+  // Which formats this title is published in — an author can enable
+  // any combination from the same submission (see actions/submissions.ts).
+  hasEbook     Boolean       @default(false)
+  hasPrint     Boolean       @default(false)
+  hasAudiobook Boolean       @default(false)
   files        BookFile[]
   reviews      Review[]
   ratings      Rating[]

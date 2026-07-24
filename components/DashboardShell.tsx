@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
 import { SignOutButton } from "./SignOutButton";
+import { getUnreadNotificationCount } from "@/actions/notifications";
 
 interface NavItem {
   key: string;
@@ -29,6 +30,7 @@ function navItemsForRole(role: Role): NavItem[] {
       { key: "payment-methods", label: "Payment Methods", href: "/account/payment-methods", section: "Account extras" },
       { key: "following", label: "Following", href: "/account/following", section: "Account extras" },
       { key: "reviews", label: "Reviews", href: "/account/reviews", section: "Account extras" },
+      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Account extras" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Account extras" },
     ];
   }
@@ -38,6 +40,7 @@ function navItemsForRole(role: Role): NavItem[] {
       { key: "referrals", label: "Referral Links", href: "/account/referrals", section: "Affiliate" },
       { key: "campaigns", label: "Campaigns", href: "/account/campaigns", section: "Affiliate" },
       { key: "earnings", label: "Earnings", href: "/account/earnings", section: "Financial" },
+      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
       { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Affiliate" },
     ];
@@ -48,6 +51,7 @@ function navItemsForRole(role: Role): NavItem[] {
       { key: "mybooks", label: "My Books", href: "/account/books", section: "Publishing" },
       { key: "blog", label: "Blog", href: "/account/blog", section: "Publishing" },
       { key: "revenue", label: "Revenue", href: "/account/revenue", section: "Financial" },
+      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
       { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Publishing" },
     ];
@@ -63,7 +67,7 @@ const ROLE_LABEL: Record<Role, string> = {
   ADMIN: "Admin",
 };
 
-export function DashboardShell({
+export async function DashboardShell({
   role,
   activeKey,
   displayName,
@@ -74,7 +78,8 @@ export function DashboardShell({
   displayName: string;
   children: ReactNode;
 }) {
-  const items = navItemsForRole(role);
+  const unread = await getUnreadNotificationCount();
+  const items = navItemsForRole(role).map((it) => (it.key === "notifications" ? { ...it, badge: unread || undefined } : it));
   const sections: { name: string; items: NavItem[] }[] = [];
   items.forEach((it) => {
     let sec = sections.find((s) => s.name === it.section);

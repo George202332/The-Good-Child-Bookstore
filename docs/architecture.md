@@ -350,3 +350,38 @@ settings pages, live third-party credentials, full deployment docs).
 - Next.js 16 renamed the `middleware.ts` file convention to `proxy.ts`
   (same API — default export + `config.matcher`); this project already
   uses `proxy.ts` to avoid the deprecation warning.
+
+
+## Round: full admin control (users, transactions, site branding, revenue breakdown)
+
+Explicit requests, all built and verified this round:
+
+- **Create any account type from the backend** (`actions/users-admin.ts`,
+  `/admin/users`) — Admin can now create Reader/Author/Affiliate/Editor/
+  Admin accounts directly (previously only the CLI script could create
+  Editor/Admin, and only the public signup pages could create the other
+  three). Same page also supports changing a user's role or deleting an
+  account inline.
+- **Unified transaction ledger** (`actions/transactions.ts`,
+  `/admin/transactions`) — every sale and every payout in one 7-column
+  table (Transaction ID, Date, Type, Party, Method, Amount, Status),
+  rather than orders and payouts living on separate pages with no
+  combined view.
+- **7-column revenue breakdown by month** (extended
+  `actions/analytics.ts`, shown on `/admin/analytics`) — Month, Orders,
+  Books Sold, Gross Revenue, Company Share, Author Share, Affiliate
+  Share, so it's explicit exactly how much of the money belongs to the
+  company vs. authors vs. affiliates, not just totals.
+- **Full site branding control** (`lib/site-settings.ts`,
+  `actions/site-settings.ts`, `/admin/site-settings`) — logo image,
+  footer tagline, footer copyright line, and the five payment badge
+  images (PayPal/Mastercard/Visa/Amex/Verve) are all admin-editable now,
+  same URL-field pattern as book covers (real file upload needs storage
+  wired in). Threaded through `Logo.tsx`/`Header.tsx`/`Footer.tsx`/
+  `SiteChrome.tsx`, fetched once in the root layout.
+- **Homepage banners now editable** — extended `HomepageContent`
+  (`lib/homepage-content.ts`) with title/body fields for all four promo
+  banners (Book Club, Print, Affiliate, Journal), wired into the
+  existing `/admin/homepage` editor and into `app/page.tsx`.
+
+53 routes verified building clean.

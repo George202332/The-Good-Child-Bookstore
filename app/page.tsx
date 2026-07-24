@@ -225,8 +225,8 @@ export default async function HomePage() {
                 <rect x={4} y={7} width={4} height={10} rx={1} />
               </svg>
             }
-            title="Join the Good Child Book Club"
-            body="One hand-picked title delivered every month, chosen for the age and mood you tell us about."
+            title={hero.bookClubBannerTitle}
+            body={hero.bookClubBannerBody}
             ctaHref="/subscription"
             ctaLabel="See the plans"
           />
@@ -260,8 +260,8 @@ export default async function HomePage() {
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
             }
-            title="Now available in print"
-            body="Love a book on screen? Most titles on our shelf also ship as real, hold-in-your-hands paperbacks and hardcovers."
+            title={hero.printBannerTitle}
+            body={hero.printBannerBody}
             ctaHref="/shop?format=print"
             ctaLabel="Shop print copies"
           />
@@ -318,8 +318,8 @@ export default async function HomePage() {
                 <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
               </svg>
             }
-            title="Earn by sharing books you love"
-            body="Join our affiliate program and earn a commission every time someone buys through your link."
+            title={hero.affiliateBannerTitle}
+            body={hero.affiliateBannerBody}
             ctaHref="/signup/affiliate"
             ctaLabel="Become an affiliate"
           />
@@ -359,8 +359,8 @@ export default async function HomePage() {
                 <path d="M4 9h16M9 4v16" />
               </svg>
             }
-            title="From the Journal"
-            body="Reading tips, behind-the-scenes picks, and the occasional bedtime-routine rescue."
+            title={hero.journalBannerTitle}
+            body={hero.journalBannerBody}
             ctaHref="/blog"
             ctaLabel="Read the journal"
           />

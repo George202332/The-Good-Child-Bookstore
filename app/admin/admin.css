@@ -1,0 +1,203 @@
+/**
+ * A deliberately distinct visual identity for the backend admin/editor
+ * surface — previously it reused the storefront's cream/coral pastel
+ * theme and Times New Roman typography, which looked wrong for a
+ * backend panel (this was flagged directly). Everything here is scoped
+ * under .admin-shell so it never leaks into the public storefront or
+ * the reader/author/affiliate dashboards, which keep their original
+ * look untouched.
+ */
+
+.admin-shell {
+  --admin-bg: #0F1420;
+  --admin-panel: #171D2B;
+  --admin-panel-hover: #1D2536;
+  --admin-border: rgba(255, 255, 255, 0.08);
+  --admin-text: #E8EBF2;
+  --admin-text-soft: #9BA3B7;
+  --admin-text-faint: #6B7385;
+  --admin-accent: #5B8DEF;
+  --admin-accent-soft: rgba(91, 141, 239, 0.14);
+  --admin-success: #3FBF7F;
+  --admin-danger: #EF6262;
+
+  min-height: 100vh;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  display: flex;
+  align-items: flex-start;
+}
+
+.admin-shell h1, .admin-shell h2, .admin-shell h3, .admin-shell h4 {
+  font-family: inherit;
+  color: var(--admin-text);
+}
+.admin-shell p { color: var(--admin-text-soft); }
+.admin-shell a { color: inherit; }
+
+.admin-sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: var(--admin-panel);
+  border-right: 1px solid var(--admin-border);
+  padding: 24px 16px;
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 20px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--admin-border);
+}
+.admin-brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--admin-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  color: #fff;
+  flex-shrink: 0;
+}
+.admin-brand-text {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.admin-brand-text small {
+  display: block;
+  font-weight: 400;
+  color: var(--admin-text-faint);
+  font-size: 11px;
+}
+
+.admin-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 20px;
+  margin-bottom: 8px;
+}
+.admin-user-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.admin-user-name { font-size: 13px; font-weight: 600; }
+.admin-user-role {
+  font-size: 11px;
+  color: var(--admin-text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.admin-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--admin-text-soft);
+  transition: background 0.15s, color 0.15s;
+}
+.admin-nav-link:hover { background: var(--admin-panel-hover); color: var(--admin-text); }
+.admin-nav-link.active {
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+  font-weight: 700;
+}
+
+.admin-signout {
+  margin-top: auto;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--admin-text-faint);
+  text-align: left;
+  transition: background 0.15s, color 0.15s;
+}
+.admin-signout:hover { background: var(--admin-panel-hover); color: var(--admin-danger); }
+
+.admin-content {
+  flex: 1;
+  padding: 32px 40px;
+  max-width: 1200px;
+}
+
+/* Restyle the shared component classes (stat-card, map-card, form-section,
+   btn, age-pill) specifically within the admin shell, without touching
+   every admin page file. */
+.admin-shell .stat-card {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.admin-shell .stat-label { color: var(--admin-text-faint); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+.admin-shell .stat-value { color: var(--admin-text); font-size: 26px; font-weight: 700; margin: 6px 0 4px; }
+.admin-shell .stat-sub { color: var(--admin-text-faint); font-size: 12px; }
+
+.admin-shell .map-card,
+.admin-shell .form-section {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+}
+.admin-shell .form-section { padding: 20px; }
+
+.admin-shell .field, .admin-shell select, .admin-shell textarea, .admin-shell input {
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+}
+.admin-shell .field-label { color: var(--admin-text-soft); }
+.admin-shell .field-hint { color: var(--admin-text-faint); }
+
+.admin-shell .btn-primary {
+  background: var(--admin-accent);
+  color: #fff;
+}
+.admin-shell .btn-ghost {
+  background: transparent;
+  color: var(--admin-text-soft);
+  border: 1px solid var(--admin-border);
+}
+.admin-shell .age-pill {
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+}
+
+.admin-shell [style*="border-bottom"] { border-color: var(--admin-border) !important; }
+.admin-shell [style*="color: var(--ink-faint)"],
+.admin-shell [style*="color:var(--ink-faint)"] { color: var(--admin-text-faint) !important; }
+.admin-shell [style*="color: var(--ink-soft)"],
+.admin-shell [style*="color:var(--ink-soft)"] { color: var(--admin-text-soft) !important; }
+.admin-shell [style*="background: var(--cream)"],
+.admin-shell [style*="background:var(--cream)"] { background: var(--admin-panel) !important; }
+
+@media (max-width: 900px) {
+  .admin-shell { flex-direction: column; }
+  .admin-sidebar { width: 100%; min-height: auto; position: static; flex-direction: row; overflow-x: auto; }
+  .admin-content { padding: 20px; }
+}

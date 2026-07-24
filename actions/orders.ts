@@ -113,7 +113,22 @@ export async function createPendingOrder(input: {
  * payment gateway. Used when no PayPal/Paystack credentials are
  * configured (see actions/payment-init.ts initiateGatewayCheckout). */
 export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: boolean }> {
-  await prisma.order.update({ where: { id: orderId }, data: { status: "PAID" } });
+  const order = await prisma.order.update({
+    where: { id: orderId },
+    data: { status: "PAID" },
+    include: { reader: { include: { user: true } } },
+  });
+  try {
+    await prisma.notification.create({
+      data: {
+        userId: order.reader.user.id,
+        title: "Order confirmed",
+        body: `Your order #${orderId.slice(0, 8).toUpperCase()} for $${Number(order.totalAmount).toFixed(2)} is confirmed.`,
+      },
+    });
+  } catch {
+    // Non-critical.
+  }
   return { ok: true };
 }
 
