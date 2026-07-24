@@ -5,6 +5,13 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { DEFAULT_HOMEPAGE_CONTENT, type HomepageContent } from "@/lib/homepage-content";
 
+/**
+ * Homepage CMS — "Allow Admins to edit Hero... without changing code"
+ * from the brief. Built on the existing generic `Setting` key-value
+ * table rather than a bespoke table, since this is exactly the kind of
+ * loosely-structured, admin-editable content that model exists for.
+ */
+
 const HOMEPAGE_KEY = "homepage_hero";
 
 export async function getHomepageContent(): Promise<HomepageContent> {
@@ -28,6 +35,9 @@ export async function updateHomepageContent(content: HomepageContent): Promise<{
     return { ok: false, error: "Heading can't be empty." };
   }
 
+  // Prisma's Json field type doesn't accept a plain TypeScript interface
+  // directly — round-tripping through JSON turns it into the plain
+  // key-value object Prisma expects.
   const value = JSON.parse(JSON.stringify(content));
 
   await prisma.setting.upsert({
