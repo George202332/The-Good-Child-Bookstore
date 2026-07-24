@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateSiteSettings } from "@/actions/site-settings";
 import type { SiteSettings } from "@/lib/site-settings";
+import { ImageUploadField } from "@/components/ImageUploadField";
 
 const BADGE_FIELDS: { key: keyof SiteSettings["paymentBadges"]; label: string }[] = [
   { key: "paypal", label: "PayPal" },
@@ -38,16 +39,10 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
   return (
     <form onSubmit={handleSave} className="form-section">
       <h3 style={{ fontSize: 15, marginBottom: 10 }}>Logo</h3>
-      <label className="field-label" htmlFor="logo-url">
-        Logo image URL <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(leave blank to use the default owl mark)</span>
-      </label>
-      <input
-        className="field"
-        id="logo-url"
-        type="url"
-        placeholder="https://..."
-        value={settings.logoImageUrl ?? ""}
-        onChange={(e) => setSettings((s) => ({ ...s, logoImageUrl: e.target.value }))}
+      <ImageUploadField
+        label="Logo image (leave empty to use the default owl mark)"
+        value={settings.logoImageUrl}
+        onChange={(url) => setSettings((s) => ({ ...s, logoImageUrl: url }))}
       />
 
       <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Footer</h3>
@@ -73,17 +68,12 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
         Leave any of these blank to keep the plain-text badge for that one.
       </p>
       {BADGE_FIELDS.map(({ key, label }) => (
-        <div key={key}>
-          <label className="field-label" htmlFor={`badge-${key}`}>{label} image URL</label>
-          <input
-            className="field"
-            id={`badge-${key}`}
-            type="url"
-            placeholder="https://..."
-            value={settings.paymentBadges[key] ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, paymentBadges: { ...s.paymentBadges, [key]: e.target.value } }))}
-          />
-        </div>
+        <ImageUploadField
+          key={key}
+          label={`${label} image`}
+          value={settings.paymentBadges[key]}
+          onChange={(url) => setSettings((s) => ({ ...s, paymentBadges: { ...s.paymentBadges, [key]: url } }))}
+        />
       ))}
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}

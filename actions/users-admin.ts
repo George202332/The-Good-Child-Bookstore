@@ -7,12 +7,11 @@ import { auth } from "@/lib/auth";
 import type { Role } from "@/lib/roles";
 
 /**
- * Admin-side account creation — "Admin can manage all users" from the
- * brief, extended per explicit request: create ANY account type
- * (Reader, Author, Affiliate, Editor, Admin) directly from the backend,
- * not just via the public self-serve signup pages (which only ever
- * covered Reader/Author/Affiliate) or the CLI script (which only ever
- * covered Admin/Editor). This is the one place that can create all five.
+ * Admin-side account creation and management — "Admin can manage all
+ * users" from the brief, extended per explicit request: create ANY
+ * account type (Reader, Author, Affiliate, Editor, Admin) directly from
+ * the backend, view/edit any account's details, and suspend/reactivate
+ * an account (a suspended account can't sign in — see lib/auth.ts).
  */
 
 function generateReferralCode(name: string): string {
@@ -63,6 +62,110 @@ export async function createUserAccount(input: CreateUserInput): Promise<{ ok: b
   return { ok: true };
 }
 
+export interface UserListRow {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  suspended: boolean;
+  createdAt: Date;
+}
+
+/** role: "ALL" or a specific Role — the query-by-type tabs at the top of
+ * the Users page. */
+export async function listUsers(role: Role | "ALL"): Promise<UserListRow[]> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return [];
+
+  return prisma.user.findMany({
+    where: role === "ALL" ? {} : { role },
+    orderBy: { createdAt: "desc" },
+    take: 300,
+    select: { id: true, name: true, email: true, role: true, suspended: true, createdAt: true },
+  });
+}
+
+export interface UserDetail extends UserListRow {
+  authorBio: string | null;
+  authorPrimaryGenre: string | null;
+  affiliateReferralCode: string | null;
+}
+
+export async function getUserDetail(userId: string): Promise<UserDetail | null> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: { authorProfile: true, affiliateProfile: true },
+  });
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    suspended: user.suspended,
+    createdAt: user.createdAt,
+    authorBio: user.authorProfile?.bio ?? null,
+    authorPrimaryGenre: user.authorProfile?.primaryGenre ?? null,
+    affiliateReferralCode: user.affiliateProfile?.referralCode ?? null,
+  };
+}
+
+export interface UpdateUserDetailInput {
+  name: string;
+  email: string;
+  authorBio?: string;
+  authorPrimaryGenre?: string;
+}
+
+export async function updateUserDetail(userId: string, input: UpdateUserDetailInput): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can edit accounts." };
+
+  const name = input.name.trim();
+  const email = input.email.trim().toLowerCase();
+  if (!name || !email) return { ok: false, error: "Name and email are required." };
+
+  const emailOwner = await prisma.user.findUnique({ where: { email } });
+  if (emailOwner && emailOwner.id !== userId) return { ok: false, error: "That email is already used by another account." };
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, include: { authorProfile: true } });
+  if (!user) return { ok: false, error: "Account not found." };
+
+  await prisma.user.update({ where: { id: userId }, data: { name, email } });
+
+  if (user.authorProfile) {
+    await prisma.authorProfile.update({
+      where: { id: user.authorProfile.id },
+      data: {
+        bio: input.authorBio?.trim() || null,
+        primaryGenre: input.authorPrimaryGenre?.trim() || null,
+      },
+    });
+  }
+
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+  return { ok: true };
+}
+
+export async function toggleUserSuspension(userId: string): Promise<{ ok: boolean; error?: string; suspended?: boolean }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can suspend accounts." };
+  if (userId === session.user.id) return { ok: false, error: "You can't suspend your own account." };
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return { ok: false, error: "Account not found." };
+
+  const updated = await prisma.user.update({ where: { id: userId }, data: { suspended: !user.suspended } });
+  revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
+  return { ok: true, suspended: updated.suspended };
+}
+
 export async function updateUserRole(userId: string, newRole: Role): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can change roles." };
@@ -70,6 +173,7 @@ export async function updateUserRole(userId: string, newRole: Role): Promise<{ o
 
   await prisma.user.update({ where: { id: userId }, data: { role: newRole } });
   revalidatePath("/admin/users");
+  revalidatePath(`/admin/users/${userId}`);
   return { ok: true };
 }
 

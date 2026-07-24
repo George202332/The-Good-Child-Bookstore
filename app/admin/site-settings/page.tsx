@@ -12,7 +12,7 @@ import { SiteSettingsForm } from "./SiteSettingsForm";
  */
 export default async function SiteSettingsPage() {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 
   const settings = await getSiteSettings();

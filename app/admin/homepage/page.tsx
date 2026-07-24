@@ -13,7 +13,7 @@ import { HomepageEditor } from "./HomepageEditor";
  */
 export default async function HomepageAdminPage() {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 
   const content = await getHomepageContent();

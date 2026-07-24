@@ -24,7 +24,7 @@
   min-height: 100vh;
   background: var(--admin-bg);
   color: var(--admin-text);
-  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Times New Roman", Times, serif;
   display: flex;
   align-items: flex-start;
 }
@@ -141,8 +141,9 @@
 
 .admin-content {
   flex: 1;
+  min-width: 0;
+  width: 100%;
   padding: 32px 40px;
-  max-width: 1200px;
 }
 
 /* Restyle the shared component classes (stat-card, map-card, form-section,

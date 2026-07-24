@@ -7,7 +7,7 @@ import { CouponManager } from "./CouponManager";
 /** Admin-only coupon management — "manage coupons" from the brief. */
 export default async function CouponsPage() {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 
   const coupons = await listCoupons();

@@ -20,7 +20,7 @@ interface PendingPayout {
  * lib/payments/wise.ts. */
 export default async function PayoutsPage() {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 
   const pending = (await prisma.payoutRequest.findMany({

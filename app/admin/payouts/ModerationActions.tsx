@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { approvePayoutRequest, rejectPayoutRequest } from "@/actions/admin";
 
 export function ModerationActions({ payoutId }: { payoutId: string }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -18,6 +20,7 @@ export function ModerationActions({ payoutId }: { payoutId: string }) {
           startTransition(async () => {
             const res = await approvePayoutRequest(payoutId);
             if (!res.ok) setError(res.error ?? "Failed");
+            else router.refresh();
           })
         }
       >
@@ -31,6 +34,7 @@ export function ModerationActions({ payoutId }: { payoutId: string }) {
           startTransition(async () => {
             const res = await rejectPayoutRequest(payoutId);
             if (!res.ok) setError(res.error ?? "Failed");
+            else router.refresh();
           })
         }
       >

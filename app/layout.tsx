@@ -75,6 +75,17 @@ const JSON_LD = {
   },
 };
 
+/**
+ * Forces every page to render fresh on each request, rather than being
+ * frozen as static HTML at build time. Without this, most storefront
+ * pages (shop, about, contact, etc.) were being statically generated —
+ * meaning the logo/footer/homepage content fetched here in the root
+ * layout only ever reflected whatever was true at the last deploy, not
+ * what's actually saved in Site Settings right now. This was the real
+ * cause of "changes at the backend don't take effect on the frontend."
+ */
+export const dynamic = "force-dynamic";
+
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const settings = await getSiteSettings();
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;

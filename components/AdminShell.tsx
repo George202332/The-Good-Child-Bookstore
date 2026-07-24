@@ -77,7 +77,7 @@ export function AdminShell({
             </Link>
           ))}
         </nav>
-        <SignOutButton className="admin-signout" />
+        <SignOutButton className="admin-signout" callbackUrl="/admin/login" />
       </aside>
       <main className="admin-content">{children}</main>
     </div>

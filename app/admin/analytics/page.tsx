@@ -11,7 +11,7 @@ import { getAnalyticsSummary } from "@/actions/analytics";
  */
 export default async function AnalyticsPage() {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");
 
@@ -55,7 +55,7 @@ export default async function AnalyticsPage() {
         )}
       </div>
 
-      {data.monthlyRevenue.length > 0 && (
+      {data.monthlyRevenue.length > 0 ? (
         <>
           <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Monthly revenue (gross)</h3>
           <div className="map-card" style={{ padding: "16px 16px", display: "flex", alignItems: "flex-end", gap: 10, height: 160 }}>
@@ -75,46 +75,59 @@ export default async function AnalyticsPage() {
             ))}
           </div>
         </>
-      )}
-
-      {data.revenueBreakdown.length > 0 && (
+      ) : (
         <>
-          <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Revenue breakdown by month</h3>
-          <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 24 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ textAlign: "left" }}>
-                  {["Month", "Orders", "Books Sold", "Gross Revenue", "Company Share", "Author Share", "Affiliate Share"].map((h) => (
-                    <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.revenueBreakdown.map((row) => (
-                  <tr key={row.month}>
-                    <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", fontWeight: 700, whiteSpace: "nowrap" }}>{row.month}</td>
-                    <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{row.orders}</td>
-                    <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{row.booksSold}</td>
-                    <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.grossRevenue.toFixed(2)}</td>
-                    <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.companyShare.toFixed(2)}</td>
-                    <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.authorShare.toFixed(2)}</td>
-                    <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.affiliateShare.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Monthly revenue (gross)</h3>
+          <div className="map-card" style={{ padding: "20px 16px", height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13 }}>
+            No revenue yet — this chart fills in once sales start coming through.
           </div>
         </>
       )}
 
+      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Revenue breakdown by month</h3>
+      <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 24 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ textAlign: "left" }}>
+              {["Month", "Orders", "Books Sold", "Gross Revenue", "Company Share", "Author Share", "Affiliate Share"].map((h) => (
+                <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.revenueBreakdown.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
+                  No revenue recorded yet — this table fills in month by month as sales happen.
+                </td>
+              </tr>
+            ) : (
+              data.revenueBreakdown.map((row) => (
+                <tr key={row.month}>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", fontWeight: 700, whiteSpace: "nowrap" }}>{row.month}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{row.orders}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{row.booksSold}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.grossRevenue.toFixed(2)}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.companyShare.toFixed(2)}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.authorShare.toFixed(2)}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.affiliateShare.toFixed(2)}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
       <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Top books</h3>
-      {data.topBooks.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No sales recorded yet.</div>
-      ) : (
-        <div className="map-card" style={{ padding: "6px 16px" }}>
-          {data.topBooks.map((b) => (
+      <div className="map-card" style={{ padding: "6px 16px" }}>
+        {data.topBooks.length === 0 ? (
+          <div style={{ padding: "20px 0", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
+            No sales recorded yet — top-selling books will appear here.
+          </div>
+        ) : (
+          data.topBooks.map((b) => (
             <div key={b.title} style={{ padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                 <span style={{ fontWeight: 700, fontSize: 13.5 }}>{b.title}</span>
@@ -124,9 +137,9 @@ export default async function AnalyticsPage() {
                 <div style={{ width: `${(b.unitsSold / maxTopBookSales) * 100}%`, background: "var(--mint-deep)", height: 6, borderRadius: 4 }} />
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </AdminShell>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitBook } from "@/actions/submissions";
+import { ImageUploadField } from "@/components/ImageUploadField";
 
 const AGE_RANGES = ["0-2", "3-5", "6-8", "9-12", "12-15"];
 
@@ -68,10 +69,7 @@ export function SubmitBookForm() {
         </div>
       </div>
 
-      <label className="field-label" htmlFor="sub-cover">
-        Cover image URL <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(optional)</span>
-      </label>
-      <input className="field" id="sub-cover" type="url" placeholder="https://..." value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} />
+      <ImageUploadField label="Cover image" value={coverImageUrl} onChange={setCoverImageUrl} />
 
       <label className="field-label">Available formats</label>
       <div style={{ display: "flex", gap: 18, marginBottom: 16 }}>

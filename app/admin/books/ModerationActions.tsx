@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { approveBook, rejectBook } from "@/actions/admin";
 
 export function ModerationActions({ bookId }: { bookId: string }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -18,6 +20,7 @@ export function ModerationActions({ bookId }: { bookId: string }) {
           startTransition(async () => {
             const res = await approveBook(bookId);
             if (!res.ok) setError(res.error ?? "Failed");
+            else router.refresh();
           })
         }
       >
@@ -31,6 +34,7 @@ export function ModerationActions({ bookId }: { bookId: string }) {
           startTransition(async () => {
             const res = await rejectBook(bookId);
             if (!res.ok) setError(res.error ?? "Failed");
+            else router.refresh();
           })
         }
       >

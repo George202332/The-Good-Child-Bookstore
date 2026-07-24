@@ -11,10 +11,15 @@ export default auth((req) => {
   const { pathname } = req.nextUrl;
   const role = (req.auth?.user as { role?: string } | undefined)?.role;
 
-  const isBackendRoute = pathname.startsWith("/admin") || pathname.startsWith("/editor");
+  // /admin/login is the backend's own sign-in page — it must stay
+  // reachable by signed-out visitors, or this would redirect to itself
+  // in an infinite loop.
+  const isAdminLoginRoute = pathname === "/admin/login";
+
+  const isBackendRoute = (pathname.startsWith("/admin") || pathname.startsWith("/editor")) && !isAdminLoginRoute;
   if (isBackendRoute) {
     if (!role || !BACKEND_ROLES.includes(role as Role)) {
-      return NextResponse.redirect(new URL("/login", req.nextUrl.origin));
+      return NextResponse.redirect(new URL("/admin/login", req.nextUrl.origin));
     }
   }
 
