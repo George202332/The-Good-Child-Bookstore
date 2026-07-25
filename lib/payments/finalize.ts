@@ -28,5 +28,6 @@ export async function finalizeOrderPayment(
   } catch {
     // Non-critical — a failed notification shouldn't block payment confirmation.
   }
-  // Confirmation email would be sent here once an email service is wired up.
+  const { sendOrderReceiptEmail } = await import("@/actions/order-emails");
+  await sendOrderReceiptEmail(orderId);
 }

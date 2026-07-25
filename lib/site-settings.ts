@@ -22,6 +22,8 @@ export interface PaymentBadgeUrls {
  */
 export interface ApiKeys {
   luluApiKey?: string;
+  resendApiKey?: string;
+  fromEmail?: string;
   paymentMode: "test" | "live";
   paypalSandboxClientId?: string;
   paypalSandboxClientSecret?: string;

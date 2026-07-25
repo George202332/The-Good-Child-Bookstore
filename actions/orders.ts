@@ -183,30 +183,44 @@ export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: b
   } catch {
     // Non-critical.
   }
+  const { sendOrderReceiptEmail } = await import("@/actions/order-emails");
+  await sendOrderReceiptEmail(orderId);
   return { ok: true };
 }
 
 export interface OrderSummary {
   id: string;
   totalAmount: number;
-  items: { title: string; price: number }[];
+  items: { title: string; price: number; downloadUrl: string | null; hasEbook: boolean; hasAudiobook: boolean; coverImageUrl: string | null }[];
 }
 
 /** Fetches an order for the confirmation page — used both by the demo-mode
- * path and the real gateway return flow (app/checkout/return). */
+ * path and the real gateway return flow (app/checkout/return). Includes a
+ * real download link for any purchased eBook that has a manuscript file
+ * on record (see BookFile kind: "MANUSCRIPT") — the demo catalog's 50
+ * seeded books don't have one (they were seeded directly, not submitted
+ * through the real upload flow), so those show no download link, same
+ * as any book an author hasn't actually uploaded a file for yet. */
 export async function getOrderSummary(orderId: string): Promise<OrderSummary | null> {
   try {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
-      include: { lines: { include: { book: true } } },
+      include: { lines: { include: { book: { include: { files: true } } } } },
     });
     if (!order || !Array.isArray(order.lines)) return null;
     return {
       id: order.id,
       totalAmount: Number(order.totalAmount),
-      items: order.lines.map((l: { book: { title: string }; grossAmount: unknown }) => ({
+      items: order.lines.map((l: {
+        book: { title: string; hasEbook: boolean; hasAudiobook: boolean; coverImageUrl: string | null; files: { kind: string; url: string }[] };
+        grossAmount: unknown;
+      }) => ({
         title: l.book.title,
         price: Number(l.grossAmount),
+        downloadUrl: l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url ?? null,
+        hasEbook: l.book.hasEbook,
+        hasAudiobook: l.book.hasAudiobook,
+        coverImageUrl: l.book.coverImageUrl,
       })),
     };
   } catch {

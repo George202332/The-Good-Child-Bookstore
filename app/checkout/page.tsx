@@ -277,7 +277,22 @@ export default function CheckoutPage() {
         <div style={{ maxWidth: 440, margin: "0 auto" }}>
           <div className="checkout-summary-card" style={{ position: "static" }}>
             <h3>Order summary</h3>
-            <div className="summary-row"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+            {lines.map((l) => (
+              <div className="checkout-summary-item" key={l.book.id}>
+                <div className="mini-cover">
+                  {l.book.coverImage && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={l.book.coverImage} alt={`${l.book.title} cover`} />
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>{l.book.title}</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Qty {l.qty}</div>
+                </div>
+                <div style={{ fontWeight: 700, fontSize: 13.5 }}>${(l.book.price * l.qty).toFixed(2)}</div>
+              </div>
+            ))}
+            <div className="summary-row" style={{ marginTop: 14 }}><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
             {data.couponDiscount > 0 && (
               <div className="summary-row"><span>Coupon discount ({data.couponCode})</span><span>-${couponAmount.toFixed(2)}</span></div>
             )}

@@ -48,6 +48,7 @@ export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSetti
   const settings = await getSiteSettings();
   const apiKeysSet: Record<string, boolean> = {
     luluApiKey: !!settings.apiKeys.luluApiKey,
+    resendApiKey: !!settings.apiKeys.resendApiKey,
     paypalSandboxClientId: !!settings.apiKeys.paypalSandboxClientId,
     paypalSandboxClientSecret: !!settings.apiKeys.paypalSandboxClientSecret,
     paypalLiveClientId: !!settings.apiKeys.paypalLiveClientId,
@@ -63,6 +64,8 @@ export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSetti
       apiKeys: {
         paymentMode: settings.apiKeys.paymentMode,
         luluApiKey: "",
+        resendApiKey: "",
+        fromEmail: settings.apiKeys.fromEmail ?? "",
         paypalSandboxClientId: "",
         paypalSandboxClientSecret: "",
         paypalLiveClientId: "",
@@ -90,6 +93,8 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
   const apiKeys: ApiKeys = {
     paymentMode: settings.apiKeys.paymentMode,
     luluApiKey: settings.apiKeys.luluApiKey?.trim() || existing.apiKeys.luluApiKey,
+    resendApiKey: settings.apiKeys.resendApiKey?.trim() || existing.apiKeys.resendApiKey,
+    fromEmail: settings.apiKeys.fromEmail?.trim() || existing.apiKeys.fromEmail,
     paypalSandboxClientId: settings.apiKeys.paypalSandboxClientId?.trim() || existing.apiKeys.paypalSandboxClientId,
     paypalSandboxClientSecret: settings.apiKeys.paypalSandboxClientSecret?.trim() || existing.apiKeys.paypalSandboxClientSecret,
     paypalLiveClientId: settings.apiKeys.paypalLiveClientId?.trim() || existing.apiKeys.paypalLiveClientId,

@@ -25,8 +25,21 @@ export interface InitiateGatewayResult {
   error?: string;
 }
 
+/**
+ * The real site URL for payment gateway return/callback URLs. This was
+ * the cause of the "localhost refused to connect" bug after a real
+ * payment: it always fell back to a hardcoded localhost address unless
+ * NEXT_PUBLIC_SITE_URL was manually set in Vercel, which it wasn't.
+ * Vercel automatically provides VERCEL_URL on every deployment (no
+ * manual setup needed), so that's used as the real fallback now —
+ * NEXT_PUBLIC_SITE_URL still wins if it's explicitly set (e.g. once a
+ * custom domain is attached), and localhost is only used for actual
+ * local development.
+ */
 function siteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
 }
 
 export async function initiateGatewayCheckout(

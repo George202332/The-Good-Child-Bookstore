@@ -104,6 +104,35 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
         onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, luluApiKey: e.target.value } }))}
       />
 
+      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Order confirmation emails</h4>
+      <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>
+        Sent via Resend — set an API key here to start sending real order receipts (with download links) to buyers.
+      </p>
+      <div className="form-grid-2">
+        <div>
+          <label className="field-label" htmlFor="api-resend">Resend API key</label>
+          <input
+            className="field"
+            id="api-resend"
+            type="password"
+            autoComplete="off"
+            placeholder={apiKeysSet.resendApiKey ? "•••• already set — leave blank to keep it" : "Not set"}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, resendApiKey: e.target.value } }))}
+          />
+        </div>
+        <div>
+          <label className="field-label" htmlFor="api-fromemail">&quot;From&quot; email address</label>
+          <input
+            className="field"
+            id="api-fromemail"
+            type="email"
+            placeholder="orders@yourdomain.com"
+            value={settings.apiKeys.fromEmail ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, fromEmail: e.target.value } }))}
+          />
+        </div>
+      </div>
+
       <label className="field-label" htmlFor="api-mode">Payment mode</label>
       <select
         className="field"
