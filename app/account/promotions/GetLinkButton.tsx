@@ -3,9 +3,9 @@
 import { useState, useTransition } from "react";
 import { getOrCreateAffiliateLink } from "@/actions/affiliate";
 
-export function GetLinkButton({ bookId }: { bookId: string }) {
+export function GetLinkButton({ bookId, existingCode }: { bookId: string; existingCode?: string }) {
   const [isPending, startTransition] = useTransition();
-  const [code, setCode] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(existingCode ?? null);
   const [error, setError] = useState<string | null>(null);
 
   if (code) {

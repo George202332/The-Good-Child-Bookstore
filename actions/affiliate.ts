@@ -24,8 +24,10 @@ export interface AffiliateLinkWithStats {
   code: string;
   bookId: string | null;
   bookTitle: string;
+  bookCoverUrl: string | null;
   clicks: number;
   conversions: number;
+  commissionEarned: number;
 }
 
 export async function getOrCreateAffiliateLink(bookId: string, campaignId?: string): Promise<{ ok: boolean; code?: string; error?: string }> {
@@ -80,12 +82,14 @@ export async function listMyAffiliateLinks(): Promise<AffiliateLinkWithStats[]> 
     orderBy: { createdAt: "desc" },
   });
 
-  return links.map((l: { id: string; code: string; bookId: string | null; book: { title: string } | null; clicks: unknown[]; saleLines: unknown[] }) => ({
+  return links.map((l: { id: string; code: string; bookId: string | null; book: { title: string; coverImageUrl: string | null } | null; clicks: unknown[]; saleLines: { affiliateShare: unknown }[] }) => ({
     id: l.id,
     code: l.code,
     bookId: l.bookId,
     bookTitle: l.book?.title ?? "Unknown book",
+    bookCoverUrl: l.book?.coverImageUrl ?? null,
     clicks: l.clicks.length,
     conversions: l.saleLines.length,
+    commissionEarned: l.saleLines.reduce((sum: number, s) => sum + Number(s.affiliateShare), 0),
   }));
 }
