@@ -23,7 +23,7 @@ export interface UploadImageResult {
   error?: string;
 }
 
-export async function uploadImage(formData: FormData): Promise<UploadImageResult> {
+export async function uploadImage(formData: FormData, options?: { trim?: boolean }): Promise<UploadImageResult> {
   const session = await auth();
   const role = session?.user?.role;
   // Anyone signed in may upload (readers don't need this, but authors
@@ -47,7 +47,18 @@ export async function uploadImage(formData: FormData): Promise<UploadImageResult
 
   try {
     const arrayBuffer = await file.arrayBuffer();
-    const webpBuffer = await sharp(Buffer.from(arrayBuffer))
+    let pipeline = sharp(Buffer.from(arrayBuffer));
+    // For logo/favicon uploads: many logo files (like this one) are
+    // exported on a much larger canvas than the actual visible artwork,
+    // with wide transparent or solid-color margins around it. Without
+    // trimming that away first, object-fit:contain has to fit the whole
+    // canvas — padding included — into the display box, so the real
+    // logo ends up looking tiny inside it even though the box itself is
+    // sized correctly. trim() crops to just the actual visible content.
+    if (options?.trim) {
+      pipeline = pipeline.trim();
+    }
+    const webpBuffer = await pipeline
       .resize(2000, 2000, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 82 })
       .toBuffer();

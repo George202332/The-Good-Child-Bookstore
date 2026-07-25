@@ -42,15 +42,17 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
       <h3 style={{ fontSize: 15, marginBottom: 10 }}>Logo &amp; Favicon</h3>
       <ImageUploadField
         label="Logo image (leave empty to use the default owl mark)"
-        recommendedSize="Recommended 512×512px, square"
+        recommendedSize="Any size works — transparent padding around the artwork is trimmed automatically"
         value={settings.logoImageUrl}
         onChange={(url) => setSettings((s) => ({ ...s, logoImageUrl: url }))}
+        trim
       />
       <ImageUploadField
         label="Favicon (browser tab icon — leave empty to use the default)"
         recommendedSize="Recommended 64×64px, square"
         value={settings.faviconImageUrl}
         onChange={(url) => setSettings((s) => ({ ...s, faviconImageUrl: url }))}
+        trim
       />
 
       <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Footer</h3>

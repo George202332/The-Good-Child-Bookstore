@@ -18,11 +18,18 @@ export function ImageUploadField({
   recommendedSize,
   value,
   onChange,
+  trim,
 }: {
   label: string;
   recommendedSize?: string;
   value?: string;
   onChange: (url: string) => void;
+  /** Auto-crops away transparent/uniform-color padding around the
+   * actual visible content before storing — use for logos/favicons,
+   * where the source file often has much more canvas than artwork. Not
+   * used for book covers or promotional images, where intentional
+   * white space can be part of the design. */
+  trim?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +43,7 @@ export function ImageUploadField({
     setError(null);
     const formData = new FormData();
     formData.append("file", file);
-    const res = await uploadImage(formData);
+    const res = await uploadImage(formData, { trim });
     setUploading(false);
 
     if (!res.ok || !res.url) {
