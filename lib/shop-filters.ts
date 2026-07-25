@@ -35,8 +35,8 @@ export function parseShopFilters(params: URLSearchParams): ShopFilters {
   };
 }
 
-export function filteredSortedBooks(filters: ShopFilters): Book[] {
-  let list = BOOKS.filter((b) => {
+export function filteredSortedBooks(filters: ShopFilters, books: Book[] = BOOKS): Book[] {
+  let list = books.filter((b) => {
     if (filters.cats.size && !filters.cats.has(b.category)) return false;
     if (filters.genres.size && !filters.genres.has(b.genre)) return false;
     if (filters.ages.size && !filters.ages.has(b.age)) return false;

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { hashStr } from "@/lib/hash";
 import { NewsletterForm } from "@/components/NewsletterForm";
 import { getPagesContent } from "@/actions/page-content";
+import { getRealPublishedBooks } from "@/lib/data/real-books-adapter";
 import { DEFAULT_PAGES_CONTENT } from "@/lib/page-content";
 
 export const dynamic = "force-dynamic";
@@ -60,7 +61,8 @@ interface HomeBlogPost {
 }
 
 export default async function HomePage() {
-  const featured = BOOKS.slice(0, 12);
+  const realBooks = await getRealPublishedBooks();
+  const featured = [...realBooks, ...BOOKS].slice(0, 12);
   const content = await getPagesContent();
   const hero = content.home;
   let blogPosts: HomeBlogPost[] = [];

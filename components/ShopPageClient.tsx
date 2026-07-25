@@ -2,20 +2,23 @@
 
 import { useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { CATS, PRICE_RANGES } from "@/lib/data/catalog";
+import { CATS, PRICE_RANGES, type Book } from "@/lib/data/catalog";
 import { parseShopFilters, filteredSortedBooks, SHOP_PAGE_SIZE } from "@/lib/shop-filters";
 import { BookCard } from "@/components/BookCard";
 import { ShopSidebar } from "@/components/ShopSidebar";
 
-/** Converted from shopHTML() (the-good-child-bookstore_54_1.html:4049-4170). */
-export function ShopPageClient({ eyebrow, heading, introText }: { eyebrow: string; heading: string; introText: string }) {
+/** Converted from shopHTML() (the-good-child-bookstore_54_1.html:4049-4170).
+ * `books` is the real, published catalog (real submitted books first,
+ * demo catalog filling out the rest — see lib/data/real-books-adapter.ts)
+ * rather than always the static 50-book fixture. */
+export function ShopPageClient({ eyebrow, heading, introText, books }: { eyebrow: string; heading: string; introText: string; books: Book[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const filters = parseShopFilters(searchParams);
-  const list = filteredSortedBooks(filters);
+  const list = filteredSortedBooks(filters, books);
   const totalPages = Math.max(1, Math.ceil(list.length / SHOP_PAGE_SIZE));
   const page = Math.min(filters.page, totalPages);
   const pageList = list.slice((page - 1) * SHOP_PAGE_SIZE, page * SHOP_PAGE_SIZE);

@@ -11,9 +11,6 @@ import { FollowAuthorButton } from "@/components/FollowAuthorButton";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 
-function findBook(id: string): Book | undefined {
-  return BOOKS.find((b) => b.id === id);
-}
 function catName(id: string): string {
   return CATS.find((c) => c.id === id)?.name ?? id;
 }
@@ -32,14 +29,14 @@ const FORMAT_LABELS: Record<FormatKey, string> = {
  * was dead code in the live site (present in JS but never wired to any
  * rendered button): the quantity stepper (add-to-cart always added 1
  * regardless of detailQty). The seed reviews below are the same
- * deterministic demo reviews the original showed; real reader-submitted
- * reviews are layered in separately via LiveReviewSection, which — unlike
- * the original's unreachable submitReview()/toggleReviewForm() — is
- * actually wired to a working "Write a review" button and persists to
- * the database.
+ * deterministic demo reviews the original showed for the static catalog
+ * — real, submitted books (isRealBook) skip these entirely rather than
+ * showing fabricated reviews attached to a genuine title; their real
+ * reviews come from LiveReviewSection, which is actually wired to a
+ * working "Write a review" button and persists to the database.
  */
-export function BookDetailClient({ id }: { id: string }) {
-  const b = findBook(id);
+export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook: boolean }) {
+  const b = book;
   const [format, setFormat] = useState<FormatKey>("print");
   const { addItem } = useCart();
   const { has, toggle } = useWishlist();
@@ -69,8 +66,10 @@ export function BookDetailClient({ id }: { id: string }) {
   const listPrice = +(b.formats.ebook * 1.7).toFixed(2);
   const discountPct = Math.round((1 - b.formats.ebook / listPrice) * 100);
   const fmtLabel = FORMAT_LABELS[format];
-  const stats = reviewStats(b, []);
-  const reviews = reviewsForBook(b, []);
+  const stats = isRealBook
+    ? { counts: [0, 0, 0, 0, 0], total: b.reviews, avg: b.rating, pct: [0, 0, 0, 0, 0] }
+    : reviewStats(b, []);
+  const reviews = isRealBook ? [] : reviewsForBook(b, []);
   const inWishlist = has(b.id);
   const query = encodeURIComponent(`${b.title} ${b.author}`);
   const scrollTrack = (id: string, dir: 1 | -1) => {

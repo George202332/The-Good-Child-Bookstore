@@ -24,6 +24,7 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
   if (role === "READER") {
     const items: NavItem[] = [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
+      { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
       { key: "library", label: "My Library", href: "/account/library", section: "Library" },
       { key: "wishlist", label: "Wishlist", href: "/wishlist", section: "Library" },
       { key: "orders", label: "Orders", href: "/account/orders", section: "Library" },
@@ -47,6 +48,7 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
   if (role === "AFFILIATE") {
     return [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
+      { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
       { key: "referrals", label: "Referral Links", href: "/account/referrals", section: "Affiliate" },
       { key: "campaigns", label: "Campaigns", href: "/account/campaigns", section: "Affiliate" },
       { key: "earnings", label: "Earnings", href: "/account/earnings", section: "Financial" },
@@ -58,9 +60,12 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
   if (role === "AUTHOR") {
     return [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
+      { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
       { key: "mybooks", label: "My Books", href: "/account/books", section: "Publishing" },
       { key: "blog", label: "Blog", href: "/account/blog", section: "Publishing" },
+      { key: "analytics", label: "Analytics", href: "/account/analytics", section: "Financial" },
       { key: "revenue", label: "Revenue", href: "/account/revenue", section: "Financial" },
+      { key: "transaction-history", label: "Transaction History", href: "/account/transaction-history", section: "Financial" },
       { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
       { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Publishing" },
