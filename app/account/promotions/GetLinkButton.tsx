@@ -9,7 +9,7 @@ export function GetLinkButton({ bookId }: { bookId: string }) {
   const [error, setError] = useState<string | null>(null);
 
   if (code) {
-    const url = typeof window !== "undefined" ? `${window.location.origin}/book/${bookId}?ref=${code}` : `/book/${bookId}?ref=${code}`;
+    const url = typeof window !== "undefined" ? `${window.location.origin}/book/${bookId}?aff=${code}` : `/book/${bookId}?aff=${code}`;
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <code style={{ fontSize: 11.5 }}>{url}</code>

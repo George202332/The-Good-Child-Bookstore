@@ -31,8 +31,8 @@ engine, ported from the frontend's `REVENUE_CONFIG` at
 | Organic | 25% | 75% | — |
 | Affiliate-referred | 25% | 65% | 10% |
 
-Plus a **5% lifetime referral commission**: if an affiliate refers an
-*author* onto the platform, that affiliate earns 5% of the company's
+Plus a **3% lifetime referral commission**: if an affiliate refers an
+*author* onto the platform, that affiliate earns 3% of the company's
 revenue from that author's sales, for as long as the author sells.
 
 **Deliberate deviation from the frontend prototype:** the original frontend

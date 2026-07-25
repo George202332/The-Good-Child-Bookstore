@@ -1,14 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { registerUser } from "@/actions/auth";
+import { AuthorReferralTracker } from "@/components/AuthorReferralTracker";
 
 const GENRES = ["Picture books", "Bedtime stories", "Early readers", "Middle grade", "Activity books"];
 
-/** Converted from signupAuthorHTML()/handleAuthorSignup() (the-good-child-bookstore_54_1.html:6375-6417). */
+/** Converted from signupAuthorHTML()/handleAuthorSignup() (the-good-child-bookstore_54_1.html:6375-6417).
+ * Also tracks arrival via an affiliate's author-referral link (?ref=<code>)
+ * so a real 5%-for-life referral commission can be attributed if this
+ * visitor actually signs up — see actions/affiliate-referral.ts. */
 export default function SignupAuthorPage() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -40,6 +44,9 @@ export default function SignupAuthorPage() {
 
   return (
     <section className="auth-section">
+      <Suspense fallback={null}>
+        <AuthorReferralTracker />
+      </Suspense>
       <div className="auth-card" style={{ maxWidth: 480 }}>
         <h1>Create an author account</h1>
         <p>Submit titles, track earnings, and message readers from your author dashboard.</p>

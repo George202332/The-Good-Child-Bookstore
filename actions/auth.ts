@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/roles";
@@ -66,6 +67,25 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
   const role: Role = input.role;
   const accountNumber = await generateAccountNumber(role);
 
+  // If this author arrived via an affiliate's referral link (see
+  // actions/affiliate-referral.ts), attribute the signup so that
+  // affiliate earns the 5%-for-life author-referral commission on every
+  // future sale of this author's books (see lib/revenue.ts
+  // applyAuthorReferralCarveOut, applied in actions/orders.ts).
+  let referredById: string | undefined;
+  if (role === "AUTHOR") {
+    try {
+      const cookieStore = await cookies();
+      const refCode = cookieStore.get("gcb_author_ref")?.value;
+      if (refCode) {
+        const referrer = await prisma.affiliateProfile.findUnique({ where: { referralCode: refCode } });
+        if (referrer) referredById = referrer.id;
+      }
+    } catch {
+      // No referral cookie, or it's stale/invalid — sign up without one.
+    }
+  }
+
   await prisma.user.create({
     data: {
       accountNumber,
@@ -75,7 +95,7 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
       role,
       ...(input.role === "READER" ? { readerProfile: { create: {} } } : {}),
       ...(input.role === "AUTHOR"
-        ? { authorProfile: { create: { primaryGenre: input.genre, penName: input.penName?.trim() || null } } }
+        ? { authorProfile: { create: { primaryGenre: input.genre, penName: input.penName?.trim() || null, referredById } } }
         : {}),
       ...(input.role === "AFFILIATE"
         ? { affiliateProfile: { create: { referralCode: generateReferralCode(name) } } }

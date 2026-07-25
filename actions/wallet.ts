@@ -49,12 +49,24 @@ export async function getMyWallet(perspective?: "author" | "affiliate"): Promise
     } else {
       const user = await prisma.user.findUnique({
         where: { id: session.user.id },
-        include: { affiliateProfile: { include: { affiliateLinks: { include: { saleLines: true } } } } },
+        include: {
+          affiliateProfile: {
+            include: {
+              affiliateLinks: { include: { saleLines: true } },
+              authorReferralEarnings: true,
+            },
+          },
+        },
       });
       const links = user?.affiliateProfile?.affiliateLinks ?? [];
-      lines = links.flatMap((l: { saleLines: { createdAt: Date; affiliateShare: unknown }[] }) =>
+      const directLines = links.flatMap((l: { saleLines: { createdAt: Date; affiliateShare: unknown }[] }) =>
         l.saleLines.map((s) => ({ createdAt: s.createdAt, amount: Number(s.affiliateShare) }))
       );
+      const referralLines = (user?.affiliateProfile?.authorReferralEarnings ?? []).map((s: { createdAt: Date; authorReferralShare: unknown }) => ({
+        createdAt: s.createdAt,
+        amount: Number(s.authorReferralShare),
+      }));
+      lines = [...directLines, ...referralLines];
     }
 
     const payouts = await prisma.payoutRequest.findMany({ where: { userId: session.user.id } });

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { DashboardShell } from "@/components/DashboardShell";
 import { listMyAffiliateLinks } from "@/actions/affiliate";
+import { getMyProfile } from "@/actions/profile";
 import { GenerateLinkForm } from "./GenerateLinkForm";
 
 /**
@@ -18,7 +19,7 @@ export default async function ReferralLinksPage() {
   const role = session.user.role;
   if (role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) redirect("/account");
 
-  const links = await listMyAffiliateLinks();
+  const [links, profile] = await Promise.all([listMyAffiliateLinks(), getMyProfile()]);
 
   return (
     <DashboardShell role={role} activeKey="referrals" displayName={session.user.name ?? ""}>
@@ -30,6 +31,17 @@ export default async function ReferralLinksPage() {
           </p>
         </div>
       </div>
+
+      {profile?.referralCode && (
+        <div className="form-section" style={{ background: "var(--cream)", marginBottom: 24 }}>
+          <h3 style={{ fontSize: 15, marginBottom: 6 }}>Refer an author</h3>
+          <p style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 10 }}>
+            Share this link with any author — if they sign up through it, you earn 3% of the company&apos;s revenue
+            from their book sales, for as long as they publish with us.
+          </p>
+          <code style={{ fontSize: 12.5 }}>/signup/author?ref={profile.referralCode}</code>
+        </div>
+      )}
 
       <GenerateLinkForm />
 

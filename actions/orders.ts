@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { calculateSplits } from "@/lib/revenue";
+import { calculateSplits, applyAuthorReferralCarveOut } from "@/lib/revenue";
 import { generateAccountNumber } from "@/lib/account-number";
 
 /**
@@ -103,7 +103,7 @@ export async function createPendingOrder(input: {
   }
 
   const bookIds = input.items.map((i) => i.bookId);
-  const books = await prisma.book.findMany({ where: { id: { in: bookIds } } });
+  const books = await prisma.book.findMany({ where: { id: { in: bookIds } }, include: { author: true } });
   const lines = input.items
     .map((i) => ({ ...i, book: books.find((b: { id: string }) => b.id === i.bookId) }))
     .filter((l): l is typeof l & { book: NonNullable<typeof l.book> } => !!l.book);
@@ -145,7 +145,9 @@ export async function createPendingOrder(input: {
         create: lines.map((l) => {
           const lineGross = +(Number(l.book.price) * l.qty * (1 - couponPct)).toFixed(2);
           const isAffiliateSale = affiliateBookId !== null && affiliateBookId === l.bookId;
-          const split = calculateSplits(lineGross, isAffiliateSale);
+          let split = calculateSplits(lineGross, isAffiliateSale);
+          const referredById = l.book.author.referredById;
+          if (referredById) split = applyAuthorReferralCarveOut(split);
           return {
             bookId: l.bookId,
             affiliateLinkId: isAffiliateSale ? affiliateLinkId : null,
@@ -154,6 +156,8 @@ export async function createPendingOrder(input: {
             companyShare: split.companyShare,
             authorShare: split.authorShare,
             affiliateShare: split.affiliateShare,
+            authorReferralShare: split.authorReferralShare,
+            authorReferralAffiliateId: referredById ?? null,
           };
         }),
       },

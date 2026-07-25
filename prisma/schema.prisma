@@ -170,6 +170,7 @@ model AffiliateProfile {
   referredAuthors    AuthorProfile[] @relation("AffiliateReferrals")
   affiliateLinks     AffiliateLink[]
   campaigns          Campaign[]
+  authorReferralEarnings SaleLine[] @relation("AuthorReferralEarnings")
 }
 
 model ReaderProfile {
@@ -441,10 +442,20 @@ model SaleLine {
   authorShare        Decimal  @db.Decimal(10, 2)
   affiliateShare     Decimal  @db.Decimal(10, 2) @default(0)
 
+  /** Lifetime referral commission (5% of the company's share) credited
+   * to the affiliate who referred this book's author onto the platform
+   * — separate from affiliateShare above, which is that sale's own
+   * direct-link commission and may credit a different affiliate
+   * entirely. Carved out of companyShare, not added on top. */
+  authorReferralShare      Decimal @db.Decimal(10, 2) @default(0)
+  authorReferralAffiliateId String?
+  authorReferralAffiliate   AffiliateProfile? @relation("AuthorReferralEarnings", fields: [authorReferralAffiliateId], references: [id])
+
   createdAt          DateTime @default(now())
 
   @@index([bookId])
   @@index([affiliateLinkId])
+  @@index([authorReferralAffiliateId])
 }
 
 model Invoice {
