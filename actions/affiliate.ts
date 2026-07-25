@@ -35,27 +35,32 @@ export async function getOrCreateAffiliateLink(bookId: string, campaignId?: stri
   if (!session?.user) {
     return { ok: false, error: "You need to be signed in." };
   }
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { affiliateProfile: true } });
-  if (!user?.affiliateProfile) {
-    return { ok: false, error: "Enable affiliate access from your dashboard first." };
-  }
 
-  const existing = await prisma.affiliateLink.findFirst({
-    where: { affiliateId: user.affiliateProfile.id, bookId },
-  });
-  if (existing) {
-    // If this link already exists but wasn't yet assigned to a campaign,
-    // assigning one now is fine — a link belongs to at most one campaign.
-    if (campaignId && !existing.campaignId) {
-      await prisma.affiliateLink.update({ where: { id: existing.id }, data: { campaignId } });
+  try {
+    const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { affiliateProfile: true } });
+    if (!user?.affiliateProfile) {
+      return { ok: false, error: "Enable affiliate access from your dashboard first." };
     }
-    return { ok: true, code: existing.code };
-  }
 
-  const link = await prisma.affiliateLink.create({
-    data: { affiliateId: user.affiliateProfile.id, bookId, campaignId, code: generateCode() },
-  });
-  return { ok: true, code: link.code };
+    const existing = await prisma.affiliateLink.findFirst({
+      where: { affiliateId: user.affiliateProfile.id, bookId },
+    });
+    if (existing) {
+      // If this link already exists but wasn't yet assigned to a campaign,
+      // assigning one now is fine — a link belongs to at most one campaign.
+      if (campaignId && !existing.campaignId) {
+        await prisma.affiliateLink.update({ where: { id: existing.id }, data: { campaignId } });
+      }
+      return { ok: true, code: existing.code };
+    }
+
+    const link = await prisma.affiliateLink.create({
+      data: { affiliateId: user.affiliateProfile.id, bookId, campaignId, code: generateCode() },
+    });
+    return { ok: true, code: link.code };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Something went wrong generating that link." };
+  }
 }
 
 /** Records a click for stats (Performance page's click counts) — the
@@ -73,23 +78,28 @@ export async function recordAffiliateClick(code: string): Promise<void> {
 export async function listMyAffiliateLinks(): Promise<AffiliateLinkWithStats[]> {
   const session = await auth();
   if (!session?.user) return [];
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { affiliateProfile: true } });
-  if (!user?.affiliateProfile) return [];
 
-  const links = await prisma.affiliateLink.findMany({
-    where: { affiliateId: user.affiliateProfile.id },
-    include: { book: true, clicks: true, saleLines: true },
-    orderBy: { createdAt: "desc" },
-  });
+  try {
+    const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { affiliateProfile: true } });
+    if (!user?.affiliateProfile) return [];
 
-  return links.map((l: { id: string; code: string; bookId: string | null; book: { title: string; coverImageUrl: string | null } | null; clicks: unknown[]; saleLines: { affiliateShare: unknown }[] }) => ({
-    id: l.id,
-    code: l.code,
-    bookId: l.bookId,
-    bookTitle: l.book?.title ?? "Unknown book",
-    bookCoverUrl: l.book?.coverImageUrl ?? null,
-    clicks: l.clicks.length,
-    conversions: l.saleLines.length,
-    commissionEarned: l.saleLines.reduce((sum: number, s) => sum + Number(s.affiliateShare), 0),
-  }));
+    const links = await prisma.affiliateLink.findMany({
+      where: { affiliateId: user.affiliateProfile.id },
+      include: { book: true, clicks: true, saleLines: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return links.map((l: { id: string; code: string; bookId: string | null; book: { title: string; coverImageUrl: string | null } | null; clicks: unknown[]; saleLines: { affiliateShare: unknown }[] }) => ({
+      id: l.id,
+      code: l.code,
+      bookId: l.bookId,
+      bookTitle: l.book?.title ?? "Unknown book",
+      bookCoverUrl: l.book?.coverImageUrl ?? null,
+      clicks: l.clicks.length,
+      conversions: l.saleLines.length,
+      commissionEarned: l.saleLines.reduce((sum: number, s) => sum + Number(s.affiliateShare), 0),
+    }));
+  } catch {
+    return [];
+  }
 }

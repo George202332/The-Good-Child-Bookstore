@@ -10,6 +10,10 @@ import { prisma } from "@/lib/prisma";
  * matters is having an AffiliateProfile row, not the primary role.
  */
 export async function hasAffiliateCapability(userId: string): Promise<boolean> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: { affiliateProfile: true } });
-  return !!user?.affiliateProfile;
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { affiliateProfile: true } });
+    return !!user?.affiliateProfile;
+  } catch {
+    return false;
+  }
 }
