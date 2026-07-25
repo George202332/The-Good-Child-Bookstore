@@ -24,6 +24,7 @@ export interface MyProfile {
   pressKitUrl?: string;
   availableForCollabs?: boolean;
   showEmailPublicly?: boolean;
+  socialLinks?: string[];
   // Reader
   preferredFormat?: string;
   shoppingForAgeRanges?: string[];
@@ -49,6 +50,7 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     penName: user.authorProfile?.penName ?? undefined,
     primaryGenre: user.authorProfile?.primaryGenre ?? undefined,
     pressKitUrl: user.authorProfile?.pressKitUrl ?? undefined,
+    socialLinks: user.authorProfile?.socialLinks ?? [],
     availableForCollabs: user.authorProfile?.availableForCollabs,
     showEmailPublicly: user.authorProfile?.showEmailPublicly,
     preferredFormat: user.readerProfile?.preferredFormat ?? undefined,
@@ -66,6 +68,7 @@ export async function updateMyProfile(input: {
   pressKitUrl?: string;
   availableForCollabs?: boolean;
   showEmailPublicly?: boolean;
+  socialLinks?: string[];
   preferredFormat?: string;
   shoppingForAgeRanges?: string[];
 }): Promise<{ ok: boolean; error?: string }> {
@@ -93,6 +96,7 @@ export async function updateMyProfile(input: {
         penName: input.penName?.trim() || null,
         primaryGenre: input.primaryGenre?.trim() || null,
         pressKitUrl: input.pressKitUrl?.trim() || null,
+        socialLinks: (input.socialLinks ?? []).map((s) => s.trim()).filter(Boolean),
         availableForCollabs: input.availableForCollabs ?? false,
         showEmailPublicly: input.showEmailPublicly ?? false,
       },

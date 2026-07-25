@@ -32,7 +32,10 @@ export async function generateMetadata(): Promise<Metadata> {
     ],
     authors: [{ name: "The Good Child Bookstore" }],
     robots: "index, follow",
-    alternates: { canonical: "https://thegoodchildbookstore.com/" },
+    alternates: {
+      canonical: "https://thegoodchildbookstore.com/",
+      types: { "application/rss+xml": "/feed.xml" },
+    },
     openGraph: {
       type: "website",
       siteName: "The Good Child Bookstore",

@@ -151,6 +151,7 @@ model AuthorProfile {
   showEmailPublicly  Boolean  @default(false)
   primaryGenre       String?
   penName            String?
+  socialLinks        String[] @default([])
   // If this author was referred onto the platform by an affiliate, that
   // affiliate earns a lifetime 5% cut of the COMPANY's revenue from this
   // author's sales (see AffiliateProfile.referredAuthors below).

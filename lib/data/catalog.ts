@@ -111,6 +111,10 @@ export interface Book {
   id: string;
   title: string;
   author: string;
+  /** Links to the public author profile page (/authors/profile/[id]) —
+   * only set for real, submitted books; the static demo catalog has no
+   * matching AuthorProfile row, so this stays undefined for those. */
+  authorId?: string;
   motif: MotifKind;
   palette: [string, string];
   category: string;
@@ -129,6 +133,10 @@ export interface Book {
   featured: boolean;
   affiliateEnabled: boolean;
   coverImage?: string;
+  /** External marketplace links (Amazon, Apple Books, etc.) collected
+   * during a real print submission — undefined for the static demo
+   * catalog and for ebook-only real submissions. */
+  marketplaceLinks?: Record<string, string>;
 }
 
 function buildBooks(): Book[] {

@@ -8,6 +8,9 @@ import { BookCard } from "@/components/BookCard";
 import { AffiliateClickTracker } from "@/components/AffiliateClickTracker";
 import { LiveReviewSection } from "@/components/LiveReviewSection";
 import { FollowAuthorButton } from "@/components/FollowAuthorButton";
+import { bookJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
+import { getPublicSiteUrl } from "@/lib/seo/site-url";
+import { OutboundLink } from "@/components/OutboundLink";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 
@@ -78,30 +81,30 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
     el.scrollBy({ left: Math.max(220, el.clientWidth * 0.8) * dir, behavior: "smooth" });
   };
 
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Book",
-    name: b.title,
-    author: { "@type": "Person", name: b.author },
+  const siteUrl = getPublicSiteUrl();
+  const jsonLd = bookJsonLd({
+    title: b.title,
+    authorName: b.author,
+    authorId: b.authorId,
     isbn: b.isbn,
     genre: b.genre,
-    inLanguage: "en",
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: b.rating,
-      reviewCount: b.reviews,
-    },
-    offers: {
-      "@type": "Offer",
-      price: b.price.toFixed(2),
-      priceCurrency: "USD",
-      availability: "https://schema.org/InStock",
-    },
-  };
+    ageRange: b.age,
+    price: b.formats.ebook,
+    ratingValue: b.rating,
+    reviewCount: b.reviews,
+    imageUrl: b.coverImage,
+  });
+  const breadcrumbLd = breadcrumbJsonLd([
+    { name: "Home", url: `${siteUrl}/` },
+    { name: "Bookshelf", url: `${siteUrl}/shop` },
+    { name: catName(b.category), url: `${siteUrl}/shop?cat=${b.category}` },
+    { name: b.title, url: `${siteUrl}/book/${b.id}` },
+  ]);
 
   return (
     <div className="wrap detail-wrap">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <Suspense fallback={null}>
         <AffiliateClickTracker />
       </Suspense>
@@ -377,6 +380,18 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
             </div>
           </div>
         </div>
+        {b.marketplaceLinks && Object.keys(b.marketplaceLinks).length > 0 && (
+          <div style={{ margin: "24px 0" }}>
+            <h3 style={{ fontSize: 15, marginBottom: 10 }}>Also available on</h3>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {Object.entries(b.marketplaceLinks).map(([marketplace, url]) => (
+                <OutboundLink key={marketplace} href={url} className="btn btn-ghost btn-small">
+                  {marketplace.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())}
+                </OutboundLink>
+              ))}
+            </div>
+          </div>
+        )}
         <LiveReviewSection bookId={b.id} />
       </div>
     </div>

@@ -14,6 +14,7 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
   const [penName, setPenName] = useState(initial.penName ?? "");
   const [primaryGenre, setPrimaryGenre] = useState(initial.primaryGenre ?? "");
   const [pressKitUrl, setPressKitUrl] = useState(initial.pressKitUrl ?? "");
+  const [socialLinks, setSocialLinks] = useState((initial.socialLinks ?? []).join(", "));
   const [availableForCollabs, setAvailableForCollabs] = useState(initial.availableForCollabs ?? false);
   const [showEmailPublicly, setShowEmailPublicly] = useState(initial.showEmailPublicly ?? false);
   const [preferredFormat, setPreferredFormat] = useState(initial.preferredFormat ?? "");
@@ -33,6 +34,7 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
     setSaved(false);
     const res = await updateMyProfile({
       name, email, bio, penName, primaryGenre, pressKitUrl, availableForCollabs, showEmailPublicly,
+      socialLinks: socialLinks.split(",").map((s) => s.trim()).filter(Boolean),
       preferredFormat, shoppingForAgeRanges: shoppingAges,
     });
     setSubmitting(false);
@@ -74,6 +76,8 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
           <textarea className="field" id="pf-bio" rows={3} value={bio} onChange={(e) => setBio(e.target.value)} />
           <label className="field-label" htmlFor="pf-presskit">Press kit URL</label>
           <input className="field" id="pf-presskit" type="url" value={pressKitUrl} onChange={(e) => setPressKitUrl(e.target.value)} />
+          <label className="field-label" htmlFor="pf-social">Social profile links</label>
+          <input className="field" id="pf-social" type="text" placeholder="Comma-separated URLs (Twitter, Instagram, website, etc.)" value={socialLinks} onChange={(e) => setSocialLinks(e.target.value)} />
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13.5, marginBottom: 10 }}>
             <input type="checkbox" style={{ width: "auto" }} checked={availableForCollabs} onChange={(e) => setAvailableForCollabs(e.target.checked)} /> Available for collaborations
           </label>

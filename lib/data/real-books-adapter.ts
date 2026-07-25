@@ -54,6 +54,7 @@ interface RealBookRow {
   hasEbook: boolean;
   hasPrint: boolean;
   hasAudiobook: boolean;
+  authorId: string;
   author: { user: { name: string } };
   categories: { category: { name: string } }[];
   genres: { genre: { name: string } }[];
@@ -66,12 +67,13 @@ function toCatalogBook(row: RealBookRow): Book {
   const seed = hashStr(row.id);
   const price = Number(row.price);
   const avgRating = row.ratings.length > 0 ? row.ratings.reduce((s, r) => s + r.stars, 0) / row.ratings.length : 0;
-  const meta = (row.submissionMetadata as { affiliateEnabled?: boolean; includeInPromotions?: boolean } | null) ?? null;
+  const meta = (row.submissionMetadata as { affiliateEnabled?: boolean; includeInPromotions?: boolean; marketplaceLinks?: Record<string, string> } | null) ?? null;
 
   return {
     id: row.id,
     title: row.title,
     author: row.author.user.name,
+    authorId: row.authorId,
     motif: MOTIF_KINDS[seed % MOTIF_KINDS.length],
     palette: PALETTES[seed % PALETTES.length],
     category: categoryIdFromLabel(row.categories[0]?.category.name),
@@ -90,6 +92,7 @@ function toCatalogBook(row: RealBookRow): Book {
     featured: meta?.includeInPromotions ?? false,
     affiliateEnabled: meta?.affiliateEnabled ?? false,
     coverImage: row.coverImageUrl ?? undefined,
+    marketplaceLinks: meta?.marketplaceLinks && Object.keys(meta.marketplaceLinks).length > 0 ? meta.marketplaceLinks : undefined,
   };
 }
 

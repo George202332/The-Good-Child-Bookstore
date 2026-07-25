@@ -26,6 +26,7 @@ function navItemsForRole(role: Role) {
   const base = [
     { key: "dashboard", label: "Dashboard", href: "/admin" },
     { key: "books", label: "Book Management", href: "/admin/books" },
+    { key: "seo-marketing", label: "SEO & Marketing", href: "/admin/seo-marketing" },
     { key: "blog", label: "Blog Moderation", href: "/admin/blog" },
     { key: "analytics", label: "Analytics", href: "/admin/analytics" },
   ];
