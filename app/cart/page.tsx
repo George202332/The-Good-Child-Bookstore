@@ -1,13 +1,25 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BOOKS } from "@/lib/data/catalog";
+import { BOOKS, type Book } from "@/lib/data/catalog";
 import { Motif } from "@/components/Motif";
 import { useCart } from "@/hooks/useCart";
+import { resolveCartBooks } from "@/actions/cart-books";
 
-/** Converted from cartHTML() (the-good-child-bookstore_54_1.html:4554-4603). */
+/** Converted from cartHTML() (the-good-child-bookstore_54_1.html:4554-4603).
+ * Books are resolved from the real database (falling back to the static
+ * catalog for demo ids) rather than only ever checking the static
+ * catalog — previously a real, submitted book silently vanished from the
+ * cart instead of showing up. */
 export default function CartPage() {
   const { items, setQty, removeItem } = useCart();
+  const [resolved, setResolved] = useState<Book[]>([]);
+
+  useEffect(() => {
+    const ids = items.map((i) => i.bookId);
+    resolveCartBooks(ids).then(setResolved);
+  }, [items]);
 
   if (items.length === 0) {
     return (
@@ -26,8 +38,9 @@ export default function CartPage() {
     );
   }
 
+  const bookSource = resolved.length > 0 ? resolved : BOOKS;
   const lines = items
-    .map((i) => ({ book: BOOKS.find((b) => b.id === i.bookId), qty: i.quantity }))
+    .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity }))
     .filter((l): l is { book: NonNullable<typeof l.book>; qty: number } => !!l.book);
   const subtotal = lines.reduce((sum, l) => sum + l.book.price * l.qty, 0);
   const shipping = subtotal > 35 ? 0 : 4.5;

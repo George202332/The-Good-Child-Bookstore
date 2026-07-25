@@ -166,16 +166,26 @@
   border-radius: 12px;
 }
 .admin-shell .form-section {
-  padding: 20px;
-  /* Forms with short fields (name, email, a single toggle) look wrong
-     stretched across an ultra-wide content area — capped here so they
-     read as a sensible form, while tables and stat grids (which don't
-     use this class) still use the full available width. */
-  max-width: 640px;
+  padding: 24px 28px;
+  /* The card itself now fills the available width (previously capped,
+     which was the real cause of "wasted space on the right") — instead,
+     individual fields are capped below and form-grid-2 gains extra
+     columns automatically as the container gets wider, so short fields
+     never stretch edge-to-edge regardless of how wide the card is. */
+  max-width: none;
+}
+.admin-shell .form-grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 320px));
 }
 .admin-shell .form-grid-2 .field,
 .admin-shell .form-grid-2 select {
   margin-bottom: 0;
+}
+.admin-shell .field, .admin-shell select, .admin-shell input, .admin-shell textarea {
+  max-width: 460px;
+}
+.admin-shell textarea.field {
+  max-width: 720px;
 }
 
 .admin-shell .field, .admin-shell select, .admin-shell textarea, .admin-shell input {

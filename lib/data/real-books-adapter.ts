@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { hashStr } from "@/lib/hash";
-import { PALETTES, type Book, type MotifKind } from "@/lib/data/catalog";
+import { BOOKS, PALETTES, type Book, type MotifKind } from "@/lib/data/catalog";
 
 /**
  * Converts real, published Book rows (created through the actual
@@ -113,6 +113,34 @@ export async function getRealPublishedBooks(): Promise<Book[]> {
     return rows.map((r: RealBookRow) => toCatalogBook(r));
   } catch {
     return [];
+  }
+}
+
+/** Resolves a specific list of book ids for the cart/checkout — checks
+ * real database books first, then falls back to the static demo catalog
+ * for any ids not found there (this is how a cart holding both a real
+ * submitted book and a demo book resolves correctly). Previously the
+ * cart and checkout pages only ever checked the static catalog, so a
+ * real book silently vanished from the cart at checkout. */
+export async function getBooksByIds(ids: string[]): Promise<Book[]> {
+  if (ids.length === 0) return [];
+  try {
+    const rows = await prisma.book.findMany({
+      where: { id: { in: ids } },
+      include: {
+        author: { include: { user: true } },
+        categories: { include: { category: true } },
+        genres: { include: { genre: true } },
+        reviews: true,
+        ratings: true,
+      },
+    });
+    const found = Array.isArray(rows) ? rows.map((r: RealBookRow) => toCatalogBook(r)) : [];
+    const foundIds = new Set(found.map((b) => b.id));
+    const demoFallback = BOOKS.filter((b) => ids.includes(b.id) && !foundIds.has(b.id));
+    return [...found, ...demoFallback];
+  } catch {
+    return BOOKS.filter((b) => ids.includes(b.id));
   }
 }
 

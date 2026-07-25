@@ -1,18 +1,32 @@
 "use server";
 
 import { cookies } from "next/headers";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { calculateSplits } from "@/lib/revenue";
-import { BOOKS } from "@/lib/data/catalog";
+import { generateAccountNumber } from "@/lib/account-number";
 
 /**
  * Order creation: creates an Order + one SaleLine per book, with the
  * confirmed revenue split (see docs/architecture.md) computed and stored
- * permanently on each line — this is what the original prototype's
- * completeCheckoutOrder() only ever simulated in localStorage. Requires a
- * signed-in reader; guest checkout isn't modeled in the schema yet (every
- * Order belongs to a ReaderProfile).
+ * permanently on each line. Every Order still belongs to a ReaderProfile
+ * (kept, since orders/wallets/admin transactions all assume that
+ * relationship) — but getting one is now automatic and invisible:
+ *
+ *   - Signed in as Author/Affiliate/anything else without a reader
+ *     profile yet? One is created for that same account on the spot —
+ *     no separate signup, no role change, same pattern as the
+ *     reader-to-affiliate upgrade (see actions/reader-affiliate.ts).
+ *   - Not signed in at all? A lightweight account is found-or-created
+ *     from the email/name entered at checkout, so a genuine guest never
+ *     has to make an account or set a password before buying — this is
+ *     real guest checkout, not just a UI illusion.
+ *
+ * Book lookups now come from the real database (any published book,
+ * not just the 50-book demo catalog fixture) — previously a real
+ * submitted book could show up in the shop but silently fail to
+ * actually check out.
  *
  * Split into createPendingOrder() + confirmOrderPaidDirectly() so a real
  * payment gateway can sit between the two (see actions/payment-init.ts):
@@ -35,30 +49,70 @@ export interface CreateOrderResult {
   totalAmount?: number;
 }
 
+/** Finds the current session's reader profile, or creates one for them
+ * (any role) — or, for a guest, finds-or-creates a lightweight account
+ * from the checkout email/name. Never returns null: the only failure
+ * mode is a missing guest email with no session at all. */
+async function resolveReaderProfileId(guestEmail?: string, guestName?: string): Promise<{ readerProfileId?: string; error?: string }> {
+  const session = await auth();
+
+  if (session?.user?.id) {
+    const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { readerProfile: true } });
+    if (!user) return { error: "Account not found." };
+    if (user.readerProfile) return { readerProfileId: user.readerProfile.id };
+
+    const readerProfile = await prisma.readerProfile.create({ data: { userId: user.id } });
+    return { readerProfileId: readerProfile.id };
+  }
+
+  const email = guestEmail?.trim().toLowerCase();
+  if (!email) return { error: "An email address is required to check out." };
+
+  const existing = await prisma.user.findUnique({ where: { email }, include: { readerProfile: true } });
+  if (existing) {
+    if (existing.readerProfile) return { readerProfileId: existing.readerProfile.id };
+    const readerProfile = await prisma.readerProfile.create({ data: { userId: existing.id } });
+    return { readerProfileId: readerProfile.id };
+  }
+
+  const accountNumber = await generateAccountNumber("READER");
+  const passwordHash = await bcrypt.hash(`guest-${Date.now()}-${Math.random()}`, 10);
+  const guestUser = await prisma.user.create({
+    data: {
+      accountNumber,
+      email,
+      name: guestName?.trim() || "Guest",
+      passwordHash,
+      role: "READER",
+      readerProfile: { create: {} },
+    },
+    include: { readerProfile: true },
+  });
+  return { readerProfileId: guestUser.readerProfile!.id };
+}
+
 export async function createPendingOrder(input: {
   items: OrderItemInput[];
   couponDiscountPct?: number;
+  guestEmail?: string;
+  guestName?: string;
 }): Promise<CreateOrderResult> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) {
-    return { ok: false, error: "You need to be signed in to place an order." };
+  const { readerProfileId, error } = await resolveReaderProfileId(input.guestEmail, input.guestName);
+  if (!readerProfileId) {
+    return { ok: false, error: error ?? "Couldn't start checkout." };
   }
 
-  const user = await prisma.user.findUnique({ where: { id: userId }, include: { readerProfile: true } });
-  if (!user?.readerProfile) {
-    return { ok: false, error: "Only reader accounts can place orders." };
-  }
-
+  const bookIds = input.items.map((i) => i.bookId);
+  const books = await prisma.book.findMany({ where: { id: { in: bookIds } } });
   const lines = input.items
-    .map((i) => ({ ...i, book: BOOKS.find((b) => b.id === i.bookId) }))
+    .map((i) => ({ ...i, book: books.find((b: { id: string }) => b.id === i.bookId) }))
     .filter((l): l is typeof l & { book: NonNullable<typeof l.book> } => !!l.book);
 
   if (lines.length === 0) {
     return { ok: false, error: "Your cart is empty." };
   }
 
-  const subtotal = lines.reduce((sum, l) => sum + l.book.price * l.qty, 0);
+  const subtotal = lines.reduce((sum, l) => sum + Number(l.book.price) * l.qty, 0);
   const couponPct = input.couponDiscountPct ?? 0;
 
   // Real affiliate attribution: recordAffiliateClick() (actions/affiliate.ts)
@@ -84,12 +138,12 @@ export async function createPendingOrder(input: {
 
   const order = await prisma.order.create({
     data: {
-      readerId: user.readerProfile.id,
+      readerId: readerProfileId,
       status: "PENDING",
       totalAmount,
       lines: {
         create: lines.map((l) => {
-          const lineGross = +(l.book.price * l.qty * (1 - couponPct)).toFixed(2);
+          const lineGross = +(Number(l.book.price) * l.qty * (1 - couponPct)).toFixed(2);
           const isAffiliateSale = affiliateBookId !== null && affiliateBookId === l.bookId;
           const split = calculateSplits(lineGross, isAffiliateSale);
           return {

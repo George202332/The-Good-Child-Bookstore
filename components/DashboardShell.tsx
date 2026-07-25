@@ -25,6 +25,8 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
     const items: NavItem[] = [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
+      { key: "security", label: "Security", href: "/account/security", section: "Account" },
+      { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
       { key: "library", label: "My Library", href: "/account/library", section: "Library" },
       { key: "wishlist", label: "Wishlist", href: "/wishlist", section: "Library" },
       { key: "orders", label: "Orders", href: "/account/orders", section: "Library" },
@@ -38,8 +40,13 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
     if (hasAffiliateAccess) {
       items.push(
         { key: "referrals", label: "Referral Links", href: "/account/referrals", section: "Affiliate" },
+        { key: "promotions", label: "Promotions", href: "/account/promotions", section: "Affiliate" },
+        { key: "resources", label: "Marketing Resources", href: "/account/resources", section: "Affiliate" },
         { key: "campaigns", label: "Campaigns", href: "/account/campaigns", section: "Affiliate" },
+        { key: "commissions", label: "Commissions", href: "/account/commissions", section: "Affiliate" },
         { key: "earnings", label: "Earnings", href: "/account/earnings", section: "Affiliate" },
+        { key: "performance", label: "Performance", href: "/account/performance", section: "Affiliate" },
+        { key: "payments", label: "Payments", href: "/account/payments", section: "Affiliate" },
         { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Affiliate" }
       );
     }
@@ -49,10 +56,17 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
     return [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
+      { key: "security", label: "Security", href: "/account/security", section: "Account" },
+      { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
       { key: "referrals", label: "Referral Links", href: "/account/referrals", section: "Affiliate" },
+      { key: "promotions", label: "Promotions", href: "/account/promotions", section: "Affiliate" },
+      { key: "resources", label: "Marketing Resources", href: "/account/resources", section: "Affiliate" },
       { key: "campaigns", label: "Campaigns", href: "/account/campaigns", section: "Affiliate" },
+      { key: "commissions", label: "Commissions", href: "/account/commissions", section: "Financial" },
       { key: "earnings", label: "Earnings", href: "/account/earnings", section: "Financial" },
+      { key: "performance", label: "Performance", href: "/account/performance", section: "Financial" },
       { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
+      { key: "payments", label: "Payments", href: "/account/payments", section: "Financial" },
       { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Affiliate" },
     ];
@@ -61,6 +75,8 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
     return [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
+      { key: "security", label: "Security", href: "/account/security", section: "Account" },
+      { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
       { key: "mybooks", label: "My Books", href: "/account/books", section: "Publishing" },
       { key: "blog", label: "Blog", href: "/account/blog", section: "Publishing" },
       { key: "analytics", label: "Analytics", href: "/account/analytics", section: "Financial" },

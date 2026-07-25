@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { BOOKS } from "@/lib/data/catalog";
+import { BOOKS, type Book } from "@/lib/data/catalog";
 import { Motif } from "@/components/Motif";
 import { useCart } from "@/hooks/useCart";
 import { createPendingOrder, confirmOrderPaidDirectly } from "@/actions/orders";
 import { initiateGatewayCheckout } from "@/actions/payment-init";
 import { validateCoupon } from "@/actions/coupons";
+import { resolveCartBooks } from "@/actions/cart-books";
 import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } from "@/actions/payment-methods";
 
 /**
@@ -79,15 +80,22 @@ export default function CheckoutPage() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethodRow[]>([]);
+  const [resolvedBooks, setResolvedBooks] = useState<Book[]>([]);
 
   useEffect(() => {
-    if (session?.user?.role === "READER") {
+    const ids = items.map((i) => i.bookId);
+    resolveCartBooks(ids).then(setResolvedBooks);
+  }, [items]);
+
+  useEffect(() => {
+    if (session?.user?.id) {
       listMyPaymentMethods().then(setSavedMethods);
     }
-  }, [session?.user?.role]);
+  }, [session?.user?.id]);
 
+  const bookSource = resolvedBooks.length > 0 ? resolvedBooks : BOOKS;
   const lines = items
-    .map((i) => ({ book: BOOKS.find((b) => b.id === i.bookId), qty: i.quantity }))
+    .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity }))
     .filter((l): l is { book: NonNullable<typeof l.book>; qty: number } => !!l.book);
   const subtotal = lines.reduce((sum, l) => sum + l.book.price * l.qty, 0);
   const couponAmount = +(subtotal * data.couponDiscount).toFixed(2);
@@ -119,6 +127,8 @@ export default function CheckoutPage() {
     const created = await createPendingOrder({
       items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty })),
       couponDiscountPct: data.couponDiscount || undefined,
+      guestEmail: data.email,
+      guestName: data.fullName,
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);
@@ -137,16 +147,14 @@ export default function CheckoutPage() {
   }
 
   async function completeOrder() {
-    if (session?.user?.role !== "READER") {
-      setPaymentError("You need to be signed in with a reader account to complete a purchase.");
-      return;
-    }
     setSubmitting(true);
     setPaymentError(null);
 
     const created = await createPendingOrder({
       items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty })),
       couponDiscountPct: data.couponDiscount || undefined,
+      guestEmail: data.email,
+      guestName: data.fullName,
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);

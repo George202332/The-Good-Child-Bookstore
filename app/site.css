@@ -1312,11 +1312,14 @@
   .dashboard-layout{display:grid;grid-template-columns:2in 1fr;gap:28px;align-items:start;}
   @media (max-width:1024px){ .dashboard-layout{grid-template-columns:1fr;} }
   .dashboard-sidebar{
-    position:static;width:100%;
+    position:sticky;top:24px;width:100%;
+    max-height:calc(100vh - 48px);overflow-y:auto;
     background:transparent;border-radius:0;padding:0;
     display:flex;flex-direction:column;gap:0;
     text-align:left;
+    scrollbar-width:none;-ms-overflow-style:none;
   }
+  .dashboard-sidebar::-webkit-scrollbar{display:none;}
   @media (max-width:1024px){
     .dashboard-sidebar{
       position:fixed;top:0;left:0;height:100vh;width:280px;

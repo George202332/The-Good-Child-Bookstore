@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn, getSession } from "next-auth/react";
+import { signIn, getSession, signOut } from "next-auth/react";
 import { Motif } from "@/components/Motif";
 
 type LoginType = "reader" | "author" | "affiliate";
@@ -14,6 +14,12 @@ type LoginType = "reader" | "author" | "affiliate";
  * itself now goes through Auth.js's credentials provider (which checks the
  * real User row and its role) instead of the original's localStorage
  * account lookup keyed by a separately-chosen type.
+ *
+ * Backend accounts (Admin/Editor/Accountant) are refused here on purpose
+ * — this page is the storefront's own login, and the backend has its own
+ * dedicated, separately-themed login at /admin/login. Signing in here
+ * with backend credentials used to work and quietly redirect to /admin,
+ * which defeated the point of having a separate backend login at all.
  */
 export default function LoginPage() {
   const router = useRouter();
@@ -29,14 +35,21 @@ export default function LoginPage() {
     setSubmitting(true);
     setError(null);
     const result = await signIn("credentials", { email, password, redirect: false });
-    setSubmitting(false);
     if (result?.error) {
+      setSubmitting(false);
       setError("That email or password isn't right. Please try again.");
       return;
     }
     const session = await getSession();
     const role = session?.user?.role;
-    router.push(role === "ADMIN" || role === "EDITOR" ? "/admin" : "/account");
+    if (role === "ADMIN" || role === "EDITOR" || role === "ACCOUNTANT") {
+      await signOut({ redirect: false });
+      setSubmitting(false);
+      setError("This is a backend account — please sign in at the admin login page instead.");
+      return;
+    }
+    setSubmitting(false);
+    router.push("/account");
   }
 
   return (
