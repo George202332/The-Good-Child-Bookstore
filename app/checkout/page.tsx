@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { BOOKS, type Book } from "@/lib/data/catalog";
+import type { Book } from "@/lib/data/catalog";
 import { Motif } from "@/components/Motif";
 import { useCart } from "@/hooks/useCart";
 import { createPendingOrder, confirmOrderPaidDirectly } from "@/actions/orders";
@@ -80,10 +80,12 @@ export default function CheckoutPage() {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethodRow[]>([]);
-  const [resolvedBooks, setResolvedBooks] = useState<Book[]>([]);
+  const [resolvedBooks, setResolvedBooks] = useState<Book[] | null>(null);
 
   useEffect(() => {
     const ids = items.map((i) => i.bookId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate: reset to loading state before the new resolution arrives, so stale data from a previous cart never lingers on screen
+    setResolvedBooks(null);
     resolveCartBooks(ids).then(setResolvedBooks);
   }, [items]);
 
@@ -93,7 +95,7 @@ export default function CheckoutPage() {
     }
   }, [session?.user?.id]);
 
-  const bookSource = resolvedBooks.length > 0 ? resolvedBooks : BOOKS;
+  const bookSource = resolvedBooks ?? [];
   const lines = items
     .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity }))
     .filter((l): l is { book: NonNullable<typeof l.book>; qty: number } => !!l.book);
@@ -181,6 +183,15 @@ export default function CheckoutPage() {
     await confirmOrderPaidDirectly(created.orderId);
     lines.forEach((l) => removeItem(l.book.id));
     router.push(`/checkout/confirmation?order=${created.orderId}`);
+  }
+
+  if (resolvedBooks === null) {
+    return (
+      <div className="wrap cart-wrap" style={{ maxWidth: 820 }}>
+        <div className="checkout-steps skeleton-pulse" style={{ height: 40 }} />
+        <div className="checkout-step-card skeleton-pulse" style={{ minHeight: 320, marginTop: 24 }} />
+      </div>
+    );
   }
 
   if (items.length === 0) {

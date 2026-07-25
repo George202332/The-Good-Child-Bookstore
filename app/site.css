@@ -179,9 +179,20 @@
   }
   .btn-primary{background:var(--coral);color:var(--ink);box-shadow:0 8px 20px rgba(255,140,107,0.35);}
   .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(255,140,107,0.45);}
+  .btn-primary:active{transform:translateY(0);box-shadow:0 4px 10px rgba(255,140,107,0.35);}
   .btn-ghost{background:var(--paper);color:var(--ink);border:2px solid var(--line);}
   .btn-ghost:hover{border-color:var(--ink-faint);transform:translateY(-2px);}
+  .btn-ghost:active{transform:translateY(0);}
   .btn-small{padding:9px 18px;font-size:13px;}
+  .btn:focus-visible{outline:2px solid var(--coral-deep);outline-offset:2px;}
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible{
+    outline:2px solid var(--coral-deep);outline-offset:2px;
+  }
+
+  /* ---------- Loading skeletons ---------- */
+  @keyframes skeleton-pulse{0%,100%{opacity:1;}50%{opacity:0.55;}}
+  .skeleton-pulse{animation:skeleton-pulse 1.4s ease-in-out infinite;}
+  .skeleton-pulse *{background-color:var(--line) !important;color:transparent !important;}
 
   /* ---------- Section headers ---------- */
   .section{padding:48px 0;}

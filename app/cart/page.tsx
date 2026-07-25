@@ -2,22 +2,28 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BOOKS, type Book } from "@/lib/data/catalog";
+import type { Book } from "@/lib/data/catalog";
 import { Motif } from "@/components/Motif";
 import { useCart } from "@/hooks/useCart";
 import { resolveCartBooks } from "@/actions/cart-books";
 
 /** Converted from cartHTML() (the-good-child-bookstore_54_1.html:4554-4603).
  * Books are resolved from the real database (falling back to the static
- * catalog for demo ids) rather than only ever checking the static
+ * catalog only for demo ids) rather than only ever checking the static
  * catalog — previously a real, submitted book silently vanished from the
- * cart instead of showing up. */
+ * cart instead of showing up. While that resolution is in flight, a
+ * sized skeleton is shown instead of guessing with static data — the
+ * previous version briefly rendered the demo catalog's lookup result,
+ * which could silently drop a real book from view for a moment before
+ * the real data arrived. */
 export default function CartPage() {
   const { items, setQty, removeItem } = useCart();
-  const [resolved, setResolved] = useState<Book[]>([]);
+  const [resolved, setResolved] = useState<Book[] | null>(null);
 
   useEffect(() => {
     const ids = items.map((i) => i.bookId);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate: reset to loading state before the new resolution arrives, so stale data from a previous cart never lingers on screen
+    setResolved(null);
     resolveCartBooks(ids).then(setResolved);
   }, [items]);
 
@@ -38,7 +44,31 @@ export default function CartPage() {
     );
   }
 
-  const bookSource = resolved.length > 0 ? resolved : BOOKS;
+  if (resolved === null) {
+    return (
+      <div className="wrap cart-wrap">
+        <h1 style={{ marginBottom: 30 }}>Your cart</h1>
+        <div className="cart-layout">
+          <div>
+            {items.map((i) => (
+              <div key={i.bookId} className="cart-item skeleton-pulse" style={{ minHeight: 108 }}>
+                <div className="mini-cover" style={{ background: "var(--line)" }} />
+                <div>
+                  <div style={{ width: "60%", height: 16, background: "var(--line)", borderRadius: 4, marginBottom: 8 }} />
+                  <div style={{ width: "40%", height: 12, background: "var(--line)", borderRadius: 4 }} />
+                </div>
+                <div />
+                <div style={{ width: 60, height: 16, background: "var(--line)", borderRadius: 4 }} />
+              </div>
+            ))}
+          </div>
+          <div className="summary-card" style={{ minHeight: 220 }} />
+        </div>
+      </div>
+    );
+  }
+
+  const bookSource = resolved;
   const lines = items
     .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity }))
     .filter((l): l is { book: NonNullable<typeof l.book>; qty: number } => !!l.book);
