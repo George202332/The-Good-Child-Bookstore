@@ -82,16 +82,15 @@
   }
   .logo-uploaded{height:100%;background:transparent;display:flex;align-items:center;}
   .logo-mark-uploaded{
-    /* Scaled to fill the full 0.7in height (67px at 96px/inch) — width
-       flows naturally from the logo's own proportions rather than being
-       capped at 1.5in, since a wide banner-shaped logo (like this one)
-       would otherwise be squeezed down to fit a narrower box and end up
-       looking smaller than it should. max-width keeps a very wide logo
-       from overwhelming the header on narrower screens. */
-    height:67px;width:auto;max-width:320px;object-fit:contain;display:block;background:transparent;
+    /* Matches the exact footprint the original "The Good Child Bookstore"
+       text + icon logo occupied in the header before any of this — measured
+       directly from real font metrics (icon 38x38px + 10px gap + "The Good
+       Child"/"BOOKSTORE" text stack at their original font sizes), not
+       guessed: ~256px wide x 38px tall. */
+    height:38px;width:auto;max-width:256px;object-fit:contain;display:block;background:transparent;
   }
   @media (max-width:640px){
-    .logo-mark-uploaded{height:48px;max-width:220px;}
+    .logo-mark-uploaded{height:32px;max-width:210px;}
   }
   .logo-sub{
     font-family:'Times New Roman', Times, serif;
