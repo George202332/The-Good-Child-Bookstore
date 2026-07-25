@@ -8,7 +8,9 @@ import { uploadGenericFile } from "@/actions/files";
  * (Manuscript / Cover image / Sample pages / Promotional images) — same
  * .upload-card visual language as ImageUploadField, but for non-image
  * files (manuscript PDF/EPUB/MOBI, sample-page PDF) that can't go
- * through image conversion.
+ * through image conversion. Supports both click-to-browse and drag-and-
+ * drop — dropping one or more files anywhere on the card uploads them
+ * the same way as picking them through the file dialog.
  */
 export function FileUploadField({
   label,
@@ -28,10 +30,10 @@ export function FileUploadField({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileNames, setFileNames] = useState<string[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
   const inputId = `file-upload-${label.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`;
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
+  async function uploadFiles(files: File[]) {
     if (files.length === 0) return;
 
     setUploading(true);
@@ -55,11 +57,22 @@ export function FileUploadField({
     onUploaded(ids);
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    uploadFiles(Array.from(e.target.files ?? []));
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files ?? []);
+    uploadFiles(multiple ? files : files.slice(0, 1));
+  }
+
   const hasFile = fileNames.length > 0;
 
   return (
     <div className="upload-cards-row">
-      <div className={`upload-card ${hasFile ? "has-file" : ""}`}>
+      <div className={`upload-card ${hasFile ? "has-file" : ""} ${isDragOver ? "drag-over" : ""}`}>
         <input
           type="file"
           id={inputId}
@@ -69,13 +82,24 @@ export function FileUploadField({
           onChange={handleFileChange}
           disabled={uploading}
         />
-        <label htmlFor={inputId} className="upload-card-inner">
+        <label
+          htmlFor={inputId}
+          className="upload-card-inner"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragOver(true);
+          }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={handleDrop}
+        >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <path d="M14 2v6h6" />
           </svg>
           <div className="upload-card-title">{label}</div>
-          <div className="upload-card-sub upload-card-default-label">{uploading ? "Uploading…" : sizeHint}</div>
+          <div className="upload-card-sub upload-card-default-label">
+            {uploading ? "Uploading…" : isDragOver ? "Drop to upload" : `${sizeHint} — drag & drop or click`}
+          </div>
           <div className="upload-card-success-badge">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
             <span>{fileNames.length > 1 ? `${fileNames.length} files` : fileNames[0] ?? "Uploaded"}</span>

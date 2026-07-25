@@ -9,7 +9,9 @@ import { uploadImage } from "@/actions/images";
  * 1523, 9040-9046 for the book cover card specifically) — dashed border,
  * centered icon, title, and a size hint, turning solid green with a
  * checkmark once a file is attached. Every upload is converted to WebP
- * server-side (see actions/images.ts) before it's stored.
+ * server-side (see actions/images.ts) before it's stored. Supports both
+ * click-to-browse and drag-and-drop — dropping a file anywhere on the
+ * card uploads it the same way as picking one through the file dialog.
  */
 export function ImageUploadField({
   label,
@@ -26,12 +28,10 @@ export function ImageUploadField({
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | undefined>(value);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const inputId = `upload-${label.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`;
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  async function uploadFile(file: File) {
     setUploading(true);
     setError(null);
     const formData = new FormData();
@@ -48,11 +48,23 @@ export function ImageUploadField({
     onChange(res.url);
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) uploadFile(file);
+  }
+
   const hasFile = !!preview;
 
   return (
     <div className="upload-cards-row" style={{ maxWidth: 280, marginBottom: 16 }}>
-      <div className={`upload-card ${hasFile ? "has-file" : ""}`}>
+      <div className={`upload-card ${hasFile ? "has-file" : ""} ${isDragOver ? "drag-over" : ""}`}>
         <input
           type="file"
           id={inputId}
@@ -61,7 +73,16 @@ export function ImageUploadField({
           onChange={handleFileChange}
           disabled={uploading}
         />
-        <label htmlFor={inputId} className="upload-card-inner">
+        <label
+          htmlFor={inputId}
+          className="upload-card-inner"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragOver(true);
+          }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={handleDrop}
+        >
           {hasFile && preview ? (
             // eslint-disable-next-line @next/next/no-img-element -- small upload-card preview thumbnail
             <img src={preview} alt={label} style={{ width: 30, height: 30, objectFit: "cover", borderRadius: 6 }} />
@@ -72,7 +93,7 @@ export function ImageUploadField({
           )}
           <div className="upload-card-title">{label}</div>
           <div className="upload-card-sub upload-card-default-label">
-            {uploading ? "Uploading…" : recommendedSize ?? "JPG, PNG, or WEBP"}
+            {uploading ? "Uploading…" : isDragOver ? "Drop to upload" : recommendedSize ?? "JPG, PNG, or WEBP — drag & drop or click"}
           </div>
           <div className="upload-card-success-badge">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
@@ -80,7 +101,7 @@ export function ImageUploadField({
           </div>
         </label>
       </div>
-      {error && <div className="field-hint" style={{ color: "var(--coral-deep, var(--admin-danger))", marginTop: 6 }}>{error}</div>}
+      {error && <div className="field-hint" style={{ color: "var(--coral-deep, var(--admin-danger))" }}>{error}</div>}
     </div>
   );
 }
