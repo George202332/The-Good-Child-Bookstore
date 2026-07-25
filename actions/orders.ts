@@ -115,20 +115,25 @@ export async function createPendingOrder(input: {
   const subtotal = lines.reduce((sum, l) => sum + Number(l.book.price) * l.qty, 0);
   const couponPct = input.couponDiscountPct ?? 0;
 
-  // Real affiliate attribution: recordAffiliateClick() (actions/affiliate.ts)
-  // sets this cookie when someone visits a book page through a promotional
-  // link. Only the specific book that was clicked gets the affiliate split
+  // Real affiliate attribution: the "which affiliate link was this visit
+  // through" cookie is set directly in middleware (proxy.ts) — reliable
+  // on every request, unlike the earlier client-side-effect approach.
+  // Only the specific book that link points to gets the affiliate split
   // and gets linked back to that AffiliateLink — every other line in the
-  // same order is an ordinary organic sale.
+  // same order is an ordinary organic sale. The link is looked up fresh
+  // here (not trusted from the cookie) so its real, current bookId/
+  // affiliateId are always used.
   let affiliateLinkId: string | null = null;
   let affiliateBookId: string | null = null;
   try {
     const cookieStore = await cookies();
-    const raw = cookieStore.get("gcb_aff")?.value;
-    if (raw) {
-      const parsed = JSON.parse(raw) as { linkId: string; bookId: string | null };
-      affiliateLinkId = parsed.linkId;
-      affiliateBookId = parsed.bookId;
+    const affCode = cookieStore.get("gcb_aff")?.value;
+    if (affCode) {
+      const link = await prisma.affiliateLink.findUnique({ where: { code: affCode } });
+      if (link) {
+        affiliateLinkId = link.id;
+        affiliateBookId = link.bookId;
+      }
     }
   } catch {
     // malformed/missing cookie — treat as no attribution

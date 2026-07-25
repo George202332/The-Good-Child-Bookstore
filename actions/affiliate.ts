@@ -1,6 +1,5 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
@@ -57,19 +56,16 @@ export async function getOrCreateAffiliateLink(bookId: string, campaignId?: stri
   return { ok: true, code: link.code };
 }
 
+/** Records a click for stats (Performance page's click counts) — the
+ * actual commission-attribution cookie is now set directly in
+ * middleware (proxy.ts), which is guaranteed to run on every request
+ * before any page JavaScript loads, unlike this client-triggered action
+ * which only fired once the page had mounted and its effect had run. */
 export async function recordAffiliateClick(code: string): Promise<void> {
   const link = await prisma.affiliateLink.findUnique({ where: { code } });
   if (!link) return;
 
   await prisma.affiliateClick.create({ data: { affiliateLinkId: link.id } });
-
-  const cookieStore = await cookies();
-  cookieStore.set("gcb_aff", JSON.stringify({ linkId: link.id, bookId: link.bookId }), {
-    maxAge: 60 * 60 * 24 * 30,
-    path: "/",
-    httpOnly: true,
-    sameSite: "lax",
-  });
 }
 
 export async function listMyAffiliateLinks(): Promise<AffiliateLinkWithStats[]> {
