@@ -31,7 +31,7 @@ export default async function MarketingResourcesPage() {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
         {books.map((b) => (
-          <div key={b.id} className="map-card" style={{ padding: 14 }}>
+          <div key={b.id} className="map-card resource-card" style={{ padding: 14 }}>
             {b.coverImage ? (
               // eslint-disable-next-line @next/next/no-img-element -- real uploaded cover, not a static asset
               <img src={b.coverImage} alt={b.title} style={{ width: "100%", borderRadius: 8, marginBottom: 8, aspectRatio: "2/3", objectFit: "cover" }} />
@@ -40,7 +40,7 @@ export default async function MarketingResourcesPage() {
             )}
             <div style={{ fontWeight: 700, fontSize: 13.5 }}>{b.title}</div>
             <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 }}>by {b.author}</div>
-            <CopyCaptionButton text={`I just found "${b.title}" by ${b.author} and can't stop talking about it — check it out on The Good Child Bookstore! 📚`} />
+            <CopyCaptionButton text={`I just found "${b.title}" by ${b.author} and can't stop talking about it: check it out on The Good Child Bookstore! 📚`} />
           </div>
         ))}
       </div>
