@@ -39,14 +39,12 @@ export default async function RevenuePage() {
     where: { id: session.user.id },
     include: {
       authorProfile: { include: { books: { include: { saleLines: { include: { book: true }, orderBy: { createdAt: "desc" } } } } } },
-      affiliateProfile: isAffiliateToo
-        ? {
-            include: {
-              authorReferralEarnings: { include: { book: { include: { author: { include: { user: true } } } } }, orderBy: { createdAt: "desc" } },
-              affiliateLinks: { include: { saleLines: { include: { book: true }, orderBy: { createdAt: "desc" } } } },
-            },
-          }
-        : false,
+      affiliateProfile: {
+        include: {
+          authorReferralEarnings: { include: { book: { include: { author: { include: { user: true } } } } }, orderBy: { createdAt: "desc" } },
+          affiliateLinks: { include: { saleLines: { include: { book: true }, orderBy: { createdAt: "desc" } } } },
+        },
+      },
     },
   });
 
