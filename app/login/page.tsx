@@ -4,17 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn, getSession, signOut } from "next-auth/react";
-import { Motif } from "@/components/Motif";
 import { PasswordField } from "@/components/PasswordField";
-
-type LoginType = "reader" | "author" | "affiliate";
 
 /**
  * Converted from loginHTML() (the-good-child-bookstore_54_1.html:6211-6256).
- * The reader/author/affiliate tabs are kept for the same UX, but sign-in
- * itself now goes through Auth.js's credentials provider (which checks the
- * real User row and its role) instead of the original's localStorage
- * account lookup keyed by a separately-chosen type.
+ * One login form for whichever account you're using — reader, author,
+ * or affiliate credentials all work the same way here, so there's no
+ * role picker on this page itself; someone without an account yet is
+ * sent to /signup, which is where the reader/author/affiliate choice
+ * actually lives.
  *
  * Backend accounts (Admin/Editor/Accountant) are refused here on purpose
  * — this page is the storefront's own login, and the backend has its own
@@ -24,7 +22,6 @@ type LoginType = "reader" | "author" | "affiliate";
  */
 export default function LoginPage() {
   const router = useRouter();
-  const [type, setType] = useState<LoginType>("reader");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -58,18 +55,6 @@ export default function LoginPage() {
       <div className="auth-card">
         <h1>Welcome back</h1>
         <p>Sign in as a reader, an author, or an affiliate: one login for whichever account you&apos;re using.</p>
-        <div className="login-type-tabs">
-          {(["reader", "author", "affiliate"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              className={`affiliate-tab ${type === t ? "active" : ""}`}
-              onClick={() => setType(t)}
-            >
-              {t[0].toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
         <form onSubmit={handleSubmit}>
           <label className="field-label" htmlFor="l-email">Email</label>
           <input
@@ -89,9 +74,6 @@ export default function LoginPage() {
             value={password}
             onChange={setPassword}
           />
-          <div style={{ textAlign: "right", marginTop: -8, marginBottom: 16 }}>
-            <Link href="/forgot-password" style={{ fontSize: 12.5 }}>Forgot password?</Link>
-          </div>
           {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "-8px 0 16px" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--ink-soft)", cursor: "pointer" }}>
@@ -104,23 +86,8 @@ export default function LoginPage() {
             {submitting ? "Signing in…" : "Sign in"}
           </button>
         </form>
-        <div className="auth-divider"><span /><small>New here</small><span /></div>
-        <div className="role-pick">
-          <Link href="/signup/reader" className="role-card">
-            <svg viewBox="0 0 100 100"><Motif kind="owl" color="#3F3350" /></svg>
-            <h4>Sign up as a reader</h4>
-            <p>Shop, save favorites, subscribe</p>
-          </Link>
-          <Link href="/signup/author" className="role-card">
-            <svg viewBox="0 0 100 100"><Motif kind="star" color="#3F3350" /></svg>
-            <h4>Sign up as an author</h4>
-            <p>Submit and track your titles</p>
-          </Link>
-          <Link href="/signup/affiliate" className="role-card" style={{ gridColumn: "1/-1" }}>
-            <svg viewBox="0 0 100 100"><Motif kind="heart" color="#3F3350" /></svg>
-            <h4>Sign up as an affiliate</h4>
-            <p>Promote books and earn commission</p>
-          </Link>
+        <div className="auth-switch" style={{ marginTop: 20, textAlign: "center" }}>
+          Don&apos;t have an account? <Link href="/signup">Sign up</Link>
         </div>
       </div>
     </section>
