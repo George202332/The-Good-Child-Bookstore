@@ -22,6 +22,7 @@ import type { SiteSettings } from "@/lib/site-settings";
 export function SiteChrome({ children, settings }: { children: ReactNode; settings: SiteSettings }) {
   const pathname = usePathname();
   const isBackend = pathname.startsWith("/admin");
+  const isLoginPage = pathname === "/login";
 
   if (isBackend) return <>{children}</>;
 
@@ -32,6 +33,7 @@ export function SiteChrome({ children, settings }: { children: ReactNode; settin
       </Suspense>
       {children}
       <Footer
+        minimal={isLoginPage}
         logoImageUrl={settings.logoImageUrl}
         footerTagline={settings.footerTagline}
         footerCopyright={settings.footerCopyright}

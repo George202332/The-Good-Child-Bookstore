@@ -94,9 +94,9 @@ export default async function HomePage() {
             </h1>
             <p className="lede">{hero.lede}</p>
             <div className="hero-ctas">
-              <Link href="/shop" className="btn btn-primary">Browse the bookshelf</Link>
-              <Link href="/signup/author" className="btn btn-ghost">Become an author</Link>
-              <Link href="/signup/affiliate" className="btn btn-ghost">Become an affiliate</Link>
+              <Link href="/shop" className="btn btn-primary btn-small">Browse the bookshelf</Link>
+              <Link href="/signup/author" className="btn btn-ghost btn-small">Become an author</Link>
+              <Link href="/signup/affiliate" className="btn btn-ghost btn-small">Become an affiliate</Link>
             </div>
             <div className="trust-strip" style={{ justifyContent: "flex-start", paddingTop: 26 }}>
               <span>

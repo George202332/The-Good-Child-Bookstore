@@ -98,7 +98,7 @@
     text-transform:uppercase;color:var(--coral-deep);
     display:block;margin-top:-2px;
   }
-  nav.main-nav{display:flex;align-items:center;gap:22px;}
+  nav.main-nav{display:flex;align-items:center;gap:22px;position:relative;left:-48px;}
   nav.main-nav a{
     font-weight:600;font-size:14px;color:var(--ink-soft);
     position:relative;padding:4px 0;white-space:nowrap;
@@ -113,7 +113,7 @@
   .search-pill{
     display:flex;align-items:center;gap:8px;
     background:var(--paper);border:2px solid var(--line);
-    border-radius:999px;padding:8px 16px;min-width:190px;
+    border-radius:10px;padding:8px 16px;min-width:286px;
     margin-right:48px;
     transition:border-color .15s ease;
   }
@@ -1325,15 +1325,16 @@
   .contact-row svg{width:20px;height:20px;flex-shrink:0;margin-top:2px;color:var(--coral-deep);}
 
   /* ---------- Auth pages ---------- */
-  .auth-section{padding:64px 0 90px;display:flex;justify-content:center;}
+  .auth-section{padding:32px 0 60px;display:flex;justify-content:center;align-items:center;min-height:calc(100vh - 200px);}
   .auth-card{
     background:var(--paper);border-radius:20px;box-shadow:var(--shadow);
-    padding:40px 44px;width:100%;max-width:440px;
+    padding:32px 44px;width:100%;max-width:440px;
   }
-  .auth-card h1{font-size:26px;margin-bottom:8px;text-align:center;}
-  .auth-card > p{font-size:14px;color:var(--ink-soft);text-align:center;margin-bottom:28px;}
+  .auth-card h1{font-size:26px;margin-bottom:6px;text-align:center;}
+  .auth-card > p{font-size:14px;color:var(--ink-soft);text-align:center;margin-bottom:20px;}
+  .auth-card .field{margin-bottom:16px;}
   .auth-card .btn{width:100%;justify-content:center;margin-top:6px;}
-  .auth-switch{text-align:center;font-size:13px;color:var(--ink-soft);margin-top:22px;}
+  .auth-switch{text-align:center;font-size:13px;color:var(--ink-soft);margin-top:18px;}
   .auth-switch a{font-weight:700;color:var(--coral-deep);}
   .auth-divider{display:flex;align-items:center;gap:12px;margin:26px 0;}
   .auth-divider span{flex:1;height:2px;background:var(--line);}
