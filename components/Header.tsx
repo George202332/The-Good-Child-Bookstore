@@ -41,6 +41,13 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   const { count: cartCount } = useCart();
   const { count: wishlistCount } = useWishlist();
   const [search, setSearch] = useState("");
+  // A backend account (Admin/Editor/Accountant) signed in at /admin/login
+  // is a real, valid session — but it has no business being shown as
+  // "signed in" on the storefront, which is what made it look like
+  // "logging into the backend also logs in the front end". Only a
+  // Reader/Author/Affiliate session counts as signed-in here.
+  const backendRole = (session?.user as { role?: string } | undefined)?.role;
+  const isBackendSession = backendRole === "ADMIN" || backendRole === "EDITOR" || backendRole === "ACCOUNTANT";
 
   // Keep the box in sync with ?q= when already on /shop (e.g. back/forward
   // nav, or a filter chip removed elsewhere), without fighting local typing.
@@ -64,7 +71,7 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
     router.replace(`/shop?${params.toString()}`, { scroll: false });
   }
 
-  const user = session?.user;
+  const user = isBackendSession ? undefined : session?.user;
   const initials = user?.name
     ?.split(" ")
     .map((w) => w[0])

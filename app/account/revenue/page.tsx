@@ -111,9 +111,6 @@ export default async function RevenuePage() {
     const existing = bookSalesByCondition.get(key);
     if (existing) {
       existing.units += 1;
-      existing.company += Number(l.companyShare);
-      existing.affiliate += Number(l.affiliateShare);
-      existing.share += Number(l.authorShare);
       if (l.createdAt > existing.date) existing.date = l.createdAt;
     } else {
       bookSalesByCondition.set(key, {
@@ -251,27 +248,26 @@ export default async function RevenuePage() {
       {bookSalesRows.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13, marginBottom: 24 }}>No sales recorded yet.</div>
       ) : (
-        <div className="map-card scroll-table-5" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
+        <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={TABLE_HEAD_STYLE}>S/N<ColHelp text="The book's ISBN, or a sequential number if it has none." /></th>
-                <th style={TABLE_HEAD_STYLE}>Date<ColHelp text="The most recent sale date within this group of identical sales." /></th>
-                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title." /></th>
-                <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="Which edition was purchased: eBook, Paperback, Hardcover, or Audiobook." /></th>
-                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="Your name, or your pen name if you've set one." /></th>
-                <th style={TABLE_HEAD_STYLE}>Sale Type<ColHelp text="Organic: a direct purchase. Affiliate: bought through someone's promotional link." /></th>
-                <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The price charged per unit for this exact condition." /></th>
-                <th style={TABLE_HEAD_STYLE}>Company<ColHelp text="The company's share of this revenue." /></th>
-                <th style={TABLE_HEAD_STYLE}>Affiliate<ColHelp text="The affiliate's commission, if this was an affiliate sale. $0.00 for organic sales." /></th>
-                <th style={TABLE_HEAD_STYLE}>Share<ColHelp text="Your (the author's) earnings from this group of sales." /></th>
-                <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many books were sold under this exact same condition: same book, format, sale type, and price. A price change or a different sale type starts a new row." /></th>
+                <th style={TABLE_HEAD_STYLE}>Date<ColHelp text="The date of the most recent sale in this row. Every sale here shares the exact same book, format, sale type, and price — the date shown is simply the latest one among them." /></th>
+                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The title of the book that was sold." /></th>
+                <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="The edition purchased: eBook, Paperback, Hardcover, or Audiobook. Each format can have its own price, so it's tracked separately." /></th>
+                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="Your name as it appears on this book — your pen name if you've set one in Profile, otherwise your account name." /></th>
+                <th style={TABLE_HEAD_STYLE}>Sale Type<ColHelp text="Organic means the customer found and bought the book directly, with no affiliate link involved. Affiliate means they bought it after clicking someone's promotional link, which earns that affiliate a commission out of the company's share." /></th>
+                <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The price the customer paid for one copy in this format. If this book's price ever changes, sales at the old and new price appear as separate rows." /></th>
+                <th style={TABLE_HEAD_STYLE}>Company<ColHelp text="The company's cut of a single copy at this price: normally 25%, or a smaller share if part of it was carved out to pay an affiliate's referral commission." /></th>
+                <th style={TABLE_HEAD_STYLE}>Affiliate<ColHelp text="The commission an affiliate earns on a single copy sold through their link: 10% of the price. Always $0.00 for organic sales, since no affiliate was involved." /></th>
+                <th style={TABLE_HEAD_STYLE}>Share<ColHelp text="Your royalty rate for a single copy at this price: what you personally earn per book sold, before multiplying by how many were sold." /></th>
+                <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many copies were sold at exactly this price, in this format, under this sale type. If the price changes, or a sale happens through an affiliate instead of organically, that becomes its own separate row with its own count." /></th>
+                <th style={TABLE_HEAD_STYLE}>Royalty<ColHelp text="Your total earnings for this whole row: Share multiplied by Units. This is the actual amount you're owed for all the copies sold under this exact condition." /></th>
               </tr>
             </thead>
             <tbody>
               {bookSalesRows.map((r, i) => (
                 <tr key={i}>
-                  <td style={TABLE_CELL_STYLE}>{r.isbn ?? `#${i + 1}`}</td>
                   <td style={TABLE_CELL_STYLE}>{r.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                   <td style={TABLE_CELL_STYLE}>{r.title}</td>
                   <td style={TABLE_CELL_STYLE}>{r.format}</td>
@@ -280,8 +276,9 @@ export default async function RevenuePage() {
                   <td style={TABLE_CELL_STYLE}>${r.price.toFixed(2)}</td>
                   <td style={TABLE_CELL_STYLE}>${r.company.toFixed(2)}</td>
                   <td style={TABLE_CELL_STYLE}>${r.affiliate.toFixed(2)}</td>
-                  <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>${r.share.toFixed(2)}</td>
-                  <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>{r.units}</td>
+                  <td style={TABLE_CELL_STYLE}>${r.share.toFixed(2)}</td>
+                  <td style={TABLE_CELL_STYLE}>{r.units}</td>
+                  <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>${(r.share * r.units).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
@@ -295,15 +292,15 @@ export default async function RevenuePage() {
           {referralRows.length === 0 ? (
             <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13, marginBottom: 24 }}>No referral revenue yet.</div>
           ) : (
-            <div className="map-card scroll-table-5" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
+            <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    <th style={TABLE_HEAD_STYLE}>Account ID<ColHelp text="The referred author's unique account number." /></th>
-                    <th style={TABLE_HEAD_STYLE}>Name<ColHelp text="The referred author's name, or their pen name if they've set one." /></th>
-                    <th style={TABLE_HEAD_STYLE}>Date Joined<ColHelp text="When this author signed up through your referral link." /></th>
-                    <th style={TABLE_HEAD_STYLE}>Revenue<ColHelp text="The total revenue the company has earned from this author's book sales." /></th>
-                    <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="Your commission on that company revenue, for as long as this author publishes with us." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Account ID<ColHelp text="The unique account number belonging to the author you referred — the same number shown on their own Profile page." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Name<ColHelp text="The referred author's name — their pen name if they've set one in their Profile, otherwise their real name." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Date Joined<ColHelp text="The date this author created their account using your referral link." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Revenue<ColHelp text="The total amount the company itself has earned (its 25% share, before any referral commission is carved out) from every book this author has sold, added up across all their sales." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="Your own earnings from referring this author: a percentage of the company's revenue above, paid to you for as long as they continue publishing with us — even on books they publish long after signing up." /></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -325,17 +322,17 @@ export default async function RevenuePage() {
           {promotionRows.length === 0 ? (
             <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No promotion earnings yet.</div>
           ) : (
-            <div className="map-card scroll-table-5" style={{ padding: 0, overflowX: "auto" }}>
+            <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    <th style={TABLE_HEAD_STYLE}>SN/ISBN<ColHelp text="The book's ISBN, or a sequential number if it has none." /></th>
-                    <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title." /></th>
-                    <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="The book's author, or their pen name if set." /></th>
-                    <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="Which edition was promoted and sold." /></th>
-                    <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The real list price of this edition." /></th>
-                    <th style={TABLE_HEAD_STYLE}>Copies<ColHelp text="How many copies of this edition sold through your promotional link." /></th>
-                    <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="10% of the list price, for every copy sold through your link." /></th>
+                    <th style={TABLE_HEAD_STYLE}>SN/ISBN<ColHelp text="The book's ISBN, or a sequential number if it doesn't have one on file." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The title of the book you promoted and that sold." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="The name (or pen name) of whoever wrote this book — not necessarily you, since you can promote any book on the shelf." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="Which edition sold through your link: eBook, Paperback, Hardcover, or Audiobook." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The book's real listed price for this format — not a discounted checkout price, the actual price it's sold at." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Copies<ColHelp text="How many copies of this exact book and format have sold through your promotional link so far." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="Your total earnings from this book: 10% of the price, multiplied by the number of copies sold through your link." /></th>
                   </tr>
                 </thead>
                 <tbody>
