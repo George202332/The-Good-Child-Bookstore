@@ -2,20 +2,14 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
-import { getMyWallet } from "@/actions/wallet";
-import { getMyPayoutRequests, type PayoutRow } from "@/actions/payouts";
-import { listMyWiseRecipients } from "@/actions/wise-recipients";
-import { RequestPayoutForm } from "@/components/RequestPayoutForm";
-import { HOLD_DAYS } from "@/lib/wallet";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
-import { getAffiliateEarningsSummary } from "@/actions/affiliate-earnings-summary";
-import { AffiliateEarningsCards } from "../performance/AffiliateEarningsCards";
-import { AffiliateCategorySection } from "./AffiliateCategorySection";
 
 interface SaleLineRow {
   id: string;
   grossAmount: unknown;
   authorShare: unknown;
+  saleType: string;
+  format: string | null;
   createdAt: Date;
   book: { title: string };
 }
@@ -23,116 +17,174 @@ interface AuthorBookWithLines {
   saleLines: SaleLineRow[];
 }
 
+const FORMAT_LABEL: Record<string, string> = { ebook: "eBook", paperback: "Paperback", hardcover: "Hardcover", audiobook: "Audiobook" };
+
 /**
- * Revenue — a real, itemized breakdown of every sale line against the
- * author's books, using the confirmed revenue engine (lib/revenue.ts):
- * 75% author share on organic sales, 65% + a separate 10% affiliate cut
- * on affiliate-referred ones. Now includes the real wallet (On Hold /
- * Available, see lib/wallet.ts) and Wise payout requests — previously
- * authors had no payout mechanism at all; only affiliates did.
+ * Revenue — purely informational: every dollar you've earned, broken
+ * down by exactly where it came from (book sales, author referrals you
+ * brought in, or book promotions via your affiliate links), with a
+ * detailed table for each. Actually requesting or tracking a payout now
+ * lives on Payout Settings, since that's the dedicated tab for moving
+ * money — this page is just for understanding where your earnings come
+ * from.
  */
 export default async function RevenuePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (session.user.role !== "AUTHOR") redirect("/account");
 
-  const [user, wallet, payouts, recipients, isAffiliateToo] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: { authorProfile: { include: { books: { include: { saleLines: { include: { book: true }, orderBy: { createdAt: "desc" } } } } } } },
-    }),
-    getMyWallet(),
-    getMyPayoutRequests(),
-    listMyWiseRecipients(),
-    hasAffiliateCapability(session.user.id),
-  ]);
-  const affiliateEarnings = isAffiliateToo ? await getAffiliateEarningsSummary() : null;
+  const isAffiliateToo = await hasAffiliateCapability(session.user.id);
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: {
+      authorProfile: { include: { books: { include: { saleLines: { include: { book: true }, orderBy: { createdAt: "desc" } } } } } },
+      affiliateProfile: isAffiliateToo
+        ? {
+            include: {
+              authorReferralEarnings: { include: { book: { include: { author: { include: { user: true } } } } }, orderBy: { createdAt: "desc" } },
+              affiliateLinks: { include: { saleLines: { include: { book: true }, orderBy: { createdAt: "desc" } } } },
+            },
+          }
+        : false,
+    },
+  });
+
   const books = (user?.authorProfile?.books ?? []) as AuthorBookWithLines[];
-  const lines = books.flatMap((b) => b.saleLines);
+  const bookSaleLines = books.flatMap((b) => b.saleLines);
+  const bookSalesTotal = bookSaleLines.reduce((s, l) => s + Number(l.authorShare), 0);
+
+  type ReferralRow = { id: string; createdAt: Date; grossAmount: unknown; authorReferralShare: unknown; book: { title: string; author: { user: { name: string } } } };
+  const referralLines = ((user?.affiliateProfile?.authorReferralEarnings ?? []) as ReferralRow[]);
+  const referralTotal = referralLines.reduce((s, l) => s + Number(l.authorReferralShare), 0);
+
+  type PromotionRow = { id: string; createdAt: Date; grossAmount: unknown; affiliateShare: unknown; book: { title: string } };
+  const promotionLines: PromotionRow[] = (user?.affiliateProfile?.affiliateLinks ?? []).flatMap((l: { saleLines: PromotionRow[] }) => l.saleLines);
+  const promotionTotal = promotionLines.reduce((s, l) => s + Number(l.affiliateShare), 0);
+
+  const grandTotal = bookSalesTotal + referralTotal + promotionTotal;
 
   return (
     <DashboardShell role="AUTHOR" activeKey="revenue" displayName={session.user.name ?? ""}>
-      {affiliateEarnings && (
-        <>
-          <div className="section-head" style={{ marginBottom: 8 }}>
-            <div>
-              <h2 style={{ fontSize: 20 }}>Affiliate</h2>
-              <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-                Your affiliate programme has two distinct earning categories: each tracked separately with its own
-                link and commission structure.
-              </p>
-            </div>
-          </div>
-          <AffiliateEarningsCards initial={affiliateEarnings} />
-          <AffiliateCategorySection data={affiliateEarnings} />
-        </>
-      )}
-
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Book Revenue</h2>
+          <h2 style={{ fontSize: 20 }}>Revenue</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            Your 75% (or 65% on affiliate-referred sales) share of every sale. New sales are On Hold for {HOLD_DAYS}{" "}
-            days, then move to Available.
+            Every dollar you&apos;ve earned, broken down by exactly where it came from. To request a payout, see
+            Payout Settings.
           </p>
         </div>
       </div>
-      <div className="stat-grid" style={{ marginBottom: 24 }}>
-        <div className="stat-card">
+
+      <div className="stat-grid" style={{ marginBottom: 28 }}>
+        <div className="stat-card stat-card-referral">
           <div className="stat-label">Total earnings</div>
-          <div className="stat-value">${wallet.totalEarned.toFixed(2)}</div>
-          <div className="stat-sub">All time, {lines.length} sale{lines.length === 1 ? "" : "s"}</div>
+          <div className="stat-value">${grandTotal.toFixed(2)}</div>
+          <div className="stat-sub">All time; every source combined</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">On Hold</div>
-          <div className="stat-value">${wallet.onHold.toFixed(2)}</div>
-          <div className="stat-sub">Released after {HOLD_DAYS} days</div>
+        <div className="stat-card stat-card-promotion">
+          <div className="stat-label">Book sales</div>
+          <div className="stat-value">${bookSalesTotal.toFixed(2)}</div>
+          <div className="stat-sub">Your author share of {bookSaleLines.length} sale{bookSaleLines.length === 1 ? "" : "s"}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Available</div>
-          <div className="stat-value">${wallet.available.toFixed(2)}</div>
-          <div className="stat-sub">Ready to request</div>
+        <div className="stat-card stat-card-total">
+          <div className="stat-label">Author referrals</div>
+          <div className="stat-value">${referralTotal.toFixed(2)}</div>
+          <div className="stat-sub">3% commission from {referralLines.length} sale{referralLines.length === 1 ? "" : "s"}</div>
+        </div>
+        <div className="stat-card stat-card-due">
+          <div className="stat-label">Book promotions</div>
+          <div className="stat-value">${promotionTotal.toFixed(2)}</div>
+          <div className="stat-sub">10% commission from {promotionLines.length} sale{promotionLines.length === 1 ? "" : "s"}</div>
         </div>
       </div>
 
-      <RequestPayoutForm available={wallet.available} recipients={recipients} />
-
-      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Payout requests</h3>
-      {payouts.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No payout requests yet.</div>
+      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Book sales</h3>
+      {bookSaleLines.length === 0 ? (
+        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13, marginBottom: 24 }}>No sales recorded yet.</div>
       ) : (
-        <div className="map-card" style={{ padding: "6px 16px", marginBottom: 24 }}>
-          {payouts.map((p: PayoutRow) => (
-            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13.5 }}>${p.amount.toFixed(2)}</div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                  {p.recipientLabel} · requested {p.requestedAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                </div>
-              </div>
-              <span className="age-pill">{p.status}</span>
-            </div>
-          ))}
+        <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr>
+                {["Book", "Date", "Format", "Sale type", "Gross", "Your share"].map((h) => (
+                  <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", textAlign: "left" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bookSaleLines.map((l) => (
+                <tr key={l.id}>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.book.title}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.format ? FORMAT_LABEL[l.format] ?? l.format : "—"}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}><span className="age-pill">{l.saleType === "AFFILIATE" ? "Affiliate" : "Organic"}</span></td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${Number(l.grossAmount).toFixed(2)}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", fontWeight: 700 }}>${Number(l.authorShare).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Sale history</h3>
-      {lines.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No sales recorded yet.</div>
-      ) : (
-        <div className="map-card" style={{ padding: "6px 16px" }}>
-          {lines.map((l) => (
-            <div key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13.5 }}>{l.book.title}</div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                  {l.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} · gross ${Number(l.grossAmount).toFixed(2)}
-                </div>
-              </div>
-              <div style={{ fontWeight: 700 }}>${Number(l.authorShare).toFixed(2)}</div>
+      {isAffiliateToo && (
+        <>
+          <h3 style={{ fontSize: 16, marginBottom: 14 }}>Author referrals</h3>
+          {referralLines.length === 0 ? (
+            <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13, marginBottom: 24 }}>No author-referral earnings yet.</div>
+          ) : (
+            <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    {["Referred author", "Book sold", "Date", "Gross sale", "Your 3% share"].map((h) => (
+                      <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", textAlign: "left" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {referralLines.map((l) => (
+                    <tr key={l.id}>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.book.author.user.name}</td>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.book.title}</td>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${Number(l.grossAmount).toFixed(2)}</td>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", fontWeight: 700 }}>${Number(l.authorReferralShare).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
-        </div>
+          )}
+
+          <h3 style={{ fontSize: 16, marginBottom: 14 }}>Book promotions</h3>
+          {promotionLines.length === 0 ? (
+            <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No promotion earnings yet.</div>
+          ) : (
+            <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    {["Book", "Date", "Gross sale", "Your 10% share"].map((h) => (
+                      <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", textAlign: "left" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {promotionLines.map((l) => (
+                    <tr key={l.id}>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.book.title}</td>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${Number(l.grossAmount).toFixed(2)}</td>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", fontWeight: 700 }}>${Number(l.affiliateShare).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </DashboardShell>
   );

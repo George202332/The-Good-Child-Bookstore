@@ -2,22 +2,44 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { listMyWiseRecipients } from "@/actions/wise-recipients";
+import { getMyWallet } from "@/actions/wallet";
+import { getMyPayoutRequests, type PayoutRow } from "@/actions/payouts";
 import { RecipientManager } from "./RecipientManager";
+import { RequestPayoutForm } from "@/components/RequestPayoutForm";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 
 /**
- * Payout Settings — where authors and affiliates add the accounts they
- * want to be paid out to via Wise (M-Pesa, bank transfer, etc). Shared
- * between both roles, and also reachable by a Reader who's enabled
- * affiliate access from their own dashboard.
+ * Payout Settings — the one place to manage where earnings are sent
+ * (Wise recipients), request a payout, and see payout history. Used to
+ * be split: request-a-payout lived on Revenue, everything else lived
+ * here. Consolidated so "Payouts" (the nav item) is the single home for
+ * actually moving money, while Revenue stays purely informational.
+ * Shared between Author and Affiliate roles (and a Reader who's enabled
+ * affiliate access) — an Author's "available" balance combines both
+ * their book-revenue and affiliate-earnings wallets, matching how the
+ * Dashboard already presents a combined figure.
  */
 export default async function PayoutSettingsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const role = session.user.role;
-  if (role !== "AUTHOR" && role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) redirect("/account");
+  const isAffiliateToo = await hasAffiliateCapability(session.user.id);
+  if (role !== "AUTHOR" && role !== "AFFILIATE" && !isAffiliateToo) redirect("/account");
 
-  const recipients = await listMyWiseRecipients();
+  const [recipients, payouts] = await Promise.all([listMyWiseRecipients(), getMyPayoutRequests()]);
+
+  let available = 0;
+  if (role === "AUTHOR") {
+    const authorWallet = await getMyWallet("author");
+    available = authorWallet.available;
+    if (isAffiliateToo) {
+      const affiliateWallet = await getMyWallet("affiliate");
+      available += affiliateWallet.available;
+    }
+  } else {
+    const wallet = await getMyWallet("affiliate");
+    available = wallet.available;
+  }
 
   return (
     <DashboardShell role={role} activeKey="payout-settings" displayName={session.user.name ?? ""}>
@@ -31,6 +53,28 @@ export default async function PayoutSettingsPage() {
         </div>
       </div>
       <RecipientManager initial={recipients} />
+
+      <h3 style={{ fontSize: 16, margin: "28px 0 14px" }}>Request a payout</h3>
+      <RequestPayoutForm available={available} recipients={recipients} />
+
+      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Payout history</h3>
+      {payouts.length === 0 ? (
+        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No payout requests yet.</div>
+      ) : (
+        <div className="map-card" style={{ padding: "6px 16px" }}>
+          {payouts.map((p: PayoutRow) => (
+            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13.5 }}>${p.amount.toFixed(2)}</div>
+                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                  {p.recipientLabel}; requested {p.requestedAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                </div>
+              </div>
+              <span className="age-pill">{p.status}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </DashboardShell>
   );
 }
