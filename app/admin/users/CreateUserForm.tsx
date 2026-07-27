@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createUserAccount } from "@/actions/users-admin";
 import type { Role } from "@/lib/roles";
+import { PasswordField } from "@/components/PasswordField";
 
 const ROLES: Role[] = ["READER", "AUTHOR", "AFFILIATE", "EDITOR", "ADMIN", "ACCOUNTANT"];
 
@@ -58,7 +59,7 @@ export function CreateUserForm() {
         </div>
         <div>
           <label className="field-label" htmlFor="cu-password">Password</label>
-          <input className="field" id="cu-password" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordField id="cu-password" required minLength={6} value={password} onChange={setPassword} />
         </div>
       </div>
 

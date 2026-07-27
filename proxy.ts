@@ -40,8 +40,19 @@ export default auth((req) => {
   }
 
   const isAccountRoute = pathname.startsWith("/account");
-  if (isAccountRoute && !role) {
-    return NextResponse.redirect(new URL("/login", req.nextUrl.origin));
+  if (isAccountRoute) {
+    if (!role) {
+      return NextResponse.redirect(new URL("/login", req.nextUrl.origin));
+    }
+    // A backend account (Admin/Editor/Accountant) landing on /account was
+    // the real cause behind "there seem to be 2 admin accounts" — the
+    // same single admin session could reach both /admin (its real home)
+    // and /account (the Reader/Author/Affiliate dashboard, which has no
+    // real handling for a backend role and just showed a placeholder).
+    // Sending it back to /admin instead closes that off entirely.
+    if (BACKEND_ROLES.includes(role as Role)) {
+      return NextResponse.redirect(new URL("/admin", req.nextUrl.origin));
+    }
   }
 
   const response = NextResponse.next();

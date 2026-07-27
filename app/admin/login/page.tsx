@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { PasswordField } from "@/components/PasswordField";
 
 /**
  * A dedicated backend login — separate from the public /login page
@@ -35,12 +37,8 @@ export default function AdminLoginPage() {
   return (
     <div className="admin-shell" style={{ alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
       <div style={{ width: "100%", maxWidth: 360, padding: "0 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 28 }}>
-          <div className="admin-brand-mark" style={{ width: 40, height: 40, fontSize: 15 }}>GC</div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>The Good Child</div>
-            <div style={{ fontSize: 12, color: "var(--admin-text-faint)" }}>Backend</div>
-          </div>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ fontWeight: 700, fontSize: 18 }}>Backend sign in</div>
         </div>
         <form onSubmit={handleSubmit} className="form-section">
           <label className="field-label" htmlFor="admin-email">Email</label>
@@ -54,15 +52,16 @@ export default function AdminLoginPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
           <label className="field-label" htmlFor="admin-password">Password</label>
-          <input
-            className="field"
+          <PasswordField
             id="admin-password"
-            type="password"
             required
             autoComplete="current-password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={setPassword}
           />
+          <div style={{ textAlign: "right", marginTop: -8, marginBottom: 16 }}>
+            <Link href="/forgot-password" style={{ fontSize: 12.5 }}>Forgot password?</Link>
+          </div>
           {error && <div className="field-hint" style={{ color: "var(--admin-danger)" }}>{error}</div>}
           <button type="submit" className="btn btn-primary btn-block" disabled={submitting} style={{ marginTop: 8 }}>
             {submitting ? "Signing in…" : "Sign in"}

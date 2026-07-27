@@ -102,6 +102,7 @@ model User {
 
   settings      Settings?
   sessions      Session[]
+  passwordResetTokens PasswordResetToken[]
   notifications Notification[]
   reviews       Review[]
   blogComments  BlogComment[]
@@ -116,6 +117,22 @@ model User {
   payoutRequests PayoutRequest[]
 
   @@index([role])
+}
+
+/** Real password reset — one-time tokens, expiring in 1 hour, usable
+ * exactly once. Works identically for every account type, including
+ * backend roles (Admin/Editor/Accountant), since it's just email-based
+ * identity, not role-specific. */
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Session {

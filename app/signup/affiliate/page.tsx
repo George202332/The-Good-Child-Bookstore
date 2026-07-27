@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { PasswordField } from "@/components/PasswordField";
 import { registerUser } from "@/actions/auth";
 
 /** Converted from signupAffiliateHTML()/handleAffiliateSignup() (the-good-child-bookstore_54_1.html:6420-6451). */
@@ -45,9 +46,9 @@ export default function SignupAffiliatePage() {
           <label className="field-label" htmlFor="af-email">Email</label>
           <input className="field" id="af-email" type="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
           <label className="field-label" htmlFor="af-password">Password</label>
-          <input className="field" id="af-password" type="password" placeholder="At least 6 characters" minLength={6} required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordField id="af-password" placeholder="At least 6 characters" minLength={6} required value={password} onChange={setPassword} />
           <label className="field-label" htmlFor="af-confirm">Confirm password</label>
-          <input className="field" id="af-confirm" type="password" placeholder="Type it again" minLength={6} required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+          <PasswordField id="af-confirm" placeholder="Type it again" minLength={6} required value={confirm} onChange={setConfirm} />
           {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
           <button className="btn btn-primary" type="submit" disabled={submitting}>
             {submitting ? "Creating…" : "Create affiliate account"}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { PasswordField } from "@/components/PasswordField";
 import { registerUser } from "@/actions/auth";
 
 const GENRES = ["Picture books", "Bedtime stories", "Early readers", "Middle grade", "Activity books"];
@@ -60,9 +61,9 @@ export default function SignupAuthorPage() {
             {GENRES.map((g) => <option key={g}>{g}</option>)}
           </select>
           <label className="field-label" htmlFor="a-password">Password</label>
-          <input className="field" id="a-password" type="password" placeholder="At least 6 characters" minLength={6} required value={password} onChange={(e) => setPassword(e.target.value)} />
+          <PasswordField id="a-password" placeholder="At least 6 characters" minLength={6} required value={password} onChange={setPassword} />
           <label className="field-label" htmlFor="a-confirm">Confirm password</label>
-          <input className="field" id="a-confirm" type="password" placeholder="Type it again" minLength={6} required value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+          <PasswordField id="a-confirm" placeholder="Type it again" minLength={6} required value={confirm} onChange={setConfirm} />
           {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
           <button className="btn btn-primary" type="submit" disabled={submitting}>
             {submitting ? "Creating…" : "Create author account"}

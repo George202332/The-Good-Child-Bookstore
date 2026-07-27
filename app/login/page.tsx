@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn, getSession, signOut } from "next-auth/react";
 import { Motif } from "@/components/Motif";
+import { PasswordField } from "@/components/PasswordField";
 
 type LoginType = "reader" | "author" | "affiliate";
 
@@ -81,15 +82,16 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
           <label className="field-label" htmlFor="l-password">Password</label>
-          <input
-            className="field"
+          <PasswordField
             id="l-password"
-            type="password"
             placeholder="Your password"
             required
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={setPassword}
           />
+          <div style={{ textAlign: "right", marginTop: -8, marginBottom: 16 }}>
+            <Link href="/forgot-password" style={{ fontSize: 12.5 }}>Forgot password?</Link>
+          </div>
           {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "-8px 0 16px" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--ink-soft)", cursor: "pointer" }}>
