@@ -24,6 +24,8 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
     const items: NavItem[] = [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
+      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
+      { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
       { key: "security", label: "Security", href: "/account/security", section: "Account" },
       { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
       { key: "library", label: "My Library", href: "/account/library", section: "Library" },
@@ -33,7 +35,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "payment-methods", label: "Payment Methods", href: "/account/payment-methods", section: "Account extras" },
       { key: "following", label: "Following", href: "/account/following", section: "Account extras" },
       { key: "reviews", label: "Reviews", href: "/account/reviews", section: "Account extras" },
-      { key: "messages", label: "Messages", href: "/account/messages", section: "Account extras" },
     ];
     if (hasAffiliateAccess) {
       items.push(
@@ -55,10 +56,12 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
     return [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
+      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
+      { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
       { key: "security", label: "Security", href: "/account/security", section: "Account" },
       { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
       { key: "referrals", label: "Referral Links", href: "/account/referrals", section: "Affiliate" },
-        { key: "active-campaigns", label: "Active Campaigns", href: "/account/active-campaigns", section: "Affiliate" },
+      { key: "active-campaigns", label: "Active Campaigns", href: "/account/active-campaigns", section: "Affiliate" },
       { key: "promotions", label: "Promotions", href: "/account/promotions", section: "Affiliate" },
       { key: "resources", label: "Marketing Resources", href: "/account/resources", section: "Affiliate" },
       { key: "campaigns", label: "Campaigns", href: "/account/campaigns", section: "Affiliate" },
@@ -67,13 +70,14 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "performance", label: "Performance", href: "/account/performance", section: "Financial" },
       { key: "payments", label: "Payments", href: "/account/payments", section: "Financial" },
       { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
-      { key: "messages", label: "Messages", href: "/account/messages", section: "Affiliate" },
     ];
   }
   if (role === "AUTHOR") {
     return [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
+      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
+      { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
       { key: "security", label: "Security", href: "/account/security", section: "Account" },
       { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
       { key: "mybooks", label: "My Books", href: "/account/books", section: "Publishing" },
@@ -82,7 +86,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "revenue", label: "Revenue", href: "/account/revenue", section: "Financial" },
       { key: "transaction-history", label: "Transaction History", href: "/account/transaction-history", section: "Financial" },
       { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
-      { key: "messages", label: "Messages", href: "/account/messages", section: "Publishing" },
     ];
   }
   return [{ key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" }];

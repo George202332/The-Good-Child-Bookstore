@@ -201,6 +201,12 @@
   /* ---------- Loading skeletons ---------- */
   @keyframes skeleton-pulse{0%,100%{opacity:1;}50%{opacity:0.55;}}
   .skeleton-pulse{animation:skeleton-pulse 1.4s ease-in-out infinite;}
+
+  /* Scrolls internally once content overflows, without ever showing a
+     scrollbar — used for the Recent Activity card so it keeps a fixed,
+     compact size while still surfacing everything if scrolled. */
+  .scroll-fade-no-bar{scrollbar-width:none;-ms-overflow-style:none;}
+  .scroll-fade-no-bar::-webkit-scrollbar{display:none;width:0;height:0;}
   .skeleton-pulse *{background-color:var(--line) !important;color:transparent !important;}
 
   /* ---------- Section headers ---------- */
@@ -1457,20 +1463,28 @@
   .stat-card{background:var(--paper);border-radius:16px;padding:20px;transition:box-shadow .5s ease;}
 
   /* ---------- Dashboard color-coded stat cards ---------- */
-  .stat-card-blue{background:#E8EEFB;border:1px solid #C7D6F5;}
-  .stat-card-blue .stat-label{color:#2451B7;}
-  .stat-card-purple{background:#F1E9F7;border:1px solid #DCC6EC;}
-  .stat-card-purple .stat-label{color:#7A4C99;}
-  .stat-card-amber{background:#FBF1DE;border:1px solid #F0DCA8;}
-  .stat-card-amber .stat-label{color:#9A6B0C;}
-  .stat-card-green{background:#E4F3EA;border:1px solid #B9E0C8;}
-  .stat-card-green .stat-label{color:#1F6B48;}
+  .stat-card-blue{background:#1E4FA3;border:1px solid #163C7D;}
+  .stat-card-blue .stat-label{color:#CFE0FF;}
+  .stat-card-blue .stat-value{color:#fff;}
+  .stat-card-blue .stat-sub{color:#B7CDF2;}
+  .stat-card-purple{background:#5D3A82;border:1px solid #472C64;}
+  .stat-card-purple .stat-label{color:#E5D6F5;}
+  .stat-card-purple .stat-value{color:#fff;}
+  .stat-card-purple .stat-sub{color:#D3BFEA;}
+  .stat-card-amber{background:#A56A08;border:1px solid #815207;}
+  .stat-card-amber .stat-label{color:#FCE7BE;}
+  .stat-card-amber .stat-value{color:#fff;}
+  .stat-card-amber .stat-sub{color:#F5D999;}
+  .stat-card-green{background:#1C6B44;border:1px solid #145235;}
+  .stat-card-green .stat-label{color:#C9F0DA;}
+  .stat-card-green .stat-value{color:#fff;}
+  .stat-card-green .stat-sub{color:#A9E3C4;}
   .stat-sub-row{display:flex;align-items:center;justify-content:space-between;margin-top:2px;}
   .stat-withdraw-btn{
-    font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;
-    background:#1F6B48;color:#fff;white-space:nowrap;transition:background .15s ease;
+    font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;
+    background:#fff;color:#1C6B44;white-space:nowrap;transition:background .15s ease,transform .15s ease;
   }
-  .stat-withdraw-btn:hover{background:#164F35;}
+  .stat-withdraw-btn:hover{background:#EAF7EF;transform:translateY(-1px);}
   /* Per explicit instruction: in dark mode these 4 cards carry no color
      at all, matching the plain default .stat-card look. */
   html.dark-mode .stat-card-blue,
@@ -1483,6 +1497,18 @@
   html.dark-mode .stat-card-purple .stat-label,
   html.dark-mode .stat-card-amber .stat-label,
   html.dark-mode .stat-card-green .stat-label{
+    color:var(--ink-faint);
+  }
+  html.dark-mode .stat-card-blue .stat-value,
+  html.dark-mode .stat-card-purple .stat-value,
+  html.dark-mode .stat-card-amber .stat-value,
+  html.dark-mode .stat-card-green .stat-value{
+    color:var(--ink);
+  }
+  html.dark-mode .stat-card-blue .stat-sub,
+  html.dark-mode .stat-card-purple .stat-sub,
+  html.dark-mode .stat-card-amber .stat-sub,
+  html.dark-mode .stat-card-green .stat-sub{
     color:var(--ink-faint);
   }
   html.dark-mode .stat-withdraw-btn{background:var(--ink);color:var(--cream);}

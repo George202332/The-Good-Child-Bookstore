@@ -158,9 +158,6 @@ export default async function AccountPage() {
     const publishedCount = books.filter((b) => b.status === "PUBLISHED").length;
 
     const now = new Date();
-    const thisMonthRevenue = allLines
-      .filter((l) => l.createdAt.getFullYear() === now.getFullYear() && l.createdAt.getMonth() === now.getMonth())
-      .reduce((sum, l) => sum + Number(l.authorShare), 0);
 
     const wallet = await getMyWallet("author");
     const holdCutoff = now.getTime() - HOLD_DAYS * 24 * 60 * 60 * 1000;
@@ -214,7 +211,7 @@ export default async function AccountPage() {
     const combinedAvailable = wallet.available + (affiliateWallet?.available ?? 0);
 
     const notifications = await listMyNotifications();
-    const recentActivity = notifications.slice(0, 5);
+    const recentActivity = notifications.slice(0, 20);
 
     return (
       <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
@@ -226,14 +223,14 @@ export default async function AccountPage() {
 
         <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 28 }}>
           <div className="stat-card stat-card-blue">
-            <div className="stat-label">Book sales</div>
-            <div className="stat-value">${totalRevenue.toFixed(2)}</div>
-            <div className="stat-sub">All time, your author share</div>
+            <div className="stat-label">Earnings</div>
+            <div className="stat-value">${(totalRevenue + affiliateCommissionTotal).toFixed(2)}</div>
+            <div className="stat-sub">Lifetime — book sales{isAffiliateToo ? " + referral & promotion commission" : ""}</div>
           </div>
           <div className="stat-card stat-card-purple">
-            <div className="stat-label">Affiliate commission</div>
-            <div className="stat-value">{isAffiliateToo ? `$${affiliateCommissionTotal.toFixed(2)}` : "—"}</div>
-            <div className="stat-sub">{isAffiliateToo ? "3% author referral + 10% book commission" : "Not enrolled"}</div>
+            <div className="stat-label">Titles on shelf</div>
+            <div className="stat-value">{books.length}</div>
+            <div className="stat-sub">{publishedCount} published</div>
           </div>
           <div className="stat-card stat-card-amber">
             <div className="stat-label">On hold</div>
@@ -245,21 +242,8 @@ export default async function AccountPage() {
             <div className="stat-value">${combinedAvailable.toFixed(2)}</div>
             <div className="stat-sub-row">
               <span className="stat-sub">Ready to request</span>
-              <Link href="/account/payout-settings" className="stat-withdraw-btn">Withdraw</Link>
+              <Link href="/account/revenue" className="stat-withdraw-btn">Withdraw</Link>
             </div>
-          </div>
-        </div>
-
-        <div className="stat-grid" style={{ marginBottom: 28 }}>
-          <div className="stat-card">
-            <div className="stat-label">Titles on shelf</div>
-            <div className="stat-value">{books.length}</div>
-            <div className="stat-sub">{publishedCount} published</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">This month</div>
-            <div className="stat-value">${thisMonthRevenue.toFixed(2)}</div>
-            <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}, in progress</div>
           </div>
         </div>
 
@@ -309,34 +293,34 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-          <div className="map-card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Affiliate snapshot</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="map-card" style={{ padding: 14 }}>
+            <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Affiliate snapshot</h3>
             {isAffiliateToo ? (
               <>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span>Referrals</span><strong>{affiliateLinks.length}</strong></div>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span>Promo clicks</span><strong>{affiliateClicks}</strong></div>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0" }}><span>Books sold via your links</span><strong>{affiliateSold}</strong></div>
-                <Link href="/account/promotions" style={{ display: "inline-block", marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--coral-deep)" }}>Manage affiliate program →</Link>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}><span>Referrals</span><strong>{affiliateLinks.length}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}><span>Promo clicks</span><strong>{affiliateClicks}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13 }}><span>Books sold via your links</span><strong>{affiliateSold}</strong></div>
+                <Link href="/account/promotions" style={{ display: "inline-block", marginTop: 10, fontSize: 12, fontWeight: 700, color: "var(--coral-deep)" }}>Manage affiliate program →</Link>
               </>
             ) : (
               <>
-                <p style={{ fontSize: 13, color: "var(--ink-faint)", marginBottom: 12 }}>
+                <p style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 10 }}>
                   Authors can also be affiliates — earn commission promoting your own or other authors&apos; books.
                 </p>
                 <EnableAffiliateBanner />
               </>
             )}
           </div>
-          <div className="map-card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Recent activity</h3>
+          <div className="map-card" style={{ padding: 14 }}>
+            <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Recent activity</h3>
             {recentActivity.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>Nothing new yet.</p>
+              <p style={{ fontSize: 12, color: "var(--ink-faint)" }}>Nothing new yet.</p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="scroll-fade-no-bar" style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 168, overflowY: "auto" }}>
                 {recentActivity.map((n) => (
-                  <div key={n.id} style={{ display: "flex", gap: 10 }}>
-                    <div style={{ fontSize: 13.5 }}>{n.title}{n.body ? `: "${n.body}"` : ""}</div>
+                  <div key={n.id} style={{ display: "flex", gap: 8 }}>
+                    <div style={{ fontSize: 12.5 }}>{n.title}{n.body ? `: "${n.body}"` : ""}</div>
                   </div>
                 ))}
               </div>
