@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getMyLinkPerformance } from "@/actions/affiliate-performance";
+import { getAffiliateEarningsSummary } from "@/actions/affiliate-earnings-summary";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
+import { AffiliateEarningsCards } from "./AffiliateEarningsCards";
 
 export default async function PerformancePage() {
   const session = await auth();
@@ -11,6 +13,7 @@ export default async function PerformancePage() {
   if (role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) redirect("/account");
 
   const rows = await getMyLinkPerformance();
+  const earningsSummary = await getAffiliateEarningsSummary();
   const totalClicks = rows.reduce((s, r) => s + r.clicks, 0);
   const totalConversions = rows.reduce((s, r) => s + r.conversions, 0);
   const conversionRate = totalClicks > 0 ? ((totalConversions / totalClicks) * 100).toFixed(1) : "0.0";
@@ -19,12 +22,17 @@ export default async function PerformancePage() {
 
   return (
     <DashboardShell role={role} activeKey="performance" displayName={session.user.name ?? ""}>
-      <div className="section-head" style={{ marginBottom: 16 }}>
+      <div className="section-head" style={{ marginBottom: 8 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Affiliate Analytics</h2>
-          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Clicks, conversions, and commission by link.</p>
+          <h2 style={{ fontSize: 20 }}>Affiliate</h2>
+          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
+            Your affiliate programme has two distinct earning categories: each tracked separately with its own
+            link and commission structure.
+          </p>
         </div>
       </div>
+
+      <AffiliateEarningsCards initial={earningsSummary} />
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card"><div className="stat-label">Total clicks</div><div className="stat-value">{totalClicks}</div><div className="stat-sub">All links</div></div>
