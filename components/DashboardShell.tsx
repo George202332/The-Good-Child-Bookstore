@@ -92,15 +92,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
   return [{ key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" }];
 }
 
-const ROLE_LABEL: Record<Role, string> = {
-  READER: "Reader",
-  AUTHOR: "Author",
-  AFFILIATE: "Affiliate",
-  EDITOR: "Editor",
-  ADMIN: "Admin",
-  ACCOUNTANT: "Accountant",
-};
-
 export async function DashboardShell({
   role,
   activeKey,
@@ -129,20 +120,10 @@ export async function DashboardShell({
     }
     sec.items.push(it);
   });
-  const initials = displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-  const avatarColor = "var(--coral)";
-
   return (
-    <div className="wrap" style={{ padding: "40px 0 80px" }}>
+    <div className="wrap" style={{ padding: "48px 0 80px" }}>
       <div className="dashboard-layout">
-        <aside className="dashboard-sidebar" id="dashboard-sidebar-nav">
-          <div className="dashboard-sidebar-header">
-            <div className="dashboard-sidebar-avatar" style={{ background: avatarColor }} aria-hidden>
-              {initials}
-            </div>
-            <div className="dashboard-sidebar-username">{displayName}</div>
-            <div className="dashboard-sidebar-account-type">{ROLE_LABEL[role]}</div>
-          </div>
+        <aside className="dashboard-sidebar" id="dashboard-sidebar-nav" aria-label={`Account menu for ${displayName}`}>
           <nav aria-label="Account navigation">
             {sections.map((sec) => (
               <div className="dashboard-nav-group" key={sec.name}>
