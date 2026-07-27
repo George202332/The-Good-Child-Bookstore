@@ -223,3 +223,7 @@
   .admin-sidebar { width: 100%; min-height: auto; position: static; flex-direction: row; overflow-x: auto; }
   .admin-content { padding: 20px; }
 }
+
+/* Reduced field/button sizing on the admin login page specifically */
+.admin-login-form .field { padding: 9px 14px; font-size: 13px; }
+.admin-login-form .btn { padding: 9px 18px; font-size: 13px; }

@@ -3,10 +3,10 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
+import { ColHelp } from "@/components/ColHelp";
 
 interface SaleLineRow {
   id: string;
-  isbn: string | null;
   grossAmount: unknown;
   companyShare: unknown;
   affiliateShare: unknown;
@@ -23,7 +23,7 @@ interface SaleLineRow {
   };
 }
 interface AuthorBookWithLines {
-  saleLines: Omit<SaleLineRow, "isbn">[];
+  saleLines: SaleLineRow[];
 }
 
 const FORMAT_LABEL: Record<string, string> = { ebook: "eBook", paperback: "Paperback", hardcover: "Hardcover", audiobook: "Audiobook" };
@@ -95,6 +95,42 @@ export default async function RevenuePage() {
   const books = (user?.authorProfile?.books ?? []) as AuthorBookWithLines[];
   const bookSaleLines = books.flatMap((b) => b.saleLines);
   const bookSalesTotal = bookSaleLines.reduce((s, l) => s + Number(l.authorShare), 0);
+
+  // Group Book Sales by book + format + sale type + price — a new row
+  // only appears when one of those actually differs (e.g. the price
+  // changed, or the same book sold once organically and once via an
+  // affiliate link); "Units" counts how many sales fall under that
+  // exact same condition.
+  const bookSalesByCondition = new Map<
+    string,
+    { isbn: string | null; date: Date; title: string; format: string; saleType: string; price: number; company: number; affiliate: number; share: number; units: number }
+  >();
+  for (const l of bookSaleLines) {
+    const price = Number(l.grossAmount);
+    const key = `${l.book.title}:${formatLabelFor(l.format, l.book)}:${l.saleType}:${price.toFixed(2)}`;
+    const existing = bookSalesByCondition.get(key);
+    if (existing) {
+      existing.units += 1;
+      existing.company += Number(l.companyShare);
+      existing.affiliate += Number(l.affiliateShare);
+      existing.share += Number(l.authorShare);
+      if (l.createdAt > existing.date) existing.date = l.createdAt;
+    } else {
+      bookSalesByCondition.set(key, {
+        isbn: l.book.isbn,
+        date: l.createdAt,
+        title: l.book.title,
+        format: formatLabelFor(l.format, l.book),
+        saleType: l.saleType,
+        price,
+        company: Number(l.companyShare),
+        affiliate: Number(l.affiliateShare),
+        share: Number(l.authorShare),
+        units: 1,
+      });
+    }
+  }
+  const bookSalesRows = Array.from(bookSalesByCondition.values()).sort((a, b) => (a.date < b.date ? 1 : -1));
 
   type ReferralSaleLine = {
     id: string;
@@ -188,16 +224,6 @@ export default async function RevenuePage() {
 
   return (
     <DashboardShell role="AUTHOR" activeKey="revenue" displayName={session.user.name ?? ""}>
-      <div className="section-head" style={{ marginBottom: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 20 }}>Revenue</h2>
-          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            Every dollar you&apos;ve earned, broken down by exactly where it came from. To request a payout, see
-            Payout Settings.
-          </p>
-        </div>
-      </div>
-
       <div className="stat-grid" style={{ marginBottom: 28 }}>
         <div className="stat-card stat-card-referral">
           <div className="stat-label">Total earnings</div>
@@ -207,7 +233,7 @@ export default async function RevenuePage() {
         <div className="stat-card stat-card-promotion">
           <div className="stat-label">Book sales</div>
           <div className="stat-value">${bookSalesTotal.toFixed(2)}</div>
-          <div className="stat-sub">Your royalty on {bookSaleLines.length} sale{bookSaleLines.length === 1 ? "" : "s"}</div>
+          <div className="stat-sub">Your share of {bookSaleLines.length} sale{bookSaleLines.length === 1 ? "" : "s"}</div>
         </div>
         <div className="stat-card stat-card-total">
           <div className="stat-label">Referral revenue</div>
@@ -222,31 +248,40 @@ export default async function RevenuePage() {
       </div>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Book Sales</h3>
-      {bookSaleLines.length === 0 ? (
+      {bookSalesRows.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13, marginBottom: 24 }}>No sales recorded yet.</div>
       ) : (
-        <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
+        <div className="map-card scroll-table-5" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                {["S/N", "Date", "Title", "Format", "Author", "Sale Type", "Price", "Company", "Affiliate", "Royalty"].map((h) => (
-                  <th key={h} style={TABLE_HEAD_STYLE}>{h}</th>
-                ))}
+                <th style={TABLE_HEAD_STYLE}>S/N<ColHelp text="The book's ISBN, or a sequential number if it has none." /></th>
+                <th style={TABLE_HEAD_STYLE}>Date<ColHelp text="The most recent sale date within this group of identical sales." /></th>
+                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title." /></th>
+                <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="Which edition was purchased: eBook, Paperback, Hardcover, or Audiobook." /></th>
+                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="Your name, or your pen name if you've set one." /></th>
+                <th style={TABLE_HEAD_STYLE}>Sale Type<ColHelp text="Organic: a direct purchase. Affiliate: bought through someone's promotional link." /></th>
+                <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The price charged per unit for this exact condition." /></th>
+                <th style={TABLE_HEAD_STYLE}>Company<ColHelp text="The company's share of this revenue." /></th>
+                <th style={TABLE_HEAD_STYLE}>Affiliate<ColHelp text="The affiliate's commission, if this was an affiliate sale. $0.00 for organic sales." /></th>
+                <th style={TABLE_HEAD_STYLE}>Share<ColHelp text="Your (the author's) earnings from this group of sales." /></th>
+                <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many books were sold under this exact same condition: same book, format, sale type, and price. A price change or a different sale type starts a new row." /></th>
               </tr>
             </thead>
             <tbody>
-              {bookSaleLines.map((l, i) => (
-                <tr key={l.id}>
-                  <td style={TABLE_CELL_STYLE}>{l.book.isbn ?? `#${i + 1}`}</td>
-                  <td style={TABLE_CELL_STYLE}>{l.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                  <td style={TABLE_CELL_STYLE}>{l.book.title}</td>
-                  <td style={TABLE_CELL_STYLE}>{formatLabelFor(l.format, l.book)}</td>
+              {bookSalesRows.map((r, i) => (
+                <tr key={i}>
+                  <td style={TABLE_CELL_STYLE}>{r.isbn ?? `#${i + 1}`}</td>
+                  <td style={TABLE_CELL_STYLE}>{r.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                  <td style={TABLE_CELL_STYLE}>{r.title}</td>
+                  <td style={TABLE_CELL_STYLE}>{r.format}</td>
                   <td style={TABLE_CELL_STYLE}>{myDisplayName}</td>
-                  <td style={TABLE_CELL_STYLE}><span className="age-pill">{l.saleType === "AFFILIATE" ? "Affiliate" : "Organic"}</span></td>
-                  <td style={TABLE_CELL_STYLE}>${Number(l.grossAmount).toFixed(2)}</td>
-                  <td style={TABLE_CELL_STYLE}>${Number(l.companyShare).toFixed(2)}</td>
-                  <td style={TABLE_CELL_STYLE}>${Number(l.affiliateShare).toFixed(2)}</td>
-                  <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>${Number(l.authorShare).toFixed(2)}</td>
+                  <td style={TABLE_CELL_STYLE}><span className="age-pill">{r.saleType === "AFFILIATE" ? "Affiliate" : "Organic"}</span></td>
+                  <td style={TABLE_CELL_STYLE}>${r.price.toFixed(2)}</td>
+                  <td style={TABLE_CELL_STYLE}>${r.company.toFixed(2)}</td>
+                  <td style={TABLE_CELL_STYLE}>${r.affiliate.toFixed(2)}</td>
+                  <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>${r.share.toFixed(2)}</td>
+                  <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>{r.units}</td>
                 </tr>
               ))}
             </tbody>
@@ -260,13 +295,15 @@ export default async function RevenuePage() {
           {referralRows.length === 0 ? (
             <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13, marginBottom: 24 }}>No referral revenue yet.</div>
           ) : (
-            <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
+            <div className="map-card scroll-table-5" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    {["Account ID", "Name", "Date Joined", "Revenue", "Commission"].map((h) => (
-                      <th key={h} style={TABLE_HEAD_STYLE}>{h}</th>
-                    ))}
+                    <th style={TABLE_HEAD_STYLE}>Account ID<ColHelp text="The referred author's unique account number." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Name<ColHelp text="The referred author's name, or their pen name if they've set one." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Date Joined<ColHelp text="When this author signed up through your referral link." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Revenue<ColHelp text="The total revenue the company has earned from this author's book sales." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="Your commission on that company revenue, for as long as this author publishes with us." /></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -288,13 +325,17 @@ export default async function RevenuePage() {
           {promotionRows.length === 0 ? (
             <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No promotion earnings yet.</div>
           ) : (
-            <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+            <div className="map-card scroll-table-5" style={{ padding: 0, overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                 <thead>
                   <tr>
-                    {["SN/ISBN", "Title", "Author", "Format", "Price", "Copies", "Commission"].map((h) => (
-                      <th key={h} style={TABLE_HEAD_STYLE}>{h}</th>
-                    ))}
+                    <th style={TABLE_HEAD_STYLE}>SN/ISBN<ColHelp text="The book's ISBN, or a sequential number if it has none." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="The book's author, or their pen name if set." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="Which edition was promoted and sold." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The real list price of this edition." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Copies<ColHelp text="How many copies of this edition sold through your promotional link." /></th>
+                    <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="10% of the list price, for every copy sold through your link." /></th>
                   </tr>
                 </thead>
                 <tbody>

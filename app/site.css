@@ -535,6 +535,11 @@
     background:var(--paper);border-radius:14px;padding:22px 24px;margin-bottom:16px;
     border-left:4px solid var(--line);
   }
+
+  /* Table container showing ~5 rows before scrolling internally, header
+     stays pinned in view while the body scrolls beneath it. */
+  .scroll-table-5{max-height:238px;overflow-y:auto;}
+  .scroll-table-5 thead th{position:sticky;top:0;background:var(--paper);z-index:1;}
   .affiliate-category-a{border-left-color:#3D7FE8;}
   .affiliate-category-b{border-left-color:#E8874A;}
   .affiliate-category-tag{
