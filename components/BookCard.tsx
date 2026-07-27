@@ -64,11 +64,11 @@ export function BookCard({ book, onQuickView }: { book: Book; onQuickView?: (boo
         <button
           type="button"
           className="book-card-action-btn"
-          title="Add to cart"
+          title="Add to cart (eBook)"
           aria-label={`Add ${book.title} to cart`}
           onClick={(e) => {
             e.preventDefault();
-            addItem(book.id);
+            addItem(book.id, "ebook");
           }}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="var(--ink)" strokeWidth={2}>

@@ -14,6 +14,7 @@ import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
 interface SaleLineShare {
   authorShare: unknown;
   createdAt: Date;
+  format: string | null;
 }
 interface AuthorBook {
   id: string;
@@ -168,46 +169,49 @@ export default async function AccountPage() {
       .reduce<Date | null>((earliest, l) => (!earliest || l.createdAt < earliest ? l.createdAt : earliest), null);
     const nextPayoutDate = earliestOnHold ? new Date(earliestOnHold.getTime() + HOLD_DAYS * 24 * 60 * 60 * 1000) : null;
 
-    // Sales trend — real unit counts for the last 12 months.
+    // Sales trend — real unit counts, January through December of the
+    // current calendar year.
     const monthBuckets: { label: string; count: number }[] = [];
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      monthBuckets.push({ label: d.toLocaleDateString("en-US", { month: "short" }), count: 0 });
+    for (let m = 0; m < 12; m++) {
+      monthBuckets.push({ label: new Date(now.getFullYear(), m, 1).toLocaleDateString("en-US", { month: "short" }), count: 0 });
     }
     for (const l of allLines) {
-      const monthsAgo = (now.getFullYear() - l.createdAt.getFullYear()) * 12 + (now.getMonth() - l.createdAt.getMonth());
-      if (monthsAgo >= 0 && monthsAgo <= 11) monthBuckets[11 - monthsAgo].count += 1;
+      if (l.createdAt.getFullYear() === now.getFullYear()) monthBuckets[l.createdAt.getMonth()].count += 1;
     }
     const maxMonthly = Math.max(1, ...monthBuckets.map((m) => m.count));
 
     // Format split — an honest approximation: checkout doesn't yet ask a
     // buyer which format they want, so each sale is attributed to this
-    // book's "primary" enabled format (eBook, then Print, then
-    // Audiobook) rather than a real per-sale format record.
-    const formatCounts = { ebook: 0, print: 0, audiobook: 0 };
+    // Format split — real per-sale data now that checkout actually asks
+    // which of the 4 formats (eBook/Paperback/Hardcover/Audiobook) a
+    // buyer wants, rather than an after-the-fact approximation.
+    const formatCounts = { ebook: 0, paperback: 0, hardcover: 0, audiobook: 0 };
     for (const l of allLines) {
-      const book = books.find((b) => b.id === l.bookId);
-      if (!book) continue;
-      if (book.hasEbook) formatCounts.ebook += 1;
-      else if (book.hasPrint) formatCounts.print += 1;
-      else if (book.hasAudiobook) formatCounts.audiobook += 1;
+      const f = l.format as keyof typeof formatCounts | null;
+      if (f && f in formatCounts) formatCounts[f] += 1;
     }
-    const formatTotal = Math.max(1, formatCounts.ebook + formatCounts.print + formatCounts.audiobook);
+    const formatTotal = Math.max(1, formatCounts.ebook + formatCounts.paperback + formatCounts.hardcover + formatCounts.audiobook);
     const formatPct = {
       ebook: Math.round((formatCounts.ebook / formatTotal) * 100),
-      print: Math.round((formatCounts.print / formatTotal) * 100),
+      paperback: Math.round((formatCounts.paperback / formatTotal) * 100),
+      hardcover: Math.round((formatCounts.hardcover / formatTotal) * 100),
       audiobook: Math.round((formatCounts.audiobook / formatTotal) * 100),
     };
     // SVG donut via stroke-dasharray: circumference of a r=60 circle ≈ 377.
     const circumference = 2 * Math.PI * 60;
     const ebookDash = (formatPct.ebook / 100) * circumference;
-    const printDash = (formatPct.print / 100) * circumference;
+    const paperbackDash = (formatPct.paperback / 100) * circumference;
+    const hardcoverDash = (formatPct.hardcover / 100) * circumference;
     const audioDash = (formatPct.audiobook / 100) * circumference;
 
     const isAffiliateToo = await hasAffiliateCapability(session.user.id);
     const affiliateLinks = isAffiliateToo ? await getMyLinkPerformance() : [];
     const affiliateClicks = affiliateLinks.reduce((s, l) => s + l.clicks, 0);
     const affiliateSold = affiliateLinks.reduce((s, l) => s + l.conversions, 0);
+    const affiliateCommissionTotal = affiliateLinks.reduce((s, l) => s + l.commission, 0);
+    const affiliateWallet = isAffiliateToo ? await getMyWallet("affiliate") : null;
+    const combinedOnHold = wallet.onHold + (affiliateWallet?.onHold ?? 0);
+    const combinedAvailable = wallet.available + (affiliateWallet?.available ?? 0);
 
     const notifications = await listMyNotifications();
     const recentActivity = notifications.slice(0, 5);
@@ -220,32 +224,48 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div className="stat-grid" style={{ marginBottom: 28 }}>
-          <div className="stat-card">
-            <div className="stat-label">Total earnings</div>
+        <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 28 }}>
+          <div className="stat-card stat-card-blue">
+            <div className="stat-label">Book sales</div>
             <div className="stat-value">${totalRevenue.toFixed(2)}</div>
-            <div className="stat-sub">All time</div>
+            <div className="stat-sub">All time, your author share</div>
           </div>
-          <div className="stat-card">
-            <div className="stat-label">This month</div>
-            <div className="stat-value">${thisMonthRevenue.toFixed(2)}</div>
-            <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "short", year: "numeric" })}, in progress</div>
+          <div className="stat-card stat-card-purple">
+            <div className="stat-label">Affiliate commission</div>
+            <div className="stat-value">{isAffiliateToo ? `$${affiliateCommissionTotal.toFixed(2)}` : "—"}</div>
+            <div className="stat-sub">{isAffiliateToo ? "3% author referral + 10% book commission" : "Not enrolled"}</div>
           </div>
-          <div className="stat-card">
-            <div className="stat-label">Pending payout</div>
-            <div className="stat-value">${wallet.onHold.toFixed(2)}</div>
-            <div className="stat-sub">{nextPayoutDate ? `Pays out ${nextPayoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : "Nothing on hold"}</div>
+          <div className="stat-card stat-card-amber">
+            <div className="stat-label">On hold</div>
+            <div className="stat-value">${combinedOnHold.toFixed(2)}</div>
+            <div className="stat-sub">{nextPayoutDate ? `Releases from ${nextPayoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : "Nothing on hold"}</div>
           </div>
+          <div className="stat-card stat-card-green">
+            <div className="stat-label">Available</div>
+            <div className="stat-value">${combinedAvailable.toFixed(2)}</div>
+            <div className="stat-sub-row">
+              <span className="stat-sub">Ready to request</span>
+              <Link href="/account/payout-settings" className="stat-withdraw-btn">Withdraw</Link>
+            </div>
+          </div>
+        </div>
+
+        <div className="stat-grid" style={{ marginBottom: 28 }}>
           <div className="stat-card">
             <div className="stat-label">Titles on shelf</div>
             <div className="stat-value">{books.length}</div>
             <div className="stat-sub">{publishedCount} published</div>
           </div>
+          <div className="stat-card">
+            <div className="stat-label">This month</div>
+            <div className="stat-value">${thisMonthRevenue.toFixed(2)}</div>
+            <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}, in progress</div>
+          </div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, marginBottom: 20 }}>
           <div className="map-card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales trend</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales trend — {now.getFullYear()}</h3>
             {allLines.length === 0 ? (
               <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No sales recorded yet — this chart fills in once your books start selling.</p>
             ) : (
@@ -271,16 +291,18 @@ export default async function AccountPage() {
                   <g transform="translate(70,70) rotate(-90)">
                     <circle r="60" fill="none" stroke="var(--line)" strokeWidth="20" />
                     <circle r="60" fill="none" stroke="#2451B7" strokeWidth="20" strokeDasharray={`${ebookDash} ${circumference}`} strokeDashoffset="0" />
-                    <circle r="60" fill="none" stroke="#B7472A" strokeWidth="20" strokeDasharray={`${printDash} ${circumference}`} strokeDashoffset={-ebookDash} />
-                    <circle r="60" fill="none" stroke="#1F6B48" strokeWidth="20" strokeDasharray={`${audioDash} ${circumference}`} strokeDashoffset={-(ebookDash + printDash)} />
+                    <circle r="60" fill="none" stroke="#8A5B9E" strokeWidth="20" strokeDasharray={`${paperbackDash} ${circumference}`} strokeDashoffset={-ebookDash} />
+                    <circle r="60" fill="none" stroke="#B7472A" strokeWidth="20" strokeDasharray={`${hardcoverDash} ${circumference}`} strokeDashoffset={-(ebookDash + paperbackDash)} />
+                    <circle r="60" fill="none" stroke="#1F6B48" strokeWidth="20" strokeDasharray={`${audioDash} ${circumference}`} strokeDashoffset={-(ebookDash + paperbackDash + hardcoverDash)} />
                   </g>
                   <text x="70" y="66" textAnchor="middle" fontSize="11" fill="var(--ink-faint)">eBook</text>
                   <text x="70" y="82" textAnchor="middle" fontSize="18" fontWeight="700" fill="var(--ink)">{formatPct.ebook}%</text>
                 </svg>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12.5 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#2451B7", display: "inline-block" }} /> eBook &nbsp;{formatPct.ebook}%</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#B7472A", display: "inline-block" }} /> Print book &nbsp;{formatPct.print}%</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#1F6B48", display: "inline-block" }} /> Audio book &nbsp;{formatPct.audiobook}%</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#8A5B9E", display: "inline-block" }} /> Paperback &nbsp;{formatPct.paperback}%</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#B7472A", display: "inline-block" }} /> Hardcover &nbsp;{formatPct.hardcover}%</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#1F6B48", display: "inline-block" }} /> Audiobook &nbsp;{formatPct.audiobook}%</div>
                 </div>
               </div>
             )}
@@ -288,15 +310,24 @@ export default async function AccountPage() {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-          {isAffiliateToo && (
-            <div className="map-card" style={{ padding: 20 }}>
-              <h3 style={{ fontSize: 15, marginBottom: 16 }}>Affiliate snapshot</h3>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span>Referrals</span><strong>{affiliateLinks.length}</strong></div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span>Promo clicks</span><strong>{affiliateClicks}</strong></div>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0" }}><span>Books sold via your links</span><strong>{affiliateSold}</strong></div>
-              <Link href="/account/promotions" style={{ display: "inline-block", marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--coral-deep)" }}>Manage affiliate program →</Link>
-            </div>
-          )}
+          <div className="map-card" style={{ padding: 20 }}>
+            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Affiliate snapshot</h3>
+            {isAffiliateToo ? (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span>Referrals</span><strong>{affiliateLinks.length}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--line)" }}><span>Promo clicks</span><strong>{affiliateClicks}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0" }}><span>Books sold via your links</span><strong>{affiliateSold}</strong></div>
+                <Link href="/account/promotions" style={{ display: "inline-block", marginTop: 12, fontSize: 13, fontWeight: 700, color: "var(--coral-deep)" }}>Manage affiliate program →</Link>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: 13, color: "var(--ink-faint)", marginBottom: 12 }}>
+                  Authors can also be affiliates — earn commission promoting your own or other authors&apos; books.
+                </p>
+                <EnableAffiliateBanner />
+              </>
+            )}
+          </div>
           <div className="map-card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: 15, marginBottom: 16 }}>Recent activity</h3>
             {recentActivity.length === 0 ? (

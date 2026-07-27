@@ -69,10 +69,13 @@ export default function CartPage() {
   }
 
   const bookSource = resolved;
+  const FORMAT_LABEL: Record<string, string> = { ebook: "eBook", paperback: "Paperback", hardcover: "Hardcover", audiobook: "Audiobook" };
   const lines = items
-    .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity }))
-    .filter((l): l is { book: NonNullable<typeof l.book>; qty: number } => !!l.book);
-  const subtotal = lines.reduce((sum, l) => sum + l.book.price * l.qty, 0);
+    .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity, format: i.format }))
+    .filter((l): l is { book: NonNullable<typeof l.book>; qty: number; format: typeof l.format } => !!l.book);
+  const priceFor = (book: Book, format: string) =>
+    format === "ebook" ? book.formats.ebook : format === "hardcover" ? book.formats.print : format === "paperback" ? book.formats.paperback : book.formats.audiobook;
+  const subtotal = lines.reduce((sum, l) => sum + priceFor(l.book, l.format) * l.qty, 0);
   const shipping = subtotal > 35 ? 0 : 4.5;
 
   return (
@@ -81,7 +84,7 @@ export default function CartPage() {
       <div className="cart-layout">
         <div>
           {lines.map((l) => (
-            <div className="cart-item" key={l.book.id}>
+            <div className="cart-item" key={`${l.book.id}-${l.format}`}>
               <div className="mini-cover">
                 {l.book.coverImage && (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -90,15 +93,15 @@ export default function CartPage() {
               </div>
               <div>
                 <h4>{l.book.title}</h4>
-                <div className="author">{l.book.author}</div>
-                <a className="remove-link" onClick={() => removeItem(l.book.id)}>Remove</a>
+                <div className="author">{l.book.author} · {FORMAT_LABEL[l.format]}</div>
+                <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>
               </div>
               <div className="qty-control">
-                <button onClick={() => setQty(l.book.id, l.qty - 1)}>–</button>
+                <button onClick={() => setQty(l.book.id, l.format, l.qty - 1)}>–</button>
                 <span>{l.qty}</span>
-                <button onClick={() => setQty(l.book.id, l.qty + 1)}>+</button>
+                <button onClick={() => setQty(l.book.id, l.format, l.qty + 1)}>+</button>
               </div>
-              <div className="price">${(l.book.price * l.qty).toFixed(2)}</div>
+              <div className="price">${(priceFor(l.book, l.format) * l.qty).toFixed(2)}</div>
             </div>
           ))}
         </div>

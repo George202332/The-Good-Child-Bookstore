@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import { SiteChrome } from "@/components/SiteChrome";
 import { getSiteSettings } from "@/actions/site-settings";
+import { getMySettings } from "@/actions/settings";
 import { Providers } from "@/components/Providers";
 
 const DEFAULT_FAVICON =
@@ -102,8 +103,16 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 
+  let darkMode = false;
+  try {
+    const mySettings = await getMySettings();
+    darkMode = mySettings.darkMode;
+  } catch {
+    // settings unavailable — default to light
+  }
+
   return (
-    <html lang="en">
+    <html lang="en" className={darkMode ? "dark-mode" : undefined}>
       <head>
         <script
           type="application/ld+json"

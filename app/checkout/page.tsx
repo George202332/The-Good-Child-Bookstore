@@ -96,10 +96,13 @@ export default function CheckoutPage() {
   }, [session?.user?.id]);
 
   const bookSource = resolvedBooks ?? [];
+  const FORMAT_LABEL: Record<string, string> = { ebook: "eBook", paperback: "Paperback", hardcover: "Hardcover", audiobook: "Audiobook" };
+  const priceFor = (book: Book, format: string) =>
+    format === "ebook" ? book.formats.ebook : format === "hardcover" ? book.formats.print : format === "paperback" ? book.formats.paperback : book.formats.audiobook;
   const lines = items
-    .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity }))
-    .filter((l): l is { book: NonNullable<typeof l.book>; qty: number } => !!l.book);
-  const subtotal = lines.reduce((sum, l) => sum + l.book.price * l.qty, 0);
+    .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity, format: i.format }))
+    .filter((l): l is { book: NonNullable<typeof l.book>; qty: number; format: typeof l.format } => !!l.book);
+  const subtotal = lines.reduce((sum, l) => sum + priceFor(l.book, l.format) * l.qty, 0);
   const couponAmount = +(subtotal * data.couponDiscount).toFixed(2);
   const grandTotal = +(subtotal - couponAmount).toFixed(2);
 
@@ -127,7 +130,7 @@ export default function CheckoutPage() {
     setPaymentError(null);
 
     const created = await createPendingOrder({
-      items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty })),
+      items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
       couponDiscountPct: data.couponDiscount || undefined,
       guestEmail: data.email,
       guestName: data.fullName,
@@ -144,7 +147,7 @@ export default function CheckoutPage() {
       setPaymentError(result.error ?? "That card couldn't be charged.");
       return;
     }
-    lines.forEach((l) => removeItem(l.book.id));
+    lines.forEach((l) => removeItem(l.book.id, l.format));
     router.push(`/checkout/confirmation?order=${created.orderId}`);
   }
 
@@ -153,7 +156,7 @@ export default function CheckoutPage() {
     setPaymentError(null);
 
     const created = await createPendingOrder({
-      items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty })),
+      items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
       couponDiscountPct: data.couponDiscount || undefined,
       guestEmail: data.email,
       guestName: data.fullName,
@@ -181,7 +184,7 @@ export default function CheckoutPage() {
 
     // Demo mode: no gateway credentials configured, so confirm directly.
     await confirmOrderPaidDirectly(created.orderId);
-    lines.forEach((l) => removeItem(l.book.id));
+    lines.forEach((l) => removeItem(l.book.id, l.format));
     router.push(`/checkout/confirmation?order=${created.orderId}`);
   }
 
@@ -232,15 +235,15 @@ export default function CheckoutPage() {
                 </div>
                 <div>
                   <h4>{l.book.title}</h4>
-                  <div className="author">{l.book.author}</div>
-                  <a className="remove-link" onClick={() => removeItem(l.book.id)}>Remove</a>
+                  <div className="author">{l.book.author} · {FORMAT_LABEL[l.format]}</div>
+                  <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>
                 </div>
                 <div className="qty-control">
-                  <button onClick={() => setQty(l.book.id, l.qty - 1)}>–</button>
+                  <button onClick={() => setQty(l.book.id, l.format, l.qty - 1)}>–</button>
                   <span>{l.qty}</span>
-                  <button onClick={() => setQty(l.book.id, l.qty + 1)}>+</button>
+                  <button onClick={() => setQty(l.book.id, l.format, l.qty + 1)}>+</button>
                 </div>
-                <div className="price">${(l.book.price * l.qty).toFixed(2)}</div>
+                <div className="price">${(priceFor(l.book, l.format) * l.qty).toFixed(2)}</div>
               </div>
             ))}
           </div>
@@ -300,7 +303,7 @@ export default function CheckoutPage() {
                   <div style={{ fontWeight: 700, fontSize: 13.5 }}>{l.book.title}</div>
                   <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Qty {l.qty}</div>
                 </div>
-                <div style={{ fontWeight: 700, fontSize: 13.5 }}>${(l.book.price * l.qty).toFixed(2)}</div>
+                <div style={{ fontWeight: 700, fontSize: 13.5 }}>${(priceFor(l.book, l.format) * l.qty).toFixed(2)}</div>
               </div>
             ))}
             <div className="summary-row" style={{ marginTop: 14 }}><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>

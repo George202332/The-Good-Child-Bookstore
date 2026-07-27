@@ -54,6 +54,10 @@ interface RealBookRow {
   hasEbook: boolean;
   hasPrint: boolean;
   hasAudiobook: boolean;
+  ebookPrice: unknown;
+  paperbackPrice: unknown;
+  hardcoverPrice: unknown;
+  audiobookPrice: unknown;
   authorId: string;
   author: { user: { name: string } };
   categories: { category: { name: string } }[];
@@ -80,7 +84,12 @@ function toCatalogBook(row: RealBookRow): Book {
     genre: row.genres[0]?.genre.name ?? "Adventure",
     age: ageFromAgeGroup(row.ageGroup),
     price,
-    formats: { ebook: price, print: price, paperback: price, audiobook: price },
+    formats: {
+      ebook: row.ebookPrice ? Number(row.ebookPrice) : price,
+      print: row.hardcoverPrice ? Number(row.hardcoverPrice) : price,
+      paperback: row.paperbackPrice ? Number(row.paperbackPrice) : price,
+      audiobook: row.audiobookPrice ? Number(row.audiobookPrice) : price,
+    },
     isbn: row.isbn ?? "",
     pubDate: row.createdAt.toISOString().slice(0, 10),
     sizeMB: (2 + (seed % 8)).toFixed(1),

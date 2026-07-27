@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+export type CartFormat = "ebook" | "paperback" | "hardcover" | "audiobook";
+
 export interface CartItem {
   bookId: string;
+  format: CartFormat;
   quantity: number;
 }
 
@@ -45,30 +48,30 @@ export function useCart() {
     };
   }, []);
 
-  const addItem = useCallback((bookId: string, quantity = 1) => {
+  const addItem = useCallback((bookId: string, format: CartFormat, quantity = 1) => {
     const current = readCart();
-    const existing = current.find((i) => i.bookId === bookId);
+    const existing = current.find((i) => i.bookId === bookId && i.format === format);
     const next = existing
-      ? current.map((i) => (i.bookId === bookId ? { ...i, quantity: i.quantity + quantity } : i))
-      : [...current, { bookId, quantity }];
+      ? current.map((i) => (i.bookId === bookId && i.format === format ? { ...i, quantity: i.quantity + quantity } : i))
+      : [...current, { bookId, format, quantity }];
     writeCart(next);
     setItems(next);
   }, []);
 
-  const removeItem = useCallback((bookId: string) => {
-    const next = readCart().filter((i) => i.bookId !== bookId);
+  const removeItem = useCallback((bookId: string, format: CartFormat) => {
+    const next = readCart().filter((i) => !(i.bookId === bookId && i.format === format));
     writeCart(next);
     setItems(next);
   }, []);
 
   /** Converted from setQty() (the-good-child-bookstore_54_1.html:2283-2286):
    * setting to 0 or below removes the item entirely. */
-  const setQty = useCallback((bookId: string, quantity: number) => {
+  const setQty = useCallback((bookId: string, format: CartFormat, quantity: number) => {
     const current = readCart();
     const next =
       quantity <= 0
-        ? current.filter((i) => i.bookId !== bookId)
-        : current.map((i) => (i.bookId === bookId ? { ...i, quantity } : i));
+        ? current.filter((i) => !(i.bookId === bookId && i.format === format))
+        : current.map((i) => (i.bookId === bookId && i.format === format ? { ...i, quantity } : i));
     writeCart(next);
     setItems(next);
   }, []);

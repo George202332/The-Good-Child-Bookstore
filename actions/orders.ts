@@ -40,6 +40,10 @@ import { generateAccountNumber } from "@/lib/account-number";
 export interface OrderItemInput {
   bookId: string;
   qty: number;
+  /** Which of the 4 purchasable formats — determines both the real price
+   * charged (Book.ebookPrice/paperbackPrice/hardcoverPrice/audiobookPrice)
+   * and what's recorded on the resulting SaleLine. */
+  format: "ebook" | "paperback" | "hardcover" | "audiobook";
 }
 
 export interface CreateOrderResult {
@@ -112,7 +116,16 @@ export async function createPendingOrder(input: {
     return { ok: false, error: "Your cart is empty." };
   }
 
-  const subtotal = lines.reduce((sum, l) => sum + Number(l.book.price) * l.qty, 0);
+  function priceForFormat(book: { price: unknown; ebookPrice: unknown; paperbackPrice: unknown; hardcoverPrice: unknown; audiobookPrice: unknown }, format: string): number {
+    const perFormat =
+      format === "ebook" ? book.ebookPrice :
+      format === "paperback" ? book.paperbackPrice :
+      format === "hardcover" ? book.hardcoverPrice :
+      book.audiobookPrice;
+    return perFormat !== null && perFormat !== undefined ? Number(perFormat) : Number(book.price);
+  }
+
+  const subtotal = lines.reduce((sum, l) => sum + priceForFormat(l.book, l.format) * l.qty, 0);
   const couponPct = input.couponDiscountPct ?? 0;
 
   // Real affiliate attribution: the "which affiliate link was this visit
@@ -148,13 +161,14 @@ export async function createPendingOrder(input: {
       totalAmount,
       lines: {
         create: lines.map((l) => {
-          const lineGross = +(Number(l.book.price) * l.qty * (1 - couponPct)).toFixed(2);
+          const lineGross = +(priceForFormat(l.book, l.format) * l.qty * (1 - couponPct)).toFixed(2);
           const isAffiliateSale = affiliateBookId !== null && affiliateBookId === l.bookId;
           let split = calculateSplits(lineGross, isAffiliateSale);
           const referredById = l.book.author.referredById;
           if (referredById) split = applyAuthorReferralCarveOut(split);
           return {
             bookId: l.bookId,
+            format: l.format,
             affiliateLinkId: isAffiliateSale ? affiliateLinkId : null,
             saleType: split.saleType,
             grossAmount: split.gross,

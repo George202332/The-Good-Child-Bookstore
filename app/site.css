@@ -1455,6 +1455,37 @@
   .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:34px;}
   @media (max-width:800px){ .stat-grid{grid-template-columns:1fr 1fr;} }
   .stat-card{background:var(--paper);border-radius:16px;padding:20px;transition:box-shadow .5s ease;}
+
+  /* ---------- Dashboard color-coded stat cards ---------- */
+  .stat-card-blue{background:#E8EEFB;border:1px solid #C7D6F5;}
+  .stat-card-blue .stat-label{color:#2451B7;}
+  .stat-card-purple{background:#F1E9F7;border:1px solid #DCC6EC;}
+  .stat-card-purple .stat-label{color:#7A4C99;}
+  .stat-card-amber{background:#FBF1DE;border:1px solid #F0DCA8;}
+  .stat-card-amber .stat-label{color:#9A6B0C;}
+  .stat-card-green{background:#E4F3EA;border:1px solid #B9E0C8;}
+  .stat-card-green .stat-label{color:#1F6B48;}
+  .stat-sub-row{display:flex;align-items:center;justify-content:space-between;margin-top:2px;}
+  .stat-withdraw-btn{
+    font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;
+    background:#1F6B48;color:#fff;white-space:nowrap;transition:background .15s ease;
+  }
+  .stat-withdraw-btn:hover{background:#164F35;}
+  /* Per explicit instruction: in dark mode these 4 cards carry no color
+     at all, matching the plain default .stat-card look. */
+  html.dark-mode .stat-card-blue,
+  html.dark-mode .stat-card-purple,
+  html.dark-mode .stat-card-amber,
+  html.dark-mode .stat-card-green{
+    background:var(--paper);border-color:var(--line);
+  }
+  html.dark-mode .stat-card-blue .stat-label,
+  html.dark-mode .stat-card-purple .stat-label,
+  html.dark-mode .stat-card-amber .stat-label,
+  html.dark-mode .stat-card-green .stat-label{
+    color:var(--ink-faint);
+  }
+  html.dark-mode .stat-withdraw-btn{background:var(--ink);color:var(--cream);}
   .stat-label{font-size:12px;text-transform:uppercase;letter-spacing:0.4px;color:var(--ink-faint);margin-bottom:8px;}
   .stat-value{font-size:24px;font-weight:700;transition:color .4s ease;}
   .stat-sub{font-size:12px;color:var(--ink-soft);margin-top:6px;}

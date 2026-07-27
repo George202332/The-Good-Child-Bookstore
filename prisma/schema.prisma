@@ -275,6 +275,17 @@ model Book {
   hasEbook     Boolean       @default(false)
   hasPrint     Boolean       @default(false)
   hasAudiobook Boolean       @default(false)
+  /** Real, distinct prices per purchasable format — a customer picks
+   * one of these (not just "the book") at checkout, since eBook/
+   * Paperback/Hardcover/Audiobook are 4 separate purchasable editions
+   * with their own price, matching how the submission forms actually
+   * collect pricing (eBook price, separate paperback/hardcover retail
+   * prices). Only the formats this book actually has enabled will have
+   * a value here. */
+  ebookPrice      Decimal? @db.Decimal(10, 2)
+  paperbackPrice  Decimal? @db.Decimal(10, 2)
+  hardcoverPrice  Decimal? @db.Decimal(10, 2)
+  audiobookPrice  Decimal? @db.Decimal(10, 2)
   /**
    * Every other field from the original submission form
    * (the-good-child-bookstore_54_1.html:10651-10689) that doesn't have
@@ -454,6 +465,11 @@ model SaleLine {
   affiliateLink      AffiliateLink? @relation(fields: [affiliateLinkId], references: [id])
 
   saleType           SaleType
+  /** Which of the 4 purchasable formats (EBOOK/PAPERBACK/HARDCOVER/
+   * AUDIOBOOK) this specific sale was for — real per-sale data now that
+   * checkout actually asks, not an after-the-fact approximation. Null
+   * for old sales made before this existed. */
+  format             String?
   grossAmount        Decimal  @db.Decimal(10, 2)
   companyShare       Decimal  @db.Decimal(10, 2)
   authorShare        Decimal  @db.Decimal(10, 2)

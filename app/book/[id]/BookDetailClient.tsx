@@ -272,7 +272,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
             </>
           )}
 
-          <button className="btn btn-primary btn-block" onClick={() => addItem(b.id, 1)}>Add to cart</button>
+          <button className="btn btn-primary btn-block" onClick={() => addItem(b.id, format === "print" ? "hardcover" : format, 1)}>Add to cart</button>
           {format === "print" || format === "paperback" ? (
             <div className="buybox-note">
               You&apos;re adding the {fmtLabel.toLowerCase()} edition. Need more than one? Adjust the quantity from
