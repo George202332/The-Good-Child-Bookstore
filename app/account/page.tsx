@@ -225,7 +225,7 @@ export default async function AccountPage() {
           <div className="stat-card stat-card-blue">
             <div className="stat-label">Earnings</div>
             <div className="stat-value">${(totalRevenue + affiliateCommissionTotal).toFixed(2)}</div>
-            <div className="stat-sub">Lifetime — book sales{isAffiliateToo ? " + referral & promotion commission" : ""}</div>
+            <div className="stat-sub">Lifetime: book sales{isAffiliateToo ? " + referral & promotion commission" : ""}</div>
           </div>
           <div className="stat-card stat-card-purple">
             <div className="stat-label">Titles on shelf</div>
@@ -249,9 +249,9 @@ export default async function AccountPage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, marginBottom: 20 }}>
           <div className="map-card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales trend — {now.getFullYear()}</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales trend: {now.getFullYear()}</h3>
             {allLines.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No sales recorded yet — this chart fills in once your books start selling.</p>
+              <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No sales recorded yet; this chart fills in once your books start selling.</p>
             ) : (
               <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 150 }}>
                 {monthBuckets.map((m) => (
@@ -306,7 +306,7 @@ export default async function AccountPage() {
             ) : (
               <>
                 <p style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 10 }}>
-                  Authors can also be affiliates — earn commission promoting your own or other authors&apos; books.
+                  Authors can also be affiliates; earn commission promoting your own or other authors&apos; books.
                 </p>
                 <EnableAffiliateBanner />
               </>
@@ -390,9 +390,9 @@ export default async function AccountPage() {
         </div>
       </div>
       <div className="form-section" style={{ background: "var(--cream)" }}>
-        <h3 style={{ marginBottom: 6 }}>Dashboard — in progress</h3>
+        <h3 style={{ marginBottom: 6 }}>Dashboard: in progress</h3>
         <p style={{ color: "var(--ink-soft)", fontSize: 13.5 }}>
-          This account type doesn&apos;t have a dashboard here yet — see docs/architecture.md.
+          This account type doesn&apos;t have a dashboard here yet; see docs/architecture.md.
         </p>
       </div>
     </DashboardShell>

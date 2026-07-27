@@ -4,6 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { findUserToMessage } from "@/actions/messages";
 
+function initialsFor(name: string): string {
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+}
+
 export function NewMessageForm() {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -20,8 +24,8 @@ export function NewMessageForm() {
   }
 
   return (
-    <div className="form-section" style={{ background: "var(--cream)", marginBottom: 20, position: "relative" }}>
-      <label className="field-label" htmlFor="msg-search">New message — search by name or email</label>
+    <div className="map-card" style={{ padding: 20, background: "var(--cream)", marginBottom: 20, position: "relative" }}>
+      <label className="field-label" htmlFor="msg-search">New message: search by name or email</label>
       <input
         className="field"
         id="msg-search"
@@ -32,16 +36,20 @@ export function NewMessageForm() {
         placeholder="Start typing a name..."
       />
       {open && results.length > 0 && (
-        <div className="map-card" style={{ padding: "6px 16px" }}>
+        <div className="inbox-list" style={{ marginTop: 4 }}>
           {results.map((r) => (
             <button
               key={r.id}
               type="button"
-              className="btn btn-ghost btn-small"
-              style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 0" }}
+              className="inbox-row"
+              style={{ width: "100%", textAlign: "left", cursor: "pointer" }}
               onClick={() => router.push(`/account/messages/${r.id}`)}
             >
-              {r.name} <span className="age-pill" style={{ marginLeft: 6 }}>{r.role}</span>
+              <div className="inbox-avatar">{initialsFor(r.name)}</div>
+              <div className="inbox-row-body">
+                <div className="inbox-name">{r.name}</div>
+              </div>
+              <span className="age-pill">{r.role}</span>
             </button>
           ))}
         </div>

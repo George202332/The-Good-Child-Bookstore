@@ -17,6 +17,8 @@ export interface MyProfile {
   name: string;
   email: string;
   role: Role;
+  accountNumber: string;
+  memberSince: string;
   // Author
   bio?: string;
   penName?: string;
@@ -46,6 +48,8 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     name: user.name,
     email: user.email,
     role: user.role,
+    accountNumber: user.accountNumber,
+    memberSince: user.createdAt.toISOString(),
     bio: user.authorProfile?.bio ?? undefined,
     penName: user.authorProfile?.penName ?? undefined,
     primaryGenre: user.authorProfile?.primaryGenre ?? undefined,

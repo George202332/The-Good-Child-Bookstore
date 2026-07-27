@@ -24,7 +24,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
     const items: NavItem[] = [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
-      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
       { key: "security", label: "Security", href: "/account/security", section: "Account" },
       { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
@@ -56,10 +55,7 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
     return [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
-      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
-      { key: "security", label: "Security", href: "/account/security", section: "Account" },
-      { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
       { key: "referrals", label: "Referral Links", href: "/account/referrals", section: "Affiliate" },
       { key: "active-campaigns", label: "Active Campaigns", href: "/account/active-campaigns", section: "Affiliate" },
       { key: "promotions", label: "Promotions", href: "/account/promotions", section: "Affiliate" },
@@ -70,22 +66,23 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "performance", label: "Performance", href: "/account/performance", section: "Financial" },
       { key: "payments", label: "Payments", href: "/account/payments", section: "Financial" },
       { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
+      { key: "security", label: "Security", href: "/account/security", section: "Account" },
+      { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
     ];
   }
   if (role === "AUTHOR") {
     return [
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
-      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
-      { key: "security", label: "Security", href: "/account/security", section: "Account" },
-      { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
       { key: "mybooks", label: "My Books", href: "/account/books", section: "Publishing" },
       { key: "blog", label: "Blog", href: "/account/blog", section: "Publishing" },
       { key: "analytics", label: "Analytics", href: "/account/analytics", section: "Financial" },
       { key: "revenue", label: "Revenue", href: "/account/revenue", section: "Financial" },
       { key: "transaction-history", label: "Transaction History", href: "/account/transaction-history", section: "Financial" },
       { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
+      { key: "security", label: "Security", href: "/account/security", section: "Account" },
+      { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
     ];
   }
   return [{ key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" }];

@@ -5,6 +5,10 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { listConversations } from "@/actions/messages";
 import { NewMessageForm } from "./NewMessageForm";
 
+function initialsFor(name: string): string {
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+}
+
 /** Messages inbox — every conversation, most recent first. Available to
  * all three converted roles (Reader, Author, Affiliate); Admin/Editor
  * use their own backend shell and aren't part of this. */
@@ -28,26 +32,26 @@ export default async function MessagesPage() {
       <NewMessageForm />
 
       {conversations.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No conversations yet.</div>
+        <div className="map-card" style={{ padding: "48px 24px", textAlign: "center" }}>
+          <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--lavender)", margin: "0 auto 16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--ink-soft)" strokeWidth={1.7}><path d="M4 6h16v12H4z" /><path d="M4 7l8 6 8-6" /></svg>
+          </div>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>No conversations yet</div>
+          <p style={{ color: "var(--ink-faint)", fontSize: 13 }}>Search for someone above to start your first conversation.</p>
+        </div>
       ) : (
-        <div className="map-card" style={{ padding: "6px 16px" }}>
+        <div className="inbox-list">
           {conversations.map((c) => (
-            <Link
-              key={c.counterpartId}
-              href={`/account/messages/${c.counterpartId}`}
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--line)" }}
-            >
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13.5 }}>
-                  {c.counterpartName} {c.unread && <span className="age-pill" style={{ marginLeft: 6, background: "var(--coral)" }}>New</span>}
+            <Link key={c.counterpartId} href={`/account/messages/${c.counterpartId}`} className={`inbox-row ${c.unread ? "inbox-row-unread" : ""}`}>
+              <div className="inbox-avatar">{initialsFor(c.counterpartName)}</div>
+              <div className="inbox-row-body">
+                <div className="inbox-row-top">
+                  <span className="inbox-name">{c.counterpartName}</span>
+                  <span className="inbox-date">{c.lastMessageAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)", maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {c.lastMessage}
-                </div>
+                <div className="inbox-preview">{c.lastMessage}</div>
               </div>
-              <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>
-                {c.lastMessageAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-              </div>
+              {c.unread && <span className="inbox-unread-dot" aria-label="Unread" />}
             </Link>
           ))}
         </div>
