@@ -83,7 +83,7 @@ export default async function RevenuePage() {
           },
           affiliateLinks: {
             include: {
-              saleLines: { include: { book: true }, orderBy: { createdAt: "desc" } },
+              saleLines: { include: { book: { include: { author: { include: { user: true } } } } }, orderBy: { createdAt: "desc" } },
             },
           },
         },
