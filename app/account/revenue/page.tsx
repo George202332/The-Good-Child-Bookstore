@@ -7,6 +7,10 @@ import { getMyPayoutRequests, type PayoutRow } from "@/actions/payouts";
 import { listMyWiseRecipients } from "@/actions/wise-recipients";
 import { RequestPayoutForm } from "@/components/RequestPayoutForm";
 import { HOLD_DAYS } from "@/lib/wallet";
+import { hasAffiliateCapability } from "@/lib/affiliate-capability";
+import { getAffiliateEarningsSummary } from "@/actions/affiliate-earnings-summary";
+import { AffiliateEarningsCards } from "../performance/AffiliateEarningsCards";
+import { AffiliateCategorySection } from "./AffiliateCategorySection";
 
 interface SaleLineRow {
   id: string;
@@ -32,7 +36,7 @@ export default async function RevenuePage() {
   if (!session?.user) redirect("/login");
   if (session.user.role !== "AUTHOR") redirect("/account");
 
-  const [user, wallet, payouts, recipients] = await Promise.all([
+  const [user, wallet, payouts, recipients, isAffiliateToo] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
       include: { authorProfile: { include: { books: { include: { saleLines: { include: { book: true }, orderBy: { createdAt: "desc" } } } } } } },
@@ -40,15 +44,33 @@ export default async function RevenuePage() {
     getMyWallet(),
     getMyPayoutRequests(),
     listMyWiseRecipients(),
+    hasAffiliateCapability(session.user.id),
   ]);
+  const affiliateEarnings = isAffiliateToo ? await getAffiliateEarningsSummary() : null;
   const books = (user?.authorProfile?.books ?? []) as AuthorBookWithLines[];
   const lines = books.flatMap((b) => b.saleLines);
 
   return (
     <DashboardShell role="AUTHOR" activeKey="revenue" displayName={session.user.name ?? ""}>
+      {affiliateEarnings && (
+        <>
+          <div className="section-head" style={{ marginBottom: 8 }}>
+            <div>
+              <h2 style={{ fontSize: 20 }}>Affiliate</h2>
+              <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
+                Your affiliate programme has two distinct earning categories: each tracked separately with its own
+                link and commission structure.
+              </p>
+            </div>
+          </div>
+          <AffiliateEarningsCards initial={affiliateEarnings} />
+          <AffiliateCategorySection data={affiliateEarnings} />
+        </>
+      )}
+
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Revenue</h2>
+          <h2 style={{ fontSize: 20 }}>Book Revenue</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             Your 75% (or 65% on affiliate-referred sales) share of every sale. New sales are On Hold for {HOLD_DAYS}{" "}
             days, then move to Available.

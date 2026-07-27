@@ -10,6 +10,8 @@ export interface AffiliateEarningsSummary {
   earningEvents: number;
   dueEarnings: number;
   dueDate: string;
+  referredAuthorsCount: number;
+  promotedBooksCount: number;
 }
 
 /**
@@ -21,7 +23,7 @@ export interface AffiliateEarningsSummary {
  * total, matching how the two are actually calculated and paid.
  */
 export async function getAffiliateEarningsSummary(): Promise<AffiliateEarningsSummary> {
-  const empty: AffiliateEarningsSummary = { referralEarnings: 0, promotionEarnings: 0, totalEarnings: 0, earningEvents: 0, dueEarnings: 0, dueDate: "" };
+  const empty: AffiliateEarningsSummary = { referralEarnings: 0, promotionEarnings: 0, totalEarnings: 0, earningEvents: 0, dueEarnings: 0, dueDate: "", referredAuthorsCount: 0, promotedBooksCount: 0 };
   const session = await auth();
   if (!session?.user) return empty;
 
@@ -40,13 +42,16 @@ export async function getAffiliateEarningsSummary(): Promise<AffiliateEarningsSu
     const profile = user?.affiliateProfile;
     if (!profile) return empty;
 
-    const referralLines = profile.authorReferralEarnings as { authorReferralShare: unknown }[];
+    const referralLines = profile.authorReferralEarnings as { authorReferralShare: unknown; authorReferralAffiliateId: string | null }[];
     const promotionLines = profile.affiliateLinks.flatMap((l: { saleLines: { affiliateShare: unknown }[] }) => l.saleLines);
 
     const referralEarnings = referralLines.reduce((s, l) => s + Number(l.authorReferralShare), 0);
     const promotionEarnings = promotionLines.reduce((s: number, l: { affiliateShare: unknown }) => s + Number(l.affiliateShare), 0);
     const totalEarnings = referralEarnings + promotionEarnings;
     const earningEvents = referralLines.length + promotionLines.length;
+
+    const referredAuthorsCount = await prisma.authorProfile.count({ where: { referredById: profile.id } });
+    const promotedBooksCount = profile.affiliateLinks.filter((l: { saleLines: unknown[] }) => l.saleLines.length > 0).length;
 
     const wallet = await prisma.payoutRequest.aggregate({
       where: { userId: session.user.id, status: { in: ["REQUESTED", "APPROVED"] } },
@@ -71,6 +76,8 @@ export async function getAffiliateEarningsSummary(): Promise<AffiliateEarningsSu
       earningEvents,
       dueEarnings,
       dueDate: monthEnd.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+      referredAuthorsCount,
+      promotedBooksCount,
     };
   } catch {
     return empty;
