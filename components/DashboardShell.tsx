@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
 import { SignOutButton } from "./SignOutButton";
-import { getUnreadNotificationCount } from "@/actions/notifications";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 
 interface NavItem {
@@ -34,7 +33,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "payment-methods", label: "Payment Methods", href: "/account/payment-methods", section: "Account extras" },
       { key: "following", label: "Following", href: "/account/following", section: "Account extras" },
       { key: "reviews", label: "Reviews", href: "/account/reviews", section: "Account extras" },
-      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Account extras" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Account extras" },
     ];
     if (hasAffiliateAccess) {
@@ -67,7 +65,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "commissions", label: "Commissions", href: "/account/commissions", section: "Financial" },
       { key: "earnings", label: "Earnings", href: "/account/earnings", section: "Financial" },
       { key: "performance", label: "Performance", href: "/account/performance", section: "Financial" },
-      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
       { key: "payments", label: "Payments", href: "/account/payments", section: "Financial" },
       { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Affiliate" },
@@ -84,7 +81,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "analytics", label: "Analytics", href: "/account/analytics", section: "Financial" },
       { key: "revenue", label: "Revenue", href: "/account/revenue", section: "Financial" },
       { key: "transaction-history", label: "Transaction History", href: "/account/transaction-history", section: "Financial" },
-      { key: "notifications", label: "Notifications", href: "/account/notifications", section: "Overview" },
       { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Publishing" },
     ];
@@ -103,14 +99,13 @@ export async function DashboardShell({
   displayName: string;
   children: ReactNode;
 }) {
-  const unread = await getUnreadNotificationCount();
   let affiliateAccess = false;
   if (role === "READER") {
     const { auth } = await import("@/lib/auth");
     const session = await auth();
     if (session?.user?.id) affiliateAccess = await hasAffiliateCapability(session.user.id);
   }
-  const items = navItemsForRole(role, affiliateAccess).map((it) => (it.key === "notifications" ? { ...it, badge: unread || undefined } : it));
+  const items = navItemsForRole(role, affiliateAccess);
   const sections: { name: string; items: NavItem[] }[] = [];
   items.forEach((it) => {
     let sec = sections.find((s) => s.name === it.section);
