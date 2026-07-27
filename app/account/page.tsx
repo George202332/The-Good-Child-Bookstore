@@ -222,22 +222,22 @@ export default async function AccountPage() {
         </div>
 
         <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 28 }}>
-          <div className="stat-card stat-card-blue">
+          <div className="stat-card stat-card-referral">
             <div className="stat-label">Earnings</div>
             <div className="stat-value">${(totalRevenue + affiliateCommissionTotal).toFixed(2)}</div>
             <div className="stat-sub">Lifetime: book sales{isAffiliateToo ? " + referral & promotion commission" : ""}</div>
           </div>
-          <div className="stat-card stat-card-purple">
+          <div className="stat-card stat-card-promotion">
             <div className="stat-label">Titles on shelf</div>
             <div className="stat-value">{books.length}</div>
             <div className="stat-sub">{publishedCount} published</div>
           </div>
-          <div className="stat-card stat-card-amber">
+          <div className="stat-card stat-card-total">
             <div className="stat-label">On hold</div>
             <div className="stat-value">${combinedOnHold.toFixed(2)}</div>
             <div className="stat-sub">{nextPayoutDate ? `Releases from ${nextPayoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : "Nothing on hold"}</div>
           </div>
-          <div className="stat-card stat-card-green">
+          <div className="stat-card stat-card-due">
             <div className="stat-label">Available</div>
             <div className="stat-value">${combinedAvailable.toFixed(2)}</div>
             <div className="stat-sub-row">
