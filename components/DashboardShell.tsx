@@ -76,12 +76,16 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
       { key: "mybooks", label: "My Books", href: "/account/books", section: "Publishing" },
-      { key: "blog", label: "Blog", href: "/account/blog", section: "Publishing" },
-      { key: "analytics", label: "Analytics", href: "/account/analytics", section: "Financial" },
+      { key: "blog", label: "My Blogs", href: "/account/blog", section: "Publishing" },
+      { key: "analytics", label: "Sales Analytics", href: "/account/analytics", section: "Performance" },
+      { key: "affiliate-analytics", label: "Affiliate Analytics", href: "/account/performance", section: "Performance" },
       { key: "revenue", label: "Revenue", href: "/account/revenue", section: "Financial" },
-      { key: "transaction-history", label: "Transaction History", href: "/account/transaction-history", section: "Financial" },
-      { key: "payout-settings", label: "Payout Settings", href: "/account/payout-settings", section: "Financial" },
-      { key: "security", label: "Security", href: "/account/security", section: "Account" },
+      { key: "transaction-history", label: "Transactions", href: "/account/transaction-history", section: "Financial" },
+      { key: "payout-settings", label: "Payouts", href: "/account/payout-settings", section: "Financial" },
+      { key: "referrals", label: "Referrals", href: "/account/referrals", section: "Affiliate" },
+      { key: "promotions", label: "All Books", href: "/account/promotions", section: "Affiliate" },
+      { key: "active-campaigns", label: "On Promotion", href: "/account/active-campaigns", section: "Affiliate" },
+      { key: "resources", label: "Marketing", href: "/account/resources", section: "Affiliate" },
       { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
     ];
   }
@@ -116,7 +120,7 @@ export async function DashboardShell({
     sec.items.push(it);
   });
   return (
-    <div className="wrap" style={{ padding: "48px 0 80px" }}>
+    <div className="wrap" style={{ padding: "37px 0 80px" }}>
       <div className="dashboard-layout">
         <aside className="dashboard-sidebar" id="dashboard-sidebar-nav" aria-label={`Account menu for ${displayName}`}>
           <nav aria-label="Account navigation">

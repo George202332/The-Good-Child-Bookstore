@@ -1466,12 +1466,12 @@
   }
   .dashboard-nav-divider{display:none;}
   .dashboard-sidebar-logout{
-    display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:20px 0 4px;padding:10px 18px;border-radius:9px;
-    font-size:13.5px;font-weight:700;color:var(--coral-deep);background:transparent;border:1.5px solid var(--coral);
+    display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:14px 0 4px;padding:7px 13px;border-radius:8px;
+    font-size:12px;font-weight:700;color:#fff;background:var(--coral-deep);border:1.5px solid var(--coral-deep);
     cursor:pointer;transition:background .15s ease,color .15s ease;
   }
-  .dashboard-sidebar-logout:hover{background:var(--coral);color:#fff;}
-  .dashboard-sidebar-logout svg{width:16px;height:16px;}
+  .dashboard-sidebar-logout:hover{background:#C05A3D;border-color:#C05A3D;}
+  .dashboard-sidebar-logout svg{width:13px;height:13px;}
   .dashboard-sidebar-logout:focus-visible{outline:2px solid var(--coral-deep);outline-offset:2px;}
   .dashboard-content{min-width:0;grid-column:2;}
   @media (max-width:1024px){ .dashboard-content{grid-column:1;} }
@@ -1486,28 +1486,28 @@
   .stat-card{background:var(--paper);border-radius:16px;padding:20px;transition:box-shadow .5s ease;}
 
   /* ---------- Dashboard color-coded stat cards ---------- */
-  .stat-card-blue{background:#1E4FA3;border:1px solid #163C7D;}
-  .stat-card-blue .stat-label{color:#CFE0FF;}
-  .stat-card-blue .stat-value{color:#fff;}
-  .stat-card-blue .stat-sub{color:#B7CDF2;}
-  .stat-card-purple{background:#5D3A82;border:1px solid #472C64;}
-  .stat-card-purple .stat-label{color:#E5D6F5;}
-  .stat-card-purple .stat-value{color:#fff;}
-  .stat-card-purple .stat-sub{color:#D3BFEA;}
-  .stat-card-amber{background:#A56A08;border:1px solid #815207;}
-  .stat-card-amber .stat-label{color:#FCE7BE;}
-  .stat-card-amber .stat-value{color:#fff;}
-  .stat-card-amber .stat-sub{color:#F5D999;}
-  .stat-card-green{background:#1C6B44;border:1px solid #145235;}
-  .stat-card-green .stat-label{color:#C9F0DA;}
-  .stat-card-green .stat-value{color:#fff;}
-  .stat-card-green .stat-sub{color:#A9E3C4;}
+  .stat-card-blue{background:#5B9BFF;border:1px solid #3D7FE8;}
+  .stat-card-blue .stat-label{color:#0A2E6B;}
+  .stat-card-blue .stat-value{color:#0A2E6B;}
+  .stat-card-blue .stat-sub{color:#153E82;}
+  .stat-card-purple{background:#C084FC;border:1px solid #A855F7;}
+  .stat-card-purple .stat-label{color:#3D1861;}
+  .stat-card-purple .stat-value{color:#3D1861;}
+  .stat-card-purple .stat-sub{color:#4E2278;}
+  .stat-card-amber{background:#FFC24B;border:1px solid #F5A623;}
+  .stat-card-amber .stat-label{color:#6B4407;}
+  .stat-card-amber .stat-value{color:#6B4407;}
+  .stat-card-amber .stat-sub{color:#7D5209;}
+  .stat-card-green{background:#4ADE80;border:1px solid #22C55E;}
+  .stat-card-green .stat-label{color:#0F4D2A;}
+  .stat-card-green .stat-value{color:#0F4D2A;}
+  .stat-card-green .stat-sub{color:#125E33;}
   .stat-sub-row{display:flex;align-items:center;justify-content:space-between;margin-top:2px;}
   .stat-withdraw-btn{
     font-size:11px;font-weight:700;padding:6px 14px;border-radius:8px;
-    background:#fff;color:#1C6B44;white-space:nowrap;transition:background .15s ease,transform .15s ease;
+    background:#0F4D2A;color:#fff;white-space:nowrap;transition:background .15s ease,transform .15s ease;
   }
-  .stat-withdraw-btn:hover{background:#EAF7EF;transform:translateY(-1px);}
+  .stat-withdraw-btn:hover{background:#125E33;transform:translateY(-1px);}
   /* Per explicit instruction: in dark mode these 4 cards carry no color
      at all, matching the plain default .stat-card look. */
   html.dark-mode .stat-card-blue,
