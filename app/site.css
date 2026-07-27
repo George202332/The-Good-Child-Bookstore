@@ -113,7 +113,7 @@
   .search-pill{
     display:flex;align-items:center;gap:8px;
     background:var(--paper);border:2px solid var(--line);
-    border-radius:10px;padding:8px 16px;min-width:286px;
+    border-radius:10px;padding:8px 16px;min-width:334px;
     margin-right:48px;
     transition:border-color .15s ease;
   }
@@ -125,15 +125,17 @@
   .cart-btn{
     position:relative;display:flex;align-items:center;justify-content:center;
     width:44px;height:44px;border-radius:50%;
-    background:var(--pink);transition:transform .15s ease, background .15s ease;
+    background:var(--pink);border:1px solid rgba(63,51,80,0.08);
+    box-shadow:0 1px 3px rgba(63,51,80,0.08);
+    transition:transform .15s ease, background .15s ease, box-shadow .15s ease;
   }
-  .cart-btn:hover{transform:translateY(-2px);background:var(--pink-deep);}
+  .cart-btn:hover{transform:translateY(-2px);background:var(--pink-deep);box-shadow:0 6px 16px rgba(63,51,80,0.16);}
   .cart-count{
     position:absolute;top:-4px;right:-4px;
     background:var(--coral);color:var(--ink);font-size:11px;font-weight:700;
     min-width:19px;height:19px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    border:2px solid var(--cream);
+    border:2px solid var(--cream);box-shadow:0 2px 5px rgba(255,140,107,0.4);
   }
   .burger{display:none;}
   @media (max-width:1180px){
@@ -1332,8 +1334,8 @@
   }
   .auth-card h1{font-size:26px;margin-bottom:6px;text-align:center;}
   .auth-card > p{font-size:14px;color:var(--ink-soft);text-align:center;margin-bottom:20px;}
-  .auth-card .field{margin-bottom:16px;}
-  .auth-card .btn{width:100%;justify-content:center;margin-top:6px;}
+  .auth-card .field{margin-bottom:16px;padding:9px 16px;}
+  .auth-card .btn{width:100%;justify-content:center;margin-top:6px;padding:11px 24px;}
   .auth-switch{text-align:center;font-size:13px;color:var(--ink-soft);margin-top:18px;}
   .auth-switch a{font-weight:700;color:var(--coral-deep);}
   .auth-divider{display:flex;align-items:center;gap:12px;margin:26px 0;}

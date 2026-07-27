@@ -27,11 +27,11 @@ export function SiteChrome({ children, settings }: { children: ReactNode; settin
   if (isBackend) return <>{children}</>;
 
   return (
-    <>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <Suspense fallback={null}>
         <Header logoImageUrl={settings.logoImageUrl} />
       </Suspense>
-      {children}
+      <div style={{ flex: 1 }}>{children}</div>
       <Footer
         minimal={isLoginPage}
         logoImageUrl={settings.logoImageUrl}
@@ -39,6 +39,6 @@ export function SiteChrome({ children, settings }: { children: ReactNode; settin
         footerCopyright={settings.footerCopyright}
         paymentBadges={settings.paymentBadges}
       />
-    </>
+    </div>
   );
 }

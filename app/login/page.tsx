@@ -53,8 +53,7 @@ export default function LoginPage() {
   return (
     <section className="auth-section">
       <div className="auth-card">
-        <h1>Welcome back</h1>
-        <p>Sign in as a reader, an author, or an affiliate: one login for whichever account you&apos;re using.</p>
+        <h1>Welcome</h1>
         <form onSubmit={handleSubmit}>
           <label className="field-label" htmlFor="l-email">Email</label>
           <input
