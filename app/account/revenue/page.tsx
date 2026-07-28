@@ -163,6 +163,7 @@ export default async function RevenuePage() {
       hasEbook: boolean;
       hasPrint: boolean;
       hasAudiobook: boolean;
+      price: unknown;
       ebookPrice: unknown;
       paperbackPrice: unknown;
       hardcoverPrice: unknown;
@@ -179,7 +180,7 @@ export default async function RevenuePage() {
   function listPriceFor(book: PromotionSaleLine["book"], format: string | null): number {
     const f = format ?? (book.hasEbook ? "ebook" : book.hasPrint ? "hardcover" : "audiobook");
     const perFormat = f === "ebook" ? book.ebookPrice : f === "paperback" ? book.paperbackPrice : f === "hardcover" ? book.hardcoverPrice : book.audiobookPrice;
-    return perFormat !== null && perFormat !== undefined ? Number(perFormat) : 0;
+    return perFormat !== null && perFormat !== undefined ? Number(perFormat) : Number(book.price);
   }
 
   const promotionRawRows: PromotionRawRow[] = promotionSaleLines.map((l) => ({

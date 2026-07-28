@@ -8,7 +8,6 @@ import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { getMyLinkPerformance } from "@/actions/affiliate-performance";
 import { listMyNotifications } from "@/actions/notifications";
-import { nextReleaseDate } from "@/lib/wallet";
 import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
 
 interface SaleLineShare {
@@ -34,6 +33,10 @@ interface OrderWithLines {
   totalAmount: unknown;
   createdAt: Date;
   lines: OrderLine[];
+}
+
+function isCurrentMonth(d: Date, now: Date): boolean {
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
 /**
@@ -150,17 +153,32 @@ export default async function AccountPage() {
   if (role === "AUTHOR") {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { authorProfile: { include: { books: { include: { saleLines: true } } } } },
+      include: {
+        authorProfile: { include: { books: { include: { saleLines: true } } } },
+        affiliateProfile: {
+          include: {
+            authorReferralEarnings: true,
+            affiliateLinks: { include: { saleLines: true } },
+          },
+        },
+      },
     });
     const books = (user?.authorProfile?.books ?? []) as AuthorBook[];
     const allLines = books.flatMap((b) => b.saleLines.map((l) => ({ ...l, bookId: b.id })));
-    const totalRevenue = allLines.reduce((sum: number, l: SaleLineShare) => sum + Number(l.authorShare), 0);
-    const publishedCount = books.filter((b) => b.status === "PUBLISHED").length;
 
     const now = new Date();
 
-    const wallet = await getMyWallet("author");
-    const nextPayoutDate = nextReleaseDate(allLines.map((l) => ({ createdAt: l.createdAt, amount: Number(l.authorShare) })));
+    // Same monthly breakdown as the Revenue page's current-month row —
+    // kept identical here so the Dashboard's 4 stat cards always match
+    // what Revenue shows for the current month.
+    const bookSalesMonthly = allLines.filter((l) => isCurrentMonth(l.createdAt, now)).reduce((s, l) => s + Number(l.authorShare), 0);
+    const referralEarningLines = (user?.affiliateProfile?.authorReferralEarnings ?? []) as { createdAt: Date; authorReferralShare: unknown }[];
+    const referralMonthly = referralEarningLines.filter((l) => isCurrentMonth(l.createdAt, now)).reduce((s, l) => s + Number(l.authorReferralShare), 0);
+    const promotionSaleLines: { createdAt: Date; affiliateShare: unknown }[] = (user?.affiliateProfile?.affiliateLinks ?? []).flatMap(
+      (l: { saleLines: { createdAt: Date; affiliateShare: unknown }[] }) => l.saleLines
+    );
+    const promotionMonthly = promotionSaleLines.filter((l) => isCurrentMonth(l.createdAt, now)).reduce((s, l) => s + Number(l.affiliateShare), 0);
+    const monthlyTotal = bookSalesMonthly + referralMonthly + promotionMonthly;
 
     // Sales trend — real unit counts, January through December of the
     // current calendar year.
@@ -201,10 +219,6 @@ export default async function AccountPage() {
     const affiliateLinks = isAffiliateToo ? await getMyLinkPerformance() : [];
     const affiliateClicks = affiliateLinks.reduce((s, l) => s + l.clicks, 0);
     const affiliateSold = affiliateLinks.reduce((s, l) => s + l.conversions, 0);
-    const affiliateCommissionTotal = affiliateLinks.reduce((s, l) => s + l.commission, 0);
-    const affiliateWallet = isAffiliateToo ? await getMyWallet("affiliate") : null;
-    const combinedOnHold = wallet.onHold + (affiliateWallet?.onHold ?? 0);
-    const combinedAvailable = wallet.available + (affiliateWallet?.available ?? 0);
 
     const notifications = await listMyNotifications();
     const recentActivity = notifications.slice(0, 20);
@@ -219,27 +233,24 @@ export default async function AccountPage() {
 
         <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 28 }}>
           <div className="stat-card stat-card-referral">
-            <div className="stat-label">Earnings</div>
-            <div className="stat-value">${(totalRevenue + affiliateCommissionTotal).toFixed(2)}</div>
-            <div className="stat-sub">Lifetime: book sales{isAffiliateToo ? " + referral & promotion commission" : ""}</div>
+            <div className="stat-label">Royalty</div>
+            <div className="stat-value">${bookSalesMonthly.toFixed(2)}</div>
+            <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
           </div>
           <div className="stat-card stat-card-promotion">
-            <div className="stat-label">Titles on shelf</div>
-            <div className="stat-value">{books.length}</div>
-            <div className="stat-sub">{publishedCount} published</div>
+            <div className="stat-label">Referral revenue</div>
+            <div className="stat-value">${referralMonthly.toFixed(2)}</div>
+            <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
           </div>
           <div className="stat-card stat-card-total">
-            <div className="stat-label">On hold</div>
-            <div className="stat-value">${combinedOnHold.toFixed(2)}</div>
-            <div className="stat-sub">{nextPayoutDate ? `Releases from ${nextPayoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : "Nothing on hold"}</div>
+            <div className="stat-label">Book promotions</div>
+            <div className="stat-value">${promotionMonthly.toFixed(2)}</div>
+            <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
           </div>
           <div className="stat-card stat-card-due">
-            <div className="stat-label">Available</div>
-            <div className="stat-value">${combinedAvailable.toFixed(2)}</div>
-            <div className="stat-sub-row">
-              <span className="stat-sub">Ready to request</span>
-              <Link href="/account/revenue" className="stat-withdraw-btn">Withdraw</Link>
-            </div>
+            <div className="stat-label">Total earnings</div>
+            <div className="stat-value">${monthlyTotal.toFixed(2)}</div>
+            <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
           </div>
         </div>
 
