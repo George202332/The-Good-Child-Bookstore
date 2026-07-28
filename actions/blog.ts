@@ -24,6 +24,7 @@ function slugify(s: string): string {
 export interface SaveBlogInput {
   title: string;
   content: string;
+  coverImageUrl?: string;
   submitForReview: boolean;
 }
 
@@ -53,6 +54,7 @@ export async function saveBlogPost(input: SaveBlogInput): Promise<{ ok: boolean;
       title: input.title.trim(),
       slug,
       content: input.content.trim(),
+      coverImageUrl: input.coverImageUrl || null,
       authorId: user.authorProfile.id,
       status: input.submitForReview ? "PENDING_REVIEW" : "DRAFT",
     },
@@ -60,6 +62,42 @@ export async function saveBlogPost(input: SaveBlogInput): Promise<{ ok: boolean;
 
   revalidatePath("/account/blog");
   return { ok: true, blogId: blog.id };
+}
+
+/** Editing is only allowed for the author's own posts that are still
+ * DRAFT or REJECTED — once a post is PENDING_REVIEW or PUBLISHED it's
+ * out of the author's hands (matches the same logic books already use:
+ * no changing a submission mid-review). */
+export async function updateBlogPost(blogId: string, input: SaveBlogInput): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "AUTHOR") {
+    return { ok: false, error: "Only author accounts can write blog posts." };
+  }
+  if (!input.title.trim() || !input.content.trim()) {
+    return { ok: false, error: "Title and content are required." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
+  const blog = await prisma.blog.findUnique({ where: { id: blogId } });
+  if (!blog || !user?.authorProfile || blog.authorId !== user.authorProfile.id) {
+    return { ok: false, error: "Not found." };
+  }
+  if (blog.status !== "DRAFT" && blog.status !== "REJECTED") {
+    return { ok: false, error: "This post can no longer be edited." };
+  }
+
+  await prisma.blog.update({
+    where: { id: blogId },
+    data: {
+      title: input.title.trim(),
+      content: input.content.trim(),
+      coverImageUrl: input.coverImageUrl || null,
+      status: input.submitForReview ? "PENDING_REVIEW" : "DRAFT",
+    },
+  });
+
+  revalidatePath("/account/blog");
+  return { ok: true };
 }
 
 export async function submitBlogForReview(blogId: string): Promise<{ ok: boolean; error?: string }> {

@@ -58,6 +58,10 @@ interface HomeBlogPost {
   slug: string;
   title: string;
   content: string;
+  coverImageUrl: string | null;
+  publishAt: Date | null;
+  createdAt: Date;
+  author: { user: { name: string } };
 }
 
 export default async function HomePage() {
@@ -71,7 +75,7 @@ export default async function HomePage() {
       where: { status: "PUBLISHED" },
       orderBy: { publishAt: "desc" },
       take: 6,
-      select: { slug: true, title: true, content: true },
+      include: { author: { include: { user: true } } },
     });
     if (Array.isArray(result)) blogPosts = result as HomeBlogPost[];
   } catch {
@@ -377,15 +381,27 @@ export default async function HomePage() {
               {blogPosts.map((p) => {
                 const motif = BLOG_MOTIFS[hashStr(p.slug) % BLOG_MOTIFS.length];
                 return (
-                  <Link key={p.slug} href={`/blog/${p.slug}`} className="blog-card">
-                    <div className="blog-cover" style={{ background: "var(--lavender)" }}>
-                      <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#3F3350" /></svg>
-                    </div>
+                  <div key={p.slug} className="blog-card-v2">
+                    <Link href={`/blog/${p.slug}`}>
+                      <div className="blog-cover" style={{ background: "var(--lavender)" }}>
+                        {p.coverImageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- real uploaded blog cover
+                          <img src={p.coverImageUrl} alt={p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+                        ) : (
+                          <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#3F3350" /></svg>
+                        )}
+                      </div>
+                    </Link>
                     <div className="blog-body">
-                      <h3>{p.title}</h3>
+                      <Link href={`/blog/${p.slug}`}><h3>{p.title}</h3></Link>
                       <p>{p.content.slice(0, 120)}{p.content.length > 120 ? "…" : ""}</p>
+                      <div className="blog-meta">
+                        <span>by {p.author.user.name}</span>
+                        <span>{(p.publishAt ?? p.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+                      </div>
+                      <Link className="blog-read-more" href={`/blog/${p.slug}`}>Read more →</Link>
                     </div>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

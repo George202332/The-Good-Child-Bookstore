@@ -2,21 +2,33 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
-import { BlogEditorForm } from "./BlogEditorForm";
-import { SubmitButton } from "./SubmitButton";
+import { BlogPageTabs, type BlogListItem } from "./BlogPageTabs";
 
+/**
+ * Author's Blog — lands on the list of posts (their own at every status,
+ * plus every other author's published posts, matching the original's
+ * authorBlogHTML filter), with "Submit a new blog" as its own tab in the
+ * top-left (BlogPageTabs) leading to the write/edit page — a real,
+ * persistent Draft → Pending Review → Published workflow (the original's
+ * author blog pages were localStorage-only).
+ *
+ * SEO/marketing: published posts are already wired into the site's real
+ * structure — sitemap-blogs.xml lists every published slug, the public
+ * detail page (app/blog/[slug]/page.tsx) sets canonical/OG/Twitter
+ * metadata and JSON-LD, and the homepage's "From the Journal" section
+ * pulls the latest published posts — writing and submitting a post here
+ * is what feeds all of that.
+ */
 interface OwnBlog {
   id: string;
+  slug: string;
   title: string;
+  content: string;
+  coverImageUrl: string | null;
   status: string;
   createdAt: Date;
 }
 
-/**
- * Author's Blog — write, save as draft, and submit for review. New
- * functionality (the original's author blog pages were localStorage-only
- * and not tied to the real editorial workflow the brief describes).
- */
 export default async function AuthorBlogPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -26,7 +38,49 @@ export default async function AuthorBlogPage() {
     where: { id: session.user.id },
     include: { authorProfile: { include: { blogs: { orderBy: { createdAt: "desc" } } } } },
   });
-  const posts = (user?.authorProfile?.blogs ?? []) as OwnBlog[];
+  const myAuthorId = user?.authorProfile?.id;
+  const myPosts = (user?.authorProfile?.blogs ?? []) as OwnBlog[];
+
+  let othersPublished: {
+    id: string; slug: string; title: string; content: string; coverImageUrl: string | null;
+    createdAt: Date; status: string; author: { user: { name: string } };
+  }[] = [];
+  try {
+    const result = await prisma.blog.findMany({
+      where: { status: "PUBLISHED", ...(myAuthorId ? { authorId: { not: myAuthorId } } : {}) },
+      include: { author: { include: { user: true } } },
+      orderBy: { publishAt: "desc" },
+    });
+    if (Array.isArray(result)) othersPublished = result;
+  } catch {
+    // An empty "others" list is fine — the page still shows the
+    // author's own posts.
+  }
+
+  const posts: BlogListItem[] = [
+    ...myPosts.map((p) => ({
+      id: p.id,
+      slug: p.status === "PUBLISHED" ? p.slug : null,
+      title: p.title,
+      content: p.content,
+      coverImageUrl: p.coverImageUrl,
+      status: p.status as BlogListItem["status"],
+      createdAt: p.createdAt.toISOString(),
+      authorName: session.user.name ?? "",
+      isMine: true,
+    })),
+    ...othersPublished.map((p) => ({
+      id: p.id,
+      slug: p.slug,
+      title: p.title,
+      content: p.content,
+      coverImageUrl: p.coverImageUrl,
+      status: p.status as BlogListItem["status"],
+      createdAt: p.createdAt.toISOString(),
+      authorName: p.author.user.name,
+      isMine: false,
+    })),
+  ];
 
   return (
     <DashboardShell role="AUTHOR" activeKey="blog" displayName={session.user.name ?? ""}>
@@ -36,27 +90,7 @@ export default async function AuthorBlogPage() {
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Write a new post, or manage your existing ones.</p>
         </div>
       </div>
-
-      <BlogEditorForm />
-
-      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Your posts</h3>
-      {posts.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>Nothing written yet.</div>
-      ) : (
-        <div className="map-card" style={{ padding: "6px 16px" }}>
-          {posts.map((p) => (
-            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13.5 }}>{p.title}</div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                  {p.status} · {p.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                </div>
-              </div>
-              {p.status === "DRAFT" && <SubmitButton blogId={p.id} />}
-            </div>
-          ))}
-        </div>
-      )}
+      <BlogPageTabs posts={posts} />
     </DashboardShell>
   );
 }
