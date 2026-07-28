@@ -312,9 +312,10 @@ export function PrintSubmissionForm() {
           />
           <ImageUploadField
             label="Front Cover Only"
-            recommendedSize="Any image format — only the front cover artwork is required"
+            recommendedSize="PNG or JPEG — automatically converted to WebP"
             value={frontCoverImageUrl}
             onChange={(url) => { setFrontCoverImageUrl(url); setBackCoverMode("auto"); }}
+            accept="image/png,image/jpeg"
             fillWidth
           />
           <FileUploadField

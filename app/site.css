@@ -1470,11 +1470,12 @@
     color:var(--ink-faint);padding:0 0 6px 2mm;margin:0;
   }
   .dashboard-nav-link{
-    display:flex;align-items:center;gap:0mm;padding:8px 8px 8px 6mm;border-radius:8px;
+    display:flex;align-items:center;gap:2mm;padding:8px 8px 8px 6mm;border-radius:8px;
     font-size:15.5px;font-weight:500;color:var(--ink-soft);line-height:1.35;
     transition:background .15s ease, color .15s ease;
     margin-bottom:1px;text-align:left;
   }
+  .dashboard-nav-icon{display:flex;align-items:center;justify-content:center;flex-shrink:0;color:inherit;}
   .dashboard-nav-link:hover{background:var(--cream);color:var(--ink);}
   .dashboard-nav-link.active{background:none;color:var(--coral-deep);font-weight:700;}
   .dashboard-nav-link:focus-visible{outline:2px solid var(--coral-deep);outline-offset:2px;}

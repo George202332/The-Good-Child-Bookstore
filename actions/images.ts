@@ -25,6 +25,12 @@ const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8MB before conversion
 // these; if a file passes this check but genuinely isn't a valid image,
 // sharp's own processing step below throws a clear error instead.
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".avif", ".heic", ".heif", ".svg"];
+const MIME_TO_IMAGE_EXTENSIONS: Record<string, string[]> = {
+  "image/png": [".png"],
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/gif": [".gif"],
+  "image/webp": [".webp"],
+};
 
 export interface UploadImageResult {
   ok: boolean;
@@ -32,7 +38,10 @@ export interface UploadImageResult {
   error?: string;
 }
 
-export async function uploadImage(formData: FormData, options?: { trim?: boolean }): Promise<UploadImageResult> {
+export async function uploadImage(
+  formData: FormData,
+  options?: { trim?: boolean; allowedTypes?: string[] }
+): Promise<UploadImageResult> {
   const session = await auth();
   const role = session?.user?.role;
   // Anyone signed in may upload (readers don't need this, but authors
@@ -50,10 +59,23 @@ export async function uploadImage(formData: FormData, options?: { trim?: boolean
   if (file.size > MAX_UPLOAD_BYTES) {
     return { ok: false, error: "Image is too large (max 8MB)." };
   }
-  const mimeOk = file.type.startsWith("image/");
-  const extOk = IMAGE_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext));
-  if (!mimeOk && !extOk) {
-    return { ok: false, error: "Please upload an image file." };
+
+  const allowedTypes = options?.allowedTypes;
+  let mimeOk: boolean;
+  let extOk: boolean;
+  const nameLower = file.name.toLowerCase();
+  if (allowedTypes && allowedTypes.length > 0) {
+    mimeOk = allowedTypes.includes(file.type);
+    extOk = allowedTypes.some((mime) => (MIME_TO_IMAGE_EXTENSIONS[mime] ?? []).some((ext) => nameLower.endsWith(ext)));
+    if (!mimeOk && !extOk) {
+      return { ok: false, error: `Please upload one of: ${allowedTypes.join(", ")}.` };
+    }
+  } else {
+    mimeOk = file.type.startsWith("image/");
+    extOk = IMAGE_EXTENSIONS.some((ext) => nameLower.endsWith(ext));
+    if (!mimeOk && !extOk) {
+      return { ok: false, error: "Please upload an image file." };
+    }
   }
 
   try {

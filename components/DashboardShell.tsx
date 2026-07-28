@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
 import { SignOutButton } from "./SignOutButton";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
+import { NAV_ICONS } from "./nav-icons";
 
 interface NavItem {
   key: string;
@@ -85,7 +86,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "payout-settings", label: "Payouts", href: "/account/payout-settings", section: "Financial" },
       { key: "referrals", label: "Referrals", href: "/account/referrals", section: "Affiliate" },
       { key: "active-campaigns", label: "Promotions", href: "/account/active-campaigns", section: "Affiliate" },
-      { key: "resources", label: "Marketing", href: "/account/resources", section: "Affiliate" },
       { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
     ];
   }
@@ -134,6 +134,7 @@ export async function DashboardShell({
                     className={`dashboard-nav-link ${activeKey === it.key ? "active" : ""}`}
                     aria-current={activeKey === it.key ? "page" : undefined}
                   >
+                    {NAV_ICONS[it.key] ? <span className="dashboard-nav-icon">{NAV_ICONS[it.key]}</span> : null}
                     <span>{it.label}</span>
                     {it.badge ? <span className="nav-badge">{it.badge}</span> : null}
                   </Link>

@@ -23,6 +23,7 @@ export function ImageUploadField({
   onChange,
   trim,
   fillWidth,
+  accept = "image/*",
 }: {
   label: string;
   recommendedSize?: string;
@@ -39,6 +40,10 @@ export function ImageUploadField({
    * min-width 160px) instead of the standalone 280px cap used when this
    * field appears on its own (e.g. Site Settings logo/favicon). */
   fillWidth?: boolean;
+  /** File picker/drag-drop accept filter. Defaults to any image format;
+   * override for fields that need a narrower set (e.g. the print front
+   * cover, which only accepts PNG/JPEG, matching the original design). */
+  accept?: string;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +57,8 @@ export function ImageUploadField({
     setError(null);
     const formData = new FormData();
     formData.append("file", file);
-    const res = await uploadImage(formData, { trim });
+    const allowedTypes = accept === "image/*" ? undefined : accept.split(",").map((t) => t.trim()).filter(Boolean);
+    const res = await uploadImage(formData, { trim, allowedTypes });
     setUploading(false);
 
     if (!res.ok || !res.url) {
@@ -85,7 +91,7 @@ export function ImageUploadField({
         <input
           type="file"
           id={inputId}
-          accept="image/*"
+          accept={accept}
           style={{ display: "none" }}
           onChange={handleFileChange}
           disabled={uploading}
