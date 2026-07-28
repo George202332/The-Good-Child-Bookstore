@@ -183,13 +183,20 @@ earlier payout behavior:
    Admin's "mark paid" (`/admin/payouts`, `approvePayoutRequest()`)
    actually executes the Wise transfer, not just a status flip.
 
-2. **Wallet with a 10-day hold, not a longer window** — since there are
-   no returns once a product is purchased, there's no real reason to
-   hold earnings for months; a short hold still makes sense to cover
-   payment-processor disputes/chargebacks. See `lib/wallet.ts`
-   (`HOLD_DAYS = 10`): every sale's author/affiliate share sits **On
-   Hold** for 10 days after the sale, then moves to **Available**.
-   Requested-but-unpaid payouts are also carved out of Available.
+2. **Wallet with an automatic monthly release, not a manual request** —
+   payouts used to be requested on demand after a short hold; now
+   everything earned in a calendar month automatically becomes payable
+   on the 15th of the following month, with no button to click. See
+   `lib/wallet.ts`: every sale's author/affiliate share sits **On
+   Hold** until the 15th of the month after the sale, then moves to
+   **Available**. A Vercel Cron job (`vercel.json`,
+   `app/api/cron/monthly-payouts/route.ts`) runs on the 15th of every
+   month, computes each author's and affiliate's Available balance, and
+   automatically creates a `PayoutRequest` against their default Wise
+   recipient — admin still reviews and actually sends the money via
+   Wise (`/admin/payouts`, `approvePayoutRequest()`), this job only
+   queues up who's owed what. Requested-but-unpaid payouts are carved
+   out of Available so the same money isn't queued twice.
    `actions/wallet.ts` `getMyWallet()` is role-aware (author sales vs.
    affiliate sales) and used by both `/account/revenue` (author) and
    `/account/earnings` (affiliate), which both now show On Hold /

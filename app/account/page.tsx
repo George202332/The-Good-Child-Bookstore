@@ -8,7 +8,7 @@ import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { getMyLinkPerformance } from "@/actions/affiliate-performance";
 import { listMyNotifications } from "@/actions/notifications";
-import { HOLD_DAYS } from "@/lib/wallet";
+import { nextReleaseDate } from "@/lib/wallet";
 import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
 
 interface SaleLineShare {
@@ -160,11 +160,7 @@ export default async function AccountPage() {
     const now = new Date();
 
     const wallet = await getMyWallet("author");
-    const holdCutoff = now.getTime() - HOLD_DAYS * 24 * 60 * 60 * 1000;
-    const earliestOnHold = allLines
-      .filter((l) => l.createdAt.getTime() > holdCutoff)
-      .reduce<Date | null>((earliest, l) => (!earliest || l.createdAt < earliest ? l.createdAt : earliest), null);
-    const nextPayoutDate = earliestOnHold ? new Date(earliestOnHold.getTime() + HOLD_DAYS * 24 * 60 * 60 * 1000) : null;
+    const nextPayoutDate = nextReleaseDate(allLines.map((l) => ({ createdAt: l.createdAt, amount: Number(l.authorShare) })));
 
     // Sales trend — real unit counts, January through December of the
     // current calendar year.
@@ -352,7 +348,11 @@ export default async function AccountPage() {
           <div className="stat-card">
             <div className="stat-label">On Hold</div>
             <div className="stat-value">${wallet.onHold.toFixed(2)}</div>
-            <div className="stat-sub">Released after 10 days</div>
+            <div className="stat-sub">
+              {wallet.nextReleaseDate
+                ? `Releases ${new Date(wallet.nextReleaseDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
+                : "Nothing on hold"}
+            </div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Available</div>
