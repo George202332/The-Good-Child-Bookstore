@@ -2,9 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
-import { hasAffiliateCapability } from "@/lib/affiliate-capability";
-import { ColHelp } from "@/components/ColHelp";
 import { BookSalesTable, type BookSalesRow } from "./BookSalesTable";
+import { ReferralRevenueTable, type ReferralRawRow } from "./ReferralRevenueTable";
+import { BookPromotionTable, type PromotionRawRow } from "./BookPromotionTable";
 
 interface SaleLineRow {
   id: string;
@@ -40,9 +40,6 @@ function formatLabelFor(format: string | null, book: { hasEbook: boolean; hasPri
   return "eBook";
 }
 
-const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
-const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid var(--line)" };
-
 function isCurrentMonth(d: Date, now: Date): boolean {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
@@ -51,21 +48,14 @@ function isCurrentMonth(d: Date, now: Date): boolean {
  * Revenue — purely informational: every dollar you've earned, broken
  * down by exactly where it came from (book sales, author referrals you
  * brought in, or book promotions via your affiliate links), with a
- * fully detailed table for each. Actually requesting or tracking a
- * payout lives on Payout Settings, the dedicated tab for moving money —
- * this page is just for understanding where your earnings come from.
- *
- * The Referral Revenue and Book Promotion tables are always rendered,
- * even for authors who haven't enabled affiliate access — they just
- * show a real empty state in that case, rather than never appearing at
- * all (which is what made them look "ignored" before).
+ * fully detailed, filterable table for each — always visible inside its
+ * own card, even with zero data, rather than disappearing (which is
+ * what made these look "ignored" in earlier rounds).
  */
 export default async function RevenuePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (session.user.role !== "AUTHOR") redirect("/account");
-
-  const isAffiliateToo = await hasAffiliateCapability(session.user.id);
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -146,30 +136,20 @@ export default async function RevenuePage() {
   };
   const referralSaleLines = (user?.affiliateProfile?.authorReferralEarnings ?? []) as ReferralSaleLine[];
   const referralMonthly = referralSaleLines.filter((l) => isCurrentMonth(l.createdAt, now)).reduce((s, l) => s + Number(l.authorReferralShare), 0);
+  const referralTotal = referralSaleLines.reduce((s, l) => s + Number(l.authorReferralShare), 0);
 
-  // Group referral earnings by the referred author — one row per author,
-  // not per sale, since "Date Joined" and "Account ID" are per-author facts.
-  const referralByAuthor = new Map<string, { accountId: string; name: string; dateJoined: Date; revenue: number; commission: number }>();
-  for (const l of referralSaleLines) {
-    const key = l.book.author.id;
-    const existing = referralByAuthor.get(key);
-    const revenue = Number(l.companyShare);
-    const commission = Number(l.authorReferralShare);
-    if (existing) {
-      existing.revenue += revenue;
-      existing.commission += commission;
-    } else {
-      referralByAuthor.set(key, {
-        accountId: l.book.author.user.accountNumber,
-        name: l.book.author.penName || l.book.author.user.name,
-        dateJoined: l.book.author.user.createdAt,
-        revenue,
-        commission,
-      });
-    }
-  }
-  const referralRows = Array.from(referralByAuthor.values());
-  const referralTotal = referralRows.reduce((s, r) => s + r.commission, 0);
+  // Raw per-sale rows passed to the client component, which groups by
+  // author and re-aggregates dynamically based on whatever search/
+  // month/year filter is applied — rather than a fixed lifetime total
+  // that can't be filtered meaningfully.
+  const referralRawRows: ReferralRawRow[] = referralSaleLines.map((l) => ({
+    accountId: l.book.author.user.accountNumber,
+    name: l.book.author.penName || l.book.author.user.name,
+    dateJoined: l.book.author.user.createdAt.toISOString(),
+    saleDate: l.createdAt.toISOString(),
+    revenue: Number(l.companyShare),
+    commission: Number(l.authorReferralShare),
+  }));
 
   type PromotionSaleLine = {
     id: string;
@@ -194,6 +174,7 @@ export default async function RevenuePage() {
     (l: { saleLines: PromotionSaleLine[] }) => l.saleLines
   );
   const promotionMonthly = promotionSaleLines.filter((l) => isCurrentMonth(l.createdAt, now)).reduce((s, l) => s + Number(l.affiliateShare), 0);
+  const promotionTotal = promotionSaleLines.reduce((s, l) => s + Number(l.affiliateShare), 0);
 
   function listPriceFor(book: PromotionSaleLine["book"], format: string | null): number {
     const f = format ?? (book.hasEbook ? "ebook" : book.hasPrint ? "hardcover" : "audiobook");
@@ -201,31 +182,15 @@ export default async function RevenuePage() {
     return perFormat !== null && perFormat !== undefined ? Number(perFormat) : 0;
   }
 
-  // Group promotion earnings by book + format — "Copies" only makes
-  // sense as a count across multiple sales of the same edition.
-  const promotionByBookFormat = new Map<string, { isbn: string | null; title: string; author: string; format: string; price: number; copies: number; commission: number }>();
-  for (const l of promotionSaleLines) {
-    const formatKey = l.format ?? "ebook";
-    const key = `${l.book.id}:${formatKey}`;
-    const existing = promotionByBookFormat.get(key);
-    const commission = Number(l.affiliateShare);
-    if (existing) {
-      existing.copies += 1;
-      existing.commission += commission;
-    } else {
-      promotionByBookFormat.set(key, {
-        isbn: l.book.isbn,
-        title: l.book.title,
-        author: l.book.author.penName || l.book.author.user.name,
-        format: formatLabelFor(l.format, l.book),
-        price: listPriceFor(l.book, l.format),
-        copies: 1,
-        commission,
-      });
-    }
-  }
-  const promotionRows = Array.from(promotionByBookFormat.values());
-  const promotionTotal = promotionRows.reduce((s, r) => s + r.commission, 0);
+  const promotionRawRows: PromotionRawRow[] = promotionSaleLines.map((l) => ({
+    isbn: l.book.isbn,
+    title: l.book.title,
+    author: l.book.author.penName || l.book.author.user.name,
+    format: formatLabelFor(l.format, l.book),
+    price: listPriceFor(l.book, l.format),
+    commission: Number(l.affiliateShare),
+    saleDate: l.createdAt.toISOString(),
+  }));
 
   const grandTotal = bookSalesTotal + referralTotal + promotionTotal;
   const monthlyTotal = bookSalesMonthly + referralMonthly + promotionMonthly;
@@ -279,81 +244,17 @@ export default async function RevenuePage() {
       </div>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Book Sales</h3>
-      {bookSalesRows.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13, marginBottom: 24 }}>No sales recorded yet.</div>
-      ) : (
-        <div style={{ marginBottom: 28 }}>
-          <BookSalesTable rows={bookSalesRows} />
-        </div>
-      )}
+      <div style={{ marginBottom: 28 }}>
+        <BookSalesTable rows={bookSalesRows} />
+      </div>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Referral Revenue</h3>
-      {referralRows.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13, marginBottom: 24 }}>
-          {isAffiliateToo ? "No referral revenue yet." : "Enable affiliate access from your Dashboard to start referring other authors and earning here."}
-        </div>
-      ) : (
-        <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 28 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr>
-                <th style={TABLE_HEAD_STYLE}>Account ID<ColHelp text="The unique account number belonging to the author you referred — the same number shown on their own Profile page." /></th>
-                <th style={TABLE_HEAD_STYLE}>Name<ColHelp text="The referred author's name — their pen name if they've set one in their Profile, otherwise their real name." /></th>
-                <th style={TABLE_HEAD_STYLE}>Date Joined<ColHelp text="The date this author created their account using your referral link." /></th>
-                <th style={TABLE_HEAD_STYLE}>Revenue<ColHelp text="The total amount the company itself has earned (its 25% share, before any referral commission is carved out) from every book this author has sold, added up across all their sales." /></th>
-                <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="Your own earnings from referring this author: a percentage of the company's revenue above, paid to you for as long as they continue publishing with us — even on books they publish long after signing up." /></th>
-              </tr>
-            </thead>
-            <tbody>
-              {referralRows.map((r) => (
-                <tr key={r.accountId}>
-                  <td style={{ ...TABLE_CELL_STYLE, fontFamily: "monospace" }}>{r.accountId}</td>
-                  <td style={TABLE_CELL_STYLE}>{r.name}</td>
-                  <td style={TABLE_CELL_STYLE}>{r.dateJoined.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                  <td style={TABLE_CELL_STYLE}>${r.revenue.toFixed(2)}</td>
-                  <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>${r.commission.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <div style={{ marginBottom: 28 }}>
+        <ReferralRevenueTable rows={referralRawRows} />
+      </div>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Book Promotion</h3>
-      {promotionRows.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
-          {isAffiliateToo ? "No promotion earnings yet." : "Enable affiliate access from your Dashboard to start promoting books and earning here."}
-        </div>
-      ) : (
-        <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr>
-                <th style={TABLE_HEAD_STYLE}>SN/ISBN<ColHelp text="The book's ISBN, or a sequential number if it doesn't have one on file." /></th>
-                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The title of the book you promoted and that sold." /></th>
-                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="The name (or pen name) of whoever wrote this book — not necessarily you, since you can promote any book on the shelf." /></th>
-                <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="Which edition sold through your link: eBook, Paperback, Hardcover, or Audiobook." /></th>
-                <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The book's real listed price for this format — not a discounted checkout price, the actual price it's sold at." /></th>
-                <th style={TABLE_HEAD_STYLE}>Copies<ColHelp text="How many copies of this exact book and format have sold through your promotional link so far." /></th>
-                <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="Your total earnings from this book: 10% of the price, multiplied by the number of copies sold through your link." /></th>
-              </tr>
-            </thead>
-            <tbody>
-              {promotionRows.map((r, i) => (
-                <tr key={`${r.title}-${r.format}-${i}`}>
-                  <td style={TABLE_CELL_STYLE}>{r.isbn ?? `#${i + 1}`}</td>
-                  <td style={TABLE_CELL_STYLE}>{r.title}</td>
-                  <td style={TABLE_CELL_STYLE}>{r.author}</td>
-                  <td style={TABLE_CELL_STYLE}>{r.format}</td>
-                  <td style={TABLE_CELL_STYLE}>${r.price.toFixed(2)}</td>
-                  <td style={TABLE_CELL_STYLE}>{r.copies}</td>
-                  <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>${r.commission.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <BookPromotionTable rows={promotionRawRows} />
     </DashboardShell>
   );
 }

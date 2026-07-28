@@ -17,53 +17,55 @@ export interface BookSalesRow {
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
 const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid var(--line)" };
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-/** A real search box + month/year filter above the Book Sales table —
- * filters the actual rows already loaded (not a separate query), and
- * shows the real royalty total for whatever's currently filtered. */
+/** Always renders inside its own card, whether there's real data or
+ * not — a real search box, separate Month and Year dropdowns (not
+ * combined), filtering the actual rows already loaded (not a separate
+ * query), with a live royalty total for whatever's currently filtered. */
 export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
   const [search, setSearch] = useState("");
-  const [monthYear, setMonthYear] = useState("all");
+  const [month, setMonth] = useState("all");
+  const [year, setYear] = useState("all");
 
-  const monthOptions = useMemo(() => {
-    const seen = new Map<string, string>();
-    for (const r of rows) {
-      const d = new Date(r.date);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      if (!seen.has(key)) seen.set(key, d.toLocaleDateString("en-US", { month: "long", year: "numeric" }));
-    }
-    return Array.from(seen.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  const years = useMemo(() => {
+    const seen = new Set<string>();
+    for (const r of rows) seen.add(String(new Date(r.date).getFullYear()));
+    return Array.from(seen).sort((a, b) => (a < b ? 1 : -1));
   }, [rows]);
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       if (search.trim() && !r.title.toLowerCase().includes(search.trim().toLowerCase())) return false;
-      if (monthYear !== "all") {
-        const d = new Date(r.date);
-        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-        if (key !== monthYear) return false;
-      }
+      const d = new Date(r.date);
+      if (month !== "all" && d.getMonth() !== Number(month)) return false;
+      if (year !== "all" && d.getFullYear() !== Number(year)) return false;
       return true;
     });
-  }, [rows, search, monthYear]);
+  }, [rows, search, month, year]);
 
   const filteredTotal = filtered.reduce((s, r) => s + r.share * r.units, 0);
 
   return (
-    <div>
-      <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+    <div className="map-card" style={{ padding: 20 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
         <input
-          className="field"
+          className="field revenue-search-input"
           type="text"
           placeholder="Search by book title..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          style={{ maxWidth: 280, marginBottom: 0 }}
         />
-        <select className="field" value={monthYear} onChange={(e) => setMonthYear(e.target.value)} style={{ maxWidth: 200, marginBottom: 0 }}>
-          <option value="all">All time</option>
-          {monthOptions.map(([key, label]) => (
-            <option key={key} value={key}>{label}</option>
+        <select className="field revenue-filter-select" value={month} onChange={(e) => setMonth(e.target.value)}>
+          <option value="all">All months</option>
+          {MONTH_NAMES.map((m, i) => (
+            <option key={m} value={i}>{m}</option>
+          ))}
+        </select>
+        <select className="field revenue-filter-select" value={year} onChange={(e) => setYear(e.target.value)}>
+          <option value="all">All years</option>
+          {years.map((y) => (
+            <option key={y} value={y}>{y}</option>
           ))}
         </select>
         <div style={{ marginLeft: "auto", fontSize: 13.5 }}>
@@ -71,10 +73,12 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {rows.length === 0 ? (
+        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No sales recorded yet.</div>
+      ) : filtered.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No sales match this search.</div>
       ) : (
-        <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+        <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>

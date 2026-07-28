@@ -531,6 +531,11 @@
   .resource-card{transition:transform .15s ease, box-shadow .15s ease;}
   .resource-card:hover{transform:translateY(-3px);box-shadow:0 10px 24px rgba(60,40,30,0.10);}
 
+  /* Search/filter controls above the Revenue tables — search bar sized
+     20% smaller than a standard field, per explicit request. */
+  .revenue-search-input{width:auto;max-width:224px;padding:10px 13px;font-size:13px;margin-bottom:0;}
+  .revenue-filter-select{width:auto;max-width:150px;padding:10px 13px;font-size:13px;margin-bottom:0;}
+
   .affiliate-category-card{
     background:var(--paper);border-radius:14px;padding:22px 24px;margin-bottom:16px;
     border-left:4px solid var(--line);
