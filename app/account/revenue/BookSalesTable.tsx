@@ -24,7 +24,6 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
  * combined), filtering the actual rows already loaded (not a separate
  * query), with a live royalty total for whatever's currently filtered. */
 export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
-  const [search, setSearch] = useState("");
   const [month, setMonth] = useState("all");
   const [year, setYear] = useState("all");
 
@@ -36,47 +35,41 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
-      if (search.trim() && !r.title.toLowerCase().includes(search.trim().toLowerCase())) return false;
       const d = new Date(r.date);
       if (month !== "all" && d.getMonth() !== Number(month)) return false;
       if (year !== "all" && d.getFullYear() !== Number(year)) return false;
       return true;
     });
-  }, [rows, search, month, year]);
+  }, [rows, month, year]);
 
   const filteredTotal = filtered.reduce((s, r) => s + r.share * r.units, 0);
 
   return (
     <div className="map-card" style={{ padding: 20 }}>
-      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
-        <input
-          className="field revenue-search-input"
-          type="text"
-          placeholder="Search by book title..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select className="field revenue-filter-select" value={month} onChange={(e) => setMonth(e.target.value)}>
-          <option value="all">All months</option>
-          {MONTH_NAMES.map((m, i) => (
-            <option key={m} value={i}>{m}</option>
-          ))}
-        </select>
-        <select className="field revenue-filter-select" value={year} onChange={(e) => setYear(e.target.value)}>
-          <option value="all">All years</option>
-          {years.map((y) => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
-        <div style={{ marginLeft: "auto", fontSize: 13.5 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 13.5 }}>
           Royalty for this query: <strong>${filteredTotal.toFixed(2)}</strong>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <select className="field revenue-filter-select" value={month} onChange={(e) => setMonth(e.target.value)}>
+            <option value="all">All months</option>
+            {MONTH_NAMES.map((m, i) => (
+              <option key={m} value={i}>{m}</option>
+            ))}
+          </select>
+          <select className="field revenue-filter-select" value={year} onChange={(e) => setYear(e.target.value)}>
+            <option value="all">All years</option>
+            {years.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
         </div>
       </div>
 
       {rows.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No sales recorded yet.</div>
       ) : filtered.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No sales match this search.</div>
+        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No sales in this period.</div>
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

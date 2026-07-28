@@ -533,8 +533,7 @@
 
   /* Search/filter controls above the Revenue tables — search bar sized
      20% smaller than a standard field, per explicit request. */
-  .revenue-search-input{width:auto;max-width:224px;padding:10px 13px;font-size:13px;margin-bottom:0;}
-  .revenue-filter-select{width:auto;max-width:150px;padding:10px 13px;font-size:13px;margin-bottom:0;}
+  .revenue-filter-select{width:auto;max-width:150px;padding:8px 13px;font-size:13px;margin-bottom:0;}
 
   .affiliate-category-card{
     background:var(--paper);border-radius:14px;padding:22px 24px;margin-bottom:16px;

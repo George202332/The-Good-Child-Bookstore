@@ -22,7 +22,6 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
  * + format for just that window, rather than only filtering an
  * already-fixed lifetime total. */
 export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
-  const [search, setSearch] = useState("");
   const [month, setMonth] = useState("all");
   const [year, setYear] = useState("all");
 
@@ -35,7 +34,6 @@ export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
   const grouped = useMemo(() => {
     const byBookFormat = new Map<string, { isbn: string | null; title: string; author: string; format: string; price: number; copies: number; commission: number }>();
     for (const r of rows) {
-      if (search.trim() && !r.title.toLowerCase().includes(search.trim().toLowerCase())) continue;
       const d = new Date(r.saleDate);
       if (month !== "all" && d.getMonth() !== Number(month)) continue;
       if (year !== "all" && d.getFullYear() !== Number(year)) continue;
@@ -49,41 +47,36 @@ export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
       }
     }
     return Array.from(byBookFormat.values());
-  }, [rows, search, month, year]);
+  }, [rows, month, year]);
 
   const filteredTotal = grouped.reduce((s, r) => s + r.commission, 0);
 
   return (
     <div className="map-card" style={{ padding: 20 }}>
-      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
-        <input
-          className="field revenue-search-input"
-          type="text"
-          placeholder="Search by book title..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <select className="field revenue-filter-select" value={month} onChange={(e) => setMonth(e.target.value)}>
-          <option value="all">All months</option>
-          {MONTH_NAMES.map((m, i) => (
-            <option key={m} value={i}>{m}</option>
-          ))}
-        </select>
-        <select className="field revenue-filter-select" value={year} onChange={(e) => setYear(e.target.value)}>
-          <option value="all">All years</option>
-          {years.map((y) => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
-        <div style={{ marginLeft: "auto", fontSize: 13.5 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ fontSize: 13.5 }}>
           Commission for this query: <strong>${filteredTotal.toFixed(2)}</strong>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <select className="field revenue-filter-select" value={month} onChange={(e) => setMonth(e.target.value)}>
+            <option value="all">All months</option>
+            {MONTH_NAMES.map((m, i) => (
+              <option key={m} value={i}>{m}</option>
+            ))}
+          </select>
+          <select className="field revenue-filter-select" value={year} onChange={(e) => setYear(e.target.value)}>
+            <option value="all">All years</option>
+            {years.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
         </div>
       </div>
 
       {rows.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No promotion earnings yet.</div>
       ) : grouped.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No promotions match this search.</div>
+        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No promotions in this period.</div>
       ) : (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

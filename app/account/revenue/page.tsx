@@ -222,7 +222,7 @@ export default async function RevenuePage() {
 
       <div className="stat-grid" style={{ marginBottom: 28 }}>
         <div className="stat-card stat-card-referral">
-          <div className="stat-label">Book sales</div>
+          <div className="stat-label">Royalty</div>
           <div className="stat-value">${bookSalesMonthly.toFixed(2)}</div>
           <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
         </div>
