@@ -97,18 +97,11 @@ export async function DashboardShell({
   activeKey,
   displayName,
   children,
-  fullWidth,
 }: {
   role: Role;
   activeKey: string;
   displayName: string;
   children: ReactNode;
-  /** When true, the page stretches to its natural right margin (the
-   * wrap's own side padding) instead of being capped at the standard
-   * 1280px and centered with large empty gutters on wide screens. Used
-   * by pages like "Submit a new title" that need the extra width; all
-   * other dashboard pages are unaffected since this defaults to false. */
-  fullWidth?: boolean;
 }) {
   let affiliateAccess = false;
   if (role === "READER") {
@@ -127,7 +120,7 @@ export async function DashboardShell({
     sec.items.push(it);
   });
   return (
-    <div className="wrap" style={{ padding: "37px 0 80px", ...(fullWidth ? { maxWidth: "none" } : {}) }}>
+    <div className="wrap" style={{ padding: "37px 0 80px" }}>
       <div className="dashboard-layout">
         <aside className="dashboard-sidebar" id="dashboard-sidebar-nav" aria-label={`Account menu for ${displayName}`}>
           <nav aria-label="Account navigation">
