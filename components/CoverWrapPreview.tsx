@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { buildEan13Bars } from "@/lib/ean13-barcode";
+import { buildEan13Layout } from "@/lib/ean13-barcode";
 import {
   PALETTES, MOTIFS, hashStr, deriveBackCoverPalette, extractDominantColor,
   motifSvgInner, fitDescriptionText, wrapTextToLines, computeCoverGeometry,
@@ -104,7 +104,9 @@ export function CoverWrapPreview({
   // ---- Back cover: description text + barcode, bottom-left of the safe area ----
   const boxX = backX + margin, boxY = bleed + margin;
   const boxW = trimW - margin * 2;
-  const barcodeDisplayW = 180 * 0.62, barcodeDisplayH = 122.4 * 0.62;
+  const barcodeLayout = buildEan13Layout(isbn || "", 0.62);
+  const barcodeDisplayW = barcodeLayout?.canvasW ?? 180 * 0.62;
+  const barcodeDisplayH = barcodeLayout?.canvasH ?? 122.4 * 0.62;
   const barcodeGap = 12;
   const barcodeY = bleed + trimH - margin - barcodeDisplayH;
   const textAreaH = barcodeY - barcodeGap - boxY;
@@ -112,9 +114,6 @@ export function CoverWrapPreview({
     description || "Add a book description above to see it appear here automatically.",
     boxW, Math.max(20, textAreaH), 11.5, 7
   );
-  const { bars: barcodeBars, digits: barcodeDigits } = buildEan13Bars(isbn || "");
-  const barcodeUnit = barcodeDisplayW / 95;
-  const barcodeBarH = barcodeDisplayH * 0.75, barcodeTallBarH = barcodeDisplayH * 0.85;
 
   // ---- Spine ----
   const spineColor = back.spine;
@@ -159,15 +158,15 @@ export function CoverWrapPreview({
                 <tspan key={i} x={boxX} y={boxY + fit.fontSize + i * fit.lineHeight}>{l}</tspan>
               ))}
             </text>
-            {barcodeDigits && (
+            {barcodeLayout && (
               <g transform={`translate(${boxX},${barcodeY})`}>
                 <rect x={0} y={0} width={barcodeDisplayW} height={barcodeDisplayH} fill="#fff" />
-                {barcodeBars.map((b, i) => (
-                  <rect key={i} x={b.x * barcodeUnit} y={0} width={barcodeUnit} height={b.tall ? barcodeTallBarH : barcodeBarH} fill="#000" />
+                {barcodeLayout.bars.map((b, i) => (
+                  <rect key={i} x={b.x} y={b.y} width={b.width} height={b.height} fill="#000" />
                 ))}
-                <text x={barcodeDisplayW / 2} y={barcodeDisplayH - 3} fontFamily="monospace" fontSize={barcodeDisplayH * 0.12} textAnchor="middle" fill="#000" letterSpacing={1.5}>
-                  {barcodeDigits}
-                </text>
+                {barcodeLayout.textGroups.map((t, i) => (
+                  <text key={i} x={t.x} y={t.y} fontFamily="Courier, monospace" fontSize={t.fontSize}>{t.text}</text>
+                ))}
               </g>
             )}
           </g>

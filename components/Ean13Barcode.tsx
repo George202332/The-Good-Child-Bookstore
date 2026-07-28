@@ -1,40 +1,41 @@
 "use client";
 
-import { useRef } from "react";
-import { ean13ToSvgString, buildEan13Bars } from "@/lib/ean13-barcode";
+import { buildEan13Layout, ean13ToSvgString } from "@/lib/ean13-barcode";
 
-/** Renders a real, scannable EAN-13 barcode from an ISBN, with working
- * Download SVG / Download PNG buttons — matches "ISBN Barcode...
- * Generated automatically from the ISBN assigned to this title." */
+/** Renders a real, scannable EAN-13 barcode from an ISBN — ported from
+ * the original's exact reverse-engineered proportions (180x122.4 base
+ * canvas, guard bars taller than data bars, the digit split into a lone
+ * first digit plus two groups of 6, precisely positioned to match the
+ * reference sample) — matches "ISBN Barcode... Generated automatically
+ * from the ISBN assigned to this title." Download SVG / Download PNG
+ * both work off this same layout, downloaded at 3x scale for a crisp
+ * export (same as the original's downloadIsbnBarcode). */
 export function Ean13Barcode({ isbn }: { isbn: string }) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const { bars, digits } = buildEan13Bars(isbn);
-  const width = 200;
-  const height = 100;
-  const unit = width / 95;
-  const barHeight = height * 0.75;
-  const tallBarHeight = height * 0.85;
+  const layout = buildEan13Layout(isbn, 1);
 
   function downloadSvg() {
-    const svgString = ean13ToSvgString(isbn, width, height);
+    if (!layout) return;
+    const svgString = ean13ToSvgString(isbn, 3);
     const blob = new Blob([svgString], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `isbn-${digits}.svg`;
+    a.download = `isbn-${layout.digitStr}.svg`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
   function downloadPng() {
-    const svgString = ean13ToSvgString(isbn, width * 3, height * 3);
+    if (!layout) return;
+    const svgString = ean13ToSvgString(isbn, 3);
     const svgBlob = new Blob([svgString], { type: "image/svg+xml" });
     const url = URL.createObjectURL(svgBlob);
     const img = new Image();
     img.onload = () => {
+      const scaledLayout = buildEan13Layout(isbn, 3);
       const canvas = document.createElement("canvas");
-      canvas.width = width * 3;
-      canvas.height = height * 3;
+      canvas.width = scaledLayout?.canvasW ?? img.width;
+      canvas.height = scaledLayout?.canvasH ?? img.height;
       const ctx = canvas.getContext("2d");
       if (ctx) {
         ctx.fillStyle = "#fff";
@@ -45,7 +46,7 @@ export function Ean13Barcode({ isbn }: { isbn: string }) {
           const pngUrl = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = pngUrl;
-          a.download = `isbn-${digits}.png`;
+          a.download = `isbn-${layout.digitStr}.png`;
           a.click();
           URL.revokeObjectURL(pngUrl);
         }, "image/png");
@@ -55,16 +56,20 @@ export function Ean13Barcode({ isbn }: { isbn: string }) {
     img.src = url;
   }
 
+  if (!layout) {
+    return <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>Enter a valid ISBN (at least 12 digits) to generate a barcode.</p>;
+  }
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
-      <svg ref={svgRef} viewBox={`0 0 ${width} ${height}`} width={200} height={100} style={{ background: "#fff", border: "1px solid var(--line)" }}>
-        <rect x={0} y={0} width={width} height={height} fill="#fff" />
-        {bars.map((b, i) => (
-          <rect key={i} x={b.x * unit} y={0} width={unit} height={b.tall ? tallBarHeight : barHeight} fill="#000" />
+      <svg viewBox={`0 0 ${layout.canvasW} ${layout.canvasH}`} width={220} height={220 * (layout.canvasH / layout.canvasW)} style={{ background: "#fff", border: "1px solid var(--line)" }}>
+        <rect x={0} y={0} width={layout.canvasW} height={layout.canvasH} fill="#fff" />
+        {layout.bars.map((b, i) => (
+          <rect key={i} x={b.x} y={b.y} width={b.width} height={b.height} fill="#000" />
         ))}
-        <text x={width / 2} y={height - 4} fontFamily="monospace" fontSize={height * 0.12} textAnchor="middle" fill="#000" letterSpacing={2}>
-          {digits}
-        </text>
+        {layout.textGroups.map((t, i) => (
+          <text key={i} x={t.x} y={t.y} fontFamily="Courier, monospace" fontSize={t.fontSize}>{t.text}</text>
+        ))}
       </svg>
       <div style={{ display: "flex", gap: 10 }}>
         <button type="button" className="btn btn-ghost btn-small" onClick={downloadSvg}>Download SVG</button>
