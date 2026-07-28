@@ -48,7 +48,7 @@ export async function listBlogsForModeration(status: "ALL" | "PUBLISHED" | "PEND
 
   const posts = await prisma.blog.findMany({
     where: status === "ALL" ? {} : { status },
-    include: { author: { include: { user: true } }, comments: true },
+    include: { author: true, comments: true },
     orderBy: { createdAt: "desc" },
     take: 300,
   });
@@ -58,13 +58,15 @@ export async function listBlogsForModeration(status: "ALL" | "PUBLISHED" | "PEND
     title: string;
     status: string;
     createdAt: Date;
-    author: { user: { name: string } };
+    authorFirstName: string | null;
+    authorLastName: string | null;
+    author: { name: string };
     comments: unknown[];
   }) => ({
     id: p.id,
     title: p.title,
     status: p.status,
-    authorName: p.author.user.name,
+    authorName: (p.authorFirstName || p.authorLastName) ? `${p.authorFirstName ?? ""} ${p.authorLastName ?? ""}`.trim() : p.author.name,
     createdAt: p.createdAt,
     commentCount: p.comments.length,
   }));

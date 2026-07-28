@@ -6,10 +6,11 @@ import { auth } from "@/lib/auth";
 import { canModerateContent } from "@/lib/roles";
 
 /**
- * New functionality — the original frontend had no real blog *writing*
- * flow backed by persistent state (its "Author Blog" pages worked off
- * localStorage). This is a genuine CMS: Draft → Pending Review →
- * Published, same workflow as books.
+ * Real, persistent blog authoring — Draft → Pending Review → Published,
+ * same workflow as books. Open to every account type (Reader, Author,
+ * Affiliate), not just Author — blogging is part of the site's
+ * marketing/SEO surface, not an author-only publishing format, so
+ * authorship is by User directly rather than requiring an AuthorProfile.
  */
 
 function slugify(s: string): string {
@@ -23,40 +24,80 @@ function slugify(s: string): string {
 
 export interface SaveBlogInput {
   title: string;
+  subtitle?: string;
+  slug?: string;
   content: string;
   coverImageUrl?: string;
+  imageAltText?: string;
+  authorFirstName?: string;
+  authorLastName?: string;
+  shortSummary?: string;
+  categories?: string[];
+  tags?: string[];
+  metaTitle?: string;
+  metaDescription?: string;
+  seoKeywords?: string;
+  canonicalUrl?: string;
+  featured?: boolean;
+  allowComments?: boolean;
+  /** Optional future publish date/time. When set, the post still goes
+   * through the same review queue — it's the *going live* moment that's
+   * deferred, not the review itself. Left blank, submitting for review
+   * makes it eligible to go live as soon as it's approved. */
+  scheduledAt?: string;
   submitForReview: boolean;
+}
+
+async function uniqueSlug(requested: string | undefined, title: string, excludeId?: string): Promise<string> {
+  const baseSlug = slugify(requested?.trim() || title);
+  let slug = baseSlug;
+  let attempt = 1;
+  while (true) {
+    const existing = await prisma.blog.findUnique({ where: { slug } });
+    if (!existing || existing.id === excludeId) return slug;
+    slug = `${baseSlug}-${++attempt}`;
+  }
+}
+
+function scheduledPublishAt(input: SaveBlogInput): Date | null {
+  if (!input.scheduledAt) return null;
+  const d = new Date(input.scheduledAt);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 export async function saveBlogPost(input: SaveBlogInput): Promise<{ ok: boolean; error?: string; blogId?: string }> {
   const session = await auth();
-  if (session?.user?.role !== "AUTHOR") {
-    return { ok: false, error: "Only author accounts can write blog posts." };
+  if (!session?.user) {
+    return { ok: false, error: "You need to be signed in to write a blog post." };
   }
   if (!input.title.trim() || !input.content.trim()) {
     return { ok: false, error: "Title and content are required." };
   }
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
-  if (!user?.authorProfile) {
-    return { ok: false, error: "Author profile not found." };
-  }
-
-  const baseSlug = slugify(input.title);
-  let slug = baseSlug;
-  let attempt = 1;
-  while (await prisma.blog.findUnique({ where: { slug } })) {
-    slug = `${baseSlug}-${++attempt}`;
-  }
+  const slug = await uniqueSlug(input.slug, input.title);
 
   const blog = await prisma.blog.create({
     data: {
       title: input.title.trim(),
+      subtitle: input.subtitle?.trim() || null,
       slug,
       content: input.content.trim(),
       coverImageUrl: input.coverImageUrl || null,
-      authorId: user.authorProfile.id,
+      imageAltText: input.imageAltText?.trim() || null,
+      authorFirstName: input.authorFirstName?.trim() || null,
+      authorLastName: input.authorLastName?.trim() || null,
+      shortSummary: input.shortSummary?.trim() || null,
+      categories: input.categories ?? [],
+      tags: input.tags ?? [],
+      metaTitle: input.metaTitle?.trim() || null,
+      metaDescription: input.metaDescription?.trim() || null,
+      seoKeywords: input.seoKeywords?.trim() || null,
+      canonicalUrl: input.canonicalUrl?.trim() || null,
+      featured: input.featured ?? false,
+      allowComments: input.allowComments ?? true,
+      authorId: session.user.id,
       status: input.submitForReview ? "PENDING_REVIEW" : "DRAFT",
+      publishAt: scheduledPublishAt(input),
     },
   });
 
@@ -64,35 +105,50 @@ export async function saveBlogPost(input: SaveBlogInput): Promise<{ ok: boolean;
   return { ok: true, blogId: blog.id };
 }
 
-/** Editing is only allowed for the author's own posts that are still
+/** Editing is only allowed for the writer's own posts that are still
  * DRAFT or REJECTED — once a post is PENDING_REVIEW or PUBLISHED it's
- * out of the author's hands (matches the same logic books already use:
- * no changing a submission mid-review). */
+ * out of the writer's hands, same logic book submissions already use. */
 export async function updateBlogPost(blogId: string, input: SaveBlogInput): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
-  if (session?.user?.role !== "AUTHOR") {
-    return { ok: false, error: "Only author accounts can write blog posts." };
+  if (!session?.user) {
+    return { ok: false, error: "You need to be signed in to write a blog post." };
   }
   if (!input.title.trim() || !input.content.trim()) {
     return { ok: false, error: "Title and content are required." };
   }
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
   const blog = await prisma.blog.findUnique({ where: { id: blogId } });
-  if (!blog || !user?.authorProfile || blog.authorId !== user.authorProfile.id) {
+  if (!blog || blog.authorId !== session.user.id) {
     return { ok: false, error: "Not found." };
   }
   if (blog.status !== "DRAFT" && blog.status !== "REJECTED") {
     return { ok: false, error: "This post can no longer be edited." };
   }
 
+  const slug = await uniqueSlug(input.slug, input.title, blogId);
+
   await prisma.blog.update({
     where: { id: blogId },
     data: {
       title: input.title.trim(),
+      subtitle: input.subtitle?.trim() || null,
+      slug,
       content: input.content.trim(),
       coverImageUrl: input.coverImageUrl || null,
+      imageAltText: input.imageAltText?.trim() || null,
+      authorFirstName: input.authorFirstName?.trim() || null,
+      authorLastName: input.authorLastName?.trim() || null,
+      shortSummary: input.shortSummary?.trim() || null,
+      categories: input.categories ?? [],
+      tags: input.tags ?? [],
+      metaTitle: input.metaTitle?.trim() || null,
+      metaDescription: input.metaDescription?.trim() || null,
+      seoKeywords: input.seoKeywords?.trim() || null,
+      canonicalUrl: input.canonicalUrl?.trim() || null,
+      featured: input.featured ?? false,
+      allowComments: input.allowComments ?? true,
       status: input.submitForReview ? "PENDING_REVIEW" : "DRAFT",
+      publishAt: scheduledPublishAt(input),
     },
   });
 
@@ -102,11 +158,10 @@ export async function updateBlogPost(blogId: string, input: SaveBlogInput): Prom
 
 export async function submitBlogForReview(blogId: string): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
-  if (session?.user?.role !== "AUTHOR") return { ok: false, error: "Not authorized." };
+  if (!session?.user) return { ok: false, error: "Not authorized." };
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
   const blog = await prisma.blog.findUnique({ where: { id: blogId } });
-  if (!blog || !user?.authorProfile || blog.authorId !== user.authorProfile.id) {
+  if (!blog || blog.authorId !== session.user.id) {
     return { ok: false, error: "Not found." };
   }
 
@@ -119,13 +174,19 @@ export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?
   const session = await auth();
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
+  const existing = await prisma.blog.findUnique({ where: { id: blogId } });
+  if (!existing) return { ok: false, error: "Not found." };
+  // Preserve a future scheduled publish date if the author set one —
+  // approval makes it eligible to go live, but doesn't move up an
+  // intentionally scheduled date.
+  const goLiveAt = existing.publishAt && existing.publishAt > new Date() ? existing.publishAt : new Date();
   const blog = await prisma.blog.update({
     where: { id: blogId },
-    data: { status: "PUBLISHED", publishAt: new Date() },
-    include: { author: { include: { user: true } } },
+    data: { status: "PUBLISHED", publishAt: goLiveAt },
+    include: { author: true },
   });
   const { createNotification } = await import("@/actions/notifications");
-  await createNotification(blog.author.user.id, "Blog post published", `"${blog.title}" is now live on the journal.`);
+  await createNotification(blog.author.id, "Blog post published", `"${blog.title}" is now live on the journal.`);
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
   return { ok: true };
@@ -138,10 +199,10 @@ export async function rejectBlog(blogId: string): Promise<{ ok: boolean; error?:
   const blog = await prisma.blog.update({
     where: { id: blogId },
     data: { status: "REJECTED" },
-    include: { author: { include: { user: true } } },
+    include: { author: true },
   });
   const { createNotification } = await import("@/actions/notifications");
-  await createNotification(blog.author.user.id, "Blog post needs changes", `"${blog.title}" was not approved this time.`);
+  await createNotification(blog.author.id, "Blog post needs changes", `"${blog.title}" was not approved this time.`);
   revalidatePath("/admin/blog");
   return { ok: true };
 }

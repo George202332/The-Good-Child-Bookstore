@@ -106,6 +106,7 @@ model User {
   notifications Notification[]
   reviews       Review[]
   blogComments  BlogComment[]
+  blogs         Blog[]
   ratings       Rating[]
   wishlists     Wishlist[]
   bookmarks     Bookmark[]
@@ -175,7 +176,6 @@ model AuthorProfile {
   referredById       String?
   referredBy         AffiliateProfile? @relation("AffiliateReferrals", fields: [referredById], references: [id])
   books              Book[]
-  blogs               Blog[]
   followers          AuthorFollow[]
 }
 
@@ -369,18 +369,37 @@ model Country {
 // ---------- Blog / editorial workflow ----------
 
 model Blog {
-  id           String        @id @default(cuid())
-  title        String
-  slug         String        @unique
-  content      String
-  coverImageUrl String?
-  status       ContentStatus @default(DRAFT)
-  authorId     String
-  author       AuthorProfile @relation(fields: [authorId], references: [id])
-  publishAt    DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  comments     BlogComment[]
+  id              String        @id @default(cuid())
+  title           String
+  subtitle        String?
+  slug            String        @unique
+  content         String
+  coverImageUrl   String?
+  imageAltText    String?
+  // Display byline — defaults to the writer's account name, but can be
+  // overridden per post (e.g. a pen name), matching the editor's
+  // separate "Author first/last name" fields.
+  authorFirstName String?
+  authorLastName  String?
+  shortSummary    String?
+  categories      String[]      @default([])
+  tags            String[]      @default([])
+  metaTitle       String?
+  metaDescription String?
+  seoKeywords     String?
+  canonicalUrl    String?
+  featured        Boolean       @default(false)
+  allowComments   Boolean       @default(true)
+  status          ContentStatus @default(DRAFT)
+  // Authorship is by User directly (not AuthorProfile) so Reader and
+  // Affiliate accounts can write blog posts too, not just Author
+  // accounts — blogging is open to every account type.
+  authorId        String
+  author          User          @relation(fields: [authorId], references: [id])
+  publishAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  comments        BlogComment[]
 
   @@index([status])
 }

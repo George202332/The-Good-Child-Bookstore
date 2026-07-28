@@ -10,7 +10,7 @@ export async function GET() {
   let entries: SitemapUrlEntry[] = [];
 
   try {
-    const posts = await prisma.blog.findMany({ where: { status: "PUBLISHED" }, select: { slug: true, updatedAt: true } });
+    const posts = await prisma.blog.findMany({ where: { status: "PUBLISHED", OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }] }, select: { slug: true, updatedAt: true } });
     if (Array.isArray(posts)) {
       entries = posts.map((p: { slug: string; updatedAt: Date }) => ({
         loc: `${siteUrl}/blog/${p.slug}`,

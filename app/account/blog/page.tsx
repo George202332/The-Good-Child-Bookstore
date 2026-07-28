@@ -2,59 +2,72 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
+import type { Role } from "@/lib/roles";
 import { BlogPageTabs, type BlogListItem } from "./BlogPageTabs";
 
 /**
- * Author's Blog — lands on the list of posts (their own at every status,
- * plus every other author's published posts, matching the original's
- * authorBlogHTML filter), with "Submit a new blog" as its own tab in the
- * top-left (BlogPageTabs) leading to the write/edit page — a real,
- * persistent Draft → Pending Review → Published workflow (the original's
- * author blog pages were localStorage-only).
- *
- * SEO/marketing: published posts are already wired into the site's real
- * structure — sitemap-blogs.xml lists every published slug, the public
- * detail page (app/blog/[slug]/page.tsx) sets canonical/OG/Twitter
- * metadata and JSON-LD, and the homepage's "From the Journal" section
- * pulls the latest published posts — writing and submitting a post here
- * is what feeds all of that.
+ * Blog — lands on the list of posts (the signed-in writer's own at
+ * every status, plus every other writer's published posts), with
+ * "Submit a new blog" as its own tab in the top-left (BlogPageTabs)
+ * leading to the write/edit page. Open to Reader, Author, and
+ * Affiliate accounts alike — blogging is part of the site's real
+ * marketing/SEO surface (see app/blog/[slug]/page.tsx for the full SEO
+ * wiring: sitemap, canonical/OG/Twitter metadata, JSON-LD), not an
+ * author-only publishing format, so authorship is by User directly.
  */
 interface OwnBlog {
   id: string;
   slug: string;
   title: string;
+  subtitle: string | null;
   content: string;
+  shortSummary: string | null;
   coverImageUrl: string | null;
+  imageAltText: string | null;
+  authorFirstName: string | null;
+  authorLastName: string | null;
+  categories: string[];
+  tags: string[];
+  metaTitle: string | null;
+  metaDescription: string | null;
+  seoKeywords: string | null;
+  canonicalUrl: string | null;
+  featured: boolean;
+  allowComments: boolean;
   status: string;
   createdAt: Date;
+  publishAt: Date | null;
 }
 
-export default async function AuthorBlogPage() {
+export default async function BlogPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "AUTHOR") redirect("/account");
+  const role = session.user.role as Role;
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    include: { authorProfile: { include: { blogs: { orderBy: { createdAt: "desc" } } } } },
+    include: { blogs: { orderBy: { createdAt: "desc" } } },
   });
-  const myAuthorId = user?.authorProfile?.id;
-  const myPosts = (user?.authorProfile?.blogs ?? []) as OwnBlog[];
+  const myPosts = (user?.blogs ?? []) as OwnBlog[];
 
   let othersPublished: {
-    id: string; slug: string; title: string; content: string; coverImageUrl: string | null;
-    createdAt: Date; status: string; author: { user: { name: string } };
+    id: string; slug: string; title: string; subtitle: string | null; content: string;
+    shortSummary: string | null; coverImageUrl: string | null; imageAltText: string | null;
+    authorFirstName: string | null; authorLastName: string | null; categories: string[]; tags: string[];
+    metaTitle: string | null; metaDescription: string | null; seoKeywords: string | null; canonicalUrl: string | null;
+    featured: boolean; allowComments: boolean; createdAt: Date; publishAt: Date | null; status: string;
+    author: { name: string };
   }[] = [];
   try {
     const result = await prisma.blog.findMany({
-      where: { status: "PUBLISHED", ...(myAuthorId ? { authorId: { not: myAuthorId } } : {}) },
-      include: { author: { include: { user: true } } },
+      where: { status: "PUBLISHED", authorId: { not: session.user.id } },
+      include: { author: true },
       orderBy: { publishAt: "desc" },
     });
     if (Array.isArray(result)) othersPublished = result;
   } catch {
     // An empty "others" list is fine — the page still shows the
-    // author's own posts.
+    // writer's own posts.
   }
 
   const posts: BlogListItem[] = [
@@ -62,35 +75,63 @@ export default async function AuthorBlogPage() {
       id: p.id,
       slug: p.status === "PUBLISHED" ? p.slug : null,
       title: p.title,
+      subtitle: p.subtitle,
       content: p.content,
+      shortSummary: p.shortSummary,
       coverImageUrl: p.coverImageUrl,
+      imageAltText: p.imageAltText,
+      authorFirstName: p.authorFirstName,
+      authorLastName: p.authorLastName,
+      categories: p.categories,
+      tags: p.tags,
+      metaTitle: p.metaTitle,
+      metaDescription: p.metaDescription,
+      seoKeywords: p.seoKeywords,
+      canonicalUrl: p.canonicalUrl,
+      featured: p.featured,
+      allowComments: p.allowComments,
       status: p.status as BlogListItem["status"],
       createdAt: p.createdAt.toISOString(),
-      authorName: session.user.name ?? "",
+      publishAt: p.publishAt ? p.publishAt.toISOString() : null,
+      authorName: (p.authorFirstName || p.authorLastName) ? `${p.authorFirstName ?? ""} ${p.authorLastName ?? ""}`.trim() : (session.user.name ?? ""),
       isMine: true,
     })),
     ...othersPublished.map((p) => ({
       id: p.id,
       slug: p.slug,
       title: p.title,
+      subtitle: p.subtitle,
       content: p.content,
+      shortSummary: p.shortSummary,
       coverImageUrl: p.coverImageUrl,
+      imageAltText: p.imageAltText,
+      authorFirstName: p.authorFirstName,
+      authorLastName: p.authorLastName,
+      categories: p.categories,
+      tags: p.tags,
+      metaTitle: p.metaTitle,
+      metaDescription: p.metaDescription,
+      seoKeywords: p.seoKeywords,
+      canonicalUrl: p.canonicalUrl,
+      featured: p.featured,
+      allowComments: p.allowComments,
       status: p.status as BlogListItem["status"],
       createdAt: p.createdAt.toISOString(),
-      authorName: p.author.user.name,
+      publishAt: p.publishAt ? p.publishAt.toISOString() : null,
+      authorName: (p.authorFirstName || p.authorLastName) ? `${p.authorFirstName ?? ""} ${p.authorLastName ?? ""}`.trim() : p.author.name,
       isMine: false,
     })),
   ];
 
   return (
-    <DashboardShell role="AUTHOR" activeKey="blog" displayName={session.user.name ?? ""}>
+    <DashboardShell role={role} activeKey="blog" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Blog</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Write a new post, or manage your existing ones.</p>
         </div>
       </div>
-      <BlogPageTabs posts={posts} />
+      <BlogPageTabs posts={posts} defaultAuthorName={session.user.name ?? ""} />
     </DashboardShell>
   );
 }

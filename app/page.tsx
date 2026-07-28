@@ -58,10 +58,14 @@ interface HomeBlogPost {
   slug: string;
   title: string;
   content: string;
+  shortSummary: string | null;
   coverImageUrl: string | null;
+  imageAltText: string | null;
+  authorFirstName: string | null;
+  authorLastName: string | null;
   publishAt: Date | null;
   createdAt: Date;
-  author: { user: { name: string } };
+  author: { name: string };
 }
 
 export default async function HomePage() {
@@ -72,10 +76,10 @@ export default async function HomePage() {
   let blogPosts: HomeBlogPost[] = [];
   try {
     const result = await prisma.blog.findMany({
-      where: { status: "PUBLISHED" },
+      where: { status: "PUBLISHED", OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }] },
       orderBy: { publishAt: "desc" },
       take: 6,
-      include: { author: { include: { user: true } } },
+      include: { author: true },
     });
     if (Array.isArray(result)) blogPosts = result as HomeBlogPost[];
   } catch {
@@ -386,7 +390,7 @@ export default async function HomePage() {
                       <div className="blog-cover" style={{ background: "var(--lavender)" }}>
                         {p.coverImageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element -- real uploaded blog cover
-                          <img src={p.coverImageUrl} alt={p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+                          <img src={p.coverImageUrl} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
                         ) : (
                           <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#3F3350" /></svg>
                         )}
@@ -394,9 +398,9 @@ export default async function HomePage() {
                     </Link>
                     <div className="blog-body">
                       <Link href={`/blog/${p.slug}`}><h3>{p.title}</h3></Link>
-                      <p>{p.content.slice(0, 120)}{p.content.length > 120 ? "…" : ""}</p>
+                      <p>{(p.shortSummary || p.content).slice(0, 120)}{(p.shortSummary || p.content).length > 120 ? "…" : ""}</p>
                       <div className="blog-meta">
-                        <span>by {p.author.user.name}</span>
+                        <span>by {(p.authorFirstName || p.authorLastName) ? `${p.authorFirstName ?? ""} ${p.authorLastName ?? ""}`.trim() : p.author.name}</span>
                         <span>{(p.publishAt ?? p.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
                       </div>
                       <Link className="blog-read-more" href={`/blog/${p.slug}`}>Read more →</Link>

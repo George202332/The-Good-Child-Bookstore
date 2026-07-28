@@ -16,8 +16,11 @@ export default async function BlogModerationDetailPage({ params }: { params: Pro
   if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");
 
   const { id } = await params;
-  const post = await prisma.blog.findUnique({ where: { id }, include: { author: { include: { user: true } } } });
+  const post = await prisma.blog.findUnique({ where: { id }, include: { author: true } });
   if (!post) notFound();
+  const byline = (post.authorFirstName || post.authorLastName)
+    ? `${post.authorFirstName ?? ""} ${post.authorLastName ?? ""}`.trim()
+    : post.author.name;
 
   const comments = await getBlogCommentsForModeration(id);
 
@@ -27,7 +30,7 @@ export default async function BlogModerationDetailPage({ params }: { params: Pro
         <div>
           <h2 style={{ fontSize: 20 }}>{post.title}</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            by {post.author.user.name} · {post.status}
+            by {byline} · {post.status}
           </p>
         </div>
       </div>

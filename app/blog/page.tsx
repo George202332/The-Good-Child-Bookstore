@@ -12,11 +12,18 @@ const MOTIFS: MotifKind[] = ["owl", "leaf", "star", "moon", "heart", "tree"];
 interface PublishedBlog {
   slug: string;
   title: string;
+  subtitle: string | null;
   content: string;
+  shortSummary: string | null;
   coverImageUrl: string | null;
+  imageAltText: string | null;
+  authorFirstName: string | null;
+  authorLastName: string | null;
+  categories: string[];
+  featured: boolean;
   publishAt: Date | null;
   createdAt: Date;
-  author: { user: { name: string } };
+  author: { name: string };
   _count: { comments: number };
 }
 
@@ -27,19 +34,24 @@ function readTimeMinutes(content: string): number {
   return Math.max(3, Math.round(words / 200));
 }
 
-/** Public blog listing — real published posts only (status PUBLISHED),
- * styled to match the original's richer .blog-card-v2 design (cover,
- * title, excerpt, author/date row, and a real read-time + comment-count
- * meta row). Categories and view counts from the original aren't shown
- * here since this app's Blog model doesn't store either — adding fake
- * numbers would be worse than leaving them out. */
+function bylineFor(p: { authorFirstName: string | null; authorLastName: string | null; author: { name: string } }): string {
+  return (p.authorFirstName || p.authorLastName) ? `${p.authorFirstName ?? ""} ${p.authorLastName ?? ""}`.trim() : p.author.name;
+}
+
+/** Public blog listing — real published posts only (status PUBLISHED,
+ * and only once their scheduled publish date has actually arrived),
+ * styled to match the reference design's .blog-card-v2 layout: cover,
+ * category, title, subtitle, excerpt, author/date, and a real read-time
+ * + comment-count meta row. View counts from the original aren't shown
+ * since this app doesn't track real view counts — a fake number would
+ * be worse than leaving it out. */
 export default async function BlogListPage() {
   const { blog } = await getPagesContent();
   let posts: PublishedBlog[] = [];
   try {
     const result = await prisma.blog.findMany({
-      where: { status: "PUBLISHED" },
-      include: { author: { include: { user: true } }, _count: { select: { comments: true } } },
+      where: { status: "PUBLISHED", OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }] },
+      include: { author: true, _count: { select: { comments: true } } },
       orderBy: { publishAt: "desc" },
     });
     if (Array.isArray(result)) posts = result as PublishedBlog[];
@@ -66,23 +78,31 @@ export default async function BlogListPage() {
           {posts.map((p) => {
             const motif = MOTIFS[hashStr(p.slug) % MOTIFS.length];
             const readTime = readTimeMinutes(p.content);
+            const excerpt = p.shortSummary || p.content;
             return (
               <div key={p.slug} className="blog-card-v2">
                 <Link href={`/blog/${p.slug}`}>
                   <div className="blog-cover" style={{ background: "var(--lavender)" }}>
                     {p.coverImageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- real uploaded blog cover, arbitrary aspect ratio
-                      <img src={p.coverImageUrl} alt={p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+                      <img src={p.coverImageUrl} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
                     ) : (
                       <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#3F3350" /></svg>
                     )}
                   </div>
                 </Link>
                 <div className="blog-body">
+                  {(p.categories.length > 0 || p.featured) && (
+                    <div className="blog-cat">
+                      {p.categories.join(" · ")}
+                      {p.featured && <span style={{ color: "var(--coral-deep)" }}> ★ Featured</span>}
+                    </div>
+                  )}
                   <Link href={`/blog/${p.slug}`}><h3>{p.title}</h3></Link>
-                  <p>{p.content.slice(0, 160)}{p.content.length > 160 ? "…" : ""}</p>
+                  {p.subtitle && <p style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: "-4px 0 8px" }}>{p.subtitle}</p>}
+                  <p>{excerpt.slice(0, 160)}{excerpt.length > 160 ? "…" : ""}</p>
                   <div className="blog-meta">
-                    <span>by {p.author.user.name}</span>
+                    <span>by {bylineFor(p)}</span>
                     <span>{(p.publishAt ?? p.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
                   </div>
                   <div className="blog-meta-row">

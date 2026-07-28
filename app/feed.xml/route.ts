@@ -16,8 +16,8 @@ export async function GET() {
 
   const [posts, books] = await Promise.all([
     prisma.blog.findMany({
-      where: { status: "PUBLISHED" },
-      include: { author: { include: { user: true } } },
+      where: { status: "PUBLISHED", OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }] },
+      include: { author: true },
       orderBy: { publishAt: "desc" },
       take: 20,
     }),
@@ -31,12 +31,12 @@ export async function GET() {
 
   type FeedItem = { title: string; link: string; description: string; pubDate: Date; author: string };
   const items: FeedItem[] = [
-    ...posts.map((p: { title: string; slug: string; content: string; publishAt: Date | null; createdAt: Date; author: { user: { name: string } } }) => ({
+    ...posts.map((p: { title: string; slug: string; content: string; publishAt: Date | null; createdAt: Date; authorFirstName: string | null; authorLastName: string | null; author: { name: string } }) => ({
       title: p.title,
       link: `${siteUrl}/blog/${p.slug}`,
       description: p.content.slice(0, 300),
       pubDate: p.publishAt ?? p.createdAt,
-      author: p.author.user.name,
+      author: (p.authorFirstName || p.authorLastName) ? `${p.authorFirstName ?? ""} ${p.authorLastName ?? ""}`.trim() : p.author.name,
     })),
     ...books.map((b: { title: string; id: string; description: string | null; createdAt: Date; author: { user: { name: string } } }) => ({
       title: `New book: ${b.title}`,
