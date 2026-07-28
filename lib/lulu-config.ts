@@ -78,3 +78,10 @@ export function buildPodPackageId(cfg: PrintConfig): string {
   const suffix = cfg.finishCode + (isLinenWrap ? cfg.linenCode || "X" : "X") + (isLinenWrap ? cfg.foilCode || "X" : "X");
   return `${cfg.trimCode}.${cfg.colorCode}.${cfg.qualityCode}.${cfg.bindingCode}.${cfg.paperCode}.${suffix}`;
 }
+
+/** Resolves a stored spec code (e.g. "BW", "STD") back to its readable
+ * label (e.g. "Black & White", "Standard") from one of the LULU_CONFIG
+ * option lists — falls back to the raw code if somehow not found. */
+export function labelForCode(list: { code: string; label: string }[], code: string): string {
+  return list.find((o) => o.code === code)?.label ?? code;
+}

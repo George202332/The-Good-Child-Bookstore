@@ -17,6 +17,15 @@ import { BACKEND_ROLES } from "@/lib/roles";
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8MB before conversion
 
+// Common image file extensions, used as a fallback recognition path
+// when the browser/OS doesn't report a usable MIME type for the file
+// (this happens more often than you'd expect — some OS/browser
+// combinations report an empty file.type for less common formats like
+// .heic, or even for .png/.jpg in some setups). Sharp can decode all of
+// these; if a file passes this check but genuinely isn't a valid image,
+// sharp's own processing step below throws a clear error instead.
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".avif", ".heic", ".heif", ".svg"];
+
 export interface UploadImageResult {
   ok: boolean;
   url?: string;
@@ -41,7 +50,9 @@ export async function uploadImage(formData: FormData, options?: { trim?: boolean
   if (file.size > MAX_UPLOAD_BYTES) {
     return { ok: false, error: "Image is too large (max 8MB)." };
   }
-  if (!file.type.startsWith("image/")) {
+  const mimeOk = file.type.startsWith("image/");
+  const extOk = IMAGE_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext));
+  if (!mimeOk && !extOk) {
     return { ok: false, error: "Please upload an image file." };
   }
 

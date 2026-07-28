@@ -8,8 +8,9 @@ import { FileUploadField } from "@/components/FileUploadField";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { CoverWrapPreview } from "@/components/CoverWrapPreview";
 import { Ean13Barcode } from "@/components/Ean13Barcode";
-import { LULU_CONFIG, buildPodPackageId } from "@/lib/lulu-config";
+import { LULU_CONFIG, buildPodPackageId, labelForCode } from "@/lib/lulu-config";
 import { computePrintPricing } from "@/lib/lulu-pricing";
+import { computeCoverGeometry } from "@/lib/cover-preview";
 import { SectionHeader, Card } from "./shared";
 
 const CATEGORIES = ["Picture books", "Bedtime stories", "Middle grade", "Educational"];
@@ -65,6 +66,11 @@ export function PrintSubmissionForm() {
   const [printReadyPdfFileId, setPrintReadyPdfFileId] = useState<string | undefined>();
   const [frontCoverImageUrl, setFrontCoverImageUrl] = useState("");
   const [customBackCoverPdfFileId, setCustomBackCoverPdfFileId] = useState<string | undefined>();
+  // Which cover actually gets sent to Lulu: "auto" (front cover + our
+  // generated spine/back) or "custom" (the author's own uploaded
+  // complete wraparound). Set automatically by whichever of the two
+  // cover uploads below the author most recently used.
+  const [backCoverMode, setBackCoverMode] = useState<"auto" | "custom">("auto");
 
   // Section 4
   const [paperbackEnabled, setPaperbackEnabled] = useState(true);
@@ -164,6 +170,7 @@ export function PrintSubmissionForm() {
         printReadyPdfFileId,
         frontCoverImageUrl,
         customBackCoverPdfFileId,
+        backCoverMode,
         contactEmail,
         streetAddress,
         city,
@@ -294,28 +301,62 @@ export function PrintSubmissionForm() {
       {/* Section 3 */}
       <Card>
         <SectionHeader n={3} title="Files" sub="The central upload area for all print assets. Print-ready files are validated automatically on upload." />
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div className="upload-cards-row">
           <FileUploadField
             label="Print-Ready PDF"
             sizeHint="The complete interior pages of the book"
             allowedTypes={["application/pdf"]}
             accept=".pdf"
             onUploaded={(ids) => setPrintReadyPdfFileId(ids[0])}
+            fillWidth
           />
-          <ImageUploadField label="Front Cover Only" recommendedSize="PNG or JPEG — only the front cover artwork is required" value={frontCoverImageUrl} onChange={setFrontCoverImageUrl} />
+          <ImageUploadField
+            label="Front Cover Only"
+            recommendedSize="Any image format — only the front cover artwork is required"
+            value={frontCoverImageUrl}
+            onChange={(url) => { setFrontCoverImageUrl(url); setBackCoverMode("auto"); }}
+            fillWidth
+          />
           <FileUploadField
             label="Custom Back Cover"
             sizeHint="PDF — complete wraparound cover (front, spine, back)"
             allowedTypes={["application/pdf"]}
             accept=".pdf"
-            onUploaded={(ids) => setCustomBackCoverPdfFileId(ids[0])}
+            onUploaded={(ids) => { setCustomBackCoverPdfFileId(ids[0]); setBackCoverMode("custom"); }}
+            fillWidth
           />
         </div>
         <p style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8 }}>
-          Upload only your professionally designed front cover. The matching spine and back cover are generated
-          automatically from the dominant colour palette, book description, and ISBN already entered.
+          {backCoverMode === "custom"
+            ? "Your uploaded wraparound cover (front, spine, and back) is the one that will be sent to Lulu — the auto-generated version won't be used."
+            : "Upload only your professionally designed front cover. The matching spine and back cover are generated automatically from the dominant colour palette, book description, and ISBN already entered — this auto-generated wraparound is what gets sent to Lulu."}
         </p>
-        <p style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+        {backCoverMode === "custom" && (() => {
+          const geo = computeCoverGeometry(trimCode, paperType, 32);
+          const wIn = (geo.trimWidthIn * 2 + geo.spineWidthIn + geo.bleedIn * 2).toFixed(3);
+          const hIn = (geo.trimHeightIn + geo.bleedIn * 2).toFixed(3);
+          const trimLabel = LULU_CONFIG.trimSizes.find((t) => t.code === trimCode)?.label ?? trimCode;
+          return (
+            <>
+              <p className="field-hint" style={{ marginTop: 8 }}>Custom back cover specifications, matching your current print settings:</p>
+              <table className="spec-requirement-table">
+                <tbody>
+                  <tr><td>Required width (with bleed)</td><td>{wIn} in</td></tr>
+                  <tr><td>Required height (with bleed)</td><td>{hIn} in</td></tr>
+                  <tr><td>Spine width</td><td>{geo.spineWidthIn.toFixed(3)} in</td></tr>
+                  <tr><td>Resolution</td><td>300 DPI minimum</td></tr>
+                  <tr><td>Bleed</td><td>0.125 in on all outer edges</td></tr>
+                  <tr><td>Safe area</td><td>0.5 in inside trim line</td></tr>
+                  <tr><td>Trim size</td><td>{trimLabel}</td></tr>
+                  <tr><td>Color profile</td><td>CMYK recommended</td></tr>
+                  <tr><td>File size limit</td><td>Up to 50 MB</td></tr>
+                  <tr><td>Accepted format</td><td>PDF only</td></tr>
+                </tbody>
+              </table>
+            </>
+          );
+        })()}
+        <p style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8 }}>
           File type and size are checked immediately. Resolution, bleed, trim-size match, and embedded fonts are
           checked by our print partner once the job is submitted; any issues are reported back before printing
           begins.
@@ -329,7 +370,7 @@ export function PrintSubmissionForm() {
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}>
             <input type="checkbox" checked={paperbackEnabled} onChange={(e) => setPaperbackEnabled(e.target.checked)} /> Paperback
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, marginLeft: "3.5in" }}>
             <input type="checkbox" checked={hardcoverEnabled} onChange={(e) => setHardcoverEnabled(e.target.checked)} /> Hardcover (Linen Wrap)
           </label>
         </div>
@@ -382,16 +423,42 @@ export function PrintSubmissionForm() {
         <p style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 4 }}>
           Page count: upload a print-ready or interior PDF to calculate
         </p>
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 16 }}>
           {paperbackEnabled && (
-            <p style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-              Paperback POD Package ID: <code>{paperbackPodId}</code>
-            </p>
+            <div>
+              <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 6 }}>
+                Paperback POD Package ID: <code>{paperbackPodId}</code>
+              </p>
+              <table className="spec-requirement-table">
+                <tbody>
+                  <tr><td>Trim size</td><td>{LULU_CONFIG.trimSizes.find((t) => t.code === trimCode)?.label ?? trimCode}</td></tr>
+                  <tr><td>Binding</td><td>{labelForCode(PAPERBACK_BINDINGS, paperbackBinding)}</td></tr>
+                  <tr><td>Interior color</td><td>{labelForCode(LULU_CONFIG.interiorColors, interiorColor)}</td></tr>
+                  <tr><td>Print quality</td><td>{labelForCode(LULU_CONFIG.printQualities, printQuality)}</td></tr>
+                  <tr><td>Paper type</td><td>{labelForCode(LULU_CONFIG.paperTypes, paperType)}</td></tr>
+                  <tr><td>Cover finish</td><td>{labelForCode(LULU_CONFIG.coverFinishes, coverFinish)}</td></tr>
+                </tbody>
+              </table>
+            </div>
           )}
           {hardcoverEnabled && (
-            <p style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
-              Hardcover POD Package ID: <code>{hardcoverPodId}</code>
-            </p>
+            <div>
+              <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 6 }}>
+                Hardcover POD Package ID: <code>{hardcoverPodId}</code>
+              </p>
+              <table className="spec-requirement-table">
+                <tbody>
+                  <tr><td>Trim size</td><td>{LULU_CONFIG.trimSizes.find((t) => t.code === trimCode)?.label ?? trimCode}</td></tr>
+                  <tr><td>Binding</td><td>Linen Wrap (Hardcover)</td></tr>
+                  <tr><td>Interior color</td><td>{labelForCode(LULU_CONFIG.interiorColors, interiorColor)}</td></tr>
+                  <tr><td>Print quality</td><td>{labelForCode(LULU_CONFIG.printQualities, printQuality)}</td></tr>
+                  <tr><td>Paper type</td><td>{labelForCode(LULU_CONFIG.paperTypes, paperType)}</td></tr>
+                  <tr><td>Cover finish</td><td>{labelForCode(LULU_CONFIG.coverFinishes, coverFinish)}</td></tr>
+                  <tr><td>Linen wrap color</td><td>{labelForCode(LULU_CONFIG.linenColors, linenColor)}</td></tr>
+                  <tr><td>Foil stamp color</td><td>{labelForCode(LULU_CONFIG.foilColors, foilColor)}</td></tr>
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </Card>

@@ -361,21 +361,23 @@ export function EbookSubmissionForm() {
       {/* Section 5 */}
       <Card>
         <SectionHeader n={5} title="Files" sub="Manuscript, cover, and supporting images. Type and size are validated automatically." />
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        <div className="upload-cards-row">
           <FileUploadField
             label="Manuscript (PDF, EPUB, or MOBI)"
             sizeHint="Max 50MB"
             allowedTypes={["application/pdf", "application/epub+zip", "application/x-mobipocket-ebook"]}
             accept=".pdf,.epub,.mobi"
             onUploaded={(ids) => setManuscriptFileId(ids[0])}
+            fillWidth
           />
-          <ImageUploadField label="Cover image" recommendedSize="Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} />
+          <ImageUploadField label="Cover image" recommendedSize="Any image format — Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} fillWidth />
           <FileUploadField
             label="Sample pages (PDF)"
             sizeHint="Optional preview excerpt"
             allowedTypes={["application/pdf"]}
             accept=".pdf"
             onUploaded={(ids) => setSamplePagesFileId(ids[0])}
+            fillWidth
           />
           <FileUploadField
             label="Promotional images"
@@ -384,6 +386,7 @@ export function EbookSubmissionForm() {
             accept="image/*"
             multiple
             onUploaded={(ids) => setPromotionalImageUrls(ids.map((id) => `/api/files/${id}`))}
+            fillWidth
           />
         </div>
       </Card>

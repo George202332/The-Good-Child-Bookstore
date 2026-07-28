@@ -116,6 +116,12 @@ export interface SubmissionMetadata {
   printReadyPdfFileId?: string;
   frontCoverImageUrl?: string;
   customBackCoverPdfFileId?: string;
+  /** Which cover goes to Lulu: "auto" sends the auto-generated wraparound
+   * (front cover + generated spine/back), "custom" sends the author's
+   * own uploaded complete wraparound PDF instead. Set automatically by
+   * whichever of the two cover uploads the author actually used most
+   * recently — matches the original's own backCoverMode behavior. */
+  backCoverMode?: "auto" | "custom";
   contactEmail?: string;
   streetAddress?: string;
   city?: string;

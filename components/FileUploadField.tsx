@@ -7,10 +7,14 @@ import { uploadGenericFile } from "@/actions/files";
  * A file-upload card matching the exact 4-across "Files" section design
  * (Manuscript / Cover image / Sample pages / Promotional images) — same
  * .upload-card visual language as ImageUploadField, but for non-image
- * files (manuscript PDF/EPUB/MOBI, sample-page PDF) that can't go
- * through image conversion. Supports both click-to-browse and drag-and-
- * drop — dropping one or more files anywhere on the card uploads them
- * the same way as picking them through the file dialog.
+ * files (manuscript PDF/EPUB/MOBI, print-ready/back-cover PDFs) that
+ * can't go through image conversion. Supports both click-to-browse and
+ * drag-and-drop, and clicking an already-uploaded (green) card reopens
+ * the file picker to replace it. File-type validation accepts either a
+ * matching MIME type or a matching file extension — some browser/OS
+ * combinations report an empty or nonstandard MIME type for a perfectly
+ * valid PDF, and requiring an exact MIME match was rejecting those
+ * genuinely valid uploads outright (see actions/files.ts).
  */
 export function FileUploadField({
   label,
@@ -19,6 +23,7 @@ export function FileUploadField({
   accept,
   multiple = false,
   onUploaded,
+  fillWidth,
 }: {
   label: string;
   sizeHint: string;
@@ -26,6 +31,10 @@ export function FileUploadField({
   accept: string;
   multiple?: boolean;
   onUploaded: (fileIds: string[]) => void;
+  /** When true, this card becomes an equal flex-distributed member of
+   * its parent's .upload-cards-row (grows/shrinks with its siblings,
+   * min-width 160px) instead of growing unpredictably on its own. */
+  fillWidth?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +68,11 @@ export function FileUploadField({
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     uploadFiles(Array.from(e.target.files ?? []));
+    // Allow re-selecting the exact same file path again (browsers don't
+    // fire onChange a second time for an unchanged value otherwise),
+    // which is what makes "click the green card to reupload" reliable
+    // even when reuploading the identical file.
+    e.target.value = "";
   }
 
   function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
@@ -71,7 +85,7 @@ export function FileUploadField({
   const hasFile = fileNames.length > 0;
 
   return (
-    <div className="upload-cards-row">
+    <div style={fillWidth ? { flex: 1, minWidth: 160 } : undefined}>
       <div className={`upload-card ${hasFile ? "has-file" : ""} ${isDragOver ? "drag-over" : ""}`}>
         <input
           type="file"
