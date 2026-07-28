@@ -13,5 +13,5 @@ export function SectionHeader({ n, title, sub }: { n: number; title: string; sub
 }
 
 export function Card({ children }: { children: React.ReactNode }) {
-  return <div className="form-section" style={{ maxWidth: 900 }}>{children}</div>;
+  return <div className="form-section">{children}</div>;
 }

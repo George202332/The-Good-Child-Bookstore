@@ -17,7 +17,7 @@ export default async function NewBookPage() {
   if (session.user.role !== "AUTHOR") redirect("/account");
 
   return (
-    <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
+    <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""} fullWidth>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Submit a new title</h2>

@@ -36,7 +36,7 @@ export function NewBookFormTabs() {
       {activeFormat === "ebook" && <EbookSubmissionForm />}
       {activeFormat === "print" && <PrintSubmissionForm />}
       {activeFormat === "audiobook" && (
-        <div className="form-section" style={{ maxWidth: 900 }}>
+        <div className="form-section">
           <p style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
             The Audio book submission workflow isn&apos;t built out to the same depth as eBook and Print Copy yet —
             that&apos;s real, separate follow-up work.
