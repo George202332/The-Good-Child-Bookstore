@@ -502,7 +502,17 @@ export function PrintSubmissionForm() {
       {/* Section 9 */}
       <Card>
         <SectionHeader n={9} title="Book Preview" sub="Use this preview window to see how your book will look. Carefully review the margin, bleed, and fold areas to ensure your book will print correctly." />
-        <CoverWrapPreview description={description} isbn={isbn} />
+        <CoverWrapPreview
+          title={title}
+          subtitle={subtitle}
+          authorFirstName={authorFirstName}
+          authorLastName={authorLastName}
+          description={description}
+          isbn={isbn}
+          trimCode={trimCode}
+          paperCode={paperType}
+          coverImageUrl={frontCoverImageUrl}
+        />
       </Card>
 
       {/* Section 10 */}
