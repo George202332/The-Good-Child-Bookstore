@@ -9,6 +9,8 @@ import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { getMyLinkPerformance } from "@/actions/affiliate-performance";
 import { listMyNotifications } from "@/actions/notifications";
 import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
+import { BarChart } from "@/components/charts/BarChart";
+import { PieChart } from "@/components/charts/PieChart";
 
 interface SaleLineShare {
   authorShare: unknown;
@@ -189,10 +191,7 @@ export default async function AccountPage() {
     for (const l of allLines) {
       if (l.createdAt.getFullYear() === now.getFullYear()) monthBuckets[l.createdAt.getMonth()].count += 1;
     }
-    const maxMonthly = Math.max(1, ...monthBuckets.map((m) => m.count));
 
-    // Format split — an honest approximation: checkout doesn't yet ask a
-    // buyer which format they want, so each sale is attributed to this
     // Format split — real per-sale data now that checkout actually asks
     // which of the 4 formats (eBook/Paperback/Hardcover/Audiobook) a
     // buyer wants, rather than an after-the-fact approximation.
@@ -201,19 +200,6 @@ export default async function AccountPage() {
       const f = l.format as keyof typeof formatCounts | null;
       if (f && f in formatCounts) formatCounts[f] += 1;
     }
-    const formatTotal = Math.max(1, formatCounts.ebook + formatCounts.paperback + formatCounts.hardcover + formatCounts.audiobook);
-    const formatPct = {
-      ebook: Math.round((formatCounts.ebook / formatTotal) * 100),
-      paperback: Math.round((formatCounts.paperback / formatTotal) * 100),
-      hardcover: Math.round((formatCounts.hardcover / formatTotal) * 100),
-      audiobook: Math.round((formatCounts.audiobook / formatTotal) * 100),
-    };
-    // SVG donut via stroke-dasharray: circumference of a r=60 circle ≈ 377.
-    const circumference = 2 * Math.PI * 60;
-    const ebookDash = (formatPct.ebook / 100) * circumference;
-    const paperbackDash = (formatPct.paperback / 100) * circumference;
-    const hardcoverDash = (formatPct.hardcover / 100) * circumference;
-    const audioDash = (formatPct.audiobook / 100) * circumference;
 
     const isAffiliateToo = await hasAffiliateCapability(session.user.id);
     const affiliateLinks = isAffiliateToo ? await getMyLinkPerformance() : [];
@@ -257,46 +243,19 @@ export default async function AccountPage() {
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, marginBottom: 20 }}>
           <div className="map-card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales trend: {now.getFullYear()}</h3>
-            {allLines.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No sales recorded yet; this chart fills in once your books start selling.</p>
-            ) : (
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 150 }}>
-                {monthBuckets.map((m) => (
-                  <div key={m.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
-                    <div style={{ fontSize: 10, color: "var(--ink-faint)", marginBottom: 4 }}>{m.count || ""}</div>
-                    <div title={`${m.label}: ${m.count}`} style={{ width: "100%", background: "#1F6B48", borderRadius: "4px 4px 0 0", height: `${Math.max(3, (m.count / maxMonthly) * 110)}px` }} />
-                    <div style={{ fontSize: 10, color: "var(--ink-faint)", marginTop: 6 }}>{m.label}</div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <BarChart data={monthBuckets.map((m) => ({ label: m.label, value: m.count }))} color="#1F6B48" />
           </div>
 
           <div className="map-card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: 15, marginBottom: 16 }}>Format split</h3>
-            {allLines.length === 0 ? (
-              <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No sales yet.</p>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-                <svg viewBox="0 0 140 140" width={120} height={120} style={{ flexShrink: 0 }}>
-                  <g transform="translate(70,70) rotate(-90)">
-                    <circle r="60" fill="none" stroke="var(--line)" strokeWidth="20" />
-                    <circle r="60" fill="none" stroke="#2451B7" strokeWidth="20" strokeDasharray={`${ebookDash} ${circumference}`} strokeDashoffset="0" />
-                    <circle r="60" fill="none" stroke="#8A5B9E" strokeWidth="20" strokeDasharray={`${paperbackDash} ${circumference}`} strokeDashoffset={-ebookDash} />
-                    <circle r="60" fill="none" stroke="#B7472A" strokeWidth="20" strokeDasharray={`${hardcoverDash} ${circumference}`} strokeDashoffset={-(ebookDash + paperbackDash)} />
-                    <circle r="60" fill="none" stroke="#1F6B48" strokeWidth="20" strokeDasharray={`${audioDash} ${circumference}`} strokeDashoffset={-(ebookDash + paperbackDash + hardcoverDash)} />
-                  </g>
-                  <text x="70" y="66" textAnchor="middle" fontSize="11" fill="var(--ink-faint)">eBook</text>
-                  <text x="70" y="82" textAnchor="middle" fontSize="18" fontWeight="700" fill="var(--ink)">{formatPct.ebook}%</text>
-                </svg>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12.5 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#2451B7", display: "inline-block" }} /> eBook &nbsp;{formatPct.ebook}%</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#8A5B9E", display: "inline-block" }} /> Paperback &nbsp;{formatPct.paperback}%</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#B7472A", display: "inline-block" }} /> Hardcover &nbsp;{formatPct.hardcover}%</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: "#1F6B48", display: "inline-block" }} /> Audiobook &nbsp;{formatPct.audiobook}%</div>
-                </div>
-              </div>
-            )}
+            <PieChart
+              data={[
+                { label: "eBook", value: formatCounts.ebook, color: "#2451B7" },
+                { label: "Paperback", value: formatCounts.paperback, color: "#8A5B9E" },
+                { label: "Hardcover", value: formatCounts.hardcover, color: "#B7472A" },
+                { label: "Audiobook", value: formatCounts.audiobook, color: "#1F6B48" },
+              ]}
+            />
           </div>
         </div>
 

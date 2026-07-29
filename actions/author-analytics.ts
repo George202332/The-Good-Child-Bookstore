@@ -3,19 +3,32 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-/** Real per-author analytics — sales, revenue, and a month-by-month
- * breakdown of their own books' performance, distinct from the
- * platform-wide /admin/analytics. */
+/**
+ * Real per-author ANALYTICS — deliberately pure numbers (sale counts,
+ * download counts, format/channel/region breakdowns), never currency.
+ * Revenue and earnings already have their own real home on the Revenue
+ * page — this page answers "how are my books performing" as a
+ * performance/behavior question, not a money question.
+ */
 
 export interface AuthorAnalyticsSummary {
   totalSales: number;
-  totalRevenue: number;
   totalDownloads: number;
-  monthlyRevenue: { month: string; amount: number; units: number }[];
-  topBooks: { title: string; unitsSold: number; revenue: number }[];
+  countriesReached: number;
+  activeTitles: number;
+  monthlySales: { month: string; units: number }[];
+  formatBreakdown: { format: string; count: number }[];
+  saleTypeBreakdown: { type: string; count: number }[];
+  topCountries: { country: string; count: number }[];
+  topBooks: { title: string; unitsSold: number }[];
 }
 
-const EMPTY: AuthorAnalyticsSummary = { totalSales: 0, totalRevenue: 0, totalDownloads: 0, monthlyRevenue: [], topBooks: [] };
+const EMPTY: AuthorAnalyticsSummary = {
+  totalSales: 0, totalDownloads: 0, countriesReached: 0, activeTitles: 0,
+  monthlySales: [], formatBreakdown: [], saleTypeBreakdown: [], topCountries: [], topBooks: [],
+};
+
+const FORMAT_LABELS: Record<string, string> = { EBOOK: "eBook", PAPERBACK: "Paperback", HARDCOVER: "Hardcover", AUDIOBOOK: "Audiobook" };
 
 export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
   const session = await auth();
@@ -24,38 +37,66 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
   try {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { authorProfile: { include: { books: { include: { saleLines: true } } } } },
+      include: {
+        authorProfile: {
+          include: {
+            books: {
+              include: {
+                saleLines: {
+                  include: { order: { include: { reader: { include: { addresses: true } } } } },
+                },
+              },
+            },
+          },
+        },
+      },
     });
-    const books = user?.authorProfile?.books ?? [];
-    const lines = books.flatMap((b: { title: string; saleLines: { createdAt: Date; authorShare: unknown }[] }) =>
-      b.saleLines.map((l) => ({ title: b.title, createdAt: l.createdAt, amount: Number(l.authorShare) }))
-    );
+    const books = (user?.authorProfile?.books ?? []) as {
+      title: string;
+      status: string;
+      saleLines: {
+        createdAt: Date;
+        format: string | null;
+        saleType: string;
+        order: { reader: { addresses: { country: string; isDefault: boolean }[] } };
+      }[];
+    }[];
 
-    const monthlyMap = new Map<string, { amount: number; units: number }>();
-    const bookMap = new Map<string, { unitsSold: number; revenue: number }>();
+    const lines = books.flatMap((b) => b.saleLines.map((l) => ({ ...l, title: b.title })));
+
+    const monthlyMap = new Map<string, number>();
+    const formatMap = new Map<string, number>();
+    const saleTypeMap = new Map<string, number>();
+    const countryMap = new Map<string, number>();
+    const bookMap = new Map<string, number>();
 
     for (const l of lines) {
       const monthKey = l.createdAt.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-      const monthRow = monthlyMap.get(monthKey) ?? { amount: 0, units: 0 };
-      monthRow.amount += l.amount;
-      monthRow.units += 1;
-      monthlyMap.set(monthKey, monthRow);
+      monthlyMap.set(monthKey, (monthlyMap.get(monthKey) ?? 0) + 1);
 
-      const bookRow = bookMap.get(l.title) ?? { unitsSold: 0, revenue: 0 };
-      bookRow.unitsSold += 1;
-      bookRow.revenue += l.amount;
-      bookMap.set(l.title, bookRow);
+      const formatLabel = FORMAT_LABELS[l.format ?? ""] ?? "Unspecified";
+      formatMap.set(formatLabel, (formatMap.get(formatLabel) ?? 0) + 1);
+
+      const typeLabel = l.saleType === "AFFILIATE" ? "Via affiliate link" : "Organic";
+      saleTypeMap.set(typeLabel, (saleTypeMap.get(typeLabel) ?? 0) + 1);
+
+      const addresses = l.order.reader.addresses;
+      const country = addresses.find((a) => a.isDefault)?.country ?? addresses[0]?.country;
+      if (country) countryMap.set(country, (countryMap.get(country) ?? 0) + 1);
+
+      bookMap.set(l.title, (bookMap.get(l.title) ?? 0) + 1);
     }
 
     return {
       totalSales: lines.length,
-      totalRevenue: lines.reduce((s: number, l: { amount: number }) => s + l.amount, 0),
       totalDownloads: lines.length,
-      monthlyRevenue: Array.from(monthlyMap.entries()).map(([month, v]) => ({ month, ...v })),
-      topBooks: Array.from(bookMap.entries())
-        .map(([title, v]) => ({ title, ...v }))
-        .sort((a, b) => b.unitsSold - a.unitsSold)
-        .slice(0, 10),
+      countriesReached: countryMap.size,
+      activeTitles: books.filter((b) => b.status === "PUBLISHED").length,
+      monthlySales: Array.from(monthlyMap.entries()).map(([month, units]) => ({ month, units })),
+      formatBreakdown: Array.from(formatMap.entries()).map(([format, count]) => ({ format, count })),
+      saleTypeBreakdown: Array.from(saleTypeMap.entries()).map(([type, count]) => ({ type, count })),
+      topCountries: Array.from(countryMap.entries()).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count).slice(0, 8),
+      topBooks: Array.from(bookMap.entries()).map(([title, unitsSold]) => ({ title, unitsSold })).sort((a, b) => b.unitsSold - a.unitsSold).slice(0, 10),
     };
   } catch {
     return EMPTY;
