@@ -34,6 +34,7 @@ function navItemsForRole(role: Role) {
     return [
       ...base,
       { key: "site-settings", label: "Site Settings", href: "/admin/site-settings" },
+      { key: "commission-settings", label: "Commission Settings", href: "/admin/commission-settings" },
       { key: "users", label: "Users", href: "/admin/users" },
       { key: "coupons", label: "Coupons", href: "/admin/coupons" },
       { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },

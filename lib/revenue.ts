@@ -9,18 +9,26 @@
  *   - Organic sale:            company 25% / author 75%
  *   - Affiliate-referred sale: company 25% / affiliate 10% / author 65%
  *   - Referral commission: an affiliate who referred an AUTHOR onto the
- *     platform earns 3%, for life, of the COMPANY's revenue from that
- *     author's sales (separate from any per-sale affiliate cut above).
+ *     platform earns 5% (moved up from 3% per explicit instruction), for
+ *     life, of the COMPANY's revenue from that author's sales (separate
+ *     from any per-sale affiliate cut above).
  *   - No refund/return deductions: store policy is no returns once a
  *     product has been purchased, so — unlike the original frontend
  *     prototype this was converted from — the author's share is NOT
  *     reduced by a modeled refund/return rate.
+ *
+ * Both the affiliate-direct-link rate (10%) and the referral rate (5%)
+ * are also controllable from the backend (Admin → Commission Settings,
+ * see lib/commission-settings.ts) — the constants below are the
+ * fallback defaults used until an admin changes them, and every
+ * function here accepts the current rate as an optional parameter so
+ * callers that already looked up the live rate can pass it through.
  */
 
 export const REVENUE_CONFIG = {
   organic: { company: 0.25, author: 0.75 },
   affiliate: { company: 0.25, affiliate: 0.10, author: 0.65 },
-  referralPct: 0.03,
+  referralPct: 0.05,
 } as const;
 
 export type SaleType = "ORGANIC" | "AFFILIATE";
@@ -31,7 +39,7 @@ export interface RevenueSplit {
   companyShare: number;
   authorShare: number;
   affiliateShare: number;
-  /** The referring affiliate's 3%-of-company-share cut, when this sale's
+  /** The referring affiliate's referral-commission cut, when this sale's
    * author was referred onto the platform by an affiliate — carved out
    * of companyShare (not added on top), so the four fields always sum
    * to gross exactly. 0 when the author wasn't referred by anyone. */
@@ -60,10 +68,10 @@ export function calculateOrganicSplit(grossAmount: number): RevenueSplit {
   return assertReconciles({ saleType: "ORGANIC", gross, companyShare, authorShare, affiliateShare: 0, authorReferralShare: 0 });
 }
 
-export function calculateAffiliateSplit(grossAmount: number): RevenueSplit {
+export function calculateAffiliateSplit(grossAmount: number, promotionPct: number = REVENUE_CONFIG.affiliate.affiliate): RevenueSplit {
   const gross = round2(grossAmount);
   const companyShare = round2(gross * REVENUE_CONFIG.affiliate.company);
-  const affiliateShare = round2(gross * REVENUE_CONFIG.affiliate.affiliate);
+  const affiliateShare = round2(gross * promotionPct);
   const authorShare = round2(gross - companyShare - affiliateShare); // remainder
   return assertReconciles({ saleType: "AFFILIATE", gross, companyShare, authorShare, affiliateShare, authorReferralShare: 0 });
 }
@@ -71,22 +79,22 @@ export function calculateAffiliateSplit(grossAmount: number): RevenueSplit {
 /**
  * Applies the author-referral carve-out to an already-computed split —
  * called from createPendingOrder for every line whose book's author has
- * authorProfile.referredById set. Takes 3% of whatever companyShare
- * already is (correct either way: an organic sale's full 25% company
- * share, or an affiliate sale's 25% company share alongside its own
- * separate 10% direct-link affiliate cut) and moves it to
+ * authorProfile.referredById set. Takes referralPct of whatever
+ * companyShare already is (correct either way: an organic sale's full
+ * 25% company share, or an affiliate sale's 25% company share alongside
+ * its own separate direct-link affiliate cut) and moves it to
  * authorReferralShare, crediting the referring affiliate — this is
  * always in addition to, never instead of, that affiliate's own direct
  * per-sale commission on their own links.
  */
-export function applyAuthorReferralCarveOut(split: RevenueSplit): RevenueSplit {
-  const authorReferralShare = calculateReferralCommission(split.companyShare);
+export function applyAuthorReferralCarveOut(split: RevenueSplit, referralPct: number = REVENUE_CONFIG.referralPct): RevenueSplit {
+  const authorReferralShare = calculateReferralCommission(split.companyShare, referralPct);
   const companyShare = round2(split.companyShare - authorReferralShare);
   return assertReconciles({ ...split, companyShare, authorReferralShare });
 }
 
-export function calculateSplits(grossAmount: number, hasAffiliate: boolean): RevenueSplit {
-  return hasAffiliate ? calculateAffiliateSplit(grossAmount) : calculateOrganicSplit(grossAmount);
+export function calculateSplits(grossAmount: number, hasAffiliate: boolean, promotionPct?: number): RevenueSplit {
+  return hasAffiliate ? calculateAffiliateSplit(grossAmount, promotionPct) : calculateOrganicSplit(grossAmount);
 }
 
 /** The company's % is identical in both sale types, so this can be read
@@ -95,13 +103,13 @@ export function calculateCompanyShare(grossAmount: number): number {
   return round2(grossAmount * REVENUE_CONFIG.organic.company);
 }
 
-/** Lifetime referral commission: 3% of the COMPANY's revenue from an
- * author the affiliate referred — never a percentage of the author's own
- * share, and never a one-time payment. */
-export function calculateReferralCommission(companyRevenueFromReferredAuthor: number): number {
-  return round2(companyRevenueFromReferredAuthor * REVENUE_CONFIG.referralPct);
+/** Lifetime referral commission: referralPct of the COMPANY's revenue
+ * from an author the affiliate referred — never a percentage of the
+ * author's own share, and never a one-time payment. */
+export function calculateReferralCommission(companyRevenueFromReferredAuthor: number, referralPct: number = REVENUE_CONFIG.referralPct): number {
+  return round2(companyRevenueFromReferredAuthor * referralPct);
 }
 
-export function referralCommissionForAuthor(grossRevenueFromAuthor: number): number {
-  return calculateReferralCommission(calculateCompanyShare(grossRevenueFromAuthor));
+export function referralCommissionForAuthor(grossRevenueFromAuthor: number, referralPct?: number): number {
+  return calculateReferralCommission(calculateCompanyShare(grossRevenueFromAuthor), referralPct);
 }

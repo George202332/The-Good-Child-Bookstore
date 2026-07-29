@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { calculateSplits, applyAuthorReferralCarveOut } from "@/lib/revenue";
+import { getCommissionRates } from "@/lib/commission-settings";
 import { generateAccountNumber } from "@/lib/account-number";
 
 /**
@@ -153,6 +154,7 @@ export async function createPendingOrder(input: {
   }
 
   const totalAmount = +(subtotal * (1 - couponPct)).toFixed(2);
+  const commissionRates = await getCommissionRates();
 
   const order = await prisma.order.create({
     data: {
@@ -163,9 +165,9 @@ export async function createPendingOrder(input: {
         create: lines.map((l) => {
           const lineGross = +(priceForFormat(l.book, l.format) * l.qty * (1 - couponPct)).toFixed(2);
           const isAffiliateSale = affiliateBookId !== null && affiliateBookId === l.bookId;
-          let split = calculateSplits(lineGross, isAffiliateSale);
+          let split = calculateSplits(lineGross, isAffiliateSale, commissionRates.promotionPct);
           const referredById = l.book.author.referredById;
-          if (referredById) split = applyAuthorReferralCarveOut(split);
+          if (referredById) split = applyAuthorReferralCarveOut(split, commissionRates.referralPct);
           return {
             bookId: l.bookId,
             format: l.format,

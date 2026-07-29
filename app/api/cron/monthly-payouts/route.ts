@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { computeWalletForUserId } from "@/lib/compute-wallet-for-user";
+import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
 
 /**
  * Runs automatically on the 15th of every month (see vercel.json's cron
@@ -10,11 +11,14 @@ import { computeWalletForUserId } from "@/lib/compute-wallet-for-user";
  * Available balance (money earned last month or earlier, per
  * lib/wallet.ts's calendar-month release rule) and automatically
  * creates a PayoutRequest for it against their default Wise recipient,
- * if they have one and an available balance greater than zero. Admin
- * still reviews and actually sends the money via Wise (see
- * actions/admin.ts approvePayoutRequest) — this job only handles
- * "figuring out who's owed what and queuing it up", not moving money
- * itself.
+ * if they have one and an available balance of at least
+ * MIN_PAYOUT_AMOUNT ($30) — per explicit instruction, anything below
+ * that threshold is held over rather than released; it simply stays
+ * "available" and rolls into next month's payout once combined with
+ * more earnings clears $30. Admin still reviews and actually sends the
+ * money via Wise (see actions/admin.ts approvePayoutRequest) — this job
+ * only handles "figuring out who's owed what and queuing it up", not
+ * moving money itself.
  *
  * Protected by CRON_SECRET so this can't be triggered by just anyone
  * hitting the URL — Vercel Cron sends this automatically when the env
@@ -36,7 +40,7 @@ export async function GET(req: NextRequest) {
     });
     for (const u of authors) {
       const wallet = await computeWalletForUserId(u.id, "author");
-      if (wallet.available <= 0) continue;
+      if (wallet.available < MIN_PAYOUT_AMOUNT) continue;
       const recipient = await prisma.wiseRecipient.findFirst({ where: { userId: u.id }, orderBy: { isDefault: "desc" } });
       if (!recipient) continue;
       await prisma.payoutRequest.create({
@@ -48,7 +52,7 @@ export async function GET(req: NextRequest) {
     const affiliateProfiles = await prisma.affiliateProfile.findMany({ select: { userId: true } });
     for (const a of affiliateProfiles) {
       const wallet = await computeWalletForUserId(a.userId, "affiliate");
-      if (wallet.available <= 0) continue;
+      if (wallet.available < MIN_PAYOUT_AMOUNT) continue;
       const recipient = await prisma.wiseRecipient.findFirst({ where: { userId: a.userId }, orderBy: { isDefault: "desc" } });
       if (!recipient) continue;
       await prisma.payoutRequest.create({

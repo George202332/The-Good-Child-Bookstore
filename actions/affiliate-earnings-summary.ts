@@ -12,6 +12,14 @@ export interface AffiliateEarningsSummary {
   dueDate: string;
   referredAuthorsCount: number;
   promotedBooksCount: number;
+  /** The company's own lifetime revenue cut from books sold by authors
+   * this affiliate referred — i.e. the full company-share pool the
+   * referral commission is itself a percentage of. */
+  companyRevenueFromReferredAuthors: number;
+  /** What the referred authors themselves have earned (their own
+   * royalty share) from those same sales — separate from both the
+   * company's cut and this affiliate's commission. */
+  referredAuthorsOwnEarnings: number;
 }
 
 /**
@@ -23,7 +31,10 @@ export interface AffiliateEarningsSummary {
  * total, matching how the two are actually calculated and paid.
  */
 export async function getAffiliateEarningsSummary(): Promise<AffiliateEarningsSummary> {
-  const empty: AffiliateEarningsSummary = { referralEarnings: 0, promotionEarnings: 0, totalEarnings: 0, earningEvents: 0, dueEarnings: 0, dueDate: "", referredAuthorsCount: 0, promotedBooksCount: 0 };
+  const empty: AffiliateEarningsSummary = {
+    referralEarnings: 0, promotionEarnings: 0, totalEarnings: 0, earningEvents: 0, dueEarnings: 0, dueDate: "",
+    referredAuthorsCount: 0, promotedBooksCount: 0, companyRevenueFromReferredAuthors: 0, referredAuthorsOwnEarnings: 0,
+  };
   const session = await auth();
   if (!session?.user) return empty;
 
@@ -42,13 +53,18 @@ export async function getAffiliateEarningsSummary(): Promise<AffiliateEarningsSu
     const profile = user?.affiliateProfile;
     if (!profile) return empty;
 
-    const referralLines = profile.authorReferralEarnings as { authorReferralShare: unknown; authorReferralAffiliateId: string | null }[];
+    const referralLines = profile.authorReferralEarnings as { authorReferralShare: unknown; authorReferralAffiliateId: string | null; companyShare: unknown; authorShare: unknown }[];
     const promotionLines = profile.affiliateLinks.flatMap((l: { saleLines: { affiliateShare: unknown }[] }) => l.saleLines);
 
     const referralEarnings = referralLines.reduce((s, l) => s + Number(l.authorReferralShare), 0);
     const promotionEarnings = promotionLines.reduce((s: number, l: { affiliateShare: unknown }) => s + Number(l.affiliateShare), 0);
     const totalEarnings = referralEarnings + promotionEarnings;
     const earningEvents = referralLines.length + promotionLines.length;
+    // The full company-share pool before this affiliate's cut was carved
+    // out of it — companyShare on each line is already post-carve-out,
+    // so add the carve-out back to get the original company revenue.
+    const companyRevenueFromReferredAuthors = referralLines.reduce((s, l) => s + Number(l.companyShare) + Number(l.authorReferralShare), 0);
+    const referredAuthorsOwnEarnings = referralLines.reduce((s, l) => s + Number(l.authorShare), 0);
 
     const referredAuthorsCount = await prisma.authorProfile.count({ where: { referredById: profile.id } });
     const promotedBooksCount = profile.affiliateLinks.filter((l: { saleLines: unknown[] }) => l.saleLines.length > 0).length;
@@ -78,6 +94,8 @@ export async function getAffiliateEarningsSummary(): Promise<AffiliateEarningsSu
       dueDate: monthEnd.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
       referredAuthorsCount,
       promotedBooksCount,
+      companyRevenueFromReferredAuthors,
+      referredAuthorsOwnEarnings,
     };
   } catch {
     return empty;
