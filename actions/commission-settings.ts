@@ -18,10 +18,11 @@ export async function updateCommissionRates(rates: CommissionRates): Promise<{ o
     return { ok: false, error: "Percentages must be between 0% and 100%." };
   }
 
+  const value = JSON.parse(JSON.stringify(rates));
   await prisma.setting.upsert({
     where: { key: COMMISSION_SETTINGS_KEY },
-    update: { value: rates },
-    create: { key: COMMISSION_SETTINGS_KEY, value: rates },
+    update: { value },
+    create: { key: COMMISSION_SETTINGS_KEY, value },
   });
 
   revalidatePath("/admin/commission-settings");
