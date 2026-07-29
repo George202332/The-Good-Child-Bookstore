@@ -43,22 +43,22 @@ export default async function ReferralsPage() {
         <div className="stat-card stat-card-referral">
           <div className="stat-label">Lifetime Referral Commission</div>
           <div className="stat-value">${summary.referralEarnings.toFixed(2)}</div>
-          <div className="stat-sub">{referralPctLabel} of company revenue, for life</div>
+          <div className="stat-sub">{referralPctLabel}, for life</div>
         </div>
         <div className="stat-card stat-card-promotion">
           <div className="stat-label">Authors Referred</div>
           <div className="stat-value">{summary.referredAuthorsCount}</div>
-          <div className="stat-sub">Signed up through your link</div>
+          <div className="stat-sub">All time</div>
         </div>
         <div className="stat-card stat-card-total">
           <div className="stat-label">Company Revenue From Them</div>
           <div className="stat-value">${summary.companyRevenueFromReferredAuthors.toFixed(2)}</div>
-          <div className="stat-sub">Lifetime, before your cut</div>
+          <div className="stat-sub">All time</div>
         </div>
         <div className="stat-card stat-card-due">
           <div className="stat-label">Their Own Earnings</div>
           <div className="stat-value">${summary.referredAuthorsOwnEarnings.toFixed(2)}</div>
-          <div className="stat-sub">What your referred authors have made</div>
+          <div className="stat-sub">All time</div>
         </div>
       </div>
 

@@ -42,9 +42,21 @@ export default async function ActiveCampaignsPage() {
       </div>
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
-        <div className="stat-card"><div className="stat-label">Total clicks</div><div className="stat-value">{totalClicks}</div></div>
-        <div className="stat-card"><div className="stat-label">Books sold</div><div className="stat-value">{totalConversions}</div></div>
-        <div className="stat-card"><div className="stat-label">Commission earned</div><div className="stat-value">${totalEarned.toFixed(2)}</div></div>
+        <div className="stat-card stat-card-referral">
+          <div className="stat-label">Total clicks</div>
+          <div className="stat-value">{totalClicks}</div>
+          <div className="stat-sub">All time</div>
+        </div>
+        <div className="stat-card stat-card-promotion">
+          <div className="stat-label">Books sold</div>
+          <div className="stat-value">{totalConversions}</div>
+          <div className="stat-sub">All time</div>
+        </div>
+        <div className="stat-card stat-card-due">
+          <div className="stat-label">Commission earned</div>
+          <div className="stat-value">${totalEarned.toFixed(2)}</div>
+          <div className="stat-sub">All time</div>
+        </div>
       </div>
 
       {links.length === 0 ? (

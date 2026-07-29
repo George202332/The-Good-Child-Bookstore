@@ -71,27 +71,27 @@ export default async function PayoutSettingsPage() {
         <div className="stat-card stat-card-referral">
           <div className="stat-label">Lifetime Payout</div>
           <div className="stat-value">${statCards.lifetimePayout.toFixed(2)}</div>
-          <div className="stat-sub">Paid out all-time</div>
+          <div className="stat-sub">All time</div>
         </div>
         <div className="stat-card stat-card-promotion">
           <div className="stat-label">Last Month</div>
           <div className="stat-value">${statCards.lastMonth.toFixed(2)}</div>
-          <div className="stat-sub">Paid on the 15th last month</div>
+          <div className="stat-sub">Paid on the 15th</div>
         </div>
         <div className="stat-card stat-card-total">
           <div className="stat-label">Next Month</div>
           <div className="stat-value">${statCards.nextMonth.toFixed(2)}</div>
-          <div className="stat-sub">This month&apos;s earnings so far, growing</div>
+          <div className="stat-sub">Still growing</div>
         </div>
         <div className="stat-card stat-card-due">
           <div className="stat-label">{statCards.pendingStatus === "Paid" ? "Paid This Month" : "Pending Payout"}</div>
           <div className="stat-value">${statCards.pendingPayout.toFixed(2)}</div>
           <div className="stat-sub">
             {statCards.pendingStatus === "Paid"
-              ? "Already paid on the 15th"
+              ? "Paid on the 15th"
               : statCards.pendingPayout < MIN_PAYOUT_AMOUNT
-                ? `Below the $${MIN_PAYOUT_AMOUNT} minimum — rolls into next month`
-                : "Last month's earnings, due the 15th"}
+                ? `Held, under $${MIN_PAYOUT_AMOUNT}`
+                : "Due the 15th"}
           </div>
         </div>
       </div>
@@ -100,7 +100,7 @@ export default async function PayoutSettingsPage() {
       <AutoPayoutInfo available={available} onHold={onHold} nextReleaseDate={nextReleaseDate} hasRecipient={true} />
 
       <h3 style={{ fontSize: 16, margin: "28px 0 14px" }}>Monthly payout history</h3>
-      <div className="form-section">
+      <div className="map-card" style={{ padding: 20 }}>
         {monthlyRows.length === 0 ? (
           <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No earnings yet.</div>
         ) : (
