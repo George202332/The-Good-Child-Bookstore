@@ -170,6 +170,11 @@ model AuthorProfile {
   primaryGenre       String?
   penName            String?
   socialLinks        String[] @default([])
+  /** Self-reported by the author in their own profile; optional, shown
+   * in aggregate to whichever affiliate referred them (see Referrals
+   * page) — never required, never inferred. */
+  country            String?
+  gender             String?
   // If this author was referred onto the platform by an affiliate, that
   // affiliate earns a lifetime 5% cut of the COMPANY's revenue from this
   // author's sales (see AffiliateProfile.referredAuthors below).

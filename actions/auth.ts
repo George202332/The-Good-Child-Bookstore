@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { Role } from "@/lib/roles";
 import { generateAccountNumber } from "@/lib/account-number";
+import { generateUniqueReferralCode } from "@/lib/referral-code";
 
 /**
  * Converted from doSignup() and handleReaderSignup()/handleAuthorSignup()/
@@ -44,12 +45,6 @@ interface AffiliateSignupInput {
 
 export type SignupInput = ReaderSignupInput | AuthorSignupInput | AffiliateSignupInput;
 
-function generateReferralCode(name: string): string {
-  const base = name.trim().split(" ")[0]?.toUpperCase().replace(/[^A-Z]/g, "") || "AFF";
-  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${base}-${suffix}`;
-}
-
 export async function registerUser(input: SignupInput): Promise<RegisterResult> {
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim();
@@ -86,6 +81,13 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
     }
   }
 
+  // Every Author and Affiliate gets their own unique referral code at
+  // the point of registration — so an author can immediately start
+  // referring other authors onto the platform from day one, not only
+  // users who separately signed up as (or opted into being) an
+  // Affiliate.
+  const referralCode = role === "AUTHOR" || role === "AFFILIATE" ? await generateUniqueReferralCode(name) : undefined;
+
   await prisma.user.create({
     data: {
       accountNumber,
@@ -95,10 +97,13 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
       role,
       ...(input.role === "READER" ? { readerProfile: { create: {} } } : {}),
       ...(input.role === "AUTHOR"
-        ? { authorProfile: { create: { primaryGenre: input.genre, penName: input.penName?.trim() || null, referredById } } }
+        ? {
+            authorProfile: { create: { primaryGenre: input.genre, penName: input.penName?.trim() || null, referredById } },
+            affiliateProfile: { create: { referralCode: referralCode! } },
+          }
         : {}),
       ...(input.role === "AFFILIATE"
-        ? { affiliateProfile: { create: { referralCode: generateReferralCode(name) } } }
+        ? { affiliateProfile: { create: { referralCode: referralCode! } } }
         : {}),
     },
   });

@@ -41,8 +41,7 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
     if (hasAffiliateAccess) {
       items.push(
         { key: "referrals", label: "Referral Links", href: "/account/referrals", section: "Affiliate" },
-        { key: "active-campaigns", label: "Active Campaigns", href: "/account/active-campaigns", section: "Affiliate" },
-        { key: "promotions", label: "Promotions", href: "/account/promotions", section: "Affiliate" },
+        { key: "active-campaigns", label: "Promotions", href: "/account/active-campaigns", section: "Affiliate" },
         { key: "resources", label: "Marketing Resources", href: "/account/resources", section: "Affiliate" },
         { key: "campaigns", label: "Campaigns", href: "/account/campaigns", section: "Affiliate" },
         { key: "commissions", label: "Commissions", href: "/account/commissions", section: "Affiliate" },
@@ -61,8 +60,7 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
       { key: "blog", label: "My Blogs", href: "/account/blog", section: "Overview" },
       { key: "referrals", label: "Referral Links", href: "/account/referrals", section: "Affiliate" },
-      { key: "active-campaigns", label: "Active Campaigns", href: "/account/active-campaigns", section: "Affiliate" },
-      { key: "promotions", label: "Promotions", href: "/account/promotions", section: "Affiliate" },
+      { key: "active-campaigns", label: "Promotions", href: "/account/active-campaigns", section: "Affiliate" },
       { key: "resources", label: "Marketing Resources", href: "/account/resources", section: "Affiliate" },
       { key: "campaigns", label: "Campaigns", href: "/account/campaigns", section: "Affiliate" },
       { key: "commissions", label: "Commissions", href: "/account/commissions", section: "Financial" },

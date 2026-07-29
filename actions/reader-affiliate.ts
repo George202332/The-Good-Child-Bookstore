@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { generateUniqueReferralCode } from "@/lib/referral-code";
 
 /**
  * Converted from enableReaderAffiliateAccess() (the-good-child-bookstore
@@ -14,12 +15,6 @@ import { auth } from "@/lib/auth";
  * all their existing reader data stays untouched.
  */
 
-function generateReferralCode(name: string): string {
-  const base = name.trim().split(" ")[0]?.toUpperCase().replace(/[^A-Z]/g, "") || "AFF";
-  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${base}-${suffix}`;
-}
-
 export async function enableReaderAffiliateAccess(): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   if (!session?.user || (session.user.role !== "READER" && session.user.role !== "AUTHOR")) {
@@ -30,7 +25,7 @@ export async function enableReaderAffiliateAccess(): Promise<{ ok: boolean; erro
   if (existing) return { ok: true };
 
   await prisma.affiliateProfile.create({
-    data: { userId: session.user.id, referralCode: generateReferralCode(session.user.name ?? "member") },
+    data: { userId: session.user.id, referralCode: await generateUniqueReferralCode(session.user.name ?? "member") },
   });
 
   const readerProfile = await prisma.readerProfile.findUnique({ where: { userId: session.user.id } });

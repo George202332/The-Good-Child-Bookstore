@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import type { Role } from "@/lib/roles";
 import { generateAccountNumber } from "@/lib/account-number";
+import { generateUniqueReferralCode } from "@/lib/referral-code";
 
 /**
  * Admin-side account creation and management — "Admin can manage all
@@ -14,12 +15,6 @@ import { generateAccountNumber } from "@/lib/account-number";
  * the backend, view/edit any account's details, and suspend/reactivate
  * an account (a suspended account can't sign in — see lib/auth.ts).
  */
-
-function generateReferralCode(name: string): string {
-  const base = name.trim().split(" ")[0]?.toUpperCase().replace(/[^A-Z]/g, "") || "AFF";
-  const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
-  return `${base}-${suffix}`;
-}
 
 export interface CreateUserInput {
   name: string;
@@ -44,6 +39,8 @@ export async function createUserAccount(input: CreateUserInput): Promise<{ ok: b
 
   const passwordHash = await bcrypt.hash(input.password, 10);
   const accountNumber = await generateAccountNumber(input.role);
+  const referralCode =
+    input.role === "AUTHOR" || input.role === "AFFILIATE" ? await generateUniqueReferralCode(name) : undefined;
 
   await prisma.user.create({
     data: {
@@ -53,9 +50,11 @@ export async function createUserAccount(input: CreateUserInput): Promise<{ ok: b
       passwordHash,
       role: input.role,
       ...(input.role === "READER" ? { readerProfile: { create: {} } } : {}),
-      ...(input.role === "AUTHOR" ? { authorProfile: { create: {} } } : {}),
+      ...(input.role === "AUTHOR"
+        ? { authorProfile: { create: {} }, affiliateProfile: { create: { referralCode: referralCode! } } }
+        : {}),
       ...(input.role === "AFFILIATE"
-        ? { affiliateProfile: { create: { referralCode: generateReferralCode(name) } } }
+        ? { affiliateProfile: { create: { referralCode: referralCode! } } }
         : {}),
       // EDITOR and ADMIN have no role-specific profile — they only ever use the backend.
     },

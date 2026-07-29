@@ -1,0 +1,48 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { getOrCreateAffiliateLink } from "@/actions/affiliate";
+
+export function GetLinkButton({ bookId, existingCode }: { bookId: string; existingCode?: string }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [code, setCode] = useState<string | null>(existingCode ?? null);
+  const [error, setError] = useState<string | null>(null);
+
+  if (code) {
+    const url = typeof window !== "undefined" ? `${window.location.origin}/book/${bookId}?aff=${code}` : `/book/${bookId}?aff=${code}`;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <code style={{ fontSize: 11.5 }}>{url}</code>
+        <button type="button" className="btn btn-ghost btn-small" onClick={() => navigator.clipboard.writeText(url)}>Copy</button>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <button
+        type="button"
+        className="btn btn-primary btn-small"
+        disabled={isPending}
+        onClick={() =>
+          startTransition(async () => {
+            const res = await getOrCreateAffiliateLink(bookId);
+            if (!res.ok) setError(res.error ?? "Failed");
+            else {
+              setCode(res.code ?? null);
+              // The book should now move from "Browse all books" into
+              // "Books on Promotion" — re-fetch the page's server data
+              // so both tables reflect that immediately.
+              router.refresh();
+            }
+          })
+        }
+      >
+        {isPending ? "Generating…" : "Get link"}
+      </button>
+      {error && <div style={{ fontSize: 11.5, color: "var(--coral-deep)" }}>{error}</div>}
+    </div>
+  );
+}
