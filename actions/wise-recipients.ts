@@ -105,6 +105,7 @@ export async function addWiseRecipient(input: AddRecipientInput): Promise<{ ok: 
   });
 
   revalidatePath("/account/payout-settings");
+  revalidatePath("/account/profile");
   return { ok: true };
 }
 
@@ -117,6 +118,7 @@ export async function deleteWiseRecipient(recipientId: string): Promise<{ ok: bo
 
   await prisma.wiseRecipient.delete({ where: { id: recipientId } });
   revalidatePath("/account/payout-settings");
+  revalidatePath("/account/profile");
   return { ok: true };
 }
 
@@ -132,5 +134,6 @@ export async function setDefaultWiseRecipient(recipientId: string): Promise<{ ok
     prisma.wiseRecipient.update({ where: { id: recipientId }, data: { isDefault: true } }),
   ]);
   revalidatePath("/account/payout-settings");
+  revalidatePath("/account/profile");
   return { ok: true };
 }

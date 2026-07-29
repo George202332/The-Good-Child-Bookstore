@@ -3,6 +3,9 @@ import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getMyProfile } from "@/actions/profile";
 import { ProfileForm } from "./ProfileForm";
+import { PaymentDetailsSection } from "./PaymentDetailsSection";
+import { listMyWiseRecipients } from "@/actions/wise-recipients";
+import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -13,6 +16,9 @@ export default async function ProfilePage() {
   const profile = await getMyProfile();
   if (!profile) redirect("/login");
 
+  const isPayoutEligible = role === "AUTHOR" || role === "AFFILIATE" || (await hasAffiliateCapability(session.user.id));
+  const recipients = isPayoutEligible ? await listMyWiseRecipients() : [];
+
   return (
     <DashboardShell role={role} activeKey="profile" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
@@ -22,6 +28,11 @@ export default async function ProfilePage() {
         </div>
       </div>
       <ProfileForm initial={profile} />
+      {isPayoutEligible && (
+        <div style={{ marginTop: 20 }}>
+          <PaymentDetailsSection initial={recipients} />
+        </div>
+      )}
     </DashboardShell>
   );
 }
