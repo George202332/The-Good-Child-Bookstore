@@ -1430,11 +1430,7 @@
     background:transparent;border-radius:0;padding:0;
     display:flex;flex-direction:column;gap:0;
     text-align:left;
-    position:sticky;top:96px;align-self:start;
-    max-height:calc(100vh - 116px);overflow-y:auto;
-    scrollbar-width:none;-ms-overflow-style:none;
   }
-  .dashboard-sidebar::-webkit-scrollbar{display:none;}
   @media (max-width:1024px){
     .dashboard-sidebar{
       position:fixed;top:0;left:0;height:100vh;width:280px;

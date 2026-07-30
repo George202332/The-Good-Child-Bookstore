@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { getRequestGeo } from "@/lib/geo";
 
 /**
  * Real affiliate link + click tracking, replacing the original's fully
@@ -72,7 +73,8 @@ export async function recordAffiliateClick(code: string): Promise<void> {
   const link = await prisma.affiliateLink.findUnique({ where: { code } });
   if (!link) return;
 
-  await prisma.affiliateClick.create({ data: { affiliateLinkId: link.id } });
+  const geo = await getRequestGeo();
+  await prisma.affiliateClick.create({ data: { affiliateLinkId: link.id, country: geo.country, region: geo.region } });
 }
 
 export async function listMyAffiliateLinks(): Promise<AffiliateLinkWithStats[]> {

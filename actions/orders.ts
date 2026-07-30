@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { calculateSplits, applyAuthorReferralCarveOut } from "@/lib/revenue";
 import { getCommissionRates } from "@/lib/commission-settings";
 import { generateAccountNumber } from "@/lib/account-number";
+import { getRequestGeo } from "@/lib/geo";
 
 /**
  * Order creation: creates an Order + one SaleLine per book, with the
@@ -155,12 +156,15 @@ export async function createPendingOrder(input: {
 
   const totalAmount = +(subtotal * (1 - couponPct)).toFixed(2);
   const commissionRates = await getCommissionRates();
+  const geo = await getRequestGeo();
 
   const order = await prisma.order.create({
     data: {
       readerId: readerProfileId,
       status: "PENDING",
       totalAmount,
+      country: geo.country,
+      region: geo.region,
       lines: {
         create: lines.map((l) => {
           const lineGross = +(priceForFormat(l.book, l.format) * l.qty * (1 - couponPct)).toFixed(2);

@@ -8,6 +8,7 @@ import { BlogReadingProgress } from "@/components/BlogReadingProgress";
 import { BlogShareButtons } from "@/components/BlogShareButtons";
 import { blogPostingJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
+import { recordBlogRead } from "@/actions/blog-reads";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +103,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   })) as PublishedBlog | null;
 
   if (!post || post.status !== "PUBLISHED" || (post.publishAt && post.publishAt > new Date())) notFound();
+  await recordBlogRead(post.id);
   const comments = post.allowComments ? await getPublicBlogComments(post.id) : [];
   const siteUrl = getPublicSiteUrl();
   const readTime = readTimeMinutes(post.content);

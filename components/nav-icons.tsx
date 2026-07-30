@@ -94,6 +94,9 @@ export const NAV_ICONS: Record<string, ReactElement> = {
   analytics: (
     <svg {...ICON_PROPS}><path d="M4 19V5M4 19h16" /><path d="M8 15l3.5-4 3 2.5L19 9" /></svg>
   ),
+  "blog-analytics": (
+    <svg {...ICON_PROPS}><path d="M4 19V5M4 19h16" /><path d="M8 15l3.5-4 3 2.5L19 9" /></svg>
+  ),
   "affiliate-analytics": (
     <svg {...ICON_PROPS}><path d="M4 20V10M11 20V4M18 20v-7" /></svg>
   ),

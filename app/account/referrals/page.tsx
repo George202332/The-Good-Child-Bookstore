@@ -64,9 +64,9 @@ export default async function ReferralsPage() {
           <div className="stat-sub">All time</div>
         </div>
         <div className="stat-card stat-card-due">
-          <div className="stat-label">Their Own Earnings</div>
-          <div className="stat-value">${summary.referredAuthorsOwnEarnings.toFixed(2)}</div>
-          <div className="stat-sub">All time</div>
+          <div className="stat-label">This Month&apos;s Commission</div>
+          <div className="stat-value">${summary.referralEarningsThisMonth.toFixed(2)}</div>
+          <div className="stat-sub">This month</div>
         </div>
       </div>
 

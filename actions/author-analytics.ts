@@ -58,7 +58,7 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
         createdAt: Date;
         format: string | null;
         saleType: string;
-        order: { reader: { addresses: { country: string; isDefault: boolean }[] } };
+        order: { country: string | null; reader: { addresses: { country: string; isDefault: boolean }[] } };
       }[];
     }[];
 
@@ -81,7 +81,7 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
       saleTypeMap.set(typeLabel, (saleTypeMap.get(typeLabel) ?? 0) + 1);
 
       const addresses = l.order.reader.addresses;
-      const country = addresses.find((a) => a.isDefault)?.country ?? addresses[0]?.country;
+      const country = l.order.country ?? addresses.find((a) => a.isDefault)?.country ?? addresses[0]?.country;
       if (country) countryMap.set(country, (countryMap.get(country) ?? 0) + 1);
 
       bookMap.set(l.title, (bookMap.get(l.title) ?? 0) + 1);

@@ -405,8 +405,24 @@ model Blog {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   comments        BlogComment[]
+  reads           BlogRead[]
 
   @@index([status])
+}
+
+/** A single real page view of a published post, geotagged the same way
+ * as a purchase or an affiliate click (see lib/geo.ts) — recorded once
+ * per view from the public blog detail page, powering the new Blogs
+ * analytics page (reads over time, reads by region, top posts). */
+model BlogRead {
+  id        String   @id @default(cuid())
+  blogId    String
+  blog      Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  country   String?
+  region    String?
+  createdAt DateTime @default(now())
+
+  @@index([blogId])
 }
 
 /** Reader comments on a published blog post — new functionality, added
@@ -474,6 +490,11 @@ model Order {
   lines         SaleLine[]
   invoice       Invoice?
   paymentLogs   PaymentLog[]
+  // Real IP-based geotagging (see lib/geo.ts) captured at the moment of
+  // purchase — works for every order, including eBook-only orders that
+  // never collect a shipping address.
+  country       String?
+  region        String?
   createdAt     DateTime    @default(now())
 }
 
@@ -594,6 +615,7 @@ model AffiliateClick {
   affiliateLink   AffiliateLink @relation(fields: [affiliateLinkId], references: [id], onDelete: Cascade)
   ipHash          String?
   country         String?
+  region          String?
   createdAt       DateTime @default(now())
 }
 
