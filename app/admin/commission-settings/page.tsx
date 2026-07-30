@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { AdminShell } from "@/components/AdminShell";
 import { getCommissionRates } from "@/lib/commission-settings";
 import { CommissionSettingsForm } from "./CommissionSettingsForm";
+import { RecalculateRevenueButton } from "./RecalculateRevenueButton";
 
 /**
  * Admin control over the two real commission percentages this platform
@@ -28,6 +29,7 @@ export default async function CommissionSettingsPage() {
         </div>
       </div>
       <CommissionSettingsForm initial={rates} />
+      <RecalculateRevenueButton />
     </AdminShell>
   );
 }
