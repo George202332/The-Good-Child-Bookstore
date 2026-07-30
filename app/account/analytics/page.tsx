@@ -4,6 +4,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { getAuthorAnalytics } from "@/actions/author-analytics";
 import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
+import { WorldMap } from "@/components/charts/WorldMap";
 
 const FORMAT_COLORS: Record<string, string> = { eBook: "#2451B7", Paperback: "#B7472A", Hardcover: "#1F6B48", Audiobook: "#8A5A0B", Unspecified: "#9A93A8" };
 const SALE_TYPE_COLORS: Record<string, string> = { "Organic": "#2451B7", "Via affiliate link": "#B7472A" };
@@ -55,7 +56,7 @@ export default async function AuthorAnalyticsPage() {
       </div>
 
       <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
-        <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by month</h3>
+        <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by month: {new Date().getFullYear()}</h3>
         <BarChart data={data.monthlySales.map((m) => ({ label: m.month, value: m.units }))} color="#2451B7" />
       </div>
 
@@ -72,7 +73,12 @@ export default async function AuthorAnalyticsPage() {
 
       <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
         <h3 style={{ fontSize: 15, marginBottom: 16 }}>Top regions</h3>
-        <BarChart data={data.topCountries.map((c) => ({ label: c.country, value: c.count }))} color="#1F6B48" />
+        <WorldMap highlightedCountryCodes={new Set(data.geoCountryCodes)} />
+        {data.topCountries.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <BarChart data={data.topCountries.map((c) => ({ label: c.country, value: c.count }))} color="#1F6B48" />
+          </div>
+        )}
       </div>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Top books</h3>

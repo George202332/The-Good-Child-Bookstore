@@ -21,11 +21,16 @@ export interface AuthorAnalyticsSummary {
   saleTypeBreakdown: { type: string; count: number }[];
   topCountries: { country: string; count: number }[];
   topBooks: { title: string; unitsSold: number }[];
+  /** Real 2-letter ISO country codes with at least one geotagged
+   * purchase (see lib/geo.ts) — used for the world map specifically,
+   * since it needs real codes, not the free-text country names a
+   * reader's saved address may contain. */
+  geoCountryCodes: string[];
 }
 
 const EMPTY: AuthorAnalyticsSummary = {
   totalSales: 0, totalDownloads: 0, countriesReached: 0, activeTitles: 0,
-  monthlySales: [], formatBreakdown: [], saleTypeBreakdown: [], topCountries: [], topBooks: [],
+  monthlySales: [], formatBreakdown: [], saleTypeBreakdown: [], topCountries: [], topBooks: [], geoCountryCodes: [],
 };
 
 const FORMAT_LABELS: Record<string, string> = { EBOOK: "eBook", PAPERBACK: "Paperback", HARDCOVER: "Hardcover", AUDIOBOOK: "Audiobook" };
@@ -64,15 +69,22 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
 
     const lines = books.flatMap((b) => b.saleLines.map((l) => ({ ...l, title: b.title })));
 
+    const currentYear = new Date().getFullYear();
     const monthlyMap = new Map<string, number>();
+    for (let m = 0; m < 12; m++) {
+      monthlyMap.set(new Date(currentYear, m, 1).toLocaleDateString("en-US", { month: "short" }), 0);
+    }
     const formatMap = new Map<string, number>();
     const saleTypeMap = new Map<string, number>();
     const countryMap = new Map<string, number>();
+    const geoCountryCodeSet = new Set<string>();
     const bookMap = new Map<string, number>();
 
     for (const l of lines) {
-      const monthKey = l.createdAt.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-      monthlyMap.set(monthKey, (monthlyMap.get(monthKey) ?? 0) + 1);
+      if (l.createdAt.getFullYear() === currentYear) {
+        const monthKey = l.createdAt.toLocaleDateString("en-US", { month: "short" });
+        monthlyMap.set(monthKey, (monthlyMap.get(monthKey) ?? 0) + 1);
+      }
 
       const formatLabel = FORMAT_LABELS[l.format ?? ""] ?? "Unspecified";
       formatMap.set(formatLabel, (formatMap.get(formatLabel) ?? 0) + 1);
@@ -83,6 +95,7 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
       const addresses = l.order.reader.addresses;
       const country = l.order.country ?? addresses.find((a) => a.isDefault)?.country ?? addresses[0]?.country;
       if (country) countryMap.set(country, (countryMap.get(country) ?? 0) + 1);
+      if (l.order.country) geoCountryCodeSet.add(l.order.country.toUpperCase());
 
       bookMap.set(l.title, (bookMap.get(l.title) ?? 0) + 1);
     }
@@ -96,6 +109,7 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
       formatBreakdown: Array.from(formatMap.entries()).map(([format, count]) => ({ format, count })),
       saleTypeBreakdown: Array.from(saleTypeMap.entries()).map(([type, count]) => ({ type, count })),
       topCountries: Array.from(countryMap.entries()).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count).slice(0, 8),
+      geoCountryCodes: Array.from(geoCountryCodeSet),
       topBooks: Array.from(bookMap.entries()).map(([title, unitsSold]) => ({ title, unitsSold })).sort((a, b) => b.unitsSold - a.unitsSold).slice(0, 10),
     };
   } catch {

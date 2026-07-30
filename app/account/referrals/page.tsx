@@ -93,27 +93,27 @@ export default async function ReferralsPage() {
       </div>
 
       {profile?.referralCode && (
-        <div className="map-card" style={{ padding: 20, background: "var(--cream)", marginBottom: 24 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 6 }}>Refer an author</h3>
-          <p style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 10 }}>
-            Share this link with any author: if they sign up through it, you earn {referralPctLabel} of the
-            company&apos;s revenue from their book sales, for as long as they publish with us — your current tier
-            is <strong>{currentTier.name}</strong>.
+        <div className="map-card" style={{ padding: 24, marginBottom: 20, background: "linear-gradient(135deg, #FDF1E6, #F5D3B8)", border: "1px solid #F3CBA8" }}>
+          <h3 style={{ fontSize: 17, marginBottom: 8 }}>We reward the work you put in</h3>
+          <p style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.7, marginBottom: "4mm" }}>
+            Every author you introduce to this platform becomes a lasting partnership, not just a single
+            referral—and we believe our partnership with you should be just as enduring. As you refer more authors,
+            you rise through the ranks and earn a greater lifetime share of the company&apos;s revenue generated
+            from their book sales—not from the authors&apos; own earnings, which always remain entirely theirs.
+            It&apos;s a truly mutually rewarding partnership: you help us grow our community, and we grow your
+            lifetime income alongside us.
           </p>
-          <code style={{ fontSize: 12.5 }}>{siteUrl}/signup/author?ref={profile.referralCode}</code>
+          <div style={{ background: "#fff", borderRadius: 10, padding: 16 }}>
+            <h4 style={{ fontSize: 14, marginBottom: 6 }}>Refer an author</h4>
+            <p style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 10 }}>
+              Share this link with any author: if they sign up through it, you earn {referralPctLabel} of the
+              company&apos;s revenue from their book sales, for as long as they publish with us — your current tier
+              is <strong>{currentTier.name}</strong>.
+            </p>
+            <code style={{ fontSize: 12.5 }}>{siteUrl}/signup/author?ref={profile.referralCode}</code>
+          </div>
         </div>
       )}
-
-      <div className="map-card" style={{ padding: 24, marginBottom: 20, background: "var(--cream)" }}>
-        <h3 style={{ fontSize: 17, marginBottom: 8 }}>We reward the work you put in</h3>
-        <p style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.7 }}>
-          Every author you bring onto this platform is a long-term relationship, not a one-time transaction — and we
-          want our relationship with you to be the same. The more authors you refer, the higher your class climbs,
-          and the bigger your lifetime share of the company&apos;s own revenue from those authors&apos; book sales — not
-          a share of the authors&apos; own earnings, which always stay fully theirs. This is a genuinely symbiotic
-          partnership: you help us grow, and we build your lifetime revenue right alongside you.
-        </p>
-      </div>
 
       <div className="map-card" style={{ padding: 24, marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
