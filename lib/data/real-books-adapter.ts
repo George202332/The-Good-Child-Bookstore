@@ -90,6 +90,12 @@ function toCatalogBook(row: RealBookRow): Book {
       paperback: row.paperbackPrice ? Number(row.paperbackPrice) : price,
       audiobook: row.audiobookPrice ? Number(row.audiobookPrice) : price,
     },
+    formatAvailable: {
+      ebook: row.hasEbook,
+      paperback: row.hasPrint && row.paperbackPrice != null,
+      hardcover: row.hasPrint && row.hardcoverPrice != null,
+      audiobook: row.hasAudiobook,
+    },
     isbn: row.isbn ?? "",
     pubDate: row.createdAt.toISOString().slice(0, 10),
     sizeMB: (2 + (seed % 8)).toFixed(1),

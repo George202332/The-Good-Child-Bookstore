@@ -102,7 +102,7 @@ export default async function AuthorAnalyticsPage() {
 
       <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
         <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales Distribution</h3>
-        <div style={{ height: 440 }}>
+        <div style={{ height: 440, marginLeft: "-1in", marginRight: "-1in", width: "calc(100% + 2in)" }}>
           <WorldMap highlightedCountryCodes={new Set(data.geoCountryCodes)} />
         </div>
       </div>

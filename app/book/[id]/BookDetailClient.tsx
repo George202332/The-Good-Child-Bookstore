@@ -65,10 +65,18 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
     alsoSearchedBooks = alsoSearchedBooks.slice(0, 10);
   }
 
+  const availableFormats = b.formatAvailable ?? { ebook: true, paperback: true, hardcover: true, audiobook: true };
+  const isFormatAvailable: Record<FormatKey, boolean> = {
+    ebook: availableFormats.ebook, audiobook: availableFormats.audiobook, paperback: availableFormats.paperback, print: availableFormats.hardcover,
+  };
+  const effectiveFormat: FormatKey = isFormatAvailable[format]
+    ? format
+    : ((["ebook", "audiobook", "paperback", "print"] as FormatKey[]).find((f) => isFormatAvailable[f]) ?? format);
+
   const initials = b.author.split(" ").map((w) => w[0]).join("").slice(0, 2);
   const listPrice = +(b.formats.ebook * 1.7).toFixed(2);
   const discountPct = Math.round((1 - b.formats.ebook / listPrice) * 100);
-  const fmtLabel = FORMAT_LABELS[format];
+  const fmtLabel = FORMAT_LABELS[effectiveFormat];
   const stats = isRealBook
     ? { counts: [0, 0, 0, 0, 0], total: b.reviews, avg: b.rating, pct: [0, 0, 0, 0, 0] }
     : reviewStats(b, []);
@@ -233,29 +241,37 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
 
         <div className="buybox">
           <div className="buybox-tiles">
-            <button type="button" className={`buybox-tile ${format === "ebook" ? "active" : ""}`} onClick={() => setFormat("ebook")}>
-              <div className="bt-name">eBook</div>
-              <div className="bt-price">${b.formats.ebook.toFixed(2)}</div>
-              <div className="bt-sub">{b.sizeMB} MB · instant download</div>
-            </button>
-            <button type="button" className={`buybox-tile ${format === "audiobook" ? "active" : ""}`} onClick={() => setFormat("audiobook")}>
-              <div className="bt-name">Audiobook</div>
-              <div className="bt-price">${b.formats.audiobook.toFixed(2)}</div>
-              <div className="bt-sub">Read-aloud narration</div>
-            </button>
-            <button type="button" className={`buybox-tile ${format === "paperback" ? "active" : ""}`} onClick={() => setFormat("paperback")}>
-              <div className="bt-name">Print: Paperback</div>
-              <div className="bt-price">${b.formats.paperback.toFixed(2)}</div>
-              <div className="bt-sub">Softcover · via Lulu</div>
-            </button>
-            <button type="button" className={`buybox-tile ${format === "print" ? "active" : ""}`} onClick={() => setFormat("print")}>
-              <div className="bt-name">Print: Hardcover</div>
-              <div className="bt-price">${b.formats.print.toFixed(2)}</div>
-              <div className="bt-sub">Hardcover · via Lulu</div>
-            </button>
+            {(b.formatAvailable?.ebook ?? true) && (
+              <button type="button" className={`buybox-tile ${format === "ebook" ? "active" : ""}`} onClick={() => setFormat("ebook")}>
+                <div className="bt-name">eBook</div>
+                <div className="bt-price">${b.formats.ebook.toFixed(2)}</div>
+                <div className="bt-sub">{b.sizeMB} MB · instant download</div>
+              </button>
+            )}
+            {(b.formatAvailable?.audiobook ?? true) && (
+              <button type="button" className={`buybox-tile ${format === "audiobook" ? "active" : ""}`} onClick={() => setFormat("audiobook")}>
+                <div className="bt-name">Audiobook</div>
+                <div className="bt-price">${b.formats.audiobook.toFixed(2)}</div>
+                <div className="bt-sub">Read-aloud narration</div>
+              </button>
+            )}
+            {(b.formatAvailable?.paperback ?? true) && (
+              <button type="button" className={`buybox-tile ${format === "paperback" ? "active" : ""}`} onClick={() => setFormat("paperback")}>
+                <div className="bt-name">Print: Paperback</div>
+                <div className="bt-price">${b.formats.paperback.toFixed(2)}</div>
+                <div className="bt-sub">Softcover · via Lulu</div>
+              </button>
+            )}
+            {(b.formatAvailable?.hardcover ?? true) && (
+              <button type="button" className={`buybox-tile ${format === "print" ? "active" : ""}`} onClick={() => setFormat("print")}>
+                <div className="bt-name">Print: Hardcover</div>
+                <div className="bt-price">${b.formats.print.toFixed(2)}</div>
+                <div className="bt-sub">Hardcover · via Lulu</div>
+              </button>
+            )}
           </div>
 
-          {format === "ebook" ? (
+          {effectiveFormat === "ebook" ? (
             <>
               <div className="buybox-price-row">
                 <span className="buybox-discount">-{discountPct}%</span>
@@ -266,20 +282,20 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
           ) : (
             <>
               <div className="buybox-price-row">
-                <span className="buybox-price">${b.formats[format].toFixed(2)}</span>
+                <span className="buybox-price">${b.formats[effectiveFormat].toFixed(2)}</span>
               </div>
               <div className="buybox-listprice">{fmtLabel} edition</div>
             </>
           )}
 
-          <button className="btn btn-primary btn-block" onClick={() => addItem(b.id, format === "print" ? "hardcover" : format, 1)}>Add to cart</button>
-          {format === "print" || format === "paperback" ? (
+          <button className="btn btn-primary btn-block" onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to cart</button>
+          {effectiveFormat === "print" || effectiveFormat === "paperback" ? (
             <div className="buybox-note">
               You&apos;re adding the {fmtLabel.toLowerCase()} edition. Need more than one? Adjust the quantity from
               your cart. Print copies are printed and fulfilled by Lulu Publishing, and shipped directly to your
               chosen address.
             </div>
-          ) : format === "ebook" ? (
+          ) : effectiveFormat === "ebook" ? (
             <div className="buybox-note">
               This eBook is an instant download available from your dashboard, and we&apos;ll also email the
               download link to the address on your account.
@@ -296,9 +312,9 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
             {inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
           </button>
 
-          {format === "ebook" || format === "audiobook" ? (
+          {effectiveFormat === "ebook" || effectiveFormat === "audiobook" ? (
             <div className="buybox-tip">Downloaded materials are for your personal use only. Redistributing or sharing this file is a violation of copyright.</div>
-          ) : format === "paperback" ? (
+          ) : effectiveFormat === "paperback" ? (
             <div className="buybox-tip">A lighter, budget-friendly softcover edition.</div>
           ) : (
             <div className="buybox-tip">A sturdy, gift-ready hardcover edition.</div>

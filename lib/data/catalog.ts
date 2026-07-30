@@ -122,6 +122,13 @@ export interface Book {
   age: string;
   price: number;
   formats: { ebook: number; print: number; paperback: number; audiobook: number };
+  /** Which of the 4 formats this specific book actually has published —
+   * gates which buy-box tiles show on the product page and which
+   * formats can actually be purchased. Undefined (the static demo
+   * catalog, unchanged) is treated as every format being available;
+   * only real submitted books set this explicitly, reflecting the
+   * formats their author actually enabled at submission. */
+  formatAvailable?: { ebook: boolean; paperback: boolean; hardcover: boolean; audiobook: boolean };
   isbn: string;
   pubDate: string;
   sizeMB: string;
