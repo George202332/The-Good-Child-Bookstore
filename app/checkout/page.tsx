@@ -211,7 +211,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="wrap cart-wrap" style={{ maxWidth: 820 }}>
+    <div className="wrap cart-wrap" style={{ maxWidth: step === 1 ? undefined : 820 }}>
       <h1 style={{ marginBottom: 24, textAlign: "center" }}>Checkout</h1>
       <div className="checkout-steps">
         {STEPS.map((s) => (
@@ -225,27 +225,40 @@ export default function CheckoutPage() {
       {step === 1 && (
         <div className="cart-layout">
           <div>
-            {lines.map((l) => (
-              <div className="cart-item" key={l.book.id}>
-                <div className="mini-cover">
-                  {l.book.coverImage && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={l.book.coverImage} alt={`${l.book.title} cover`} />
+            {lines.map((l) => {
+              const isDigital = l.format === "ebook" || l.format === "audiobook";
+              return (
+                <div className="cart-item" key={l.book.id}>
+                  <div className="mini-cover">
+                    {l.book.coverImage && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={l.book.coverImage} alt={`${l.book.title} cover`} />
+                    )}
+                  </div>
+                  <div>
+                    <h4>{l.book.title}</h4>
+                    <div className="author">{l.book.author}</div>
+                    <div className="cart-item-format-tag">{FORMAT_LABEL[l.format]}</div>
+                    {isDigital ? (
+                      <div className="cart-item-digital-note">Instant digital delivery — no shipping</div>
+                    ) : (
+                      <div className="cart-item-digital-note">Printed and shipped by Lulu Publishing</div>
+                    )}
+                    <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>
+                  </div>
+                  {isDigital ? (
+                    <div className="qty-fixed">Qty 1</div>
+                  ) : (
+                    <div className="qty-control">
+                      <button onClick={() => setQty(l.book.id, l.format, l.qty - 1)}>–</button>
+                      <span>{l.qty}</span>
+                      <button onClick={() => setQty(l.book.id, l.format, l.qty + 1)}>+</button>
+                    </div>
                   )}
+                  <div className="price">${(priceFor(l.book, l.format) * l.qty).toFixed(2)}</div>
                 </div>
-                <div>
-                  <h4>{l.book.title}</h4>
-                  <div className="author">{l.book.author} · {FORMAT_LABEL[l.format]}</div>
-                  <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>
-                </div>
-                <div className="qty-control">
-                  <button onClick={() => setQty(l.book.id, l.format, l.qty - 1)}>–</button>
-                  <span>{l.qty}</span>
-                  <button onClick={() => setQty(l.book.id, l.format, l.qty + 1)}>+</button>
-                </div>
-                <div className="price">${(priceFor(l.book, l.format) * l.qty).toFixed(2)}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="checkout-summary-card">
             <h3>Order summary</h3>
