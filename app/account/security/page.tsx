@@ -7,7 +7,7 @@ export default async function SecurityPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const role = session.user.role;
-  if (role !== "READER" && role !== "AUTHOR" && role !== "AFFILIATE") redirect("/admin");
+  if (role !== "READER" && role !== "AUTHOR") redirect("/admin");
 
   return (
     <DashboardShell role={role} activeKey="security" displayName={session.user.name ?? ""}>

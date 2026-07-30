@@ -2,8 +2,16 @@
  * ROLE MODEL
  *
  * Confirmed with the project owner:
- *   - READER, AUTHOR, AFFILIATE are the existing public-facing roles,
- *     converted pixel-for-pixel from the original frontend.
+ *   - READER and AUTHOR are the two public-facing signup roles.
+ *     AFFILIATE was removed as a standalone role per explicit
+ *     instruction — every affiliate capability (referral links,
+ *     promotion links, referred-author tracking, Tier commissions) is
+ *     already fully available to an Author account via its
+ *     AffiliateProfile bolt-on (see lib/affiliate-capability.ts), so a
+ *     separate account type was pure redundancy. Signup now offers
+ *     "Reader" or "Author / Affiliate" — the latter still just creates
+ *     an AUTHOR account (with an AffiliateProfile alongside it, same as
+ *     before), the combined name reflects what the account already do.
  *   - EDITOR, ADMIN, ACCOUNTANT are new, backend/internal-only roles with
  *     no matching UI in the original frontend. EDITOR handles book/blog
  *     moderation (approve, send back for revision). ACCOUNTANT is
@@ -13,9 +21,9 @@
  *     "fetches all accounting information" without broader admin power.
  */
 
-export type Role = "READER" | "AUTHOR" | "AFFILIATE" | "EDITOR" | "ADMIN" | "ACCOUNTANT";
+export type Role = "READER" | "AUTHOR" | "EDITOR" | "ADMIN" | "ACCOUNTANT";
 
-export const FRONTEND_ROLES: Role[] = ["READER", "AUTHOR", "AFFILIATE"];
+export const FRONTEND_ROLES: Role[] = ["READER", "AUTHOR"];
 export const BACKEND_ROLES: Role[] = ["EDITOR", "ADMIN", "ACCOUNTANT"];
 
 export const PERMISSIONS: Record<Role, string[]> = {
@@ -55,11 +63,8 @@ export const PERMISSIONS: Record<Role, string[]> = {
     "royalties:viewOwn",
     "payouts:request",
     "affiliatePerformance:viewForOwnBooks",
-  ],
-  AFFILIATE: [
     "referralLinks:generate",
     "commissions:view",
-    "payouts:request",
     "traffic:view",
     "reports:download",
   ],
@@ -80,7 +85,7 @@ export function hasPermission(role: Role, permission: string): boolean {
 /** EDITOR cannot see financial information — explicit per the brief.
  * ACCOUNTANT exists specifically to see financial information. */
 export function canViewFinancials(role: Role): boolean {
-  return role === "ADMIN" || role === "AUTHOR" || role === "AFFILIATE" || role === "ACCOUNTANT";
+  return role === "ADMIN" || role === "AUTHOR" || role === "ACCOUNTANT";
 }
 
 /** ACCOUNTANT can view the financial admin pages (Transactions, Analytics,

@@ -83,7 +83,7 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
                 <th style={TABLE_HEAD_STYLE}>Account ID<ColHelp text="The unique account number belonging to the author you referred — the same number shown on their own Profile page." /></th>
                 <th style={TABLE_HEAD_STYLE}>Name<ColHelp text="The referred author's name — their pen name if they've set one in their Profile, otherwise their real name." /></th>
                 <th style={TABLE_HEAD_STYLE}>Date Joined<ColHelp text="The date this author created their account using your referral link." /></th>
-                <th style={TABLE_HEAD_STYLE}>Revenue<ColHelp text="The company's revenue from this author's book sales within the selected time window (its 25% share, before any referral commission is carved out)." /></th>
+                <th style={TABLE_HEAD_STYLE}>Revenue<ColHelp text="The company's revenue from this author's book sales within the selected time window (its 30% share, before any referral commission is carved out)." /></th>
                 <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="Your earnings from referring this author within the selected time window: a percentage of the company revenue above." /></th>
               </tr>
             </thead>

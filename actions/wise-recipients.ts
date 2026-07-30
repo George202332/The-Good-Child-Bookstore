@@ -27,7 +27,7 @@ export interface WiseRecipientRow {
 async function requirePayoutEligibleUser() {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user || (role !== "AUTHOR" && role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id)))) {
+  if (!session?.user || (role !== "AUTHOR" && !(await hasAffiliateCapability(session.user.id)))) {
     throw new Error("Only author or affiliate accounts can add payout destinations.");
   }
   return session.user.id;
@@ -36,7 +36,7 @@ async function requirePayoutEligibleUser() {
 export async function listMyWiseRecipients(): Promise<WiseRecipientRow[]> {
   const session = await auth();
   const role = session?.user?.role;
-  if (!session?.user || (role !== "AUTHOR" && role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id)))) return [];
+  if (!session?.user || (role !== "AUTHOR" && !(await hasAffiliateCapability(session.user.id)))) return [];
   const recipients = await prisma.wiseRecipient.findMany({
     where: { userId: session!.user.id },
     orderBy: { createdAt: "desc" },

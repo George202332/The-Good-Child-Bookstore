@@ -6,7 +6,7 @@ import { createUserAccount } from "@/actions/users-admin";
 import type { Role } from "@/lib/roles";
 import { PasswordField } from "@/components/PasswordField";
 
-const ROLES: Role[] = ["READER", "AUTHOR", "AFFILIATE", "EDITOR", "ADMIN", "ACCOUNTANT"];
+const ROLES: Role[] = ["READER", "AUTHOR", "EDITOR", "ADMIN", "ACCOUNTANT"];
 
 export function CreateUserForm() {
   const router = useRouter();

@@ -178,7 +178,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     drawTable(
       [
         { label: "Author", w: 0.3 }, { label: "Account ID", w: 0.2 },
-        { label: "Gross revenue", w: 0.17, align: "right" }, { label: "Company revenue (25%)", w: 0.17, align: "right" }, { label: "Your commission (5%)", w: 0.16, align: "right" },
+        { label: "Gross revenue", w: 0.17, align: "right" }, { label: "Company revenue (30%)", w: 0.17, align: "right" }, { label: "Your commission", w: 0.16, align: "right" },
       ],
       data.referralRows.map((r) => [r.authorName, r.accountId, money(r.grossRevenue), money(r.companyRevenue), money(r.commission)]),
       [{ label: "TOTAL", value: money(data.referralCommission) }]

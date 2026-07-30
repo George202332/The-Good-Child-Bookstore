@@ -39,8 +39,7 @@ export async function createUserAccount(input: CreateUserInput): Promise<{ ok: b
 
   const passwordHash = await bcrypt.hash(input.password, 10);
   const accountNumber = await generateAccountNumber(input.role);
-  const referralCode =
-    input.role === "AUTHOR" || input.role === "AFFILIATE" ? await generateUniqueReferralCode(name) : undefined;
+  const referralCode = input.role === "AUTHOR" ? await generateUniqueReferralCode(name) : undefined;
 
   await prisma.user.create({
     data: {
@@ -52,9 +51,6 @@ export async function createUserAccount(input: CreateUserInput): Promise<{ ok: b
       ...(input.role === "READER" ? { readerProfile: { create: {} } } : {}),
       ...(input.role === "AUTHOR"
         ? { authorProfile: { create: {} }, affiliateProfile: { create: { referralCode: referralCode! } } }
-        : {}),
-      ...(input.role === "AFFILIATE"
-        ? { affiliateProfile: { create: { referralCode: referralCode! } } }
         : {}),
       // EDITOR and ADMIN have no role-specific profile — they only ever use the backend.
     },

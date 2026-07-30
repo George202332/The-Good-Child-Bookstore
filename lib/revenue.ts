@@ -6,28 +6,37 @@
  * reports, PDFs). Nothing else should re-implement this math.
  *
  * Confirmed with the project owner (overrides the generic brief numbers):
- *   - Organic sale:            company 25% / author 75%
- *   - Affiliate-referred sale: company 25% / affiliate 10% / author 65%
+ *   - Organic sale:            company 30% / author 70%
+ *   - Affiliate-referred sale: company 30% / affiliate 10% / author 60%
+ *     (moved up from 25%/75% and 25%/10%/65% per explicit instruction)
  *   - Referral commission: an affiliate who referred an AUTHOR onto the
- *     platform earns 5% (moved up from 3% per explicit instruction), for
- *     life, of the COMPANY's revenue from that author's sales (separate
- *     from any per-sale affiliate cut above).
+ *     platform earns a tiered percentage, for life, of the COMPANY's
+ *     revenue from that author's sales — Hawk (0-200 referrals) 5%,
+ *     Falcon (201-500) 7.5%, Eagle (501-1000) 10%, Phoenix (1001+) 15%
+ *     (see lib/commission-settings.ts) — separate from any per-sale
+ *     affiliate cut above, and separate from a fixed flat rate: the
+ *     more authors an affiliate brings onto the platform, the higher
+ *     their tier and rate climbs.
  *   - No refund/return deductions: store policy is no returns once a
  *     product has been purchased, so — unlike the original frontend
  *     prototype this was converted from — the author's share is NOT
  *     reduced by a modeled refund/return rate.
  *
- * Both the affiliate-direct-link rate (10%) and the referral rate (5%)
- * are also controllable from the backend (Admin → Commission Settings,
- * see lib/commission-settings.ts) — the constants below are the
- * fallback defaults used until an admin changes them, and every
- * function here accepts the current rate as an optional parameter so
- * callers that already looked up the live rate can pass it through.
+ * Both the affiliate-direct-link rate (10%) and the tiered referral
+ * rates are controllable from the backend (Admin → Commission Settings,
+ * see lib/commission-settings.ts) — the constants below are fallback
+ * defaults, and every function here accepts the current rate as an
+ * optional parameter so callers that already looked up the live rate
+ * can pass it through.
  */
 
 export const REVENUE_CONFIG = {
-  organic: { company: 0.25, author: 0.75 },
-  affiliate: { company: 0.25, affiliate: 0.10, author: 0.65 },
+  organic: { company: 0.30, author: 0.70 },
+  affiliate: { company: 0.30, affiliate: 0.10, author: 0.60 },
+  /** Fallback only — the real, current rate is tiered by the specific
+   * referring affiliate's referred-author count (see
+   * lib/commission-settings.ts tierForReferralCount). This matches the
+   * lowest tier (Hawk) so an uncategorized caller never overpays. */
   referralPct: 0.05,
 } as const;
 

@@ -10,8 +10,7 @@ import type { Role } from "@/lib/roles";
  * Each role gets its own independent sequence, distinguished by a
  * starting base so the ranges never overlap even as they grow:
  *   READER      10000001, 10000002, ...
- *   AUTHOR      30000001, 30000002, ...   (a distinct range from readers/affiliates)
- *   AFFILIATE   50000001, 50000002, ...
+ *   AUTHOR      30000001, 30000002, ...   (also covers affiliate capability — see lib/roles.ts)
  *   EDITOR      70000001, 70000002, ...
  *   ADMIN       80000001, 80000002, ...
  *   ACCOUNTANT  90000001, 90000002, ...
@@ -24,7 +23,6 @@ import type { Role } from "@/lib/roles";
 const ROLE_BASE: Record<Role, number> = {
   READER: 10_000_000,
   AUTHOR: 30_000_000,
-  AFFILIATE: 50_000_000,
   EDITOR: 70_000_000,
   ADMIN: 80_000_000,
   ACCOUNTANT: 90_000_000,

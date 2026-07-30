@@ -36,14 +36,8 @@ interface AuthorSignupInput {
   genre: string;
   password: string;
 }
-interface AffiliateSignupInput {
-  role: "AFFILIATE";
-  name: string;
-  email: string;
-  password: string;
-}
 
-export type SignupInput = ReaderSignupInput | AuthorSignupInput | AffiliateSignupInput;
+export type SignupInput = ReaderSignupInput | AuthorSignupInput;
 
 export async function registerUser(input: SignupInput): Promise<RegisterResult> {
   const email = input.email.trim().toLowerCase();
@@ -64,9 +58,10 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
 
   // If this author arrived via an affiliate's referral link (see
   // actions/affiliate-referral.ts), attribute the signup so that
-  // affiliate earns the 5%-for-life author-referral commission on every
-  // future sale of this author's books (see lib/revenue.ts
-  // applyAuthorReferralCarveOut, applied in actions/orders.ts).
+  // affiliate earns a tiered (Hawk/Falcon/Eagle/Phoenix), for-life
+  // author-referral commission on every future sale of this author's
+  // books (see lib/revenue.ts applyAuthorReferralCarveOut and
+  // lib/commission-settings.ts, applied in actions/orders.ts).
   let referredById: string | undefined;
   if (role === "AUTHOR") {
     try {
@@ -86,7 +81,7 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
   // referring other authors onto the platform from day one, not only
   // users who separately signed up as (or opted into being) an
   // Affiliate.
-  const referralCode = role === "AUTHOR" || role === "AFFILIATE" ? await generateUniqueReferralCode(name) : undefined;
+  const referralCode = role === "AUTHOR" ? await generateUniqueReferralCode(name) : undefined;
 
   await prisma.user.create({
     data: {
@@ -101,9 +96,6 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
             authorProfile: { create: { primaryGenre: input.genre, penName: input.penName?.trim() || null, referredById } },
             affiliateProfile: { create: { referralCode: referralCode! } },
           }
-        : {}),
-      ...(input.role === "AFFILIATE"
-        ? { affiliateProfile: { create: { referralCode: referralCode! } } }
         : {}),
     },
   });

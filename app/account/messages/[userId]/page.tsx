@@ -9,7 +9,7 @@ export default async function MessageThreadPage({ params }: { params: Promise<{ 
   const session = await auth();
   if (!session?.user) redirect("/login");
   const role = session.user.role;
-  if (role !== "READER" && role !== "AUTHOR" && role !== "AFFILIATE") redirect("/admin");
+  if (role !== "READER" && role !== "AUTHOR") redirect("/admin");
 
   const { userId: counterpartId } = await params;
   const counterpart = await prisma.user.findUnique({ where: { id: counterpartId } });

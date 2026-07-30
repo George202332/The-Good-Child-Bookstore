@@ -22,7 +22,7 @@ export function estimatePrintingCost(binding: "PB" | "CO" | "LW", pageCount: num
   return +(fixedCost + pageCount * perPage).toFixed(2);
 }
 
-const COMPANY_REVENUE_SHARE = 0.25; // matches the confirmed 25% organic-sale company share used elsewhere
+const COMPANY_REVENUE_SHARE = 0.30; // matches the confirmed 30% organic-sale company share used elsewhere
 
 export interface PrintPricingBreakdown {
   printingCost: number;

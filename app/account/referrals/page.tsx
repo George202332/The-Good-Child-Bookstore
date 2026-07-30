@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getMyProfile } from "@/actions/profile";
 import { getAffiliateEarningsSummary } from "@/actions/affiliate-earnings-summary";
-import { getCommissionRates } from "@/lib/commission-settings";
+import { getCommissionRates, tierForReferralCount } from "@/lib/commission-settings";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { getReferredAuthorsDetail } from "@/actions/referred-authors";
 import { ColHelp } from "@/components/ColHelp";
@@ -25,7 +26,7 @@ export default async function ReferralsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const role = session.user.role;
-  if (role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) redirect("/account");
+  if (!(await hasAffiliateCapability(session.user.id))) redirect("/account");
 
   const [profile, summary, rates, referredAuthors] = await Promise.all([
     getMyProfile(),
@@ -33,7 +34,8 @@ export default async function ReferralsPage() {
     getCommissionRates(),
     getReferredAuthorsDetail(),
   ]);
-  const referralPctLabel = `${(rates.referralPct * 100).toFixed(rates.referralPct * 100 % 1 === 0 ? 0 : 1)}%`;
+  const currentTier = tierForReferralCount(summary.referredAuthorsCount, rates.tiers);
+  const referralPctLabel = `${(currentTier.pct * 100).toFixed(currentTier.pct * 100 % 1 === 0 ? 0 : 1)}%`;
   const siteUrl = getPublicSiteUrl();
 
   return (
@@ -75,7 +77,8 @@ export default async function ReferralsPage() {
           <h3 style={{ fontSize: 15, marginBottom: 6 }}>Refer an author</h3>
           <p style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 10 }}>
             Share this link with any author: if they sign up through it, you earn {referralPctLabel} of the
-            company&apos;s revenue from their book sales, for as long as they publish with us.
+            company&apos;s revenue from their book sales, for as long as they publish with us — your current tier
+            is <strong>{currentTier.name}</strong>. <Link href="/account/referrals/tier" style={{ color: "var(--coral-deep)", fontWeight: 700 }}>See all tiers →</Link>
           </p>
           <code style={{ fontSize: 12.5 }}>{siteUrl}/signup/author?ref={profile.referralCode}</code>
         </div>

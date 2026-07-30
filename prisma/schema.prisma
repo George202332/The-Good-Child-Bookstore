@@ -33,7 +33,6 @@ datasource db {
 enum Role {
   READER
   AUTHOR
-  AFFILIATE
   EDITOR
   ADMIN
   ACCOUNTANT

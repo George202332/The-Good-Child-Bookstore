@@ -3,7 +3,10 @@ import { Motif } from "@/components/Motif";
 
 /** The account-type choice, split out from /login so that page can stay
  * a plain credentials form. Anyone without an account lands here first
- * to pick reader, author, or affiliate before the actual signup form. */
+ * to pick reader or author before the actual signup form. Affiliate is
+ * no longer a separate account type — every Author account already has
+ * full affiliate capability (referral links, promotion links, Tier
+ * commissions) built in. */
 export default function SignupChoicePage() {
   return (
     <section className="auth-section">
@@ -18,13 +21,8 @@ export default function SignupChoicePage() {
           </Link>
           <Link href="/signup/author" className="role-card">
             <svg viewBox="0 0 100 100"><Motif kind="star" color="#3F3350" /></svg>
-            <h4>Sign up as an author</h4>
-            <p>Submit and track your titles</p>
-          </Link>
-          <Link href="/signup/affiliate" className="role-card" style={{ gridColumn: "1/-1" }}>
-            <svg viewBox="0 0 100 100"><Motif kind="heart" color="#3F3350" /></svg>
-            <h4>Sign up as an affiliate</h4>
-            <p>Promote books and earn commission</p>
+            <h4>Author / Affiliate Account</h4>
+            <p>Submit and track your titles, refer authors, and promote books — all in one account</p>
           </Link>
         </div>
         <div className="auth-switch" style={{ marginTop: 20, textAlign: "center" }}>

@@ -25,7 +25,7 @@ export async function getMyPayoutRequests(): Promise<PayoutRow[]> {
   const session = await auth();
   if (!session?.user) return [];
   const role = session.user.role;
-  if (role !== "AUTHOR" && role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) return [];
+  if (role !== "AUTHOR" && !(await hasAffiliateCapability(session.user.id))) return [];
 
   const payouts = await prisma.payoutRequest.findMany({
     where: { userId: session.user.id },

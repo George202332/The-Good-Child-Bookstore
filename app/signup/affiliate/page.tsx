@@ -1,63 +1,9 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
-import { PasswordField } from "@/components/PasswordField";
-import { registerUser } from "@/actions/auth";
-
-/** Converted from signupAffiliateHTML()/handleAffiliateSignup() (the-good-child-bookstore_54_1.html:6420-6451). */
-export default function SignupAffiliatePage() {
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (password !== confirm) {
-      setError("Those passwords do not match.");
-      return;
-    }
-    setSubmitting(true);
-    setError(null);
-    const result = await registerUser({ role: "AFFILIATE", name, email, password });
-    if (!result.ok) {
-      setSubmitting(false);
-      setError(result.error ?? "Something went wrong. Please try again.");
-      return;
-    }
-    await signIn("credentials", { email, password, redirect: false });
-    router.push("/account");
-  }
-
-  return (
-    <section className="auth-section">
-      <div className="auth-card" style={{ maxWidth: 480 }}>
-        <h1>Create an affiliate account</h1>
-        <p>Promote any book on the shelf, refer new authors, and track your commission from your affiliate dashboard.</p>
-        <form onSubmit={handleSubmit}>
-          <label className="field-label" htmlFor="af-name">Full name</label>
-          <input className="field" id="af-name" type="text" placeholder="Your name" required value={name} onChange={(e) => setName(e.target.value)} />
-          <label className="field-label" htmlFor="af-email">Email</label>
-          <input className="field" id="af-email" type="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          <label className="field-label" htmlFor="af-password">Password</label>
-          <PasswordField id="af-password" placeholder="At least 6 characters" minLength={6} required value={password} onChange={setPassword} />
-          <label className="field-label" htmlFor="af-confirm">Confirm password</label>
-          <PasswordField id="af-confirm" placeholder="Type it again" minLength={6} required value={confirm} onChange={setConfirm} />
-          {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
-          <button className="btn btn-primary" type="submit" disabled={submitting}>
-            {submitting ? "Creating…" : "Create affiliate account"}
-          </button>
-        </form>
-        <div className="auth-switch">Writing books instead? <Link href="/signup/author">Sign up as an author</Link></div>
-        <div className="auth-switch">Here to shop instead? <Link href="/signup/reader">Sign up as a reader</Link></div>
-        <div className="auth-switch">Already have an account? <Link href="/login">Sign in</Link></div>
-      </div>
-    </section>
-  );
+/** Affiliate is no longer a separate account type — every Author
+ * account already has full affiliate capability built in. This route
+ * just forwards to the Author signup so any existing links/bookmarks
+ * still work. */
+export default function SignupAffiliateRedirectPage() {
+  redirect("/signup/author");
 }

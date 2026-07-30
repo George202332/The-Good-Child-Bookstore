@@ -14,7 +14,7 @@ export default async function MarketingResourcesPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const role = session.user.role;
-  if (role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) redirect("/account");
+  if (!(await hasAffiliateCapability(session.user.id))) redirect("/account");
 
   const realBooks = await getRealPublishedBooks();
   const books = [...realBooks, ...BOOKS].slice(0, 20);

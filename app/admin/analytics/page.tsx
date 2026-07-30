@@ -43,7 +43,7 @@ export default async function AnalyticsPage() {
           <div className="stat-card">
             <div className="stat-label">Company revenue</div>
             <div className="stat-value">${data.totalCompanyRevenue.toFixed(2)}</div>
-            <div className="stat-sub">25% share, all time</div>
+            <div className="stat-sub">30% share, all time</div>
           </div>
         )}
         {data.totalAuthorRevenue !== null && (

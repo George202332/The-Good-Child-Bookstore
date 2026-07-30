@@ -25,7 +25,7 @@ export default async function PayoutSettingsPage() {
   if (!session?.user) redirect("/login");
   const role = session.user.role;
   const isAffiliateToo = await hasAffiliateCapability(session.user.id);
-  if (role !== "AUTHOR" && role !== "AFFILIATE" && !isAffiliateToo) redirect("/account");
+  if (role !== "AUTHOR" && !isAffiliateToo) redirect("/account");
 
   const [monthlyRows, statCards] = await Promise.all([
     computeMonthlyPayoutRows(session.user.id),

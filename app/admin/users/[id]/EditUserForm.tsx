@@ -72,7 +72,7 @@ export function EditUserForm({ user, isSelf }: { user: UserDetail; isSelf: boole
           </>
         )}
 
-        {user.role === "AFFILIATE" && user.affiliateReferralCode && (
+        {user.role === "AUTHOR" && user.affiliateReferralCode && (
           <div className="field-hint" style={{ marginBottom: 12 }}>Referral code: <strong>{user.affiliateReferralCode}</strong></div>
         )}
 

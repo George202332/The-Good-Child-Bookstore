@@ -3,7 +3,6 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
-import { getMyWallet } from "@/actions/wallet";
 import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { getMyLinkPerformance } from "@/actions/affiliate-performance";
@@ -292,58 +291,6 @@ export default async function AccountPage() {
               </div>
             )}
           </div>
-        </div>
-      </DashboardShell>
-    );
-  }
-
-  if (role === "AFFILIATE") {
-    const wallet = await getMyWallet();
-    return (
-      <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
-        <div className="section-head" style={{ marginBottom: 16 }}>
-          <div>
-            <h2 style={{ fontSize: 20 }}>Dashboard</h2>
-            <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-              Welcome back, {displayName.split(" ")[0]}.
-            </p>
-          </div>
-        </div>
-        <div className="stat-grid" style={{ marginBottom: 34 }}>
-          <div className="stat-card">
-            <div className="stat-label">Total earned</div>
-            <div className="stat-value">${wallet.totalEarned.toFixed(2)}</div>
-            <div className="stat-sub">All time</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">On Hold</div>
-            <div className="stat-value">${wallet.onHold.toFixed(2)}</div>
-            <div className="stat-sub">
-              {wallet.nextReleaseDate
-                ? `Releases ${new Date(wallet.nextReleaseDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`
-                : "Nothing on hold"}
-            </div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Available</div>
-            <div className="stat-value">${wallet.available.toFixed(2)}</div>
-            <div className="stat-sub">Ready to request</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-label">Sales</div>
-            <div className="stat-value">{wallet.saleCount}</div>
-            <div className="stat-sub">Through your links</div>
-          </div>
-        </div>
-        <div className="account-links">
-          <Link href="/account/referrals" className="account-link-card">
-            <h4>Referral Links</h4>
-            <p>Generate a promotional link and track clicks/sales.</p>
-          </Link>
-          <Link href="/account/earnings" className="account-link-card">
-            <h4>Earnings</h4>
-            <p>See your balance and request a payout.</p>
-          </Link>
         </div>
       </DashboardShell>
     );

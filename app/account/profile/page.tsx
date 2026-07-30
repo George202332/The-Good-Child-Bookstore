@@ -11,12 +11,12 @@ export default async function ProfilePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const role = session.user.role;
-  if (role !== "READER" && role !== "AUTHOR" && role !== "AFFILIATE") redirect("/admin");
+  if (role !== "READER" && role !== "AUTHOR") redirect("/admin");
 
   const profile = await getMyProfile();
   if (!profile) redirect("/login");
 
-  const isPayoutEligible = role === "AUTHOR" || role === "AFFILIATE" || (await hasAffiliateCapability(session.user.id));
+  const isPayoutEligible = role === "AUTHOR" || (await hasAffiliateCapability(session.user.id));
   const recipients = isPayoutEligible ? await listMyWiseRecipients() : [];
 
   return (

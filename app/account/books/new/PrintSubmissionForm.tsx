@@ -484,7 +484,7 @@ export function PrintSubmissionForm() {
         {paperbackEnabled && (
           <div className="stat-grid" style={{ marginTop: 12, marginBottom: 0 }}>
             <div><div className="stat-label">Paperback printing cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Via Lulu print partner</div></div>
-            <div><div className="stat-label">Company revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">25% of retail price</div></div>
+            <div><div className="stat-label">Company revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of retail price</div></div>
             <div><div className="stat-label">Author profit</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.authorProfit.toFixed(2)}</div><div className="stat-sub">After printing cost</div></div>
             <div><div className="stat-label">Estimated royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold</div></div>
           </div>
@@ -492,7 +492,7 @@ export function PrintSubmissionForm() {
         {hardcoverEnabled && (
           <div className="stat-grid" style={{ marginTop: paperbackEnabled ? 20 : 12, marginBottom: 0 }}>
             <div><div className="stat-label">Hardcover printing cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Via Lulu print partner</div></div>
-            <div><div className="stat-label">Company revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">25% of retail price</div></div>
+            <div><div className="stat-label">Company revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of retail price</div></div>
             <div><div className="stat-label">Author profit</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.authorProfit.toFixed(2)}</div><div className="stat-sub">After printing cost</div></div>
             <div><div className="stat-label">Estimated royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold</div></div>
           </div>

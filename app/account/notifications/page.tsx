@@ -8,7 +8,7 @@ export default async function NotificationsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const role = session.user.role;
-  if (role !== "READER" && role !== "AUTHOR" && role !== "AFFILIATE") redirect("/admin");
+  if (role !== "READER" && role !== "AUTHOR") redirect("/admin");
 
   const notifications = await listMyNotifications();
 

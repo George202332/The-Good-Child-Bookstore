@@ -22,7 +22,7 @@ export default async function EarningsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const role = session.user.role;
-  if (role !== "AFFILIATE" && !(await hasAffiliateCapability(session.user.id))) redirect("/account");
+  if (!(await hasAffiliateCapability(session.user.id))) redirect("/account");
 
   const [wallet, payouts, recipients] = await Promise.all([getMyWallet("affiliate"), getMyPayoutRequests(), listMyWiseRecipients()]);
 

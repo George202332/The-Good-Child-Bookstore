@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateMyProfile, type MyProfile } from "@/actions/profile";
 
 const AGE_RANGES = ["0-2", "3-5", "6-8", "9-12", "12-15"];
-const ROLE_LABEL: Record<string, string> = { READER: "Reader", AUTHOR: "Author", AFFILIATE: "Affiliate" };
+const ROLE_LABEL: Record<string, string> = { READER: "Reader", AUTHOR: "Author" };
 
 export function ProfileForm({ initial }: { initial: MyProfile }) {
   const router = useRouter();
@@ -123,7 +123,7 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
           </div>
         )}
 
-        {initial.role === "AFFILIATE" && initial.referralCode && (
+        {initial.role === "AUTHOR" && initial.referralCode && (
           <div className="map-card" style={{ padding: 24 }}>
             <h3 style={{ fontSize: 15, marginBottom: 16 }}>Affiliate details</h3>
             <div className="field-hint">Your referral code: <strong>{initial.referralCode}</strong></div>

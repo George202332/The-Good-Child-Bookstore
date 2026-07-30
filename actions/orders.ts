@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { calculateSplits, applyAuthorReferralCarveOut } from "@/lib/revenue";
-import { getCommissionRates } from "@/lib/commission-settings";
+import { getCommissionRates, tierForReferralCount } from "@/lib/commission-settings";
 import { generateAccountNumber } from "@/lib/account-number";
 import { getRequestGeo } from "@/lib/geo";
 
@@ -158,6 +158,21 @@ export async function createPendingOrder(input: {
   const commissionRates = await getCommissionRates();
   const geo = await getRequestGeo();
 
+  // Referral commission is tiered (Hawk/Falcon/Eagle/Phoenix — see
+  // lib/commission-settings.ts): each referring affiliate's rate
+  // depends on how many authors THEY'VE referred, not a single flat
+  // rate for everyone. Since Prisma's nested `create` array must be
+  // built synchronously, every unique referring affiliate's current
+  // count (and therefore rate) is looked up once, up front.
+  const referringAffiliateIds = Array.from(
+    new Set(lines.map((l) => l.book.author.referredById).filter((id): id is string => !!id))
+  );
+  const referralPctByAffiliateId = new Map<string, number>();
+  for (const affiliateId of referringAffiliateIds) {
+    const count = await prisma.authorProfile.count({ where: { referredById: affiliateId } });
+    referralPctByAffiliateId.set(affiliateId, tierForReferralCount(count, commissionRates.tiers).pct);
+  }
+
   const order = await prisma.order.create({
     data: {
       readerId: readerProfileId,
@@ -171,7 +186,7 @@ export async function createPendingOrder(input: {
           const isAffiliateSale = affiliateBookId !== null && affiliateBookId === l.bookId;
           let split = calculateSplits(lineGross, isAffiliateSale, commissionRates.promotionPct);
           const referredById = l.book.author.referredById;
-          if (referredById) split = applyAuthorReferralCarveOut(split, commissionRates.referralPct);
+          if (referredById) split = applyAuthorReferralCarveOut(split, referralPctByAffiliateId.get(referredById) ?? 0);
           return {
             bookId: l.bookId,
             format: l.format,
