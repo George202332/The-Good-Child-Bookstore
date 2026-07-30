@@ -58,7 +58,7 @@ export const NAV_ICONS: Record<string, ReactElement> = {
   referrals: (
     <svg {...ICON_PROPS}><path d="M9 15l6-6" /><path d="M10 6.5h-.5A4.5 4.5 0 0 0 5 11v.5" /><path d="M14 17.5h.5A4.5 4.5 0 0 0 19 13v-.5" /><path d="M6 3.5l-1.5 2L7 7" /><path d="M18 20.5l1.5-2-2.5-1.5" /></svg>
   ),
-  tier: (
+  class: (
     <svg {...ICON_PROPS}><path d="M8 3h8l-1 6-3 3-3-3-1-6Z" /><path d="M9 12v3l-3 5h12l-3-5v-3" /></svg>
   ),
   "active-campaigns": (

@@ -142,7 +142,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     [
       ["Direct sales: organic", "Reader found your book directly", money(data.organicRevenue)],
       ["Direct sales: affiliate", "Readers arrived via an affiliate link", money(data.affiliateChannelRevenue)],
-      ["Referral commissions", "5% of company revenue from authors you referred", money(data.referralCommission)],
+      ["Referral commissions", "Your tiered commission on the company's revenue from authors you referred", money(data.referralCommission)],
       ["Promotion commissions", "10% on copies sold via your promotional links", money(data.promotionCommission)],
     ],
     [{ label: "TOTAL PAYOUT", sub: `Payable on ${data.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, value: money(data.totalPayout) }]
@@ -173,7 +173,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
   if (data.referralRows.length > 0) {
     ensureSpace(60);
     text("Referral commissions", margin, y, { font: bold, size: 13 });
-    text(`5% of company revenue from authors you referred (${data.monthLabel})`, margin, y - 15, { size: 8, color: INK_SOFT });
+    text(`Your tiered commission on the company's revenue from authors you referred (${data.monthLabel})`, margin, y - 15, { size: 8, color: INK_SOFT });
     y -= 32;
     drawTable(
       [

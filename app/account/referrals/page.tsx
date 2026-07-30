@@ -53,7 +53,7 @@ export default async function ReferralsPage() {
         <div className="stat-card stat-card-referral">
           <div className="stat-label">Lifetime Referral Commission</div>
           <div className="stat-value">${summary.referralEarnings.toFixed(2)}</div>
-          <div className="stat-sub">{referralPctLabel}, for life</div>
+          <div className="stat-sub">{referralPctLabel} of company revenue</div>
         </div>
         <div className="stat-card stat-card-promotion">
           <div className="stat-label">Authors Referred</div>
@@ -77,8 +77,8 @@ export default async function ReferralsPage() {
           <h3 style={{ fontSize: 15, marginBottom: 6 }}>Refer an author</h3>
           <p style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 10 }}>
             Share this link with any author: if they sign up through it, you earn {referralPctLabel} of the
-            company&apos;s revenue from their book sales, for as long as they publish with us — your current tier
-            is <strong>{currentTier.name}</strong>. <Link href="/account/referrals/tier" style={{ color: "var(--coral-deep)", fontWeight: 700 }}>See all tiers →</Link>
+            company&apos;s revenue from their book sales, for as long as they publish with us — your current class
+            is <strong>{currentTier.name}</strong>. <Link href="/account/referrals/class" style={{ color: "var(--coral-deep)", fontWeight: 700 }}>See all classes →</Link>
           </p>
           <code style={{ fontSize: 12.5 }}>{siteUrl}/signup/author?ref={profile.referralCode}</code>
         </div>

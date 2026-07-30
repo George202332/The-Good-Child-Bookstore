@@ -1506,6 +1506,10 @@
   /* ---------- Dashboard color-coded stat cards ---------- */
   .stat-card-referral{background:linear-gradient(135deg, #EEF4FE, #C9DBF8);border:1px solid #C3D6F5;}
   .stat-card-referral .stat-label{color:#2451B7;}
+  .class-card-blue{background:linear-gradient(135deg, #EEF4FE, #C9DBF8);border:1px solid #C3D6F5;}
+  .class-card-purple{background:linear-gradient(135deg, #F1ECFB, #D9C4F2);border:1px solid #D0BCE8;}
+  .class-card-grey{background:linear-gradient(135deg, #F4F4F4, #DCDCDC);border:1px solid #D2D2D2;}
+  .class-card-maroon{background:linear-gradient(135deg, #FBEAEA, #E6B7BA);border:1px solid #E0A5A9;}
   .stat-card-promotion{background:linear-gradient(135deg, #FDF1E6, #F5D3B8);border:1px solid #F3CBA8;}
   .stat-card-promotion .stat-label{color:#B7472A;}
   .stat-card-total{background:linear-gradient(135deg, #FFFFFF, #F1EBE0);border:1px solid var(--line);}
@@ -1514,7 +1518,11 @@
   html.dark-mode .stat-card-referral,
   html.dark-mode .stat-card-promotion,
   html.dark-mode .stat-card-total,
-  html.dark-mode .stat-card-due{
+  html.dark-mode .stat-card-due,
+  html.dark-mode .class-card-blue,
+  html.dark-mode .class-card-purple,
+  html.dark-mode .class-card-grey,
+  html.dark-mode .class-card-maroon{
     background:var(--paper);border-color:var(--line);
   }
   html.dark-mode .stat-card-referral .stat-label,
