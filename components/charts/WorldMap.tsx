@@ -25,7 +25,7 @@ const world = worldMapData as unknown as WorldMapData;
  */
 export function WorldMap({ highlightedCountryCodes }: { highlightedCountryCodes: Set<string> }) {
   return (
-    <svg viewBox={world.viewBox} style={{ width: "100%", height: "auto" }}>
+    <svg viewBox={world.viewBox} preserveAspectRatio="xMidYMid meet" style={{ width: "100%", height: "100%" }}>
       {world.locations.map((loc) => (
         <path
           key={loc.id}

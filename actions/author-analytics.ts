@@ -16,10 +16,16 @@ export interface AuthorAnalyticsSummary {
   totalDownloads: number;
   countriesReached: number;
   activeTitles: number;
+  /** Book sales (organic or affiliate) so far in the current calendar
+   * month — replaces the old "Active Titles" stat card slot. */
+  monthSalesCount: number;
   monthlySales: { month: string; units: number }[];
   formatBreakdown: { format: string; count: number }[];
   saleTypeBreakdown: { type: string; count: number }[];
   topCountries: { country: string; count: number }[];
+  /** Same top countries, with each one's share of total sales as a
+   * percentage — for the new regions pie chart. */
+  topCountriesWithPct: { country: string; count: number; pct: number }[];
   topBooks: { title: string; unitsSold: number }[];
   /** Real 2-letter ISO country codes with at least one geotagged
    * purchase (see lib/geo.ts) — used for the world map specifically,
@@ -29,8 +35,9 @@ export interface AuthorAnalyticsSummary {
 }
 
 const EMPTY: AuthorAnalyticsSummary = {
-  totalSales: 0, totalDownloads: 0, countriesReached: 0, activeTitles: 0,
-  monthlySales: [], formatBreakdown: [], saleTypeBreakdown: [], topCountries: [], topBooks: [], geoCountryCodes: [],
+  totalSales: 0, totalDownloads: 0, countriesReached: 0, activeTitles: 0, monthSalesCount: 0,
+  monthlySales: [], formatBreakdown: [], saleTypeBreakdown: [], topCountries: [], topCountriesWithPct: [],
+  topBooks: [], geoCountryCodes: [],
 };
 
 const FORMAT_LABELS: Record<string, string> = { EBOOK: "eBook", PAPERBACK: "Paperback", HARDCOVER: "Hardcover", AUDIOBOOK: "Audiobook" };
@@ -79,11 +86,16 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
     const countryMap = new Map<string, number>();
     const geoCountryCodeSet = new Set<string>();
     const bookMap = new Map<string, number>();
+    const now = new Date();
+    let monthSalesCount = 0;
 
     for (const l of lines) {
       if (l.createdAt.getFullYear() === currentYear) {
         const monthKey = l.createdAt.toLocaleDateString("en-US", { month: "short" });
         monthlyMap.set(monthKey, (monthlyMap.get(monthKey) ?? 0) + 1);
+      }
+      if (l.createdAt.getFullYear() === now.getFullYear() && l.createdAt.getMonth() === now.getMonth()) {
+        monthSalesCount += 1;
       }
 
       const formatLabel = FORMAT_LABELS[l.format ?? ""] ?? "Unspecified";
@@ -100,15 +112,22 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
       bookMap.set(l.title, (bookMap.get(l.title) ?? 0) + 1);
     }
 
+    const topCountriesEntries = Array.from(countryMap.entries()).sort((a, b) => b[1] - a[1]);
+    const totalCountrySales = topCountriesEntries.reduce((s, [, c]) => s + c, 0);
+
     return {
       totalSales: lines.length,
       totalDownloads: lines.length,
       countriesReached: countryMap.size,
       activeTitles: books.filter((b) => b.status === "PUBLISHED").length,
+      monthSalesCount,
       monthlySales: Array.from(monthlyMap.entries()).map(([month, units]) => ({ month, units })),
       formatBreakdown: Array.from(formatMap.entries()).map(([format, count]) => ({ format, count })),
       saleTypeBreakdown: Array.from(saleTypeMap.entries()).map(([type, count]) => ({ type, count })),
-      topCountries: Array.from(countryMap.entries()).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count).slice(0, 8),
+      topCountries: topCountriesEntries.map(([country, count]) => ({ country, count })).slice(0, 8),
+      topCountriesWithPct: topCountriesEntries.slice(0, 5).map(([country, count]) => ({
+        country, count, pct: totalCountrySales > 0 ? +((count / totalCountrySales) * 100).toFixed(1) : 0,
+      })),
       geoCountryCodes: Array.from(geoCountryCodeSet),
       topBooks: Array.from(bookMap.entries()).map(([title, unitsSold]) => ({ title, unitsSold })).sort((a, b) => b.unitsSold - a.unitsSold).slice(0, 10),
     };

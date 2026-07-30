@@ -214,3 +214,97 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   revalidatePath("/account/books");
   return { ok: true, bookId: book.id };
 }
+
+export interface UpdateBookInput {
+  bookId: string;
+  title: string;
+  subtitle?: string;
+  description: string;
+  price: number;
+  ageGroup: string;
+  category: string;
+  genre: string;
+  language: string;
+  coverImageUrl?: string;
+  formats: { ebook: boolean; print: boolean; audiobook: boolean };
+}
+
+/**
+ * Edits an existing book's core details and resubmits it for review —
+ * per explicit instruction, any edit sends the book back through
+ * moderation rather than silently updating a live listing. Scoped to
+ * the book's core fields (title, description, pricing, category,
+ * formats) rather than reproducing every field of the original
+ * multi-format submission wizard (ISBN, manuscript re-upload, POD
+ * specs) — those stay as originally submitted.
+ */
+export async function updateBook(input: UpdateBookInput): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "AUTHOR") return { ok: false, error: "Only author accounts can edit books." };
+  if (!input.title.trim()) return { ok: false, error: "Title is required." };
+  if (!input.description.trim()) return { ok: false, error: "Short description is required." };
+  if (input.price <= 0) return { ok: false, error: "Price must be greater than $0." };
+  if (!input.formats.ebook && !input.formats.print && !input.formats.audiobook) {
+    return { ok: false, error: "Select at least one format (eBook, print, or audiobook)." };
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
+  if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
+
+  const book = await prisma.book.findUnique({ where: { id: input.bookId } });
+  if (!book || book.authorId !== user.authorProfile.id) return { ok: false, error: "Book not found." };
+
+  const [category, genre] = await Promise.all([
+    prisma.category.upsert({ where: { name: input.category }, update: {}, create: { name: input.category } }),
+    prisma.genre.upsert({ where: { name: input.genre }, update: {}, create: { name: input.genre } }),
+  ]);
+
+  await prisma.$transaction([
+    prisma.categoryOnBook.deleteMany({ where: { bookId: input.bookId } }),
+    prisma.genreOnBook.deleteMany({ where: { bookId: input.bookId } }),
+    prisma.book.update({
+      where: { id: input.bookId },
+      data: {
+        title: input.title.trim(),
+        subtitle: input.subtitle?.trim() || null,
+        description: input.description.trim(),
+        price: input.price,
+        ageGroup: input.ageGroup,
+        language: input.language || "en",
+        coverImageUrl: input.coverImageUrl?.trim() || null,
+        hasEbook: input.formats.ebook,
+        hasPrint: input.formats.print,
+        hasAudiobook: input.formats.audiobook,
+        status: "PENDING_REVIEW",
+        categories: { create: [{ categoryId: category.id }] },
+        genres: { create: [{ genreId: genre.id }] },
+      },
+    }),
+  ]);
+
+  revalidatePath("/account/books");
+  revalidatePath(`/account/books/${input.bookId}/edit`);
+  return { ok: true };
+}
+
+/** Removes a book from the store shelf (or restores it) without
+ * deleting anything — sets status to ARCHIVED, which every public
+ * listing already filters out. */
+export async function setBookSuspended(bookId: string, suspended: boolean): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "AUTHOR") return { ok: false, error: "Only author accounts can do this." };
+
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
+  if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
+
+  const book = await prisma.book.findUnique({ where: { id: bookId } });
+  if (!book || book.authorId !== user.authorProfile.id) return { ok: false, error: "Book not found." };
+
+  await prisma.book.update({
+    where: { id: bookId },
+    data: { status: suspended ? "ARCHIVED" : "PENDING_REVIEW" },
+  });
+
+  revalidatePath("/account/books");
+  return { ok: true };
+}

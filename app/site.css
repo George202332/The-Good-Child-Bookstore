@@ -1580,6 +1580,10 @@
   .status-published{background:var(--mint);color:#1F6B48;}
   .status-review{background:#FBE6B8;color:#8A5A0B;}
   .status-draft{background:var(--line);color:var(--ink-soft);}
+  .status-attention{background:#FBDEDE;color:#8A2432;}
+  .status-on-review{background:#DCE8FB;color:#2451B7;}
+  .status-draft-purple{background:#EAE0F5;color:#6B3FA0;}
+  .status-suspended{background:var(--line);color:var(--ink-faint);}
   .status-paid{background:var(--mint);color:#1F6B48;}
   .status-pending{background:#FBE6B8;color:#8A5A0B;}
 

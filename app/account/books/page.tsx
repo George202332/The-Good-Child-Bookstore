@@ -3,6 +3,8 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
+import { ColHelp } from "@/components/ColHelp";
+import { SuspendButton } from "./SuspendButton";
 
 interface SaleLineShare {
   authorShare: unknown;
@@ -11,20 +13,27 @@ interface AuthorBook {
   id: string;
   title: string;
   status: string;
-  price: unknown;
-  hasEbook: boolean;
-  hasPrint: boolean;
-  hasAudiobook: boolean;
   saleLines: SaleLineShare[];
+  categories: { category: { name: string } }[];
 }
 
+const STATUS_PILL: Record<string, { label: string; className: string }> = {
+  REJECTED: { label: "Attention", className: "status-attention" },
+  PUBLISHED: { label: "Published", className: "status-published" },
+  PENDING_REVIEW: { label: "On Review", className: "status-on-review" },
+  DRAFT: { label: "Draft", className: "status-draft-purple" },
+  ARCHIVED: { label: "Suspended", className: "status-suspended" },
+};
+
+const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
+const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid var(--line)" };
+
 /**
- * "My Books" — real data (title, status, formats, sales, earnings per
- * book) from the author's actual Book + SaleLine rows. Submitting a new
- * title (real Book row, real ISBN, real Draft → Pending Review workflow)
- * now works at /account/books/new — see actions/submissions.ts for the
- * one scope limit (cover image is a URL, not a file upload, since real
- * file storage isn't wired up yet).
+ * "My Books" — a real table: status (color-coded tab matching where the
+ * book actually is in the review pipeline), category, units sold across
+ * every format, total royalties, and two actions: Edit (which resubmits
+ * the book for review once saved) and Suspend (pulls it off the store
+ * shelf without deleting anything).
  */
 export default async function MyBooksPage() {
   const session = await auth();
@@ -33,7 +42,7 @@ export default async function MyBooksPage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    include: { authorProfile: { include: { books: { include: { saleLines: true } } } } },
+    include: { authorProfile: { include: { books: { include: { saleLines: true, categories: { include: { category: true } } } } } } },
   });
   const books = (user?.authorProfile?.books ?? []) as AuthorBook[];
 
@@ -51,23 +60,38 @@ export default async function MyBooksPage() {
           You haven&apos;t published any books yet — submit your first title above.
         </div>
       ) : (
-        <div className="map-card" style={{ padding: "6px 16px" }}>
-          {books.map((b) => {
-            const sales = b.saleLines.length;
-            const earnings = b.saleLines.reduce((sum, l) => sum + Number(l.authorShare), 0);
-            const formats = [b.hasEbook && "eBook", b.hasPrint && "Print", b.hasAudiobook && "Audiobook"].filter(Boolean).join(" · ");
-            return (
-              <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>{b.title}</div>
-                  <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                    {b.status} · {sales} sold · ${earnings.toFixed(2)} earned{formats ? ` · ${formats}` : ""}
-                  </div>
-                </div>
-                <Link href={`/book/${b.id}`} className="btn btn-ghost btn-small">View</Link>
-              </div>
-            );
-          })}
+        <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title." /></th>
+                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Attention: sent back for revision. Published: live in the store. On Review: awaiting moderation. Draft: not yet submitted. Suspended: pulled off the shelf by you." /></th>
+                <th style={TABLE_HEAD_STYLE}>Category<ColHelp text="The book's primary category." /></th>
+                <th style={TABLE_HEAD_STYLE}>Units Sold<ColHelp text="Total copies sold across every format (eBook, print, audiobook) combined." /></th>
+                <th style={TABLE_HEAD_STYLE}>Royalties<ColHelp text="Your total lifetime earnings from this book's sales." /></th>
+                <th style={TABLE_HEAD_STYLE}>Edit<ColHelp text="Opens the submission form to update this book's details. Saving resubmits it for review." /></th>
+                <th style={TABLE_HEAD_STYLE}>Suspend<ColHelp text="Removes this book from the store shelf without deleting it. You can restore it any time." /></th>
+              </tr>
+            </thead>
+            <tbody>
+              {books.map((b) => {
+                const units = b.saleLines.length;
+                const royalties = b.saleLines.reduce((sum, l) => sum + Number(l.authorShare), 0);
+                const pill = STATUS_PILL[b.status] ?? { label: b.status, className: "status-draft" };
+                return (
+                  <tr key={b.id}>
+                    <td style={TABLE_CELL_STYLE}><strong>{b.title}</strong></td>
+                    <td style={TABLE_CELL_STYLE}><span className={`status-pill ${pill.className}`}>{pill.label}</span></td>
+                    <td style={TABLE_CELL_STYLE}>{b.categories[0]?.category.name ?? "—"}</td>
+                    <td style={TABLE_CELL_STYLE}>{units}</td>
+                    <td style={TABLE_CELL_STYLE}>${royalties.toFixed(2)}</td>
+                    <td style={TABLE_CELL_STYLE}><Link href={`/account/books/${b.id}/edit`} className="btn btn-ghost btn-small">Edit</Link></td>
+                    <td style={TABLE_CELL_STYLE}><SuspendButton bookId={b.id} suspended={b.status === "ARCHIVED"} /></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </DashboardShell>
