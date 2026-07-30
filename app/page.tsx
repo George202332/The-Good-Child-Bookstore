@@ -139,8 +139,8 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="age-grid">
-            {AGE_EXPLORER.map((a) => (
-              <Link key={a.range} href={`/shop?age=${a.range}`} className="age-card">
+            {AGE_EXPLORER.map((a, i) => (
+              <Link key={a.range} href={`/shop?age=${a.range}`} className={`age-card ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
                 <div className="age-range">{a.range}</div>
                 <div className="age-label">{a.label}</div>
                 <div className="age-count">{a.count} books</div>

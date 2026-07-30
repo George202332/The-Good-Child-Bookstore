@@ -153,24 +153,24 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <div style={{ width: "100%", height: "100%", background: "var(--lavender)" }} />
         )}
         <div className="blog-detail-cover-scrim" />
-        {post.categories[0] && <span className="blog-detail-cover-badge">{post.categories[0]}</span>}
+        <div className="wrap blog-detail-cover-overlay">
+          <Link href="/blog" className="see-all" style={{ marginBottom: 18, display: "inline-block", color: "rgba(255,255,255,0.85)" }}>← Back to the journal</Link>
+          {post.categories[0] && <div><span className="blog-detail-cover-badge">{post.categories[0]}</span></div>}
+          <h1>{post.title}</h1>
+          {post.subtitle && <p className="subtitle">{post.subtitle}</p>}
+          <div className="blog-author-row">
+            <div className="blog-sidebar-author-avatar">{authorInitial}</div>
+            <div>
+              <div className="blog-author-name">{byline}</div>
+              <div className="blog-author-sub">{dateLabel} · {readTime} min read</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="wrap" style={{ padding: "30px 0 0" }}>
-        <Link href="/blog" className="see-all" style={{ marginBottom: 18, display: "inline-block" }}>← Back to the journal</Link>
-        <h1 style={{ fontSize: 38, lineHeight: 1.15, margin: "0 0 10px", maxWidth: 820 }}>{post.title}</h1>
-        {post.subtitle && <p style={{ fontSize: 17, color: "var(--ink-soft)", marginBottom: 6, maxWidth: 720 }}>{post.subtitle}</p>}
-
+      <div className="wrap" style={{ padding: "40px 0 0" }}>
         <div className="blog-detail-layout">
           <div className="blog-detail-main">
-            <div className="blog-author-row">
-              <div className="blog-sidebar-author-avatar">{authorInitial}</div>
-              <div>
-                <div className="blog-author-name">{byline}</div>
-                <div className="blog-author-sub">{dateLabel} · {readTime} min read</div>
-              </div>
-            </div>
-
             <article className="blog-article-body blog-article-dropcap">
               {post.content.split(/\n\s*\n/).filter((p) => p.trim()).map((para, i) => (
                 <p key={i} style={{ whiteSpace: "pre-wrap" }}>{para.trim()}</p>
