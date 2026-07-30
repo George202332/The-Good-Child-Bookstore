@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { HeroShelf } from "@/components/HeroShelf";
+import { HeroBannerCarousel } from "@/components/HeroBannerCarousel";
 import { Motif } from "@/components/Motif";
 import type { MotifKind } from "@/lib/data/catalog";
 import { prisma } from "@/lib/prisma";
@@ -89,52 +89,13 @@ export default async function HomePage() {
 
   return (
     <main>
-      <section className="hero hero-plain">
-        <div className="wrap hero-inner">
-          <div className="hero-plain-inner">
-            <span className="eyebrow">{hero.eyebrow}</span>
-            <h1>
-              {hero.heading === DEFAULT_PAGES_CONTENT.home.heading ? (
-                <>Where young minds <span className="accent">fall in love</span> with reading.</>
-              ) : (
-                hero.heading
-              )}
-            </h1>
-            <p className="lede">{hero.lede}</p>
-            <div className="hero-ctas">
-              <Link href="/shop" className="btn btn-primary btn-small">Browse the bookshelf</Link>
-              <Link href="/signup/author" className="btn btn-ghost btn-small">Become an author</Link>
-              <Link href="/signup/affiliate" className="btn btn-ghost btn-small">Become an affiliate</Link>
-            </div>
-            <div className="trust-strip" style={{ justifyContent: "flex-start", paddingTop: 26 }}>
-              <span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4Z" />
-                </svg>
-                Secure checkout
-              </span>
-              <span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-                </svg>
-                Instant downloads
-              </span>
-              <span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M12 14l9-5-9-5-9 5 9 5Z" />
-                  <path d="M3 9v6l9 5 9-5V9" />
-                </svg>
-                Educator-reviewed picks
-              </span>
-            </div>
-          </div>
-          <div className="hero-shelf" id="hero-shelf">
-            <HeroShelf />
-          </div>
+      <section style={{ paddingBottom: "0.5in" }}>
+        <div className="wrap">
+          <HeroBannerCarousel eyebrow={hero.eyebrow} heading={hero.heading === DEFAULT_PAGES_CONTENT.home.heading ? "Where young minds fall in love with reading." : hero.heading} lede={hero.lede} />
         </div>
       </section>
 
-      <FadeInSection style={{ paddingTop: 48 }}>
+      <FadeInSection style={{ paddingTop: 0 }}>
         <div className="wrap">
           <div className="home-search-section">
             <div className="section-head" style={{ marginBottom: 18, justifyContent: "center", textAlign: "center" }}>

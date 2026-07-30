@@ -74,8 +74,6 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
     : ((["ebook", "audiobook", "paperback", "print"] as FormatKey[]).find((f) => isFormatAvailable[f]) ?? format);
 
   const initials = b.author.split(" ").map((w) => w[0]).join("").slice(0, 2);
-  const listPrice = +(b.formats.ebook * 1.7).toFixed(2);
-  const discountPct = Math.round((1 - b.formats.ebook / listPrice) * 100);
   const fmtLabel = FORMAT_LABELS[effectiveFormat];
   const stats = isRealBook
     ? { counts: [0, 0, 0, 0, 0], total: b.reviews, avg: b.rating, pct: [0, 0, 0, 0, 0] }
@@ -129,7 +127,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
                 <img
                   src={b.coverImage}
                   alt={`${b.title} cover`}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", display: "block" }}
                 />
               )}
             </div>
@@ -270,23 +268,6 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
               </button>
             )}
           </div>
-
-          {effectiveFormat === "ebook" ? (
-            <>
-              <div className="buybox-price-row">
-                <span className="buybox-discount">-{discountPct}%</span>
-                <span className="buybox-price">${b.formats.ebook.toFixed(2)}</span>
-              </div>
-              <div className="buybox-listprice">List price: <s>${listPrice.toFixed(2)}</s></div>
-            </>
-          ) : (
-            <>
-              <div className="buybox-price-row">
-                <span className="buybox-price">${b.formats[effectiveFormat].toFixed(2)}</span>
-              </div>
-              <div className="buybox-listprice">{fmtLabel} edition</div>
-            </>
-          )}
 
           <button className="btn btn-primary btn-block" onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to cart</button>
           {effectiveFormat === "print" || effectiveFormat === "paperback" ? (

@@ -34,7 +34,7 @@ export default async function MarketingResourcesPage() {
           <div key={b.id} className="map-card resource-card" style={{ padding: 14 }}>
             {b.coverImage ? (
               // eslint-disable-next-line @next/next/no-img-element -- real uploaded cover, not a static asset
-              <img src={b.coverImage} alt={b.title} style={{ width: "100%", borderRadius: 8, marginBottom: 8, aspectRatio: "2/3", objectFit: "cover" }} />
+              <img src={b.coverImage} alt={b.title} style={{ width: "100%", borderRadius: 8, marginBottom: 8, aspectRatio: "2/3", objectFit: "contain", background: "transparent" }} />
             ) : (
               <div style={{ width: "100%", aspectRatio: "2/3", background: b.palette[0], borderRadius: 8, marginBottom: 8 }} />
             )}
