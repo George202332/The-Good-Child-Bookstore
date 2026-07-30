@@ -80,7 +80,7 @@
   .logo-mark{
     width:38px;height:38px;flex-shrink:0;
   }
-  .logo-uploaded{height:100%;background:transparent;display:flex;align-items:center;}
+  .logo-uploaded{background:transparent;display:flex;align-items:center;}
   .logo-mark-uploaded{
     /* Matches the exact footprint the original "The Good Child Bookstore"
        text + icon logo occupied in the header before any of this — measured
@@ -124,7 +124,7 @@
   }
   .cart-btn{
     position:relative;display:flex;align-items:center;justify-content:center;
-    width:44px;height:44px;border-radius:50%;
+    width:44px;height:44px;border-radius:10px;
     background:var(--pink);border:1px solid rgba(63,51,80,0.08);
     box-shadow:0 1px 3px rgba(63,51,80,0.08);
     transition:transform .15s ease, background .15s ease, box-shadow .15s ease;
@@ -274,7 +274,7 @@
   /* ---------- Promo banner ---------- */
   .promo-banner{
     display:flex;align-items:center;justify-content:space-between;gap:24px;
-    border-radius:24px;padding:108px 44px;flex-wrap:wrap;
+    border-radius:24px;padding:119px 44px;flex-wrap:wrap;
   }
   .promo-banner-text{display:flex;align-items:center;gap:20px;}
   .promo-banner-icon{
@@ -1371,6 +1371,7 @@
   .field-premium:focus{border-color:var(--coral);box-shadow:0 0 0 4px rgba(255,140,107,0.14);}
   textarea.field-premium{resize:vertical;min-height:130px;}
   .btn-block{width:100%;justify-content:center;margin-top:6px;}
+  .btn-compact{padding-top:12px;padding-bottom:12px;}
   .contact-form-note{font-size:12px;color:var(--ink-faint);text-align:center;margin-top:14px;}
   .contact-row{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;}
   .contact-row svg{width:20px;height:20px;flex-shrink:0;margin-top:2px;color:var(--coral-deep);}

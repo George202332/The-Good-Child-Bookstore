@@ -36,7 +36,7 @@ export default async function MarketingResourcesPage() {
               // eslint-disable-next-line @next/next/no-img-element -- real uploaded cover, not a static asset
               <img src={b.coverImage} alt={b.title} style={{ width: "100%", borderRadius: 8, marginBottom: 8, aspectRatio: "2/3", objectFit: "contain", background: "transparent" }} />
             ) : (
-              <div style={{ width: "100%", aspectRatio: "2/3", background: b.palette[0], borderRadius: 8, marginBottom: 8 }} />
+              <div style={{ width: "100%", aspectRatio: "2/3", background: "transparent", borderRadius: 8, marginBottom: 8 }} />
             )}
             <div style={{ fontWeight: 700, fontSize: 13.5 }}>{b.title}</div>
             <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 }}>by {b.author}</div>

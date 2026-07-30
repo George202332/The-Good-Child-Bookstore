@@ -124,7 +124,7 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
                 style={{
                   width: 22,
                   height: 22,
-                  borderRadius: "50%",
+                  borderRadius: 6,
                   background: "var(--coral)",
                   color: "var(--ink)",
                   fontSize: 11,

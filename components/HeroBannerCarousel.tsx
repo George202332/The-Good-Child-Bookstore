@@ -27,7 +27,7 @@ const ICONS = {
   ),
 };
 
-export function HeroBannerCarousel({ eyebrow, heading, lede }: { eyebrow: string; heading: string; lede: string }) {
+export function HeroBannerCarousel({ heading, lede }: { heading: string; lede: string }) {
   const slides: HeroSlide[] = [
     { tone: "lavender", icon: ICONS.welcome, title: heading, body: lede, ctaHref: "/shop", ctaLabel: "Browse the bookshelf" },
     { tone: "mint", icon: ICONS.browse, title: "Browse the bookshelf", body: "Picture books, bedtime stories, and middle-grade adventures, curated with parents, teachers, and librarians in mind.", ctaHref: "/shop", ctaLabel: "Browse the bookshelf" },
@@ -46,7 +46,6 @@ export function HeroBannerCarousel({ eyebrow, heading, lede }: { eyebrow: string
 
   return (
     <div style={{ position: "relative" }}>
-      {eyebrow && <div className="eyebrow" style={{ marginBottom: 12 }}>{eyebrow}</div>}
       <div className={`promo-banner promo-${slide.tone}`}>
         <div className="promo-banner-text">
           <div className="promo-banner-icon">{slide.icon}</div>
@@ -77,14 +76,14 @@ export function HeroBannerCarousel({ eyebrow, heading, lede }: { eyebrow: string
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 6l6 6-6 6" /></svg>
       </button>
 
-      <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 12 }}>
+      <div style={{ position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", display: "flex", justifyContent: "center", gap: 8 }}>
         {slides.map((_, i) => (
           <button
             key={i}
             type="button"
             aria-label={`Go to slide ${i + 1}`}
             onClick={() => setIndex(i)}
-            style={{ width: 8, height: 8, borderRadius: "50%", border: "none", padding: 0, cursor: "pointer", background: i === index ? "var(--coral)" : "var(--line)" }}
+            style={{ width: 8, height: 8, borderRadius: "50%", border: "none", padding: 0, cursor: "pointer", background: i === index ? "var(--coral)" : "rgba(63,51,80,0.25)" }}
           />
         ))}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BOOKS, CATS, type Book } from "@/lib/data/catalog";
 import { reviewStats, reviewsForBook } from "@/lib/data/reviews";
@@ -40,6 +41,7 @@ const FORMAT_LABELS: Record<FormatKey, string> = {
  */
 export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook: boolean }) {
   const b = book;
+  const router = useRouter();
   const [format, setFormat] = useState<FormatKey>("print");
   const { addItem } = useCart();
   const { has, toggle } = useWishlist();
@@ -269,7 +271,17 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
             )}
           </div>
 
-          <button className="btn btn-primary btn-block" onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to cart</button>
+          <button className="btn btn-primary btn-block btn-compact" onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to cart</button>
+          <button
+            className="btn btn-ghost btn-block btn-compact"
+            style={{ marginTop: 8 }}
+            onClick={() => {
+              addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1);
+              router.push("/checkout");
+            }}
+          >
+            Direct checkout
+          </button>
           {effectiveFormat === "print" || effectiveFormat === "paperback" ? (
             <div className="buybox-note">
               You&apos;re adding the {fmtLabel.toLowerCase()} edition. Need more than one? Adjust the quantity from
@@ -289,7 +301,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
           )}
 
           <div className="buybox-divider" />
-          <button type="button" className="btn btn-ghost btn-block" onClick={() => toggle(b.id)}>
+          <button type="button" className="btn btn-ghost btn-block btn-compact" onClick={() => toggle(b.id)}>
             {inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
           </button>
 

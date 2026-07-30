@@ -91,46 +91,9 @@ export default async function HomePage() {
     <main>
       <section style={{ paddingBottom: "0.5in" }}>
         <div className="wrap">
-          <HeroBannerCarousel eyebrow={hero.eyebrow} heading={hero.heading === DEFAULT_PAGES_CONTENT.home.heading ? "Where young minds fall in love with reading." : hero.heading} lede={hero.lede} />
+          <HeroBannerCarousel heading={hero.heading === DEFAULT_PAGES_CONTENT.home.heading ? "Where young minds fall in love with reading." : hero.heading} lede={hero.lede} />
         </div>
       </section>
-
-      <FadeInSection style={{ paddingTop: 0 }}>
-        <div className="wrap">
-          <div className="home-search-section">
-            <div className="section-head" style={{ marginBottom: 18, justifyContent: "center", textAlign: "center" }}>
-              <div>
-                <h2>Find the right book in seconds</h2>
-                <p>Search by title, author, category, reading level, or age.</p>
-              </div>
-            </div>
-            <div className="home-search-wrap">
-              <div className="home-search-input-row">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <circle cx={11} cy={11} r={7} />
-                  <path d="M21 21l-4.3-4.3" />
-                </svg>
-                <input
-                  type="text"
-                  className="home-search-input"
-                  id="home-search-input"
-                  placeholder="Try a title, an author, or 'bedtime'..."
-                  autoComplete="off"
-                  aria-label="Search books by title, author, category, or age"
-                />
-              </div>
-              <div className="home-search-suggestions" id="home-search-suggestions" role="listbox" />
-            </div>
-            <div className="home-search-filters">
-              {CATS.map((c) => (
-                <Link key={c.id} href={`/shop?cat=${c.id}`} className="home-search-filter-chip">
-                  {c.name}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-      </FadeInSection>
 
       <FadeInSection style={{ paddingTop: 0 }}>
         <div className="wrap">
@@ -339,19 +302,20 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      {blogPosts.length > 0 && (
-        <FadeInSection style={{ paddingTop: 0 }}>
-          <div className="wrap">
-            <div className="blog-grid">
-              {blogPosts.map((p) => {
+      <FadeInSection style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <div className="blog-grid">
+            {Array.from({ length: 6 }).map((_, i) => {
+              const p = blogPosts[i];
+              if (p) {
                 const motif = BLOG_MOTIFS[hashStr(p.slug) % BLOG_MOTIFS.length];
                 return (
                   <div key={p.slug} className="blog-card-v2">
                     <Link href={`/blog/${p.slug}`}>
-                      <div className="blog-cover" style={{ background: "var(--lavender)" }}>
+                      <div className="blog-cover">
                         {p.coverImageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element -- real uploaded blog cover
-                          <img src={p.coverImageUrl} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+                          <img src={p.coverImageUrl} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", display: "block" }} />
                         ) : (
                           <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#3F3350" /></svg>
                         )}
@@ -368,11 +332,26 @@ export default async function HomePage() {
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              }
+              const motif = BLOG_MOTIFS[i % BLOG_MOTIFS.length];
+              return (
+                <div key={`journal-template-${i}`} className="blog-card-v2">
+                  <Link href="/blog">
+                    <div className="blog-cover">
+                      <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#3F3350" /></svg>
+                    </div>
+                  </Link>
+                  <div className="blog-body">
+                    <Link href="/blog"><h3>More from the journal, coming soon</h3></Link>
+                    <p>New stories, reading tips, and author interviews land here regularly — check back soon.</p>
+                    <Link className="blog-read-more" href="/blog">Read more →</Link>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </FadeInSection>
-      )}
+        </div>
+      </FadeInSection>
 
       <FadeInSection style={{ paddingTop: 0 }}>
         <div className="wrap">
