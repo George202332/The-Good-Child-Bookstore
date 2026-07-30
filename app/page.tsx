@@ -89,7 +89,7 @@ export default async function HomePage() {
 
   return (
     <main>
-      <section style={{ paddingBottom: "0.5in" }}>
+      <section style={{ paddingTop: "0.5in", paddingBottom: "0.5in" }}>
         <div className="wrap">
           <HeroBannerCarousel heading={hero.heading === DEFAULT_PAGES_CONTENT.home.heading ? "Where young minds fall in love with reading." : hero.heading} lede={hero.lede} />
         </div>

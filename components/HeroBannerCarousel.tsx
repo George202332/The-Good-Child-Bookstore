@@ -46,7 +46,7 @@ export function HeroBannerCarousel({ heading, lede }: { heading: string; lede: s
 
   return (
     <div style={{ position: "relative" }}>
-      <div className={`promo-banner promo-${slide.tone}`}>
+      <div className={`promo-banner promo-${slide.tone}`} style={{ height: 320, minHeight: 0, overflow: "hidden", boxSizing: "border-box" }}>
         <div className="promo-banner-text">
           <div className="promo-banner-icon">{slide.icon}</div>
           <div>
@@ -58,23 +58,6 @@ export function HeroBannerCarousel({ heading, lede }: { heading: string; lede: s
           {slide.ctaLabel}
         </Link>
       </div>
-
-      <button
-        type="button"
-        aria-label="Previous"
-        onClick={() => setIndex((i) => (i - 1 + slides.length) % slides.length)}
-        style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.7)", border: "none", borderRadius: "50%", width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-      >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 18l-6-6 6-6" /></svg>
-      </button>
-      <button
-        type="button"
-        aria-label="Next"
-        onClick={() => setIndex((i) => (i + 1) % slides.length)}
-        style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "rgba(255,255,255,0.7)", border: "none", borderRadius: "50%", width: 36, height: 36, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-      >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 6l6 6-6 6" /></svg>
-      </button>
 
       <div style={{ position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", display: "flex", justifyContent: "center", gap: 8 }}>
         {slides.map((_, i) => (
