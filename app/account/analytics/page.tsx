@@ -68,7 +68,7 @@ export default async function AuthorAnalyticsPage() {
         </div>
         <div className="map-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by format</h3>
-          <PieChart data={data.formatBreakdown.map((f) => ({ label: f.format, value: f.count, color: FORMAT_COLORS[f.format] ?? "#9A93A8" }))} />
+          <PieChart data={data.formatBreakdown.map((f) => ({ label: f.format, value: f.count, color: FORMAT_COLORS[f.format] ?? "#9A93A8" }))} legendOffset="0.5in" />
         </div>
       </div>
 
@@ -78,16 +78,19 @@ export default async function AuthorAnalyticsPage() {
           {data.topCountriesWithPct.length === 0 ? (
             <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No sales recorded yet.</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {data.topCountriesWithPct.map((c, i) => (
-                <div key={c.country} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {data.topCountriesWithPct.map((c, i) => (
+                  <div key={c.country} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ width: 10, height: 10, borderRadius: "50%", background: REGION_COLORS[i], display: "inline-block" }} />
-                    <span style={{ fontSize: 13.5, fontWeight: 600 }}>{c.country}</span>
+                    <span style={{ fontSize: 13.5, fontWeight: 600 }}>{c.country}: {c.count} {c.count === 1 ? "copy" : "copies"}</span>
                   </div>
-                  <span style={{ fontSize: 13, color: "var(--ink-faint)" }}>{c.pct}%</span>
-                </div>
-              ))}
+                ))}
+              </div>
+              <PieChart
+                size={140}
+                data={data.topCountriesWithPct.map((c, i) => ({ label: c.country, value: c.count, color: REGION_COLORS[i] }))}
+              />
             </div>
           )}
         </div>
@@ -99,7 +102,7 @@ export default async function AuthorAnalyticsPage() {
 
       <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
         <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales Distribution</h3>
-        <div style={{ height: 320 }}>
+        <div style={{ height: 440 }}>
           <WorldMap highlightedCountryCodes={new Set(data.geoCountryCodes)} />
         </div>
       </div>
@@ -114,7 +117,6 @@ export default async function AuthorAnalyticsPage() {
                 <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title." /></th>
                 <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="The name shown as the author on the book — your pen name if you've set one, otherwise your account name." /></th>
                 <th style={TABLE_HEAD_STYLE}>Category<ColHelp text="The book's primary category." /></th>
-                <th style={TABLE_HEAD_STYLE}>Organic<ColHelp text="Sales where the reader found this book directly, not through an affiliate link." /></th>
                 <th style={TABLE_HEAD_STYLE}>eBook<ColHelp text="Copies sold in eBook format." /></th>
                 <th style={TABLE_HEAD_STYLE}>Audio<ColHelp text="Copies sold in Audiobook format." /></th>
                 <th style={TABLE_HEAD_STYLE}>Paperback<ColHelp text="Copies sold in Paperback format." /></th>
@@ -132,7 +134,6 @@ export default async function AuthorAnalyticsPage() {
                     <td style={TABLE_CELL_STYLE}>{b.title}</td>
                     <td style={TABLE_CELL_STYLE}>{b.authorDisplayName}</td>
                     <td style={TABLE_CELL_STYLE}>{b.category}</td>
-                    <td style={TABLE_CELL_STYLE}>{b.organic}</td>
                     <td style={TABLE_CELL_STYLE}>{b.ebook}</td>
                     <td style={TABLE_CELL_STYLE}>{b.audiobook}</td>
                     <td style={TABLE_CELL_STYLE}>{b.paperback}</td>
@@ -144,20 +145,6 @@ export default async function AuthorAnalyticsPage() {
             </tbody>
           </table>
         </div>
-      </div>
-
-      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Top books</h3>
-      <div className="map-card" style={{ padding: "6px 16px" }}>
-        {data.topBooks.length === 0 ? (
-          <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>No sales recorded yet.</div>
-        ) : (
-          data.topBooks.map((b) => (
-            <div key={b.title} style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
-              <span style={{ fontWeight: 700, fontSize: 13.5 }}>{b.title}</span>
-              <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{b.unitsSold} sold</span>
-            </div>
-          ))
-        )}
       </div>
     </DashboardShell>
   );

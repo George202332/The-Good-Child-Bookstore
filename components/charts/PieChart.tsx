@@ -10,7 +10,7 @@ export interface PieSlice {
  * third-party package). Renders a color legend with percentages
  * alongside it. Purely presentational — all values are plain counts,
  * never currency. */
-export function PieChart({ data, size = 160, donut = true }: { data: PieSlice[]; size?: number; donut?: boolean }) {
+export function PieChart({ data, size = 160, donut = true, legendOffset }: { data: PieSlice[]; size?: number; donut?: boolean; legendOffset?: string }) {
   const total = data.reduce((s, d) => s + d.value, 0);
 
   if (total === 0) {
@@ -55,7 +55,7 @@ export function PieChart({ data, size = 160, donut = true }: { data: PieSlice[];
           </div>
         )}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginLeft: legendOffset }}>
         {data.map((d) => (
           <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
             <span style={{ width: 10, height: 10, borderRadius: 3, background: d.color, flexShrink: 0 }} />

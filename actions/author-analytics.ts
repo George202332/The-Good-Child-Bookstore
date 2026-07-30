@@ -40,7 +40,7 @@ const EMPTY: AuthorAnalyticsSummary = {
   topBooks: [], geoCountryCodes: [],
 };
 
-const FORMAT_LABELS: Record<string, string> = { EBOOK: "eBook", PAPERBACK: "Paperback", HARDCOVER: "Hardcover", AUDIOBOOK: "Audiobook" };
+const FORMAT_LABELS: Record<string, string> = { ebook: "eBook", paperback: "Paperback", hardcover: "Hardcover", audiobook: "Audiobook" };
 
 export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
   const session = await auth();
@@ -81,7 +81,7 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
     for (let m = 0; m < 12; m++) {
       monthlyMap.set(new Date(currentYear, m, 1).toLocaleDateString("en-US", { month: "short" }), 0);
     }
-    const formatMap = new Map<string, number>();
+    const formatMap = new Map<string, number>(Object.values(FORMAT_LABELS).map((label) => [label, 0]));
     const saleTypeMap = new Map<string, number>();
     const countryMap = new Map<string, number>();
     const geoCountryCodeSet = new Set<string>();

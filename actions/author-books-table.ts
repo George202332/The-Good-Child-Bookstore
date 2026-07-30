@@ -5,7 +5,6 @@ export interface AuthorBookTableRow {
   title: string;
   authorDisplayName: string;
   category: string;
-  organic: number;
   ebook: number;
   audiobook: number;
   paperback: number;
@@ -13,10 +12,10 @@ export interface AuthorBookTableRow {
   copies: number;
 }
 
-/** Every one of the signed-in author's books with a full sales
- * breakdown — organic-channel count alongside a per-format count, and
- * the total copies sold across every format combined. Pure numbers,
- * matching the rest of the Sales analytics page. */
+/** Every one of the signed-in author's books with a full per-format
+ * sales breakdown, and the total copies sold across every format
+ * combined. Pure numbers, matching the rest of the Sales analytics
+ * page. Sorted by copies sold, most to least. */
 export async function getAuthorBooksTable(): Promise<AuthorBookTableRow[]> {
   const session = await auth();
   if (session?.user?.role !== "AUTHOR") return [];
@@ -45,20 +44,21 @@ export async function getAuthorBooksTable(): Promise<AuthorBookTableRow[]> {
     saleLines: { saleType: string; format: string | null }[];
   }[];
 
-  return books.map((b) => {
-    let organic = 0, ebook = 0, audiobook = 0, paperback = 0, hardcover = 0;
+  const rows = books.map((b) => {
+    let ebook = 0, audiobook = 0, paperback = 0, hardcover = 0;
     for (const l of b.saleLines) {
-      if (l.saleType === "ORGANIC") organic += 1;
-      if (l.format === "EBOOK") ebook += 1;
-      else if (l.format === "AUDIOBOOK") audiobook += 1;
-      else if (l.format === "PAPERBACK") paperback += 1;
-      else if (l.format === "HARDCOVER") hardcover += 1;
+      // SaleLine.format is stored lowercase ("ebook", "paperback",
+      // "hardcover", "audiobook") — matching exactly what checkout
+      // actually writes (see actions/orders.ts).
+      if (l.format === "ebook") ebook += 1;
+      else if (l.format === "audiobook") audiobook += 1;
+      else if (l.format === "paperback") paperback += 1;
+      else if (l.format === "hardcover") hardcover += 1;
     }
     return {
       title: b.title,
       authorDisplayName,
       category: b.categories[0]?.category.name ?? "—",
-      organic,
       ebook,
       audiobook,
       paperback,
@@ -66,4 +66,6 @@ export async function getAuthorBooksTable(): Promise<AuthorBookTableRow[]> {
       copies: b.saleLines.length,
     };
   });
+
+  return rows.sort((a, b) => b.copies - a.copies);
 }
