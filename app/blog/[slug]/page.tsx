@@ -176,7 +176,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 <p key={i} style={{ whiteSpace: "pre-wrap" }}>{para.trim()}</p>
               ))}
             </article>
-
+            <div className="blog-article-end-mark">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="var(--coral)"><circle cx="12" cy="12" r="5" /></svg>
+            </div>
             {post.tags.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "20px 0" }}>
                 {post.tags.map((t) => <span key={t} className="status-pill status-draft">{t}</span>)}

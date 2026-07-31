@@ -54,6 +54,11 @@ const BENEFIT_CARDS: [string, string, string][] = [
 
 const BLOG_MOTIFS: MotifKind[] = ["owl", "leaf", "star", "moon", "heart", "tree"];
 
+function readTimeMinutes(content: string): number {
+  const words = content.split(/\s+/).filter(Boolean).length;
+  return Math.max(3, Math.round(words / 200));
+}
+
 interface HomeBlogPost {
   slug: string;
   title: string;
@@ -320,6 +325,7 @@ export default async function HomePage() {
                         ) : (
                           <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#3F3350" /></svg>
                         )}
+                        <span className="blog-cover-badge">{readTimeMinutes(p.content)} min read</span>
                       </div>
                     </Link>
                     <div className="blog-body">
