@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/AdminShell";
 import { canModerateContent } from "@/lib/roles";
 import { ReviewActions } from "./ReviewActions";
+import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft", PENDING_REVIEW: "Under Review", PUBLISHED: "Approved", REJECTED: "Under Revision", ARCHIVED: "Suspended",
@@ -62,12 +63,6 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
             )}
             <div style={{ fontSize: 12, color: "var(--ink-faint, var(--admin-text-faint))" }}>ISBN: {book.isbn || "—"}</div>
           </div>
-
-          {manuscript && (
-            <a href={manuscript.url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-small" style={{ width: "100%", justifyContent: "center", marginTop: 12 }}>
-              Download manuscript ({manuscript.kind})
-            </a>
-          )}
         </div>
 
         <div>
@@ -88,6 +83,20 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
               {book.description || "No description provided."}
             </p>
           </div>
+
+          {manuscript && (
+            <div className="map-card" style={{ padding: 20, marginBottom: 20 }}>
+              <h3 style={{ fontSize: 15, marginBottom: 4 }}>Manuscript review</h3>
+              <p className="field-hint" style={{ margin: "0 0 12px" }}>
+                Read-only — this opens the manuscript for review here, it doesn&apos;t offer a download.
+              </p>
+              {manuscript.kind === "PDF" ? (
+                <ManuscriptReviewViewer url={manuscript.url} title={book.title} />
+              ) : (
+                <p className="field-hint">This manuscript was uploaded as an EPUB — inline preview isn&apos;t supported for that format yet.</p>
+              )}
+            </div>
+          )}
 
           {book.samplePageUrls.length > 0 && (
             <div className="map-card" style={{ padding: 20, marginBottom: 20 }}>
