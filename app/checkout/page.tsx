@@ -13,6 +13,8 @@ import { validateCoupon } from "@/actions/coupons";
 import { resolveCartBooks } from "@/actions/cart-books";
 import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } from "@/actions/payment-methods";
 import { PaymentBadgeIcon } from "@/components/PaymentBadgeIcon";
+import { getSiteSettings } from "@/actions/site-settings";
+import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-settings";
 
 /**
  * Converted from checkoutHTML() and its 5 step-render functions
@@ -82,6 +84,11 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethodRow[]>([]);
   const [resolvedBooks, setResolvedBooks] = useState<Book[] | null>(null);
+  const [paymentBadges, setPaymentBadges] = useState<PaymentBadgeUrls>(DEFAULT_SITE_SETTINGS.paymentBadges);
+
+  useEffect(() => {
+    getSiteSettings().then((s) => setPaymentBadges(s.paymentBadges));
+  }, []);
 
   useEffect(() => {
     const ids = items.map((i) => i.bookId);
@@ -148,8 +155,8 @@ export default function CheckoutPage() {
       setPaymentError(result.error ?? "That card couldn't be charged.");
       return;
     }
-    lines.forEach((l) => removeItem(l.book.id, l.format));
     router.push(`/checkout/confirmation?order=${created.orderId}`);
+    lines.forEach((l) => removeItem(l.book.id, l.format));
   }
 
   async function completeOrder() {
@@ -185,8 +192,8 @@ export default function CheckoutPage() {
 
     // Demo mode: no gateway credentials configured, so confirm directly.
     await confirmOrderPaidDirectly(created.orderId);
-    lines.forEach((l) => removeItem(l.book.id, l.format));
     router.push(`/checkout/confirmation?order=${created.orderId}`);
+    lines.forEach((l) => removeItem(l.book.id, l.format));
   }
 
   if (resolvedBooks === null) {
@@ -248,7 +255,7 @@ export default function CheckoutPage() {
                     <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>
                   </div>
                   {isDigital ? (
-                    <div className="qty-fixed">Qty 1</div>
+                    <div />
                   ) : (
                     <div className="qty-control">
                       <button onClick={() => setQty(l.book.id, l.format, l.qty - 1)}>–</button>
@@ -333,11 +340,11 @@ export default function CheckoutPage() {
             <button type="button" className="btn btn-ghost btn-small" onClick={applyCoupon}>Apply</button>
           </div>
           {couponError ? (
-            <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{couponError}</div>
+            <div className="field-hint" style={{ color: "var(--coral-deep)", margin: "8px 0 18px" }}>{couponError}</div>
           ) : data.couponCode ? (
-            <div className="field-hint" style={{ color: "#1F6B48" }}>Applied {data.couponCode}: {(data.couponDiscount * 100).toFixed(0)}% off.</div>
+            <div className="field-hint" style={{ color: "#1F6B48", margin: "8px 0 18px" }}>Applied {data.couponCode}: {(data.couponDiscount * 100).toFixed(0)}% off.</div>
           ) : (
-            <div className="field-hint">Have a coupon code? Enter it above.</div>
+            <div className="field-hint" style={{ margin: "8px 0 18px" }}>Have a coupon code? Enter it above.</div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 20 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(2)}>← Back</button>
@@ -366,11 +373,15 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <div className="card-brand-row" style={{ marginBottom: 14 }}>
-            <PaymentBadgeIcon type="mastercard" />
-            <PaymentBadgeIcon type="visa" />
-            <PaymentBadgeIcon type="amex" />
-            <PaymentBadgeIcon type="verve" />
+          <div className="card-brand-row card-brand-row-centered">
+            {(["mastercard", "visa", "amex", "verve"] as const).map((key) =>
+              paymentBadges[key] ? (
+                // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded badge image, not a static asset
+                <img key={key} src={paymentBadges[key]} alt={key} className="payment-badge-img" style={{ height: 28 }} />
+              ) : (
+                <PaymentBadgeIcon key={key} type={key} />
+              )
+            )}
           </div>
 
           <label className="field-label field-label-compact" htmlFor="co-card-name">Name on card</label>

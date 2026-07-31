@@ -49,11 +49,16 @@ export function useCart() {
   }, []);
 
   const addItem = useCallback((bookId: string, format: CartFormat, quantity = 1) => {
+    const isDigital = format === "ebook" || format === "audiobook";
     const current = readCart();
     const existing = current.find((i) => i.bookId === bookId && i.format === format);
     const next = existing
-      ? current.map((i) => (i.bookId === bookId && i.format === format ? { ...i, quantity: i.quantity + quantity } : i))
-      : [...current, { bookId, format, quantity }];
+      ? current.map((i) =>
+          i.bookId === bookId && i.format === format
+            ? { ...i, quantity: isDigital ? 1 : i.quantity + quantity }
+            : i
+        )
+      : [...current, { bookId, format, quantity: isDigital ? 1 : quantity }];
     writeCart(next);
     setItems(next);
   }, []);
