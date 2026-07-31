@@ -104,11 +104,8 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="cat-grid">
-            {CATS.map((c) => (
-              <Link key={c.id} href={`/shop?cat=${c.id}`} className={`cat-tile ${c.tile}`}>
-                <svg viewBox="0 0 100 100">
-                  <Motif kind={c.motif} color="#3F3350" />
-                </svg>
+            {CATS.map((c, i) => (
+              <Link key={c.id} href={`/shop?cat=${c.id}`} className={`cat-tile ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
                 <span>{c.name}</span>
                 <small>{c.blurb}</small>
                 <span className="cat-count">{BOOKS.filter((b) => b.category === c.id).length} books</span>

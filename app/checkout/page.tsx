@@ -12,6 +12,7 @@ import { initiateGatewayCheckout } from "@/actions/payment-init";
 import { validateCoupon } from "@/actions/coupons";
 import { resolveCartBooks } from "@/actions/cart-books";
 import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } from "@/actions/payment-methods";
+import { PaymentBadgeIcon } from "@/components/PaymentBadgeIcon";
 
 /**
  * Converted from checkoutHTML() and its 5 step-render functions
@@ -276,22 +277,22 @@ export default function CheckoutPage() {
 
       {step === 2 && (
         <form
-          style={{ maxWidth: 480, margin: "0 auto" }}
+          style={{ maxWidth: 420, margin: "0 auto" }}
           onSubmit={(e) => {
             e.preventDefault();
             goTo(3);
           }}
         >
-          <label className="field-label" htmlFor="co-name">Full name</label>
-          <input className="field" id="co-name" type="text" required value={data.fullName} onChange={(e) => setData((d) => ({ ...d, fullName: e.target.value }))} />
-          <label className="field-label" htmlFor="co-email">Email address</label>
-          <input className="field" id="co-email" type="email" required value={data.email} onChange={(e) => setData((d) => ({ ...d, email: e.target.value }))} />
-          <label className="field-label" htmlFor="co-phone">Phone number</label>
-          <input className="field" id="co-phone" type="tel" required value={data.phone} onChange={(e) => setData((d) => ({ ...d, phone: e.target.value }))} />
-          <label className="field-label" htmlFor="co-country">Country</label>
-          <input className="field" id="co-country" type="text" required value={data.country} onChange={(e) => setData((d) => ({ ...d, country: e.target.value }))} />
-          <label className="field-label" htmlFor="co-address">Billing address</label>
-          <textarea className="field" id="co-address" required value={data.billingAddress} onChange={(e) => setData((d) => ({ ...d, billingAddress: e.target.value }))} />
+          <label className="field-label field-label-compact" htmlFor="co-name">Full name</label>
+          <input className="field field-compact" id="co-name" type="text" required value={data.fullName} onChange={(e) => setData((d) => ({ ...d, fullName: e.target.value }))} />
+          <label className="field-label field-label-compact" htmlFor="co-email">Email address</label>
+          <input className="field field-compact" id="co-email" type="email" required value={data.email} onChange={(e) => setData((d) => ({ ...d, email: e.target.value }))} />
+          <label className="field-label field-label-compact" htmlFor="co-phone">Phone number</label>
+          <input className="field field-compact" id="co-phone" type="tel" required value={data.phone} onChange={(e) => setData((d) => ({ ...d, phone: e.target.value }))} />
+          <label className="field-label field-label-compact" htmlFor="co-country">Country</label>
+          <input className="field field-compact" id="co-country" type="text" required value={data.country} onChange={(e) => setData((d) => ({ ...d, country: e.target.value }))} />
+          <label className="field-label field-label-compact" htmlFor="co-address">Billing address</label>
+          <textarea className="field field-compact" id="co-address" required value={data.billingAddress} onChange={(e) => setData((d) => ({ ...d, billingAddress: e.target.value }))} />
           <div className="field-hint">Books are delivered digitally; this address is used for billing and tax purposes only.</div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 10 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(1)}>← Back to cart</button>
@@ -326,9 +327,9 @@ export default function CheckoutPage() {
             <div className="summary-row"><span>Taxes</span><span>Calculated at payment</span></div>
             <div className="summary-row total"><span>Grand total</span><span>${grandTotal.toFixed(2)}</span></div>
           </div>
-          <label className="field-label" style={{ marginTop: 18 }} htmlFor="co-coupon">Coupon code</label>
+          <label className="field-label field-label-compact" style={{ marginTop: 18 }} htmlFor="co-coupon">Coupon code</label>
           <div style={{ display: "flex", gap: 8 }}>
-            <input className="field" id="co-coupon" type="text" style={{ marginBottom: 0 }} placeholder="e.g. WELCOME10" value={couponInput} onChange={(e) => setCouponInput(e.target.value)} />
+            <input className="field field-compact" id="co-coupon" type="text" style={{ marginBottom: 0 }} placeholder="e.g. WELCOME10" value={couponInput} onChange={(e) => setCouponInput(e.target.value)} />
             <button type="button" className="btn btn-ghost btn-small" onClick={applyCoupon}>Apply</button>
           </div>
           {couponError ? (
@@ -346,92 +347,52 @@ export default function CheckoutPage() {
       )}
 
       {step === 4 && (
-        <div style={{ maxWidth: 440, margin: "0 auto" }}>
+        <div style={{ maxWidth: 400, margin: "0 auto" }}>
           {savedMethods.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <h4 style={{ fontSize: 14, marginBottom: 10 }}>Pay with a saved card</h4>
+            <div style={{ marginBottom: 16 }}>
+              <h4 style={{ fontSize: 13.5, marginBottom: 8 }}>Pay with a saved card</h4>
               {savedMethods.map((m) => (
-                <div key={m.id} className="payment-method-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={m.id} className="payment-method-card payment-method-card-compact" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <strong>{m.cardType ?? "Card"} •••• {m.last4}</strong>
-                    <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{m.bank}</div>
+                    <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{m.bank}</div>
                   </div>
                   <button type="button" className="btn btn-primary btn-small" disabled={submitting} onClick={() => payWithSaved(m.id)}>
                     {submitting ? "Processing…" : `Pay $${grandTotal.toFixed(2)}`}
                   </button>
                 </div>
               ))}
-              <div className="auth-divider" style={{ marginTop: 16 }}><span /><small>Or pay another way</small><span /></div>
-            </div>
-          )}
-          <div className={`payment-method-card ${data.paymentMethod === "paypal" ? "selected" : ""}`} onClick={() => setData((d) => ({ ...d, paymentMethod: "paypal" }))}>
-            <input type="radio" name="checkoutPay" checked={data.paymentMethod === "paypal"} readOnly />
-            <div>
-              <strong>PayPal</strong>
-              <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Pay with your PayPal account, or check out as a guest.</div>
-            </div>
-          </div>
-          <div className={`payment-method-card ${data.paymentMethod === "paystack" ? "selected" : ""}`} onClick={() => setData((d) => ({ ...d, paymentMethod: "paystack" }))}>
-            <input type="radio" name="checkoutPay" checked={data.paymentMethod === "paystack"} readOnly />
-            <div>
-              <strong>Paystack</strong>
-              <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Pay by card (Visa, Mastercard, American Express, Verve).</div>
-            </div>
-            <div className="card-brand-row">
-              <span className="card-brand-badge">Visa</span>
-              <span className="card-brand-badge">Mastercard</span>
-              <span className="card-brand-badge">Amex</span>
-              <span className="card-brand-badge">Verve</span>
-            </div>
-          </div>
-          <div className={`payment-method-card ${data.paymentMethod === "mpesa" ? "selected" : ""}`} onClick={() => setData((d) => ({ ...d, paymentMethod: "mpesa" }))}>
-            <input type="radio" name="checkoutPay" checked={data.paymentMethod === "mpesa"} readOnly />
-            <div>
-              <strong>M-Pesa</strong>
-              <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Pay with M-Pesa mobile money (Kenya), via Paystack.</div>
-            </div>
-          </div>
-
-          {data.paymentMethod === "paypal" && (
-            <div style={{ marginTop: 16 }}>
-              <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>You&apos;ll be securely redirected to PayPal to complete your purchase.</p>
+              <div className="auth-divider" style={{ marginTop: 14 }}><span /><small>Or pay with a new card</small><span /></div>
             </div>
           )}
 
-          {data.paymentMethod === "mpesa" && (
-            <div style={{ marginTop: 16 }}>
-              <p style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-                You&apos;ll be redirected to a secure Paystack page to enter your M-Pesa number and approve the payment
-                from your phone.
-              </p>
-            </div>
-          )}
+          <div className="card-brand-row" style={{ marginBottom: 14 }}>
+            <PaymentBadgeIcon type="mastercard" />
+            <PaymentBadgeIcon type="visa" />
+            <PaymentBadgeIcon type="amex" />
+            <PaymentBadgeIcon type="verve" />
+          </div>
 
-          {data.paymentMethod === "paystack" && (
-            <div style={{ marginTop: 16 }}>
-              <label className="field-label" htmlFor="co-card-name">Name on card</label>
-              <input className="field" id="co-card-name" type="text" value={data.cardName} onChange={(e) => setData((d) => ({ ...d, cardName: e.target.value }))} />
-              <label className="field-label" htmlFor="co-card-number">Card number</label>
-              <input className="field" id="co-card-number" type="text" inputMode="numeric" maxLength={19} placeholder="0000 0000 0000 0000" value={data.cardNumber} onChange={(e) => setData((d) => ({ ...d, cardNumber: e.target.value }))} />
-              <div className="form-grid-2">
-                <div>
-                  <label className="field-label" htmlFor="co-card-expiry">Expiry</label>
-                  <input className="field" id="co-card-expiry" type="text" placeholder="MM/YY" value={data.cardExpiry} onChange={(e) => setData((d) => ({ ...d, cardExpiry: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="field-label" htmlFor="co-card-cvv">CVV</label>
-                  <input className="field" id="co-card-cvv" type="text" maxLength={4} value={data.cardCvv} onChange={(e) => setData((d) => ({ ...d, cardCvv: e.target.value }))} />
-                </div>
-              </div>
-              <p style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>
-                This is a demo checkout; card details are never sent anywhere or stored. A real integration would
-                tokenize this through Paystack&apos;s own secure fields, never through our own servers.
-              </p>
+          <label className="field-label field-label-compact" htmlFor="co-card-name">Name on card</label>
+          <input className="field field-compact" id="co-card-name" type="text" value={data.cardName} onChange={(e) => setData((d) => ({ ...d, cardName: e.target.value }))} />
+          <label className="field-label field-label-compact" htmlFor="co-card-number">Card number</label>
+          <input className="field field-compact" id="co-card-number" type="text" inputMode="numeric" maxLength={19} placeholder="0000 0000 0000 0000" value={data.cardNumber} onChange={(e) => setData((d) => ({ ...d, cardNumber: e.target.value }))} />
+          <div className="form-grid-2">
+            <div>
+              <label className="field-label field-label-compact" htmlFor="co-card-expiry">Expiry</label>
+              <input className="field field-compact" id="co-card-expiry" type="text" placeholder="MM/YY" value={data.cardExpiry} onChange={(e) => setData((d) => ({ ...d, cardExpiry: e.target.value }))} />
             </div>
-          )}
+            <div>
+              <label className="field-label field-label-compact" htmlFor="co-card-cvv">CVV</label>
+              <input className="field field-compact" id="co-card-cvv" type="text" maxLength={4} value={data.cardCvv} onChange={(e) => setData((d) => ({ ...d, cardCvv: e.target.value }))} />
+            </div>
+          </div>
+          <p style={{ fontSize: 11, color: "var(--ink-faint)" }}>
+            This is a demo checkout; card details are never sent anywhere or stored.
+          </p>
 
           {paymentError && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{paymentError}</div>}
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 16 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(3)}>← Back</button>
             <button className="btn btn-primary btn-small" onClick={completeOrder} disabled={submitting}>
               {submitting ? "Processing…" : "Complete purchase"}
