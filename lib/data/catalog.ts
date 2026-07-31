@@ -129,6 +129,9 @@ export interface Book {
    * only real submitted books set this explicitly, reflecting the
    * formats their author actually enabled at submission. */
   formatAvailable?: { ebook: boolean; paperback: boolean; hardcover: boolean; audiobook: boolean };
+  /** Up to 6 page images for the "Read sample" viewer — real submitted
+   * books only; the static demo catalog has none. */
+  samplePageUrls?: string[];
   isbn: string;
   pubDate: string;
   sizeMB: string;

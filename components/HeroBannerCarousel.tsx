@@ -27,7 +27,7 @@ const ICONS = {
   ),
 };
 
-export function HeroBannerCarousel({ heading, lede }: { heading: string; lede: string }) {
+export function HeroBannerCarousel({ heading, lede, imageUrl }: { heading: string; lede: string; imageUrl?: string }) {
   const slides: HeroSlide[] = [
     { tone: "lavender", icon: ICONS.welcome, title: heading, body: lede, ctaHref: "/shop", ctaLabel: "Browse the bookshelf" },
     { tone: "mint", icon: ICONS.browse, title: "Browse the bookshelf", body: "Picture books, bedtime stories, and middle-grade adventures, curated with parents, teachers, and librarians in mind.", ctaHref: "/shop", ctaLabel: "Browse the bookshelf" },
@@ -46,12 +46,18 @@ export function HeroBannerCarousel({ heading, lede }: { heading: string; lede: s
 
   return (
     <div style={{ position: "relative" }}>
-      <div className={`promo-banner promo-${slide.tone}`} style={{ height: 320, minHeight: 0, overflow: "hidden", boxSizing: "border-box" }}>
+      <div
+        className={`promo-banner promo-${slide.tone}`}
+        style={{
+          height: 320, minHeight: 0, overflow: "hidden", boxSizing: "border-box",
+          ...(imageUrl ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.4), rgba(20,14,26,0.4)), url(${imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+        }}
+      >
         <div className="promo-banner-text">
           <div className="promo-banner-icon">{slide.icon}</div>
           <div>
-            <h3>{slide.title}</h3>
-            <p>{slide.body}</p>
+            <h3 style={imageUrl ? { color: "#fff" } : undefined}>{slide.title}</h3>
+            <p style={imageUrl ? { color: "rgba(255,255,255,0.9)" } : undefined}>{slide.body}</p>
           </div>
         </div>
         <Link href={slide.ctaHref} className="btn btn-primary btn-small">

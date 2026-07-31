@@ -91,7 +91,7 @@ export default async function HomePage() {
     <main>
       <section style={{ paddingTop: "0.5in", paddingBottom: "0.5in" }}>
         <div className="wrap">
-          <HeroBannerCarousel heading={hero.heading === DEFAULT_PAGES_CONTENT.home.heading ? "Where young minds fall in love with reading." : hero.heading} lede={hero.lede} />
+          <HeroBannerCarousel heading={hero.heading === DEFAULT_PAGES_CONTENT.home.heading ? "Where young minds fall in love with reading." : hero.heading} lede={hero.lede} imageUrl={hero.heroImage} />
         </div>
       </section>
 
@@ -159,6 +159,7 @@ export default async function HomePage() {
             }
             title={hero.bookClubBannerTitle}
             body={hero.bookClubBannerBody}
+            imageUrl={hero.bookClubBannerImage}
             ctaHref="/subscription"
             ctaLabel="See the plans"
           />
@@ -194,6 +195,7 @@ export default async function HomePage() {
             }
             title={hero.printBannerTitle}
             body={hero.printBannerBody}
+            imageUrl={hero.printBannerImage}
             ctaHref="/shop?format=print"
             ctaLabel="Shop print copies"
           />
@@ -252,6 +254,7 @@ export default async function HomePage() {
             }
             title={hero.affiliateBannerTitle}
             body={hero.affiliateBannerBody}
+            imageUrl={hero.affiliateBannerImage}
             ctaHref="/signup/affiliate"
             ctaLabel="Become an affiliate"
           />
@@ -293,6 +296,7 @@ export default async function HomePage() {
             }
             title={hero.journalBannerTitle}
             body={hero.journalBannerBody}
+            imageUrl={hero.journalBannerImage}
             ctaHref="/blog"
             ctaLabel="Read the journal"
           />

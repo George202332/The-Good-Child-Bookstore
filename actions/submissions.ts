@@ -226,6 +226,7 @@ export interface UpdateBookInput {
   genre: string;
   language: string;
   coverImageUrl?: string;
+  samplePageUrls?: string[];
   formats: { ebook: boolean; print: boolean; audiobook: boolean };
 }
 
@@ -272,6 +273,7 @@ export async function updateBook(input: UpdateBookInput): Promise<{ ok: boolean;
         ageGroup: input.ageGroup,
         language: input.language || "en",
         coverImageUrl: input.coverImageUrl?.trim() || null,
+        ...(input.samplePageUrls ? { samplePageUrls: input.samplePageUrls.slice(0, 6) } : {}),
         hasEbook: input.formats.ebook,
         hasPrint: input.formats.print,
         hasAudiobook: input.formats.audiobook,

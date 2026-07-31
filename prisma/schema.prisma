@@ -266,6 +266,10 @@ model Book {
   isbn         String?
   price        Decimal       @db.Decimal(10, 2)
   coverImageUrl String?
+  /** Up to 6 page images (converted to WebP on upload, same as covers)
+   * shown by the public "Read sample" viewer — an author-managed
+   * preview, not auto-generated from any manuscript file. */
+  samplePageUrls String[] @default([])
   status       ContentStatus @default(DRAFT)
   authorId     String
   author       AuthorProfile @relation(fields: [authorId], references: [id])

@@ -8,6 +8,7 @@ import { BookCard } from "@/components/BookCard";
 import { AffiliateClickTracker } from "@/components/AffiliateClickTracker";
 import { LiveReviewSection } from "@/components/LiveReviewSection";
 import { FollowAuthorButton } from "@/components/FollowAuthorButton";
+import { ReadSampleViewer } from "@/components/ReadSampleViewer";
 import { bookJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { OutboundLink } from "@/components/OutboundLink";
@@ -133,7 +134,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
             </div>
           </div>
           <div className="az-sample-btns">
-            <button type="button" className="btn btn-ghost btn-small btn-block">Read sample</button>
+            <ReadSampleViewer pages={b.samplePageUrls ?? []} title={b.title} />
             <button type="button" className="btn btn-ghost btn-small btn-block">Listen to sample</button>
           </div>
           <div className="az-author-card">

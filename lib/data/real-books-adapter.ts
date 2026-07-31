@@ -49,6 +49,7 @@ interface RealBookRow {
   isbn: string | null;
   price: unknown;
   coverImageUrl: string | null;
+  samplePageUrls: string[];
   ageGroup: string | null;
   createdAt: Date;
   hasEbook: boolean;
@@ -96,6 +97,7 @@ function toCatalogBook(row: RealBookRow): Book {
       hardcover: row.hasPrint && row.hardcoverPrice != null,
       audiobook: row.hasAudiobook,
     },
+    samplePageUrls: row.samplePageUrls,
     isbn: row.isbn ?? "",
     pubDate: row.createdAt.toISOString().slice(0, 10),
     sizeMB: (2 + (seed % 8)).toFixed(1),

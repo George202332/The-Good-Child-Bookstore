@@ -10,6 +10,7 @@ export function PromoBanner({
   body,
   ctaHref,
   ctaLabel,
+  imageUrl,
 }: {
   tone: "lavender" | "mint" | "pink";
   icon: ReactNode;
@@ -17,14 +18,18 @@ export function PromoBanner({
   body: string;
   ctaHref: string;
   ctaLabel: string;
+  imageUrl?: string;
 }) {
   return (
-    <div className={`promo-banner promo-${tone}`}>
+    <div
+      className={`promo-banner promo-${tone}`}
+      style={imageUrl ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.35), rgba(20,14,26,0.35)), url(${imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+    >
       <div className="promo-banner-text">
         <div className="promo-banner-icon">{icon}</div>
         <div>
-          <h3>{title}</h3>
-          <p>{body}</p>
+          <h3 style={imageUrl ? { color: "#fff" } : undefined}>{title}</h3>
+          <p style={imageUrl ? { color: "rgba(255,255,255,0.9)" } : undefined}>{body}</p>
         </div>
       </div>
       <Link href={ctaHref} className="btn btn-primary btn-small">

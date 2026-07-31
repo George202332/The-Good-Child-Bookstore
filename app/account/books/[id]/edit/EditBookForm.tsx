@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateBook, type UpdateBookInput } from "@/actions/submissions";
+import { ImageUploadField } from "@/components/ImageUploadField";
 
 export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
   const router = useRouter();
@@ -15,12 +16,21 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
   const [genre, setGenre] = useState(initial.genre);
   const [language, setLanguage] = useState(initial.language);
   const [coverImageUrl, setCoverImageUrl] = useState(initial.coverImageUrl ?? "");
+  const [samplePages, setSamplePages] = useState<string[]>(initial.samplePageUrls ?? []);
   const [ebook, setEbook] = useState(initial.formats.ebook);
   const [print, setPrint] = useState(initial.formats.print);
   const [audiobook, setAudiobook] = useState(initial.formats.audiobook);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  function setSamplePageAt(index: number, url: string) {
+    setSamplePages((prev) => {
+      const next = [...prev];
+      next[index] = url;
+      return next;
+    });
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -38,6 +48,7 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
       genre,
       language,
       coverImageUrl,
+      samplePageUrls: samplePages,
       formats: { ebook, print, audiobook },
     });
     setSubmitting(false);
@@ -78,10 +89,32 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
           <label className="field-label" htmlFor="edit-language">Language</label>
           <input className="field" id="edit-language" type="text" value={language} onChange={(e) => setLanguage(e.target.value)} />
         </div>
-        <div>
-          <label className="field-label" htmlFor="edit-cover">Cover image URL</label>
-          <input className="field" id="edit-cover" type="text" value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)} />
-        </div>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <ImageUploadField
+          label="Cover image"
+          recommendedSize="Recommended 1600×2400px (2:3 ratio)"
+          value={coverImageUrl}
+          onChange={(url) => setCoverImageUrl(url)}
+        />
+      </div>
+
+      <label className="field-label" style={{ marginTop: 14 }}>Read Sample pages</label>
+      <p className="field-hint" style={{ margin: "-8px 0 10px" }}>
+        Upload up to 6 page images — this is exactly what anyone sees when they click &quot;Read sample&quot; on
+        this book&apos;s page. Leave any slot empty to skip it.
+      </p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <ImageUploadField
+            key={i}
+            label={`Page ${i + 1}`}
+            recommendedSize="Recommended 1000×1400px"
+            value={samplePages[i]}
+            onChange={(url) => setSamplePageAt(i, url)}
+          />
+        ))}
       </div>
 
       <label className="field-label" style={{ marginTop: 14 }}>Formats</label>
