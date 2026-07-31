@@ -46,7 +46,6 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
           genre: book.genres[0]?.genre.name ?? "",
           language: book.language ?? "en",
           coverImageUrl: book.coverImageUrl ?? "",
-          samplePageUrls: book.samplePageUrls,
           formats: { ebook: book.hasEbook, print: book.hasPrint, audiobook: book.hasAudiobook },
         }}
       />

@@ -49,7 +49,7 @@ interface RealBookRow {
   isbn: string | null;
   price: unknown;
   coverImageUrl: string | null;
-  samplePageUrls: string[];
+  files: { kind: string; url: string }[];
   ageGroup: string | null;
   createdAt: Date;
   hasEbook: boolean;
@@ -97,7 +97,7 @@ function toCatalogBook(row: RealBookRow): Book {
       hardcover: row.hasPrint && row.hardcoverPrice != null,
       audiobook: row.hasAudiobook,
     },
-    samplePageUrls: row.samplePageUrls,
+    manuscriptUrl: row.files.find((f) => f.kind === "MANUSCRIPT" && f.url.toLowerCase().endsWith(".pdf"))?.url,
     isbn: row.isbn ?? "",
     pubDate: row.createdAt.toISOString().slice(0, 10),
     sizeMB: (2 + (seed % 8)).toFixed(1),
@@ -124,6 +124,7 @@ export async function getRealPublishedBooks(): Promise<Book[]> {
         author: { include: { user: true } },
         categories: { include: { category: true } },
         genres: { include: { genre: true } },
+        files: true,
         reviews: true,
         ratings: true,
       },
@@ -151,6 +152,7 @@ export async function getBooksByIds(ids: string[]): Promise<Book[]> {
         author: { include: { user: true } },
         categories: { include: { category: true } },
         genres: { include: { genre: true } },
+        files: true,
         reviews: true,
         ratings: true,
       },
@@ -174,6 +176,7 @@ export async function getRealPublishedBookById(id: string): Promise<Book | null>
         author: { include: { user: true } },
         categories: { include: { category: true } },
         genres: { include: { genre: true } },
+        files: true,
         reviews: true,
         ratings: true,
       },

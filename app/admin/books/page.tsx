@@ -94,7 +94,7 @@ export default async function BookManagementPage({
           books.map((b) => (
             <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13.5 }}>{b.title}</div>
+                <Link href={`/admin/books/${b.id}/review`} style={{ fontWeight: 700, fontSize: 13.5, color: "var(--ink)" }}>{b.title}</Link>
                 <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
                   by {b.authorName} · {b.status} · submitted {b.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                   {b.reviewCount > 0 && ` · ${b.reviewCount} review${b.reviewCount === 1 ? "" : "s"}`}

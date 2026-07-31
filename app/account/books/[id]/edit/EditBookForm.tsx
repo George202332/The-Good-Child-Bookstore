@@ -16,21 +16,12 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
   const [genre, setGenre] = useState(initial.genre);
   const [language, setLanguage] = useState(initial.language);
   const [coverImageUrl, setCoverImageUrl] = useState(initial.coverImageUrl ?? "");
-  const [samplePages, setSamplePages] = useState<string[]>(initial.samplePageUrls ?? []);
   const [ebook, setEbook] = useState(initial.formats.ebook);
   const [print, setPrint] = useState(initial.formats.print);
   const [audiobook, setAudiobook] = useState(initial.formats.audiobook);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  function setSamplePageAt(index: number, url: string) {
-    setSamplePages((prev) => {
-      const next = [...prev];
-      next[index] = url;
-      return next;
-    });
-  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -48,7 +39,6 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
       genre,
       language,
       coverImageUrl,
-      samplePageUrls: samplePages,
       formats: { ebook, print, audiobook },
     });
     setSubmitting(false);
@@ -100,22 +90,10 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
         />
       </div>
 
-      <label className="field-label" style={{ marginTop: 14 }}>Read Sample pages</label>
-      <p className="field-hint" style={{ margin: "-8px 0 10px" }}>
-        Upload up to 6 page images — this is exactly what anyone sees when they click &quot;Read sample&quot; on
-        this book&apos;s page. Leave any slot empty to skip it.
+      <p className="field-hint" style={{ marginTop: 14 }}>
+        &quot;Read sample&quot; on this book&apos;s page automatically shows the first 6 pages of your uploaded
+        manuscript — there&apos;s nothing separate to upload for it.
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-        {Array.from({ length: 6 }).map((_, i) => (
-          <ImageUploadField
-            key={i}
-            label={`Page ${i + 1}`}
-            recommendedSize="Recommended 1000×1400px"
-            value={samplePages[i]}
-            onChange={(url) => setSamplePageAt(i, url)}
-          />
-        ))}
-      </div>
 
       <label className="field-label" style={{ marginTop: 14 }}>Formats</label>
       <div style={{ display: "flex", gap: 16 }}>

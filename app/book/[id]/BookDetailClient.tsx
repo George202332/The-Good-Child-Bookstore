@@ -134,7 +134,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
             </div>
           </div>
           <div className="az-sample-btns">
-            <ReadSampleViewer pages={b.samplePageUrls ?? []} title={b.title} />
+            <ReadSampleViewer manuscriptUrl={b.manuscriptUrl} title={b.title} />
             <button type="button" className="btn btn-ghost btn-small btn-block">Listen to sample</button>
           </div>
           <div className="az-author-card">

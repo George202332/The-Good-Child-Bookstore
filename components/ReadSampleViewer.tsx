@@ -1,14 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { ManuscriptReviewViewer } from "./ManuscriptReviewViewer";
 
-export function ReadSampleViewer({ pages, title }: { pages: string[]; title: string }) {
+/**
+ * "Read sample" — per explicit instruction, this is NOT a separate set
+ * of uploaded sample images. It's the first 6 pages of the exact same
+ * PDF manuscript the author uploaded for the eBook itself, rendered
+ * with the same page-by-page viewer used for editor/admin review.
+ * There's nothing extra for an author to manage — if they've uploaded
+ * a PDF manuscript, the sample already exists.
+ */
+export function ReadSampleViewer({ manuscriptUrl, title }: { manuscriptUrl: string | undefined; title: string }) {
   const [open, setOpen] = useState(false);
-  const [index, setIndex] = useState(0);
 
-  if (pages.length === 0) {
+  if (!manuscriptUrl) {
     return (
-      <button type="button" className="btn btn-ghost btn-small btn-block" disabled title="No sample pages have been uploaded for this book yet">
+      <button type="button" className="btn btn-ghost btn-small btn-block" disabled title="No sample available for this book yet">
         Read sample
       </button>
     );
@@ -16,7 +24,7 @@ export function ReadSampleViewer({ pages, title }: { pages: string[]; title: str
 
   return (
     <>
-      <button type="button" className="btn btn-ghost btn-small btn-block" onClick={() => { setIndex(0); setOpen(true); }}>
+      <button type="button" className="btn btn-ghost btn-small btn-block" onClick={() => setOpen(true)}>
         Read sample
       </button>
       {open && (
@@ -27,22 +35,14 @@ export function ReadSampleViewer({ pages, title }: { pages: string[]; title: str
           onClick={() => setOpen(false)}
         >
           <div
-            style={{ background: "var(--paper)", borderRadius: 16, padding: 20, maxWidth: 560, width: "100%", position: "relative" }}
+            style={{ background: "var(--paper)", borderRadius: 16, padding: 20, maxWidth: 640, width: "100%", position: "relative" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h3 style={{ fontSize: 15, margin: 0 }}>{title} — Sample</h3>
+              <h3 style={{ fontSize: 15, margin: 0 }}>{title} — Sample (first pages)</h3>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--ink-faint)", lineHeight: 1 }}>×</button>
             </div>
-            <div style={{ display: "flex", justifyContent: "center", background: "var(--cream)", borderRadius: 10, overflow: "hidden" }}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- real uploaded sample page */}
-              <img src={pages[index]} alt={`${title} — page ${index + 1}`} style={{ maxWidth: "100%", maxHeight: "70vh", objectFit: "contain", display: "block" }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14 }}>
-              <button type="button" className="btn btn-ghost btn-small" disabled={index === 0} onClick={() => setIndex((i) => Math.max(0, i - 1))}>← Previous</button>
-              <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>Page {index + 1} of {pages.length}</span>
-              <button type="button" className="btn btn-ghost btn-small" disabled={index === pages.length - 1} onClick={() => setIndex((i) => Math.min(pages.length - 1, i + 1))}>Next →</button>
-            </div>
+            <ManuscriptReviewViewer url={manuscriptUrl} title={title} maxPages={6} />
           </div>
         </div>
       )}

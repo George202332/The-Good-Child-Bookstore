@@ -37,7 +37,8 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
   });
   if (!book) notFound();
 
-  const manuscript = (book.files as { kind: string; url: string }[]).find((f) => f.kind === "PDF" || f.kind === "EPUB");
+  const manuscript = (book.files as { kind: string; url: string }[]).find((f) => f.kind === "MANUSCRIPT");
+  const manuscriptIsPdf = manuscript?.url.toLowerCase().endsWith(".pdf") ?? false;
   const authorDisplayName = book.author.penName || book.author.user.name;
 
   return (
@@ -90,25 +91,17 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
               <p className="field-hint" style={{ margin: "0 0 12px" }}>
                 Read-only — this opens the manuscript for review here, it doesn&apos;t offer a download.
               </p>
-              {manuscript.kind === "PDF" ? (
+              {manuscriptIsPdf ? (
                 <ManuscriptReviewViewer url={manuscript.url} title={book.title} />
               ) : (
-                <p className="field-hint">This manuscript was uploaded as an EPUB — inline preview isn&apos;t supported for that format yet.</p>
+                <>
+                  <p className="field-hint">This manuscript wasn&apos;t uploaded as a PDF (EPUB and MOBI aren&apos;t supported for inline preview yet) — use the file itself to check it.</p>
+                  <a href={manuscript?.url} target="_blank" rel="noreferrer" className="btn btn-ghost btn-small" style={{ marginTop: 8 }}>Open manuscript file</a>
+                </>
               )}
             </div>
           )}
 
-          {book.samplePageUrls.length > 0 && (
-            <div className="map-card" style={{ padding: 20, marginBottom: 20 }}>
-              <h3 style={{ fontSize: 15, marginBottom: 12 }}>Sample pages ({book.samplePageUrls.length})</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10 }}>
-                {(book.samplePageUrls as string[]).map((url: string, i: number) => (
-                  // eslint-disable-next-line @next/next/no-img-element -- real uploaded sample page
-                  <img key={i} src={url} alt={`Sample page ${i + 1}`} style={{ width: "100%", aspectRatio: "2/3", objectFit: "contain", background: "var(--cream, var(--admin-panel))", borderRadius: 6 }} />
-                ))}
-              </div>
-            </div>
-          )}
 
           {book.revisionNotes && (
             <div className="map-card" style={{ padding: 20, marginBottom: 20, background: "#FBE6B8" }}>

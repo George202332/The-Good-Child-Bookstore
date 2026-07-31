@@ -3,16 +3,19 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Renders a PDF manuscript entirely as canvas images, page by page —
- * not an <iframe>/<embed>, which would show the browser's own native
- * PDF toolbar (download, print, open in new tab). This gives a real
- * read-only review pane: page navigation only, no way to save or print
- * from the viewer's own UI. Right-click is also disabled on the canvas
- * as a further deterrent (not a hard security boundary — someone
- * determined could still get the file via browser devtools — but this
- * matches "open it to review, not to download it" for the normal case).
+ * Renders a PDF page-by-page onto canvases (via pdf.js) — not an
+ * <iframe>/<embed>, which would show the browser's own native PDF
+ * toolbar (download, print, open in new tab). Used two ways: the full
+ * manuscript for editor/admin review (no page cap, no download option
+ * anywhere in the UI), and the public "Read sample" (capped to the
+ * first `maxPages` pages of that same manuscript file — no separate
+ * sample images to manage, it's literally the real manuscript).
+ * Right-click is also disabled on the canvas as a further deterrent
+ * (not a hard security boundary — someone determined could still get
+ * the file via browser devtools — but there's no download/print/save
+ * control anywhere in the viewer's own UI).
  */
-export function ManuscriptReviewViewer({ url, title }: { url: string; title: string }) {
+export function ManuscriptReviewViewer({ url, title, maxPages }: { url: string; title: string; maxPages?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pageNum, setPageNum] = useState(1);
   const [numPages, setNumPages] = useState<number | null>(null);
@@ -32,10 +35,10 @@ export function ManuscriptReviewViewer({ url, title }: { url: string; title: str
         const doc = await pdfjsLib.getDocument({ url }).promise;
         if (cancelled) return;
         pdfDocRef.current = doc;
-        setNumPages(doc.numPages);
+        setNumPages(maxPages ? Math.min(doc.numPages, maxPages) : doc.numPages);
         setPageNum(1);
       } catch {
-        if (!cancelled) setError("Couldn't open this manuscript for preview — try downloading it isn't available here; contact support if this keeps happening.");
+        if (!cancelled) setError("Couldn't open this file for preview.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -44,7 +47,7 @@ export function ManuscriptReviewViewer({ url, title }: { url: string; title: str
     return () => {
       cancelled = true;
     };
-  }, [url]);
+  }, [url, maxPages]);
 
   useEffect(() => {
     const doc = pdfDocRef.current;
