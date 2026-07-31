@@ -96,7 +96,7 @@ export default async function HomePage() {
 
   return (
     <main>
-      <section style={{ paddingTop: "0.5in", paddingBottom: "0.5in" }}>
+      <section style={{ paddingTop: "0.5in", paddingBottom: "calc(0.5in - 8mm)" }}>
         <div className="wrap">
           <HeroBannerCarousel heading={hero.heading === DEFAULT_PAGES_CONTENT.home.heading ? "Where young minds fall in love with reading." : hero.heading} lede={hero.lede} imageUrl={hero.heroImage} />
         </div>
@@ -122,7 +122,7 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: "0.5in" }}>
+      <FadeInSection style={{ paddingTop: "calc(0.5in - 8mm)" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
@@ -134,7 +134,7 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: "0.5in" }}>
+      <FadeInSection style={{ paddingTop: "calc(0.5in - 8mm)" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
@@ -173,7 +173,7 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: "0.5in" }}>
+      <FadeInSection style={{ paddingTop: "calc(0.5in - 8mm)" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
@@ -209,7 +209,7 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: "0.5in" }}>
+      <FadeInSection style={{ paddingTop: "calc(0.5in - 8mm)" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
@@ -237,7 +237,7 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: "0.5in" }}>
+      <FadeInSection style={{ paddingTop: "calc(0.5in - 8mm)" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
@@ -268,7 +268,7 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: "0.5in" }}>
+      <FadeInSection style={{ paddingTop: "calc(0.5in - 8mm)" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
