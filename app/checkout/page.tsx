@@ -156,12 +156,21 @@ export default function CheckoutPage() {
       return;
     }
     router.push(`/checkout/confirmation?order=${created.orderId}`);
-    lines.forEach((l) => removeItem(l.book.id, l.format));
   }
 
   async function completeOrder() {
-    setSubmitting(true);
     setPaymentError(null);
+
+    if (!data.cardName.trim()) { setPaymentError("Enter the name on your card."); return; }
+    const digitsOnly = data.cardNumber.replace(/\s+/g, "");
+    if (digitsOnly.length < 13 || digitsOnly.length > 19 || !/^\d+$/.test(digitsOnly)) {
+      setPaymentError("Enter a valid card number.");
+      return;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(data.cardExpiry.trim())) { setPaymentError("Enter the expiry date as MM/YY."); return; }
+    if (!/^\d{3,4}$/.test(data.cardCvv.trim())) { setPaymentError("Enter a valid CVV."); return; }
+
+    setSubmitting(true);
 
     const created = await createPendingOrder({
       items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
@@ -193,7 +202,6 @@ export default function CheckoutPage() {
     // Demo mode: no gateway credentials configured, so confirm directly.
     await confirmOrderPaidDirectly(created.orderId);
     router.push(`/checkout/confirmation?order=${created.orderId}`);
-    lines.forEach((l) => removeItem(l.book.id, l.format));
   }
 
   if (resolvedBooks === null) {

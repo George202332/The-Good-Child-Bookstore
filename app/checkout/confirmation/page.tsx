@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { getOrderSummary } from "@/actions/orders";
+import { ClearCartOnMount } from "@/components/ClearCartOnMount";
 
 /**
  * Real order confirmation, reached either from demo-mode checkout
@@ -35,6 +36,7 @@ export default async function CheckoutConfirmationPage({
 
   return (
     <div className="wrap cart-wrap" style={{ maxWidth: 520, margin: "0 auto" }}>
+      <ClearCartOnMount />
       <div style={{ textAlign: "center" }}>
         <div className="confirmation-check">✓</div>
         <h2 style={{ marginBottom: 6 }}>Thank you for your order!</h2>
