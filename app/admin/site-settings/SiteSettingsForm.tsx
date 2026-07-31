@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateSiteSettings } from "@/actions/site-settings";
+import { updateSiteSettings, testPaystackConnection } from "@/actions/site-settings";
 import type { SiteSettings } from "@/lib/site-settings";
 import { ImageUploadField } from "@/components/ImageUploadField";
 
@@ -21,6 +21,16 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  async function handleTestPaystack() {
+    setTesting(true);
+    setTestResult(null);
+    const res = await testPaystackConnection();
+    setTesting(false);
+    setTestResult(res);
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -103,7 +113,8 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
         type="password"
         autoComplete="off"
         placeholder={apiKeysSet.luluApiKey ? "•••• already set — leave blank to keep it" : "Not set"}
-        onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, luluApiKey: e.target.value } }))}
+        value={settings.apiKeys.luluApiKey ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, luluApiKey: e.target.value } }))}
       />
 
       <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Order confirmation emails</h4>
@@ -119,6 +130,7 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
             type="password"
             autoComplete="off"
             placeholder={apiKeysSet.resendApiKey ? "•••• already set — leave blank to keep it" : "Not set"}
+            value={settings.apiKeys.resendApiKey ?? ""}
             onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, resendApiKey: e.target.value } }))}
           />
         </div>
@@ -156,6 +168,7 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
             type="password"
             autoComplete="off"
             placeholder={apiKeysSet.paypalSandboxClientId ? "•••• already set" : "Not set"}
+            value={settings.apiKeys.paypalSandboxClientId ?? ""}
             onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paypalSandboxClientId: e.target.value } }))}
           />
         </div>
@@ -167,6 +180,7 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
             type="password"
             autoComplete="off"
             placeholder={apiKeysSet.paypalSandboxClientSecret ? "•••• already set" : "Not set"}
+            value={settings.apiKeys.paypalSandboxClientSecret ?? ""}
             onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paypalSandboxClientSecret: e.target.value } }))}
           />
         </div>
@@ -182,6 +196,7 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
             type="password"
             autoComplete="off"
             placeholder={apiKeysSet.paypalLiveClientId ? "•••• already set" : "Not set"}
+            value={settings.apiKeys.paypalLiveClientId ?? ""}
             onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paypalLiveClientId: e.target.value } }))}
           />
         </div>
@@ -193,6 +208,7 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
             type="password"
             autoComplete="off"
             placeholder={apiKeysSet.paypalLiveClientSecret ? "•••• already set" : "Not set"}
+            value={settings.apiKeys.paypalLiveClientSecret ?? ""}
             onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paypalLiveClientSecret: e.target.value } }))}
           />
         </div>
@@ -208,6 +224,7 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
             type="password"
             autoComplete="off"
             placeholder={apiKeysSet.paystackTestSecretKey ? "•••• already set" : "Not set"}
+            value={settings.apiKeys.paystackTestSecretKey ?? ""}
             onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackTestSecretKey: e.target.value } }))}
           />
         </div>
@@ -219,6 +236,7 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
             type="password"
             autoComplete="off"
             placeholder={apiKeysSet.paystackTestPublicKey ? "•••• already set" : "Not set"}
+            value={settings.apiKeys.paystackTestPublicKey ?? ""}
             onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackTestPublicKey: e.target.value } }))}
           />
         </div>
@@ -234,6 +252,7 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
             type="password"
             autoComplete="off"
             placeholder={apiKeysSet.paystackLiveSecretKey ? "•••• already set" : "Not set"}
+            value={settings.apiKeys.paystackLiveSecretKey ?? ""}
             onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackLiveSecretKey: e.target.value } }))}
           />
         </div>
@@ -245,9 +264,25 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
             type="password"
             autoComplete="off"
             placeholder={apiKeysSet.paystackLivePublicKey ? "•••• already set" : "Not set"}
+            value={settings.apiKeys.paystackLivePublicKey ?? ""}
             onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackLivePublicKey: e.target.value } }))}
           />
         </div>
+      </div>
+
+      <div style={{ marginTop: 8, marginBottom: 8 }}>
+        <p className="field-hint" style={{ margin: "0 0 8px" }}>
+          Save your changes first, then test — this checks the key that&apos;s actually saved, not whatever&apos;s
+          currently typed above, so it tells you for certain whether it stuck.
+        </p>
+        <button type="button" className="btn btn-ghost btn-small" disabled={testing} onClick={handleTestPaystack}>
+          {testing ? "Testing…" : "Test Paystack connection"}
+        </button>
+        {testResult && (
+          <div className="field-hint" style={{ color: testResult.ok ? "#1F6B48" : "var(--coral-deep)", marginTop: 8 }}>
+            {testResult.message}
+          </div>
+        )}
       </div>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}

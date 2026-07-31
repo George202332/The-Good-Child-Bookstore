@@ -80,6 +80,41 @@ export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSetti
   };
 }
 
+export async function testPaystackConnection(): Promise<{ ok: boolean; message: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, message: "Only Admins can do this." };
+
+  const settings = await getSiteSettings();
+  const mode = settings.apiKeys.paymentMode;
+  const secretKey = mode === "live" ? settings.apiKeys.paystackLiveSecretKey : settings.apiKeys.paystackTestSecretKey;
+  const envFallback = process.env.PAYSTACK_SECRET_KEY;
+  const keyToUse = secretKey?.trim() || envFallback;
+
+  if (!keyToUse) {
+    return {
+      ok: false,
+      message: `No Paystack ${mode === "live" ? "live" : "test"} secret key found — not in Site Settings, and not in the PAYSTACK_SECRET_KEY environment variable either. Enter one above and save first.`,
+    };
+  }
+
+  try {
+    const res = await fetch("https://api.paystack.co/transaction?perPage=1", {
+      headers: { Authorization: `Bearer ${keyToUse}` },
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const source = secretKey?.trim() ? "Site Settings" : "the PAYSTACK_SECRET_KEY environment variable";
+      return { ok: true, message: `Connected successfully using the ${mode} key from ${source}. Paystack accepted it.` };
+    }
+    if (res.status === 401) {
+      return { ok: false, message: `Paystack rejected this key as invalid (401 Unauthorized). Double-check it was copied correctly and matches the ${mode} mode selected above.` };
+    }
+    return { ok: false, message: `Paystack responded with an unexpected status (${res.status}). The key format may be valid, but something else is wrong — check Paystack's own dashboard for account issues.` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? `Could not reach Paystack: ${e.message}` : "Could not reach Paystack." };
+  }
+}
+
 export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
