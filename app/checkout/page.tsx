@@ -45,7 +45,7 @@ interface CheckoutData {
   billingAddress: string;
   couponCode: string;
   couponDiscount: number;
-  paymentMethod: "paypal" | "paystack" | "mpesa";
+  paymentMethod: "paystack" | "mpesa";
   cardName: string;
   cardNumber: string;
   cardExpiry: string;
@@ -73,7 +73,7 @@ export default function CheckoutPage() {
     billingAddress: "",
     couponCode: "",
     couponDiscount: 0,
-    paymentMethod: "paypal",
+    paymentMethod: "paystack",
     cardName: "",
     cardNumber: "",
     cardExpiry: "",
@@ -381,13 +381,16 @@ export default function CheckoutPage() {
             </div>
           )}
 
+          <p style={{ textAlign: "center", fontSize: 12.5, fontWeight: 700, color: "var(--ink-soft)", marginBottom: 10 }}>
+            Pay securely with Paystack cards
+          </p>
           <div className="card-brand-row card-brand-row-centered">
             {(["mastercard", "visa", "amex", "verve"] as const).map((key) =>
               paymentBadges[key] ? (
                 // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded badge image, not a static asset
-                <img key={key} src={paymentBadges[key]} alt={key} className="payment-badge-img" style={{ height: 28 }} />
+                <img key={key} src={paymentBadges[key]} alt={key} className="payment-badge-img" style={{ height: 36 }} />
               ) : (
-                <PaymentBadgeIcon key={key} type={key} />
+                <PaymentBadgeIcon key={key} type={key} width={68} height={43} />
               )
             )}
           </div>

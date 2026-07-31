@@ -4,7 +4,6 @@ import { PaymentBadgeIcon } from "./PaymentBadgeIcon";
 import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-settings";
 
 const PAYMENT_BADGE_LABELS: { key: keyof PaymentBadgeUrls; label: string }[] = [
-  { key: "paypal", label: "PayPal" },
   { key: "mpesa", label: "M-Pesa" },
   { key: "mastercard", label: "Mastercard" },
   { key: "visa", label: "Visa" },

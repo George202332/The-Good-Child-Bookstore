@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
  * (app/checkout/return), so both paths record identically. */
 export async function finalizeOrderPayment(
   orderId: string,
-  gateway: "PAYPAL" | "PAYSTACK",
+  gateway: "PAYSTACK",
   rawPayload: unknown
 ): Promise<void> {
   const order = await prisma.order.update({

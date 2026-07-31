@@ -6,14 +6,16 @@ import { auth } from "@/lib/auth";
 import { DEFAULT_SITE_SETTINGS, type SiteSettings, type ApiKeys } from "@/lib/site-settings";
 
 /**
- * Site-wide branding/footer/API-credentials control — "control all the
- * website front... logo... texts... including the footer... upload the
- * images of PayPal, M-Pesa, Mastercard, Visa, American Express, and
- * Verve cards... a section for APIs where I will be inserting the APIs
- * for Lulu, PayPal, Paystack" from the explicit request. Built on the
- * same generic Setting key-value table as the page-content CMS
+ * Site-wide branding/footer/API-credentials control. Built on the same
+ * generic Setting key-value table as the page-content CMS
  * (actions/page-content.ts). Logo/favicon/badge images are either a real
  * upload (converted to WebP, see actions/images.ts) or a pasted URL.
+ *
+ * Payment Integrations rebuilt per explicit instruction: PayPal removed
+ * entirely; Paystack collapsed to one secret/public pair (paymentMode is
+ * now just a label, not a switch between two stored sets); Wise and
+ * Lulu both get the same backend-manageable secret/public (or
+ * client key/secret) pair treatment.
  */
 
 const SITE_SETTINGS_KEY = "site_settings";
@@ -47,33 +49,27 @@ export async function getSiteSettings(): Promise<SiteSettings> {
 export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSettings; apiKeysSet: Record<string, boolean> }> {
   const settings = await getSiteSettings();
   const apiKeysSet: Record<string, boolean> = {
-    luluApiKey: !!settings.apiKeys.luluApiKey,
+    luluClientKey: !!settings.apiKeys.luluClientKey,
+    luluClientSecret: !!settings.apiKeys.luluClientSecret,
     resendApiKey: !!settings.apiKeys.resendApiKey,
-    paypalSandboxClientId: !!settings.apiKeys.paypalSandboxClientId,
-    paypalSandboxClientSecret: !!settings.apiKeys.paypalSandboxClientSecret,
-    paypalLiveClientId: !!settings.apiKeys.paypalLiveClientId,
-    paypalLiveClientSecret: !!settings.apiKeys.paypalLiveClientSecret,
-    paystackTestSecretKey: !!settings.apiKeys.paystackTestSecretKey,
-    paystackTestPublicKey: !!settings.apiKeys.paystackTestPublicKey,
-    paystackLiveSecretKey: !!settings.apiKeys.paystackLiveSecretKey,
-    paystackLivePublicKey: !!settings.apiKeys.paystackLivePublicKey,
+    paystackSecretKey: !!settings.apiKeys.paystackSecretKey,
+    paystackPublicKey: !!settings.apiKeys.paystackPublicKey,
+    wiseApiToken: !!settings.apiKeys.wiseApiToken,
+    wiseProfileId: !!settings.apiKeys.wiseProfileId,
   };
   return {
     settings: {
       ...settings,
       apiKeys: {
         paymentMode: settings.apiKeys.paymentMode,
-        luluApiKey: "",
+        luluClientKey: "",
+        luluClientSecret: "",
         resendApiKey: "",
         fromEmail: settings.apiKeys.fromEmail ?? "",
-        paypalSandboxClientId: "",
-        paypalSandboxClientSecret: "",
-        paypalLiveClientId: "",
-        paypalLiveClientSecret: "",
-        paystackTestSecretKey: "",
-        paystackTestPublicKey: "",
-        paystackLiveSecretKey: "",
-        paystackLivePublicKey: "",
+        paystackSecretKey: "",
+        paystackPublicKey: "",
+        wiseApiToken: "",
+        wiseProfileId: "",
       },
     },
     apiKeysSet,
@@ -85,29 +81,27 @@ export async function testPaystackConnection(): Promise<{ ok: boolean; message: 
   if (session?.user?.role !== "ADMIN") return { ok: false, message: "Only Admins can do this." };
 
   const settings = await getSiteSettings();
+  const secretKey = settings.apiKeys.paystackSecretKey?.trim() || process.env.PAYSTACK_SECRET_KEY;
   const mode = settings.apiKeys.paymentMode;
-  const secretKey = mode === "live" ? settings.apiKeys.paystackLiveSecretKey : settings.apiKeys.paystackTestSecretKey;
-  const envFallback = process.env.PAYSTACK_SECRET_KEY;
-  const keyToUse = secretKey?.trim() || envFallback;
 
-  if (!keyToUse) {
+  if (!secretKey) {
     return {
       ok: false,
-      message: `No Paystack ${mode === "live" ? "live" : "test"} secret key found — not in Site Settings, and not in the PAYSTACK_SECRET_KEY environment variable either. Enter one above and save first.`,
+      message: "No Paystack secret key found — not in Site Settings, and not in the PAYSTACK_SECRET_KEY environment variable either. Enter one above and save first.",
     };
   }
 
   try {
     const res = await fetch("https://api.paystack.co/transaction?perPage=1", {
-      headers: { Authorization: `Bearer ${keyToUse}` },
+      headers: { Authorization: `Bearer ${secretKey}` },
       cache: "no-store",
     });
     if (res.ok) {
-      const source = secretKey?.trim() ? "Site Settings" : "the PAYSTACK_SECRET_KEY environment variable";
-      return { ok: true, message: `Connected successfully using the ${mode} key from ${source}. Paystack accepted it.` };
+      const source = settings.apiKeys.paystackSecretKey?.trim() ? "Site Settings" : "the PAYSTACK_SECRET_KEY environment variable";
+      return { ok: true, message: `Connected successfully using the key from ${source} (labeled as ${mode} mode). Paystack accepted it.` };
     }
     if (res.status === 401) {
-      return { ok: false, message: `Paystack rejected this key as invalid (401 Unauthorized). Double-check it was copied correctly and matches the ${mode} mode selected above.` };
+      return { ok: false, message: "Paystack rejected this key as invalid (401 Unauthorized). Double-check it was copied correctly." };
     }
     return { ok: false, message: `Paystack responded with an unexpected status (${res.status}). The key format may be valid, but something else is wrong — check Paystack's own dashboard for account issues.` };
   } catch (e) {
@@ -127,17 +121,14 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
   const existing = await getSiteSettings();
   const apiKeys: ApiKeys = {
     paymentMode: settings.apiKeys.paymentMode,
-    luluApiKey: settings.apiKeys.luluApiKey?.trim() || existing.apiKeys.luluApiKey,
+    luluClientKey: settings.apiKeys.luluClientKey?.trim() || existing.apiKeys.luluClientKey,
+    luluClientSecret: settings.apiKeys.luluClientSecret?.trim() || existing.apiKeys.luluClientSecret,
     resendApiKey: settings.apiKeys.resendApiKey?.trim() || existing.apiKeys.resendApiKey,
     fromEmail: settings.apiKeys.fromEmail?.trim() || existing.apiKeys.fromEmail,
-    paypalSandboxClientId: settings.apiKeys.paypalSandboxClientId?.trim() || existing.apiKeys.paypalSandboxClientId,
-    paypalSandboxClientSecret: settings.apiKeys.paypalSandboxClientSecret?.trim() || existing.apiKeys.paypalSandboxClientSecret,
-    paypalLiveClientId: settings.apiKeys.paypalLiveClientId?.trim() || existing.apiKeys.paypalLiveClientId,
-    paypalLiveClientSecret: settings.apiKeys.paypalLiveClientSecret?.trim() || existing.apiKeys.paypalLiveClientSecret,
-    paystackTestSecretKey: settings.apiKeys.paystackTestSecretKey?.trim() || existing.apiKeys.paystackTestSecretKey,
-    paystackTestPublicKey: settings.apiKeys.paystackTestPublicKey?.trim() || existing.apiKeys.paystackTestPublicKey,
-    paystackLiveSecretKey: settings.apiKeys.paystackLiveSecretKey?.trim() || existing.apiKeys.paystackLiveSecretKey,
-    paystackLivePublicKey: settings.apiKeys.paystackLivePublicKey?.trim() || existing.apiKeys.paystackLivePublicKey,
+    paystackSecretKey: settings.apiKeys.paystackSecretKey?.trim() || existing.apiKeys.paystackSecretKey,
+    paystackPublicKey: settings.apiKeys.paystackPublicKey?.trim() || existing.apiKeys.paystackPublicKey,
+    wiseApiToken: settings.apiKeys.wiseApiToken?.trim() || existing.apiKeys.wiseApiToken,
+    wiseProfileId: settings.apiKeys.wiseProfileId?.trim() || existing.apiKeys.wiseProfileId,
   };
 
   const value = JSON.parse(JSON.stringify({ ...settings, apiKeys }));

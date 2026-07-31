@@ -7,7 +7,6 @@ import type { SiteSettings } from "@/lib/site-settings";
 import { ImageUploadField } from "@/components/ImageUploadField";
 
 const BADGE_FIELDS: { key: keyof SiteSettings["paymentBadges"]; label: string }[] = [
-  { key: "paypal", label: "PayPal" },
   { key: "mpesa", label: "M-Pesa" },
   { key: "mastercard", label: "Mastercard" },
   { key: "visa", label: "Visa" },
@@ -101,21 +100,36 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
       <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>API credentials</h3>
       <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>
         Set these here instead of asking for help editing Vercel&apos;s environment variables. Leave any of these
-        blank to keep using whatever&apos;s already configured there. PayPal and Paystack each issue separate keys
-        for testing and for real, live payments — enter both sets below, then use the toggle to decide which one
-        checkout actually uses.
+        blank to keep using whatever&apos;s already configured there.
       </p>
 
-      <label className="field-label" htmlFor="api-lulu">Lulu API key</label>
-      <input
-        className="field"
-        id="api-lulu"
-        type="password"
-        autoComplete="off"
-        placeholder={apiKeysSet.luluApiKey ? "•••• already set — leave blank to keep it" : "Not set"}
-        value={settings.apiKeys.luluApiKey ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, luluApiKey: e.target.value } }))}
-      />
+      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Lulu (print-on-demand)</h4>
+      <div className="form-grid-2">
+        <div>
+          <label className="field-label" htmlFor="api-lulu-key">Client Key</label>
+          <input
+            className="field"
+            id="api-lulu-key"
+            type="password"
+            autoComplete="off"
+            placeholder={apiKeysSet.luluClientKey ? "•••• already set — leave blank to keep it" : "Not set"}
+            value={settings.apiKeys.luluClientKey ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, luluClientKey: e.target.value } }))}
+          />
+        </div>
+        <div>
+          <label className="field-label" htmlFor="api-lulu-secret">Client Secret</label>
+          <input
+            className="field"
+            id="api-lulu-secret"
+            type="password"
+            autoComplete="off"
+            placeholder={apiKeysSet.luluClientSecret ? "•••• already set — leave blank to keep it" : "Not set"}
+            value={settings.apiKeys.luluClientSecret ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, luluClientSecret: e.target.value } }))}
+          />
+        </div>
+      </div>
 
       <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Order confirmation emails</h4>
       <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>
@@ -147,125 +161,74 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
         </div>
       </div>
 
-      <label className="field-label" htmlFor="api-mode">Payment mode</label>
+      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Payment Integrations</h3>
+
+      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Paystack (checkout — card payments)</h4>
+      <label className="field-label" htmlFor="api-mode">Key mode</label>
       <select
         className="field"
         id="api-mode"
         value={settings.apiKeys.paymentMode}
         onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paymentMode: e.target.value as "test" | "live" } }))}
       >
-        <option value="test">Test — use sandbox keys, no real charges</option>
-        <option value="live">Live — use real keys, real charges</option>
+        <option value="test">Test — the keys below are sandbox keys, no real charges</option>
+        <option value="live">Live — the keys below are real keys, real charges</option>
       </select>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>PayPal — sandbox (test) keys</h4>
+      <p className="field-hint" style={{ margin: "-8px 0 12px" }}>
+        Just a label for which kind of key you&apos;ve pasted below — Paystack test and live keys already look
+        different (sk_test_ vs sk_live_), there&apos;s only one pair to manage now.
+      </p>
       <div className="form-grid-2">
         <div>
-          <label className="field-label" htmlFor="api-paypal-sandbox-id">Sandbox Client ID</label>
+          <label className="field-label" htmlFor="api-paystack-secret">Secret Key</label>
           <input
             className="field"
-            id="api-paypal-sandbox-id"
+            id="api-paystack-secret"
             type="password"
             autoComplete="off"
-            placeholder={apiKeysSet.paypalSandboxClientId ? "•••• already set" : "Not set"}
-            value={settings.apiKeys.paypalSandboxClientId ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paypalSandboxClientId: e.target.value } }))}
+            placeholder={apiKeysSet.paystackSecretKey ? "•••• already set — leave blank to keep it" : "Not set"}
+            value={settings.apiKeys.paystackSecretKey ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackSecretKey: e.target.value } }))}
           />
         </div>
         <div>
-          <label className="field-label" htmlFor="api-paypal-sandbox-secret">Sandbox Client Secret</label>
+          <label className="field-label" htmlFor="api-paystack-public">Public Key</label>
           <input
             className="field"
-            id="api-paypal-sandbox-secret"
+            id="api-paystack-public"
             type="password"
             autoComplete="off"
-            placeholder={apiKeysSet.paypalSandboxClientSecret ? "•••• already set" : "Not set"}
-            value={settings.apiKeys.paypalSandboxClientSecret ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paypalSandboxClientSecret: e.target.value } }))}
+            placeholder={apiKeysSet.paystackPublicKey ? "•••• already set — leave blank to keep it" : "Not set"}
+            value={settings.apiKeys.paystackPublicKey ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackPublicKey: e.target.value } }))}
           />
         </div>
       </div>
 
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>PayPal — live keys</h4>
+      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Wise (author/affiliate payouts)</h4>
       <div className="form-grid-2">
         <div>
-          <label className="field-label" htmlFor="api-paypal-live-id">Live Client ID</label>
+          <label className="field-label" htmlFor="api-wise-secret">Secret Key (API Token)</label>
           <input
             className="field"
-            id="api-paypal-live-id"
+            id="api-wise-secret"
             type="password"
             autoComplete="off"
-            placeholder={apiKeysSet.paypalLiveClientId ? "•••• already set" : "Not set"}
-            value={settings.apiKeys.paypalLiveClientId ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paypalLiveClientId: e.target.value } }))}
+            placeholder={apiKeysSet.wiseApiToken ? "•••• already set — leave blank to keep it" : "Not set"}
+            value={settings.apiKeys.wiseApiToken ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseApiToken: e.target.value } }))}
           />
         </div>
         <div>
-          <label className="field-label" htmlFor="api-paypal-live-secret">Live Client Secret</label>
+          <label className="field-label" htmlFor="api-wise-public">Public Key (Profile ID)</label>
           <input
             className="field"
-            id="api-paypal-live-secret"
+            id="api-wise-public"
             type="password"
             autoComplete="off"
-            placeholder={apiKeysSet.paypalLiveClientSecret ? "•••• already set" : "Not set"}
-            value={settings.apiKeys.paypalLiveClientSecret ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paypalLiveClientSecret: e.target.value } }))}
-          />
-        </div>
-      </div>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Paystack — test keys</h4>
-      <div className="form-grid-2">
-        <div>
-          <label className="field-label" htmlFor="api-paystack-test-secret">Test Secret Key</label>
-          <input
-            className="field"
-            id="api-paystack-test-secret"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.paystackTestSecretKey ? "•••• already set" : "Not set"}
-            value={settings.apiKeys.paystackTestSecretKey ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackTestSecretKey: e.target.value } }))}
-          />
-        </div>
-        <div>
-          <label className="field-label" htmlFor="api-paystack-test-public">Test Public Key</label>
-          <input
-            className="field"
-            id="api-paystack-test-public"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.paystackTestPublicKey ? "•••• already set" : "Not set"}
-            value={settings.apiKeys.paystackTestPublicKey ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackTestPublicKey: e.target.value } }))}
-          />
-        </div>
-      </div>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Paystack — live keys</h4>
-      <div className="form-grid-2">
-        <div>
-          <label className="field-label" htmlFor="api-paystack-live-secret">Live Secret Key</label>
-          <input
-            className="field"
-            id="api-paystack-live-secret"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.paystackLiveSecretKey ? "•••• already set" : "Not set"}
-            value={settings.apiKeys.paystackLiveSecretKey ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackLiveSecretKey: e.target.value } }))}
-          />
-        </div>
-        <div>
-          <label className="field-label" htmlFor="api-paystack-live-public">Live Public Key</label>
-          <input
-            className="field"
-            id="api-paystack-live-public"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.paystackLivePublicKey ? "•••• already set" : "Not set"}
-            value={settings.apiKeys.paystackLivePublicKey ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackLivePublicKey: e.target.value } }))}
+            placeholder={apiKeysSet.wiseProfileId ? "•••• already set — leave blank to keep it" : "Not set"}
+            value={settings.apiKeys.wiseProfileId ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseProfileId: e.target.value } }))}
           />
         </div>
       </div>

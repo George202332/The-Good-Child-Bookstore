@@ -9,32 +9,33 @@
  * is passed straight through to Wise's Recipient Accounts API, so
  * whatever Wise adds support for works here without code changes.
  *
- * Same caveat as the PayPal/Paystack integrations: real, correct
- * integration code against Wise's documented API, not exercised against
- * a live Wise sandbox account, since this environment has no network
- * access and no real API token configured. Wire it in by setting
- * WISE_API_TOKEN and WISE_PROFILE_ID (see .env.example).
+ * Credentials are now backend-manageable (Admin → Site Settings →
+ * Payment Integrations → Wise), falling back to the WISE_API_TOKEN /
+ * WISE_PROFILE_ID environment variables if nothing's saved there.
  */
+
+import { getWiseCredentials } from "@/lib/api-keys";
 
 const WISE_BASE_URL = process.env.WISE_ENV === "live" ? "https://api.wise.com" : "https://api.sandbox.transferwise.tech";
 
-function requireApiToken(): string {
-  const token = process.env.WISE_API_TOKEN;
-  if (!token) throw new Error("WISE_API_TOKEN is not set.");
-  return token;
+async function requireApiToken(): Promise<string> {
+  const { apiToken } = await getWiseCredentials();
+  if (!apiToken) throw new Error("No Wise API token configured — set it in Admin \u2192 Site Settings \u2192 Payment Integrations, or the WISE_API_TOKEN environment variable.");
+  return apiToken;
 }
 
-function requireProfileId(): string {
-  const profileId = process.env.WISE_PROFILE_ID;
-  if (!profileId) throw new Error("WISE_PROFILE_ID is not set.");
+async function requireProfileId(): Promise<string> {
+  const { profileId } = await getWiseCredentials();
+  if (!profileId) throw new Error("No Wise profile ID configured — set it in Admin \u2192 Site Settings \u2192 Payment Integrations, or the WISE_PROFILE_ID environment variable.");
   return profileId;
 }
 
 async function wiseFetch(path: string, init?: RequestInit) {
+  const token = await requireApiToken();
   const res = await fetch(`${WISE_BASE_URL}${path}`, {
     ...init,
     headers: {
-      Authorization: `Bearer ${requireApiToken()}`,
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       ...init?.headers,
     },
@@ -57,10 +58,11 @@ export interface CreateWiseRecipientInput {
  * payouts) and returns Wise's own recipient id to store alongside our
  * WiseRecipient row. */
 export async function createWiseRecipient(input: CreateWiseRecipientInput): Promise<{ wiseRecipientId: string }> {
+  const profileId = await requireProfileId();
   const data = await wiseFetch("/v1/accounts", {
     method: "POST",
     body: JSON.stringify({
-      profile: requireProfileId(),
+      profile: profileId,
       currency: input.currency,
       type: input.type,
       accountHolderName: input.accountHolderName,
@@ -73,7 +75,8 @@ export async function createWiseRecipient(input: CreateWiseRecipientInput): Prom
 /** Step 1 of paying out: a quote locks in the exchange rate and fee for
  * moving `sourceAmount` USD into the recipient's currency. */
 export async function createWiseQuote(sourceAmountUsd: number, targetCurrency: string): Promise<{ quoteId: string }> {
-  const data = await wiseFetch("/v3/profiles/" + requireProfileId() + "/quotes", {
+  const profileId = await requireProfileId();
+  const data = await wiseFetch("/v3/profiles/" + profileId + "/quotes", {
     method: "POST",
     body: JSON.stringify({
       sourceCurrency: "USD",
@@ -107,7 +110,8 @@ export async function createWiseTransfer(
 /** Step 3: funds the transfer from our Wise balance — the money actually
  * moves once this succeeds. */
 export async function fundWiseTransfer(transferId: string): Promise<{ funded: boolean }> {
-  const data = await wiseFetch(`/v3/profiles/${requireProfileId()}/transfers/${transferId}/payments`, {
+  const profileId = await requireProfileId();
+  const data = await wiseFetch(`/v3/profiles/${profileId}/transfers/${transferId}/payments`, {
     method: "POST",
     body: JSON.stringify({ type: "BALANCE" }),
   });

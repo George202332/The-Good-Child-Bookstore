@@ -32,7 +32,7 @@ import { getRequestGeo } from "@/lib/geo";
  *
  * Split into createPendingOrder() + confirmOrderPaidDirectly() so a real
  * payment gateway can sit between the two (see actions/payment-init.ts):
- * create the Order as PENDING, send the buyer to PayPal/Paystack, and
+ * create the Order as PENDING, send the buyer to Paystack, and
  * only mark it PAID once the gateway (or its webhook) confirms payment.
  * When no gateway is configured, checkout falls back to calling
  * confirmOrderPaidDirectly() immediately — the same demo-mode behavior
@@ -208,7 +208,7 @@ export async function createPendingOrder(input: {
 }
 
 /** Demo-mode fallback: marks an order PAID directly, without a real
- * payment gateway. Used when no PayPal/Paystack credentials are
+ * payment gateway. Used when no Paystack credentials are
  * configured (see actions/payment-init.ts initiateGatewayCheckout). */
 export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: boolean }> {
   const order = await prisma.order.update({

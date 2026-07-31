@@ -1,5 +1,4 @@
 export interface PaymentBadgeUrls {
-  paypal?: string;
   mpesa?: string;
   mastercard?: string;
   visa?: string;
@@ -15,24 +14,28 @@ export interface PaymentBadgeUrls {
  * lib/api-keys.ts) — set here, or leave blank to keep using whatever's
  * configured in Vercel.
  *
- * Both PayPal and Paystack issue separate credential pairs for their
- * test/sandbox and live environments — paymentMode picks which pair is
- * actually used at checkout, so switching from testing to going live is
- * one toggle, not re-entering keys.
+ * Rebuilt per explicit instruction: PayPal removed entirely (checkout
+ * only takes cards via Paystack now). Paystack collapsed from 4 fields
+ * (separate test/live secret+public pairs) down to just one secret key
+ * and one public key — paymentMode is now purely a label for which
+ * mode the currently-entered pair actually is (Paystack test and live
+ * keys are already distinguishable by their own sk_test_/sk_live_ and
+ * pk_test_/pk_live_ prefixes), not a switch between two stored sets.
+ * Wise (real money transfers for author/affiliate payouts) and Lulu
+ * (print-on-demand) get the same backend-manageable treatment.
  */
 export interface ApiKeys {
-  luluApiKey?: string;
+  luluClientKey?: string;
+  luluClientSecret?: string;
   resendApiKey?: string;
   fromEmail?: string;
+  /** A label for which kind of Paystack key is currently entered below —
+   * not a switch between two stored sets, since there's only one pair now. */
   paymentMode: "test" | "live";
-  paypalSandboxClientId?: string;
-  paypalSandboxClientSecret?: string;
-  paypalLiveClientId?: string;
-  paypalLiveClientSecret?: string;
-  paystackTestSecretKey?: string;
-  paystackTestPublicKey?: string;
-  paystackLiveSecretKey?: string;
-  paystackLivePublicKey?: string;
+  paystackSecretKey?: string;
+  paystackPublicKey?: string;
+  wiseApiToken?: string;
+  wiseProfileId?: string;
 }
 
 export interface SiteSettings {

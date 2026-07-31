@@ -9,7 +9,6 @@ import type { PaymentBadgeUrls } from "@/lib/site-settings";
  * the rights to use it) — see Footer.tsx.
  */
 const BADGE_STYLES: Record<keyof PaymentBadgeUrls, { bg: string; fg: string; label: string }> = {
-  paypal: { bg: "#ffffff", fg: "#003087", label: "PayPal" },
   mpesa: { bg: "#ffffff", fg: "#1F6B48", label: "M-Pesa" },
   mastercard: { bg: "#ffffff", fg: "#1a1a2e", label: "Mastercard" },
   visa: { bg: "#ffffff", fg: "#1a3c8f", label: "Visa" },
@@ -17,10 +16,10 @@ const BADGE_STYLES: Record<keyof PaymentBadgeUrls, { bg: string; fg: string; lab
   verve: { bg: "#ffffff", fg: "#0f5c47", label: "Verve" },
 };
 
-export function PaymentBadgeIcon({ type }: { type: keyof PaymentBadgeUrls }) {
+export function PaymentBadgeIcon({ type, width = 52, height = 33 }: { type: keyof PaymentBadgeUrls; width?: number; height?: number }) {
   const style = BADGE_STYLES[type];
   return (
-    <svg viewBox="0 0 60 38" width="52" height="33" role="img" aria-label={style.label}>
+    <svg viewBox="0 0 60 38" width={width} height={height} role="img" aria-label={style.label}>
       <rect x="1" y="1" width="58" height="36" rx="5" fill={style.bg} stroke="rgba(63,51,80,0.15)" strokeWidth="1" />
       <rect x="6" y="9" width="10" height="7" rx="1.5" fill="rgba(63,51,80,0.18)" />
       {(type === "mastercard") && (

@@ -34,7 +34,7 @@ const AGE_EXPLORER = [
 
 const WHY_CARDS: [string, string, string][] = [
   ['<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>', "High-quality books", "Every title is reviewed for print quality, illustration, and age-appropriate storytelling before it reaches the shelf."],
-  ['<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4Z"/>', "Secure payments", "Checkout supports PayPal and Paystack (Visa, Mastercard, Amex, and Verve), with no card details ever stored on our servers."],
+  ['<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4Z"/>', "Secure payments", "Checkout supports cards via Paystack (Visa, Mastercard, Amex, and Verve), with no card details ever stored on our servers."],
   ['<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>', "Instant digital downloads", "eBooks are ready in your Library the moment checkout completes, no waiting on email confirmations."],
   ['<circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5"/>', "Professional authors", "Every author on our shelf submits through an editorial review process before publication."],
   ['<path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/>', "Affiliate rewards", "Anyone, reader or author, can earn commission sharing books they love through our affiliate program."],
