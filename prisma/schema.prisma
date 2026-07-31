@@ -281,6 +281,10 @@ model Book {
   // Which formats this title is published in — an author can enable
   // any combination from the same submission (see actions/submissions.ts).
   hasEbook     Boolean       @default(false)
+  /** The editor/admin's comment explaining what needs to change, shown
+   * to the author when a submission is sent back for revision (status
+   * REJECTED). Cleared when the book is later approved. */
+  revisionNotes String?
   hasPrint     Boolean       @default(false)
   hasAudiobook Boolean       @default(false)
   /** Real, distinct prices per purchasable format — a customer picks

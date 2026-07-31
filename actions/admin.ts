@@ -42,27 +42,35 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
     await requireModerationRole();
     const book = await prisma.book.update({
       where: { id: bookId },
-      data: { status: "PUBLISHED" },
+      data: { status: "PUBLISHED", revisionNotes: null },
       include: { author: { include: { user: true } } },
     });
     await createNotification(book.author.user.id, "Book approved", `"${book.title}" is now published on the shelf.`);
     revalidatePath("/admin/books");
+    revalidatePath(`/admin/books/${bookId}/review`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
   }
 }
 
-export async function rejectBook(bookId: string): Promise<{ ok: boolean; error?: string }> {
+export async function rejectBook(bookId: string, comments?: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireModerationRole();
     const book = await prisma.book.update({
       where: { id: bookId },
-      data: { status: "REJECTED" },
+      data: { status: "REJECTED", revisionNotes: comments?.trim() || null },
       include: { author: { include: { user: true } } },
     });
-    await createNotification(book.author.user.id, "Book needs changes", `"${book.title}" was not approved this time — please revise and resubmit.`);
+    await createNotification(
+      book.author.user.id,
+      "Book needs changes",
+      comments?.trim()
+        ? `"${book.title}" was sent back for revision: ${comments.trim()}`
+        : `"${book.title}" was not approved this time — please revise and resubmit.`
+    );
     revalidatePath("/admin/books");
+    revalidatePath(`/admin/books/${bookId}/review`);
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };

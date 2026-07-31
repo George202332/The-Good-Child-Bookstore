@@ -13,6 +13,7 @@ interface AuthorBook {
   id: string;
   title: string;
   status: string;
+  revisionNotes: string | null;
   saleLines: SaleLineShare[];
   categories: { category: { name: string } }[];
 }
@@ -80,7 +81,14 @@ export default async function MyBooksPage() {
                 const pill = STATUS_PILL[b.status] ?? { label: b.status, className: "status-draft" };
                 return (
                   <tr key={b.id}>
-                    <td style={TABLE_CELL_STYLE}><strong>{b.title}</strong></td>
+                    <td style={TABLE_CELL_STYLE}>
+                      <strong>{b.title}</strong>
+                      {b.status === "REJECTED" && b.revisionNotes && (
+                        <div style={{ fontSize: 12, color: "#8A2432", marginTop: 4, maxWidth: 260 }}>
+                          &quot;{b.revisionNotes}&quot;
+                        </div>
+                      )}
+                    </td>
                     <td style={TABLE_CELL_STYLE}><span className={`status-pill ${pill.className}`}>{pill.label}</span></td>
                     <td style={TABLE_CELL_STYLE}>{b.categories[0]?.category.name ?? "—"}</td>
                     <td style={TABLE_CELL_STYLE}>{units}</td>

@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { AdminShell } from "@/components/AdminShell";
-import { ModerationActions } from "./ModerationActions";
 import { getBookStats, listBooksForModeration } from "@/actions/book-management";
 
 const STATUS_TABS: { key: "ALL" | "PUBLISHED" | "PENDING_REVIEW" | "DRAFT" | "REJECTED"; label: string }[] = [
@@ -102,11 +101,9 @@ export default async function BookManagementPage({
                   {b.averageRating !== null && ` · ${b.averageRating.toFixed(1)}★`}
                 </div>
               </div>
-              {b.status === "PENDING_REVIEW" ? (
-                <ModerationActions bookId={b.id} />
-              ) : (
-                <Link href={`/admin/books/${b.id}`} className="btn btn-ghost btn-small">View reviews</Link>
-              )}
+              <Link href={`/admin/books/${b.id}/review`} className="btn btn-primary btn-small">
+                {b.status === "PENDING_REVIEW" ? "Review" : "Open"}
+              </Link>
             </div>
           ))
         )}
