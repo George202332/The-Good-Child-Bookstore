@@ -12,6 +12,7 @@ import { DEFAULT_PAGES_CONTENT } from "@/lib/page-content";
 export const dynamic = "force-dynamic";
 import { BookCard } from "@/components/BookCard";
 import { BestSellersCarousel } from "@/components/BestSellersCarousel";
+import { getRotatingBatch } from "@/lib/rotating-batch";
 import { FadeInSection } from "@/components/FadeInSection";
 import { PromoBanner } from "@/components/PromoBanner";
 import { StatsBand } from "@/components/StatsBand";
@@ -75,7 +76,8 @@ interface HomeBlogPost {
 
 export default async function HomePage() {
   const realBooks = await getRealPublishedBooks();
-  const featured = [...realBooks, ...BOOKS].slice(0, 12);
+  const allBooksForArrivals = [...realBooks, ...BOOKS].sort((a, b) => (a.pubDate < b.pubDate ? 1 : -1));
+  const newArrivals = getRotatingBatch(allBooksForArrivals, 12, 20 * 60 * 1000);
   const content = await getPagesContent();
   const hero = content.home;
   let blogPosts: HomeBlogPost[] = [];
@@ -104,7 +106,7 @@ export default async function HomePage() {
         <div className="wrap">
           <div className="section-head">
             <div>
-              <h2>Shop by shelf</h2>
+              <h2 className="home-section-heading">Shop by Shelf</h2>
               <p>Five ways into the story, sorted by age and mood.</p>
             </div>
           </div>
@@ -120,23 +122,23 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: 0 }}>
+      <FadeInSection style={{ paddingTop: "0.5in" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
-              <h2>Best sellers &amp; new arrivals</h2>
-              <p>What families are reading right now, and what just landed on the shelf.</p>
+              <h2 className="home-section-heading">Best Sellers</h2>
+              <p>What families are reading right now.</p>
             </div>
           </div>
-          <BestSellersCarousel />
+          <BestSellersCarousel extraBooks={realBooks} />
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: 0 }}>
+      <FadeInSection style={{ paddingTop: "0.5in" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
-              <h2>Shop by age</h2>
+              <h2 className="home-section-heading">Shop by Age</h2>
               <p>Every title is age-tagged honestly, so you always know what you&apos;re handing over.</p>
             </div>
           </div>
@@ -171,17 +173,17 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: 0 }}>
+      <FadeInSection style={{ paddingTop: "0.5in" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
-              <h2>This week&apos;s shelf</h2>
-              <p>Staff favorites, restocked every Tuesday morning.</p>
+              <h2 className="home-section-heading">New Arrivals</h2>
+              <p>Books that have just been published.</p>
             </div>
             <Link href="/shop" className="see-all">See the full bookshelf →</Link>
           </div>
           <div className="book-grid-12">
-            {featured.map((b) => (
+            {newArrivals.map((b) => (
               <BookCard key={b.id} book={b} />
             ))}
           </div>
@@ -207,11 +209,11 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: 0 }}>
+      <FadeInSection style={{ paddingTop: "0.5in" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
-              <h2>Why families choose us</h2>
+              <h2 className="home-section-heading">Why Families Choose Us</h2>
               <p>Built for the people who hand books to children: parents, teachers, and librarians alike.</p>
             </div>
           </div>
@@ -235,11 +237,11 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: 0 }}>
+      <FadeInSection style={{ paddingTop: "0.5in" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
-              <h2>Featured authors</h2>
+              <h2 className="home-section-heading">Featured Authors</h2>
               <p>Automatically ranked by rating, published books, sales, and reviews; no hand-picking.</p>
             </div>
             <Link href="/authors" className="see-all">Meet all authors →</Link>
@@ -266,11 +268,11 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: 0 }}>
+      <FadeInSection style={{ paddingTop: "0.5in" }}>
         <div className="wrap">
           <div className="section-head">
             <div>
-              <h2>Why reading matters</h2>
+              <h2 className="home-section-heading">Why Reading Matters</h2>
               <p>The lasting benefits behind every story on this shelf.</p>
             </div>
           </div>
