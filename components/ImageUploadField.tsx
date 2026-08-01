@@ -122,9 +122,20 @@ export function ImageUploadField({
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
             <span>{fileName ?? "Uploaded"}</span>
           </div>
+          {hasFile && <div style={{ fontSize: 11, color: "#1F6B48", marginTop: 2 }}>Click to replace with a different image</div>}
         </label>
       </div>
       {error && <div className="field-hint" style={{ color: "var(--coral-deep, var(--admin-danger))" }}>{error}</div>}
+      {hasFile && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-small"
+          style={{ marginTop: 6, width: "100%", justifyContent: "center" }}
+          onClick={() => document.getElementById(inputId)?.click()}
+        >
+          Replace image
+        </button>
+      )}
     </div>
   );
 }
