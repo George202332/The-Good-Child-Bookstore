@@ -75,7 +75,7 @@ export function ReviewActions({
   }
 
   return (
-    <>
+    <div>
       <div className="map-card" style={{ padding: 18 }}>
         <h3 style={{ fontSize: 14, marginBottom: 12 }}>Decision</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -113,6 +113,6 @@ export function ReviewActions({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

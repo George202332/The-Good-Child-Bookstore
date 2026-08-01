@@ -106,7 +106,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
               </div></div>
             </div>
             <strong style={{ fontSize: 13.5 }}>Description</strong>
-            <p style={{ fontSize: 13.5, color: "var(--admin-text-faint)", lineHeight: 1.7, marginTop: 4 }}>
+            <p style={{ fontSize: 13.5, color: "var(--admin-text-faint)", lineHeight: 1.7, marginTop: 4, whiteSpace: "pre-wrap" }}>
               {book.description || "No description provided."}
             </p>
           </div>
