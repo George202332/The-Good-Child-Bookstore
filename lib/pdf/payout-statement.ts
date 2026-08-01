@@ -1,25 +1,26 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
-import type { PayoutStatementData } from "../payout-statement-data";
+import { readFile } from "fs/promises";
+import path from "path";
+import type { PayoutStatementData, PayoutStatementFormatRow } from "../payout-statement-data";
 
 /**
- * Renders the monthly payout statement PDF — matches the layout of the
- * reference statement sample (gcb-payout-*.pdf): header block, a Total
- * Payout summary box, a Revenue Breakdown table, a Direct Sales by
- * Title table, a Referral Commissions table (omitted if empty), and a
- * confidentiality footer.
- *
- * Uses pdf-lib rather than pdfkit: pdfkit's font-handling dependency
- * (fontkit) doesn't build under Turbopack (a real, verified
- * incompatibility — the build failed with an unresolvable export
- * error several layers deep in fontkit's own dependencies). pdf-lib's
- * built-in standard fonts (Helvetica) need no font-embedding library at
- * all, sidestepping the problem entirely.
+ * Renders the monthly payout statement PDF. Rebuilt per explicit
+ * instruction: Times New Roman throughout (pdf-lib's built-in
+ * Times-Roman standard font — no font file to embed, and no risk of
+ * the fontkit/Turbopack incompatibility that ruled out pdfkit
+ * originally), purple color scheme matching the company seal, the
+ * company seal itself stamped on the report (embedded exactly as
+ * uploaded, unmodified), and four independent revenue sections
+ * (Direct Sales: Organic, Direct Sales: Affiliate, Referral Commission,
+ * Promotion Commission) instead of one combined table.
  */
 
-const CORAL = rgb(0.886, 0.447, 0.357);
+const PLUM = rgb(0.325, 0.114, 0.396); // deep purple, matches the seal's ring
+const GOLD = rgb(0.62, 0.48, 0.18); // matches the seal's gold linework
 const INK = rgb(0.165, 0.141, 0.22);
 const INK_SOFT = rgb(0.42, 0.39, 0.47);
-const LINE = rgb(0.906, 0.878, 0.847);
+const LINE = rgb(0.906, 0.878, 0.937);
+const PANEL = rgb(0.973, 0.961, 0.984);
 const PAID_GREEN = rgb(0.12, 0.42, 0.28);
 const PENDING_AMBER = rgb(0.54, 0.35, 0.04);
 
@@ -31,9 +32,18 @@ interface Col { label: string; w: number; align?: "left" | "right"; }
 
 export async function buildPayoutStatementPdf(data: PayoutStatementData): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const font = await doc.embedFont(StandardFonts.Helvetica);
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
+  const font = await doc.embedFont(StandardFonts.TimesRoman);
+  const bold = await doc.embedFont(StandardFonts.TimesRomanBold);
+  const italic = await doc.embedFont(StandardFonts.TimesRomanItalic);
+
+  let sealImage: Awaited<ReturnType<typeof doc.embedPng>> | null = null;
+  try {
+    const sealBytes = await readFile(path.join(process.cwd(), "public", "branding", "company-seal.png"));
+    sealImage = await doc.embedPng(sealBytes);
+  } catch {
+    // If the seal can't be read for any reason, the statement still
+    // generates — just without the stamp, rather than failing entirely.
+  }
 
   let page = doc.addPage([595.28, 841.89]); // A4
   const margin = 40;
@@ -69,12 +79,12 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     const colX = colWidths.reduce<number[]>((acc, w, i) => [...acc, i === 0 ? x0 : acc[i - 1] + colWidths[i - 1]], []);
 
     ensureSpace(20 + rows.length * 20 + 40);
-    rect(x0, y, pageWidth, 20, rgb(0.984, 0.965, 0.937));
+    rect(x0, y, pageWidth, 20, PANEL);
     cols.forEach((c, i) => {
       const align = c.align ?? "left";
       const label = c.label.toUpperCase();
-      if (align === "right") rightText(label, colX[i] + colWidths[i] - 6, y - 14, { font: bold, size: 7.5, color: INK_SOFT });
-      else text(label, colX[i] + 6, y - 14, { font: bold, size: 7.5, color: INK_SOFT });
+      if (align === "right") rightText(label, colX[i] + colWidths[i] - 6, y - 14, { font: bold, size: 7.5, color: PLUM });
+      else text(label, colX[i] + 6, y - 14, { font: bold, size: 7.5, color: PLUM });
     });
     y -= 20;
 
@@ -83,7 +93,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
       row.forEach((cell, i) => {
         const align = cols[i].align ?? "left";
         const size = 8.5;
-        const maxChars = Math.floor((colWidths[i] - 10) / (size * 0.52));
+        const maxChars = Math.floor((colWidths[i] - 10) / (size * 0.5));
         const clipped = cell.length > maxChars ? cell.slice(0, maxChars - 1) + "…" : cell;
         if (align === "right") rightText(clipped, colX[i] + colWidths[i] - 6, y - 15, { size });
         else text(clipped, colX[i] + 6, y - 15, { size });
@@ -92,20 +102,41 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     });
 
     if (totals) {
-      hLine(x0, x0 + pageWidth, y, INK, 1);
+      hLine(x0, x0 + pageWidth, y, PLUM, 1);
       y -= 4;
       totals.forEach((t) => {
         text(t.label, x0 + 6, y - 10, { font: bold, size: 9 });
         if (t.sub) text(t.sub, x0 + 6, y - 21, { font, size: 7, color: INK_SOFT });
-        rightText(t.value, x0 + pageWidth - 6, y - 10, { font: bold, size: 10.5, color: CORAL });
+        rightText(t.value, x0 + pageWidth - 6, y - 10, { font: bold, size: 10.5, color: PLUM });
         y -= t.sub ? 30 : 20;
       });
     }
     y -= 16;
   }
 
+  function drawFormatSection(heading: string, sub: string, rows: PayoutStatementFormatRow[], totalLabel: string) {
+    if (rows.length === 0) return;
+    ensureSpace(60);
+    text(heading, margin, y, { font: bold, size: 13, color: PLUM });
+    text(sub, margin, y - 15, { size: 8, color: INK_SOFT });
+    y -= 32;
+    const totals = rows.reduce(
+      (acc, r) => ({ copies: acc.copies + r.copies, gross: acc.gross + r.gross, earnings: acc.earnings + r.yourEarnings }),
+      { copies: 0, gross: 0, earnings: 0 }
+    );
+    drawTable(
+      [
+        { label: "Title", w: 0.3 }, { label: "Format", w: 0.14 },
+        { label: "Price", w: 0.12, align: "right" }, { label: "Copies", w: 0.1, align: "right" },
+        { label: "Gross", w: 0.14, align: "right" }, { label: "Company", w: 0.1, align: "right" }, { label: "Earnings", w: 0.1, align: "right" },
+      ],
+      rows.map((r) => [r.title, r.format, money(r.price), String(r.copies), money(r.gross), money(r.companyShare), money(r.yourEarnings)]),
+      [{ label: totalLabel, value: `${totals.copies} copies · ${money(totals.gross)} gross · ${money(totals.earnings)} earnings` }]
+    );
+  }
+
   // ---- Header ----
-  text("GCB", margin, y - 18, { font: bold, size: 20, color: CORAL });
+  text("GCB", margin, y - 18, { font: bold, size: 20, color: PLUM });
   text("The Good Child Bookstore", margin, y - 36, { font: bold, size: 11 });
   text("Monthly Payout Statement", margin, y - 54, { font: bold, size: 15 });
   y -= 80;
@@ -116,9 +147,9 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
 
   // ---- Total payout box ----
   const boxH = 78;
-  rect(margin, y, pageWidth, boxH, rgb(0.984, 0.965, 0.937), LINE);
+  rect(margin, y, pageWidth, boxH, PANEL, LINE);
   text("TOTAL PAYOUT", margin + 16, y - 16, { font: bold, size: 8.5, color: INK_SOFT });
-  text(money(data.totalPayout), margin + 16, y - 38, { font: bold, size: 22, color: CORAL });
+  text(money(data.totalPayout), margin + 16, y - 38, { font: bold, size: 22, color: PLUM });
 
   const col2 = margin + 280, col3 = margin + 420;
   text("PERIOD", col2, y - 16, { font: bold, size: 8, color: INK_SOFT });
@@ -131,9 +162,9 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
   text(data.authorName, col3, y - 66, { size: 10 });
   y -= boxH + 26;
 
-  // ---- Revenue breakdown ----
+  // ---- Revenue breakdown (summary) ----
   ensureSpace(60);
-  text("Revenue breakdown", margin, y, { font: bold, size: 13 });
+  text("Revenue Breakdown", margin, y, { font: bold, size: 13, color: PLUM });
   text(`How your total payout for ${data.monthLabel} is composed`, margin, y - 15, { size: 8, color: INK_SOFT });
   y -= 32;
 
@@ -142,47 +173,40 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     [
       ["Direct sales: organic", "Reader found your book directly", money(data.organicRevenue)],
       ["Direct sales: affiliate", "Readers arrived via an affiliate link", money(data.affiliateChannelRevenue)],
-      ["Referral commissions", "Your tiered commission on the company's revenue from authors you referred", money(data.referralCommission)],
-      ["Promotion commissions", "10% on copies sold via your promotional links", money(data.promotionCommission)],
+      ["Referral commission", "Your tiered commission on the company's revenue from authors you referred", money(data.referralCommission)],
+      ["Promotion commission", "Commission on copies sold via your promotional links", money(data.promotionCommission)],
     ],
     [{ label: "TOTAL PAYOUT", sub: `Payable on ${data.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, value: money(data.totalPayout) }]
   );
 
-  // ---- Direct sales by title ----
-  if (data.titleRows.length > 0) {
-    ensureSpace(60);
-    text("Direct sales: by title", margin, y, { font: bold, size: 13 });
-    text(`Individual book performance for ${data.monthLabel}`, margin, y - 15, { size: 8, color: INK_SOFT });
-    y -= 32;
-    const totals = data.titleRows.reduce(
-      (acc, r) => ({ copies: acc.copies + r.copies, gross: acc.gross + r.gross, earnings: acc.earnings + r.authorEarnings }),
-      { copies: 0, gross: 0, earnings: 0 }
-    );
-    drawTable(
-      [
-        { label: "Title", w: 0.26 }, { label: "ISBN", w: 0.16 }, { label: "Format", w: 0.1 },
-        { label: "Price", w: 0.1, align: "right" }, { label: "Copies", w: 0.1, align: "right" },
-        { label: "Gross", w: 0.12, align: "right" }, { label: "Company", w: 0.08, align: "right" }, { label: "Affiliate", w: 0.08, align: "right" },
-      ],
-      data.titleRows.map((r) => [r.title, r.isbn, r.format, money(r.price), String(r.copies), money(r.gross), money(r.companyShare), money(r.affiliateShare)]),
-      [{ label: "TOTALS", value: `${totals.copies} copies · ${money(totals.gross)} gross · ${money(totals.earnings)} your earnings` }]
-    );
-  }
+  // ---- Four independent sections ----
+  drawFormatSection("Direct Sales: Organic", `Individual book performance for ${data.monthLabel} — readers who found your book directly`, data.organicRows, "TOTALS");
+  drawFormatSection("Direct Sales: Affiliate", `Individual book performance for ${data.monthLabel} — readers who arrived via an affiliate link`, data.affiliateRows, "TOTALS");
 
-  // ---- Referral commissions detail ----
   if (data.referralRows.length > 0) {
     ensureSpace(60);
-    text("Referral commissions", margin, y, { font: bold, size: 13 });
+    text("Referral Commission", margin, y, { font: bold, size: 13, color: PLUM });
     text(`Your tiered commission on the company's revenue from authors you referred (${data.monthLabel})`, margin, y - 15, { size: 8, color: INK_SOFT });
     y -= 32;
     drawTable(
       [
-        { label: "Author", w: 0.3 }, { label: "Account ID", w: 0.2 },
-        { label: "Gross revenue", w: 0.17, align: "right" }, { label: "Company revenue (30%)", w: 0.17, align: "right" }, { label: "Your commission", w: 0.16, align: "right" },
+        { label: "Account ID", w: 0.25 },
+        { label: "Gross", w: 0.25, align: "right" }, { label: "Company", w: 0.25, align: "right" }, { label: "Commission", w: 0.25, align: "right" },
       ],
-      data.referralRows.map((r) => [r.authorName, r.accountId, money(r.grossRevenue), money(r.companyRevenue), money(r.commission)]),
+      data.referralRows.map((r) => [r.accountId, money(r.grossRevenue), money(r.companyRevenue), money(r.commission)]),
       [{ label: "TOTAL", value: money(data.referralCommission) }]
     );
+  }
+
+  drawFormatSection("Promotion Commission", `Copies sold through your own promotional links for ${data.monthLabel}`, data.promotionRows, "TOTALS");
+
+  // ---- Company seal (stamped, exactly as uploaded) ----
+  if (sealImage) {
+    ensureSpace(120);
+    const sealSize = 90;
+    const sealX = page.getWidth() - margin - sealSize;
+    page.drawImage(sealImage, { x: sealX, y: y - sealSize, width: sealSize, height: sealSize, opacity: 0.92 });
+    y -= sealSize + 10;
   }
 
   // ---- Footer (on every page) ----
@@ -190,7 +214,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     p.drawText("Confidential: prepared for the named author only. Not for redistribution.", { x: margin, y: 30, size: 7.5, font: italic, color: INK_SOFT });
     const footerRight = "thegoodchildbookstore.com";
     const fw = font.widthOfTextAtSize(footerRight, 7.5);
-    p.drawText(footerRight, { x: p.getWidth() - margin - fw, y: 30, size: 7.5, font, color: INK_SOFT });
+    p.drawText(footerRight, { x: p.getWidth() - margin - fw, y: 30, size: 7.5, font, color: GOLD });
   }
 
   return doc.save();

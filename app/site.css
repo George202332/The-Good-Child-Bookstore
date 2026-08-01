@@ -580,7 +580,7 @@
 
   .age-pill{
     font-size:11px;font-weight:700;color:#4B3B75;background:var(--lavender);
-    padding:3px 9px;border-radius:999px;display:inline-block;
+    padding:3px 9px;border-radius:6px;display:inline-block;
   }
 
   /* ---------- Category tiles ---------- */
@@ -1615,7 +1615,7 @@
   table.simple-table th{text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:0.3px;color:var(--ink-faint);padding:14px 16px;border-bottom:2px solid var(--line);}
   table.simple-table td{padding:14px 16px;border-bottom:1px solid var(--line);}
   table.simple-table tr:last-child td{border-bottom:none;}
-  .status-pill{font-size:11px;font-weight:700;padding:4px 11px;border-radius:999px;white-space:nowrap;}
+  .status-pill{font-size:11px;font-weight:700;padding:4px 11px;border-radius:6px;white-space:nowrap;}
   .status-published{background:var(--mint);color:#1F6B48;}
   .status-review{background:#FBE6B8;color:#8A5A0B;}
   .status-draft{background:var(--line);color:var(--ink-soft);}

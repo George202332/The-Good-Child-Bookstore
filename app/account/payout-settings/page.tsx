@@ -104,16 +104,16 @@ export default async function PayoutSettingsPage() {
         {monthlyRows.length === 0 ? (
           <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No earnings yet.</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr>
                   <th style={TABLE_HEAD_STYLE}>Month<ColHelp text="The calendar month this row's earnings were made in." /></th>
                   <th style={TABLE_HEAD_STYLE}>Amount<ColHelp text="Your total earnings for the month: organic book sales plus referral and promotion commissions combined." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Units Sold<ColHelp text="How many copies of your own books were sold this month." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Organic Revenue<ColHelp text="Your share of book sales this month, whether the reader found the book directly or arrived via an affiliate link." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Referral Revenue<ColHelp text="A percentage of company revenue from authors you personally referred onto the platform, earned this month." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Promotion Revenue<ColHelp text="Commission earned this month from copies sold through your own affiliate promotional links." /></th>
+                  <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many copies of your own books were sold this month." /></th>
+                  <th style={TABLE_HEAD_STYLE}>Organic<ColHelp text="Your share of book sales this month, whether the reader found the book directly or arrived via an affiliate link." /></th>
+                  <th style={TABLE_HEAD_STYLE}>Referral<ColHelp text="A percentage of company revenue from authors you personally referred onto the platform, earned this month." /></th>
+                  <th style={TABLE_HEAD_STYLE}>Promotion<ColHelp text="Commission earned this month from copies sold through your own affiliate promotional links." /></th>
                   <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="This month's earnings become payable on the 15th of the following month, as long as the total due has reached the $30 minimum." /></th>
                   <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Pending payout means the 15th hasn't been processed yet. Paid means the transfer for this month has gone out." /></th>
                   <th style={TABLE_HEAD_STYLE}>Report<ColHelp text="Download this month's full payout statement as a PDF, itemized the same way as your account's statements are always formatted." /></th>
@@ -131,7 +131,7 @@ export default async function PayoutSettingsPage() {
                     <td style={TABLE_CELL_STYLE}>{r.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                     <td style={TABLE_CELL_STYLE}>
                       <span className="age-pill">
-                        {r.status === "Paid" ? "Paid" : r.amount < MIN_PAYOUT_AMOUNT ? `Held (below $${MIN_PAYOUT_AMOUNT})` : "Pending payout"}
+                        {r.status === "Paid" ? "Paid" : "Pending"}
                       </span>
                     </td>
                     <td style={TABLE_CELL_STYLE}>

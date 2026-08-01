@@ -1,19 +1,16 @@
 import { prisma } from "@/lib/prisma";
 
-export interface PayoutStatementTitleRow {
+export interface PayoutStatementFormatRow {
   title: string;
-  isbn: string;
   format: string;
   price: number;
   copies: number;
   gross: number;
   companyShare: number;
-  affiliateShare: number;
-  authorEarnings: number;
+  yourEarnings: number;
 }
 
 export interface PayoutStatementReferralRow {
-  authorName: string;
   accountId: string;
   grossRevenue: number;
   companyRevenue: number;
@@ -30,8 +27,16 @@ export interface PayoutStatementData {
   referralCommission: number;
   promotionCommission: number;
   totalPayout: number;
-  titleRows: PayoutStatementTitleRow[];
+  /** Direct Sales: Organic — one row per title, reader found it directly. */
+  organicRows: PayoutStatementFormatRow[];
+  /** Direct Sales: Affiliate — one row per title, reader arrived via an affiliate link. */
+  affiliateRows: PayoutStatementFormatRow[];
+  /** Referral Commission — one row per referred author (identified by
+   * account id only, per explicit instruction, not name). */
   referralRows: PayoutStatementReferralRow[];
+  /** Promotion Commission — one row per title sold through this
+   * person's own promotional links. */
+  promotionRows: PayoutStatementFormatRow[];
 }
 
 /** A short, stable, human-looking account number derived from the
@@ -65,7 +70,12 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
       },
       affiliateProfile: {
         include: {
-          affiliateLinks: { include: { saleLines: { where: { createdAt: { gte: start, lt: end } } } } },
+          affiliateLinks: {
+            include: {
+              book: true,
+              saleLines: { where: { createdAt: { gte: start, lt: end } } },
+            },
+          },
           authorReferralEarnings: {
             where: { createdAt: { gte: start, lt: end } },
             include: { book: { include: { author: { include: { user: true } } } } },
@@ -78,38 +88,49 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
 
   const books = user.authorProfile?.books ?? [];
   let organicRevenue = 0, affiliateChannelRevenue = 0;
-  const titleRows: PayoutStatementTitleRow[] = [];
-  for (const b of books as { title: string; isbn: string | null; price: unknown; saleLines: { format: string | null; grossAmount: unknown; companyShare: unknown; authorShare: unknown; affiliateShare: unknown; affiliateLinkId: string | null }[] }[]) {
-    if (b.saleLines.length === 0) continue;
-    let copies = 0, gross = 0, companyShare = 0, affiliateShare = 0, authorEarnings = 0;
-    let format = "";
-    for (const l of b.saleLines) {
-      copies += 1;
-      gross += Number(l.grossAmount);
-      companyShare += Number(l.companyShare);
-      affiliateShare += Number(l.affiliateShare);
-      authorEarnings += Number(l.authorShare);
-      format = l.format || format;
-      if (l.affiliateLinkId) affiliateChannelRevenue += Number(l.authorShare);
-      else organicRevenue += Number(l.authorShare);
-    }
-    titleRows.push({
-      title: b.title,
-      isbn: b.isbn || "—",
-      format: format || "—",
-      price: Number(b.price),
-      copies,
-      gross,
-      companyShare,
-      affiliateShare,
-      authorEarnings,
-    });
+  const organicByTitle = new Map<string, PayoutStatementFormatRow>();
+  const affiliateByTitle = new Map<string, PayoutStatementFormatRow>();
+
+  function addRow(map: Map<string, PayoutStatementFormatRow>, key: string, title: string, format: string, price: number, gross: number, companyShare: number, earnings: number) {
+    if (!map.has(key)) map.set(key, { title, format, price, copies: 0, gross: 0, companyShare: 0, yourEarnings: 0 });
+    const row = map.get(key)!;
+    row.copies += 1;
+    row.gross += gross;
+    row.companyShare += companyShare;
+    row.yourEarnings += earnings;
+    row.format = format || row.format;
   }
 
-  const promotionLines = (user.affiliateProfile?.affiliateLinks ?? []).flatMap(
-    (l: { saleLines: { affiliateShare: unknown }[] }) => l.saleLines.map((s) => Number(s.affiliateShare))
-  );
-  const promotionCommission = promotionLines.reduce((a: number, b: number) => a + b, 0);
+  for (const b of books as { title: string; price: unknown; saleLines: { format: string | null; grossAmount: unknown; companyShare: unknown; authorShare: unknown; affiliateLinkId: string | null }[] }[]) {
+    for (const l of b.saleLines) {
+      const gross = Number(l.grossAmount), companyShare = Number(l.companyShare), earnings = Number(l.authorShare);
+      const format = l.format || "—";
+      if (l.affiliateLinkId) {
+        affiliateChannelRevenue += earnings;
+        addRow(affiliateByTitle, b.title, b.title, format, Number(b.price), gross, companyShare, earnings);
+      } else {
+        organicRevenue += earnings;
+        addRow(organicByTitle, b.title, b.title, format, Number(b.price), gross, companyShare, earnings);
+      }
+    }
+  }
+
+  // Promotion Commission — this person's own promotional links, broken
+  // out per title (not just a lump sum), since a report with no
+  // breakdown for a whole revenue category isn't a real breakdown.
+  const promotionByTitle = new Map<string, PayoutStatementFormatRow>();
+  let promotionCommission = 0;
+  for (const link of (user.affiliateProfile?.affiliateLinks ?? []) as {
+    book: { title: string; price: unknown } | null;
+    saleLines: { format: string | null; grossAmount: unknown; affiliateShare: unknown }[];
+  }[]) {
+    const title = link.book?.title ?? "Unspecified title";
+    for (const l of link.saleLines) {
+      const commission = Number(l.affiliateShare);
+      promotionCommission += commission;
+      addRow(promotionByTitle, title, title, l.format || "—", link.book ? Number(link.book.price) : 0, Number(l.grossAmount), 0, commission);
+    }
+  }
 
   const referralLines = (user.affiliateProfile?.authorReferralEarnings ?? []) as {
     authorReferralShare: unknown;
@@ -122,7 +143,7 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
     const authorUser = l.book.author.user;
     const key = authorUser.id;
     if (!referralByAuthor.has(key)) {
-      referralByAuthor.set(key, { authorName: authorUser.name, accountId: displayAccountId(authorUser.id), grossRevenue: 0, companyRevenue: 0, commission: 0 });
+      referralByAuthor.set(key, { accountId: displayAccountId(authorUser.id), grossRevenue: 0, companyRevenue: 0, commission: 0 });
     }
     const row = referralByAuthor.get(key)!;
     row.grossRevenue += Number(l.grossAmount);
@@ -150,7 +171,9 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
     referralCommission,
     promotionCommission,
     totalPayout: organicRevenue + affiliateChannelRevenue + referralCommission + promotionCommission,
-    titleRows,
+    organicRows: Array.from(organicByTitle.values()),
+    affiliateRows: Array.from(affiliateByTitle.values()),
     referralRows: Array.from(referralByAuthor.values()),
+    promotionRows: Array.from(promotionByTitle.values()),
   };
 }

@@ -55,19 +55,24 @@ export function ImageUploadField({
   async function uploadFile(file: File) {
     setUploading(true);
     setError(null);
-    const formData = new FormData();
-    formData.append("file", file);
-    const allowedTypes = accept === "image/*" ? undefined : accept.split(",").map((t) => t.trim()).filter(Boolean);
-    const res = await uploadImage(formData, { trim, allowedTypes });
-    setUploading(false);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const allowedTypes = accept === "image/*" ? undefined : accept.split(",").map((t) => t.trim()).filter(Boolean);
+      const res = await uploadImage(formData, { trim, allowedTypes });
 
-    if (!res.ok || !res.url) {
-      setError(res.error ?? "Upload failed.");
-      return;
+      if (!res.ok || !res.url) {
+        setError(res.error ?? "Upload failed.");
+        return;
+      }
+      setPreview(res.url);
+      setFileName(file.name);
+      onChange(res.url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed unexpectedly — please try again.");
+    } finally {
+      setUploading(false);
     }
-    setPreview(res.url);
-    setFileName(file.name);
-    onChange(res.url);
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
