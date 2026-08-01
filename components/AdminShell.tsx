@@ -33,6 +33,7 @@ function navItemsForRole(role: Role) {
   if (role === "ADMIN") {
     return [
       ...base,
+      { key: "books-checklist", label: "Review Checklist", href: "/admin/books/checklist-settings" },
       { key: "site-settings", label: "Site Settings", href: "/admin/site-settings" },
       { key: "commission-settings", label: "Commission Settings", href: "/admin/commission-settings" },
       { key: "users", label: "Users", href: "/admin/users" },

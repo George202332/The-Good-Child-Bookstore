@@ -44,6 +44,12 @@ enum ContentStatus {
   PUBLISHED
   REJECTED
   ARCHIVED
+  /** Held back from publishing due to a dispute, copyright concern, etc
+   * — distinct from ARCHIVED (an author voluntarily pulling their own
+   * already-published book off the shelf). */
+  SUSPENDED
+  /** Permanently removed from the shelves by moderation decision. */
+  WITHDRAWN
 }
 
 enum SaleType {
@@ -281,6 +287,18 @@ model Book {
    * to the author when a submission is sent back for revision (status
    * REJECTED). Cleared when the book is later approved. */
   revisionNotes String?
+  /** An Editor's proposed Suspend/Withdraw, awaiting Admin ratification
+   * — the book's own status doesn't change until an Admin confirms it
+   * (or an Admin acts directly, which applies immediately with no
+   * pending step at all). */
+  pendingAction     String?
+  pendingActionBy   String?
+  pendingActionNote String?
+  /** Which review-checklist items are currently checked for this book,
+   * e.g. {"metadata_title": true, "appropriate_copyright": false} —
+   * keyed by the same item ids as the admin-configurable checklist
+   * template (see Setting "book_review_checklist"). */
+  reviewChecklist   Json?
   hasPrint     Boolean       @default(false)
   hasAudiobook Boolean       @default(false)
   /** Real, distinct prices per purchasable format — a customer picks

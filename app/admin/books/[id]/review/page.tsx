@@ -5,19 +5,24 @@ import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/AdminShell";
 import { canModerateContent } from "@/lib/roles";
 import { ReviewActions } from "./ReviewActions";
+import { ReviewChecklist } from "./ReviewChecklist";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
+import { getReviewChecklistTemplate } from "@/lib/review-checklist";
 
 const STATUS_LABEL: Record<string, string> = {
-  DRAFT: "Draft", PENDING_REVIEW: "Under Review", PUBLISHED: "Approved", REJECTED: "Under Revision", ARCHIVED: "Suspended",
+  DRAFT: "Draft", PENDING_REVIEW: "Under Review", PUBLISHED: "Approved", REJECTED: "Under Revision",
+  ARCHIVED: "Suspended by author", SUSPENDED: "Suspended", WITHDRAWN: "Withdrawn",
 };
 
 /**
- * The real submission review screen — previously, Approve/Reject were
- * only one-click buttons sitting right on the list, with no way to
- * actually open and check what an author submitted first. This page
- * shows everything an editor or admin needs to judge a submission
- * against standard: full details, cover, sample pages, and a direct
- * link to the manuscript file — before deciding.
+ * The real submission review screen — a professional layout: the
+ * manuscript preview (two pages at a time, centered) sits at the top,
+ * flanked by the review checklist on the left and the decision actions
+ * on the right; the cover and every other submission detail sits below
+ * it. Approve and Attention (revision) can be finalized by either an
+ * Editor or an Admin; Suspend and Withdraw can only be *proposed* by an
+ * Editor — an Admin has to ratify them before they actually take
+ * effect (see ReviewActions).
  */
 export default async function BookReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,19 +31,23 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
   const role = session.user.role;
   if (!canModerateContent(role)) redirect("/account");
 
-  const book = await prisma.book.findUnique({
-    where: { id },
-    include: {
-      author: { include: { user: true } },
-      categories: { include: { category: true } },
-      genres: { include: { genre: true } },
-      files: true,
-    },
-  });
+  const [book, checklistTemplate] = await Promise.all([
+    prisma.book.findUnique({
+      where: { id },
+      include: {
+        author: { include: { user: true } },
+        categories: { include: { category: true } },
+        genres: { include: { genre: true } },
+        files: true,
+      },
+    }),
+    getReviewChecklistTemplate(),
+  ]);
   if (!book) notFound();
 
   const manuscript = (book.files as { kind: string; url: string }[]).find((f) => f.kind === "MANUSCRIPT");
   const authorDisplayName = book.author.penName || book.author.user.name;
+  const checklistState = (book.reviewChecklist as Record<string, boolean> | null) ?? {};
 
   return (
     <AdminShell role={role} activeKey="books" displayName={session.user.name ?? ""}>
@@ -52,17 +61,35 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
         <Link href={`/admin/books/${book.id}`} className="btn btn-ghost btn-small">View customer reviews</Link>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "260px 1fr", gap: 24 }}>
-        <div>
-          <div className="map-card" style={{ padding: 16 }}>
-            {book.coverImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- real uploaded book cover
-              <img src={book.coverImageUrl} alt={`${book.title} cover`} style={{ width: "100%", aspectRatio: "2/3", objectFit: "contain", display: "block", marginBottom: 10 }} />
-            ) : (
-              <div style={{ width: "100%", aspectRatio: "2/3", background: "var(--cream, var(--admin-panel))", borderRadius: 8, marginBottom: 10 }} />
-            )}
-            <div style={{ fontSize: 12, color: "var(--ink-faint, var(--admin-text-faint))" }}>ISBN: {book.isbn || "—"}</div>
-          </div>
+      {/* Top row: checklist (left) — 2-page preview (center) — decision (right) */}
+      <div style={{ display: "grid", gridTemplateColumns: "240px 1fr 260px", gap: 20, marginBottom: 24, alignItems: "start" }}>
+        <ReviewChecklist bookId={book.id} groups={checklistTemplate} initial={checklistState} />
+
+        <div className="map-card" style={{ padding: 20 }}>
+          <h3 style={{ fontSize: 15, marginBottom: 4, textAlign: "center" }}>Manuscript preview</h3>
+          <p className="field-hint" style={{ margin: "0 0 12px", textAlign: "center" }}>
+            Read-only — this opens the manuscript for review here, it doesn&apos;t offer a download.
+          </p>
+          {manuscript ? (
+            <ManuscriptReviewViewer url={manuscript.url} title={book.title} spread />
+          ) : (
+            <p style={{ fontSize: 13, color: "var(--ink-faint, var(--admin-text-faint))", textAlign: "center" }}>No manuscript file uploaded.</p>
+          )}
+        </div>
+
+        <ReviewActions bookId={book.id} role={role} pendingAction={book.pendingAction} pendingActionBy={book.pendingActionBy} />
+      </div>
+
+      {/* Beneath: cover + every other submission detail */}
+      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 24 }}>
+        <div className="map-card" style={{ padding: 16 }}>
+          {book.coverImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- real uploaded book cover
+            <img src={book.coverImageUrl} alt={`${book.title} cover`} style={{ width: "100%", aspectRatio: "2/3", objectFit: "contain", display: "block", marginBottom: 10 }} />
+          ) : (
+            <div style={{ width: "100%", aspectRatio: "2/3", background: "var(--cream, var(--admin-panel))", borderRadius: 8, marginBottom: 10 }} />
+          )}
+          <div style={{ fontSize: 12, color: "var(--ink-faint, var(--admin-text-faint))" }}>ISBN: {book.isbn || "—"}</div>
         </div>
 
         <div>
@@ -84,28 +111,12 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
             </p>
           </div>
 
-          {manuscript && (
-            <div className="map-card" style={{ padding: 20, marginBottom: 20 }}>
-              <h3 style={{ fontSize: 15, marginBottom: 4 }}>Manuscript review</h3>
-              <p className="field-hint" style={{ margin: "0 0 12px" }}>
-                Read-only — this opens the manuscript for review here, it doesn&apos;t offer a download.
-              </p>
-              <ManuscriptReviewViewer url={manuscript.url} title={book.title} />
-            </div>
-          )}
-
-
           {book.revisionNotes && (
-            <div className="map-card" style={{ padding: 20, marginBottom: 20, background: "#FBE6B8" }}>
+            <div className="map-card" style={{ padding: 20, background: "#FBE6B8" }}>
               <h3 style={{ fontSize: 15, marginBottom: 8, color: "#8A5A0B" }}>Existing revision notes</h3>
               <p style={{ fontSize: 13.5, color: "#8A5A0B", lineHeight: 1.6 }}>{book.revisionNotes}</p>
             </div>
           )}
-
-          <div className="map-card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 12 }}>Decision</h3>
-            <ReviewActions bookId={book.id} />
-          </div>
         </div>
       </div>
     </AdminShell>

@@ -23,7 +23,9 @@ const STATUS_PILL: Record<string, { label: string; className: string }> = {
   PUBLISHED: { label: "Published", className: "status-published" },
   PENDING_REVIEW: { label: "On Review", className: "status-on-review" },
   DRAFT: { label: "Draft", className: "status-draft-purple" },
-  ARCHIVED: { label: "Suspended", className: "status-suspended" },
+  ARCHIVED: { label: "Suspended by you", className: "status-suspended" },
+  SUSPENDED: { label: "Suspended", className: "status-attention" },
+  WITHDRAWN: { label: "Withdrawn", className: "status-suspended" },
 };
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
@@ -94,7 +96,11 @@ export default async function MyBooksPage() {
                     <td style={TABLE_CELL_STYLE}>{units}</td>
                     <td style={TABLE_CELL_STYLE}>${royalties.toFixed(2)}</td>
                     <td style={TABLE_CELL_STYLE}><Link href={`/account/books/${b.id}/edit`} className="btn btn-ghost btn-small">Edit</Link></td>
-                    <td style={TABLE_CELL_STYLE}><SuspendButton bookId={b.id} suspended={b.status === "ARCHIVED"} /></td>
+                    <td style={TABLE_CELL_STYLE}>
+                      {(b.status === "SUSPENDED" || b.status === "WITHDRAWN")
+                        ? <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Contact support</span>
+                        : <SuspendButton bookId={b.id} suspended={b.status === "ARCHIVED"} />}
+                    </td>
                   </tr>
                 );
               })}
