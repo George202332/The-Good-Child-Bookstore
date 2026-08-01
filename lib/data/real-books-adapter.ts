@@ -97,7 +97,7 @@ function toCatalogBook(row: RealBookRow): Book {
       hardcover: row.hasPrint && row.hardcoverPrice != null,
       audiobook: row.hasAudiobook,
     },
-    manuscriptUrl: row.files.find((f) => f.kind === "MANUSCRIPT" && f.url.toLowerCase().endsWith(".pdf"))?.url,
+    manuscriptUrl: row.files.find((f) => f.kind === "MANUSCRIPT")?.url,
     isbn: row.isbn ?? "",
     pubDate: row.createdAt.toISOString().slice(0, 10),
     sizeMB: (2 + (seed % 8)).toFixed(1),

@@ -38,7 +38,7 @@ export function ManuscriptReviewViewer({ url, title, maxPages }: { url: string; 
         setNumPages(maxPages ? Math.min(doc.numPages, maxPages) : doc.numPages);
         setPageNum(1);
       } catch {
-        if (!cancelled) setError("Couldn't open this file for preview.");
+        if (!cancelled) setError("Couldn't open this file for inline preview — it's likely an EPUB or MOBI file, which this viewer doesn't support yet (only PDF).");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -82,16 +82,24 @@ export function ManuscriptReviewViewer({ url, title, maxPages }: { url: string; 
           >
             <canvas ref={canvasRef} aria-label={`${title} — page ${pageNum}`} style={{ maxWidth: "100%", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }} />
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
-            <button type="button" className="btn btn-ghost btn-small" disabled={pageNum <= 1} onClick={() => setPageNum((p) => Math.max(1, p - 1))}>
-              ← Previous
-            </button>
-            <span style={{ fontSize: 12.5, color: "var(--ink-faint, var(--admin-text-faint))" }}>
-              Page {pageNum} of {numPages}
-            </span>
-            <button type="button" className="btn btn-ghost btn-small" disabled={numPages === null || pageNum >= numPages} onClick={() => setPageNum((p) => Math.min(numPages ?? p, p + 1))}>
-              Next →
-            </button>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+            <button type="button" className="btn btn-primary btn-small" disabled={pageNum <= 1} onClick={() => setPageNum(1)}>First</button>
+            <button type="button" className="btn btn-primary btn-small" disabled={pageNum <= 1} onClick={() => setPageNum((p) => Math.max(1, p - 1))}>← Prev</button>
+            <input
+              type="number"
+              className="field"
+              style={{ width: 70, textAlign: "center", margin: 0, padding: "8px 6px" }}
+              min={1}
+              max={numPages ?? 1}
+              value={pageNum}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (v >= 1 && numPages && v <= numPages) setPageNum(v);
+              }}
+            />
+            <span style={{ fontSize: 12.5, color: "var(--ink-faint, var(--admin-text-faint))" }}>/ {numPages}</span>
+            <button type="button" className="btn btn-primary btn-small" disabled={numPages === null || pageNum >= numPages} onClick={() => setPageNum((p) => Math.min(numPages ?? p, p + 1))}>Next →</button>
+            <button type="button" className="btn btn-primary btn-small" disabled={numPages === null || pageNum >= numPages} onClick={() => setPageNum(numPages ?? 1)}>Last</button>
           </div>
         </>
       )}
