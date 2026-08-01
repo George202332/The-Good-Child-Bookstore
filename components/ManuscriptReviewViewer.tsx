@@ -67,16 +67,12 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread }: { url: 
       }
       const page = await doc.getPage(targetPage);
       if (cancelled) return;
-      const outputScale = typeof window !== "undefined" ? Math.max(window.devicePixelRatio || 1, 2) : 2;
       const viewport = page.getViewport({ scale: 1.3 });
-      canvasEl.width = Math.floor(viewport.width * outputScale);
-      canvasEl.height = Math.floor(viewport.height * outputScale);
-      canvasEl.style.width = `${Math.floor(viewport.width)}px`;
-      canvasEl.style.height = `${Math.floor(viewport.height)}px`;
+      canvasEl.width = viewport.width;
+      canvasEl.height = viewport.height;
       const ctx = canvasEl.getContext("2d");
       if (!ctx) return;
-      const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined;
-      await page.render({ canvasContext: ctx, viewport, canvas: canvasEl, transform }).promise;
+      await page.render({ canvasContext: ctx, viewport, canvas: canvasEl }).promise;
     }
     (async () => {
       await renderInto(canvasRef.current, pageNum);
@@ -97,9 +93,9 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread }: { url: 
             style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: spread ? "2mm" : 0, background: spread ? "var(--admin-panel)" : "var(--cream)", borderRadius: 10, padding: 16, overflow: "auto", maxHeight: "75vh" }}
             onContextMenu={(e) => e.preventDefault()}
           >
-            <canvas ref={canvasRef} aria-label={`${title} — page ${pageNum}`} style={{ maxWidth: spread ? "49%" : "100%", height: "auto", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }} />
+            <canvas ref={canvasRef} aria-label={`${title} — page ${pageNum}`} style={{ maxWidth: spread ? "49%" : "100%", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }} />
             {spread && (
-              <canvas ref={canvasRef2} aria-label={`${title} — page ${pageNum + 1}`} style={{ maxWidth: "49%", height: "auto", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }} />
+              <canvas ref={canvasRef2} aria-label={`${title} — page ${pageNum + 1}`} style={{ maxWidth: "49%", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }} />
             )}
           </div>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
