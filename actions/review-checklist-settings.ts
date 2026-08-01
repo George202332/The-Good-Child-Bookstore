@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import type { ChecklistGroup } from "@/lib/review-checklist";
+import { canRatifyModeration } from "@/lib/roles";
 
 const CHECKLIST_SETTINGS_KEY = "book_review_checklist";
 
 export async function updateReviewChecklistTemplate(groups: ChecklistGroup[]): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") {
-    return { ok: false, error: "Only Admins can edit the review checklist." };
+  if (!session?.user?.role || !canRatifyModeration(session.user.role)) {
+    return { ok: false, error: "Only an Admin or Chief Editor can edit the review checklist." };
   }
   if (!Array.isArray(groups) || groups.length === 0) {
     return { ok: false, error: "At least one checklist group is required." };

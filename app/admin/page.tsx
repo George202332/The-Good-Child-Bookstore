@@ -109,7 +109,7 @@ export default async function AdminDashboardPage() {
 
       <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Users by role</h3>
       <div className="map-card" style={{ padding: "6px 16px", marginBottom: 24 }}>
-        {(["READER", "AUTHOR", "EDITOR", "ADMIN"] as const).map((r) => (
+        {(["READER", "AUTHOR", "EDITOR", "CHIEF_EDITOR", "ADMIN"] as const).map((r) => (
           <div key={r} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
             <span style={{ fontSize: 13.5 }}>{r.charAt(0) + r.slice(1).toLowerCase()}</span>
             <span style={{ fontWeight: 700 }}>{roleCount(r)}</span>

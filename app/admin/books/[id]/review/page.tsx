@@ -3,7 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/AdminShell";
-import { canModerateContent } from "@/lib/roles";
+import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { ReviewActions } from "./ReviewActions";
 import { ReviewChecklist } from "./ReviewChecklist";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
@@ -54,7 +54,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Reviewing: {book.title}</h2>
-          <p style={{ color: "var(--ink-soft, var(--admin-text-faint))", fontSize: 13.5, marginTop: 2 }}>
+          <p style={{ color: "var(--admin-text-faint)", fontSize: 13.5, marginTop: 2 }}>
             by {authorDisplayName} · Status: {STATUS_LABEL[book.status] ?? book.status}
           </p>
         </div>
@@ -73,11 +73,11 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
           {manuscript ? (
             <ManuscriptReviewViewer url={manuscript.url} title={book.title} spread />
           ) : (
-            <p style={{ fontSize: 13, color: "var(--ink-faint, var(--admin-text-faint))", textAlign: "center" }}>No manuscript file uploaded.</p>
+            <p style={{ fontSize: 13, color: "var(--admin-text-faint)", textAlign: "center" }}>No manuscript file uploaded.</p>
           )}
         </div>
 
-        <ReviewActions bookId={book.id} role={role} pendingAction={book.pendingAction} pendingActionBy={book.pendingActionBy} />
+        <ReviewActions bookId={book.id} canRatify={canRatifyModeration(role)} pendingAction={book.pendingAction} pendingActionBy={book.pendingActionBy} />
       </div>
 
       {/* Beneath: cover + every other submission detail */}
@@ -87,26 +87,26 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
             // eslint-disable-next-line @next/next/no-img-element -- real uploaded book cover
             <img src={book.coverImageUrl} alt={`${book.title} cover`} style={{ width: "100%", aspectRatio: "2/3", objectFit: "contain", display: "block", marginBottom: 10 }} />
           ) : (
-            <div style={{ width: "100%", aspectRatio: "2/3", background: "var(--cream, var(--admin-panel))", borderRadius: 8, marginBottom: 10 }} />
+            <div style={{ width: "100%", aspectRatio: "2/3", background: "var(--admin-panel)", borderRadius: 8, marginBottom: 10 }} />
           )}
-          <div style={{ fontSize: 12, color: "var(--ink-faint, var(--admin-text-faint))" }}>ISBN: {book.isbn || "—"}</div>
+          <div style={{ fontSize: 12, color: "var(--admin-text-faint)" }}>ISBN: {book.isbn || "—"}</div>
         </div>
 
         <div>
           <div className="map-card" style={{ padding: 20, marginBottom: 20 }}>
             <h3 style={{ fontSize: 15, marginBottom: 12 }}>Submission details</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, fontSize: 13.5, marginBottom: 16 }}>
-              <div><strong>Category</strong><div style={{ color: "var(--ink-soft, var(--admin-text-faint))" }}>{book.categories[0]?.category.name ?? "—"}</div></div>
-              <div><strong>Genre</strong><div style={{ color: "var(--ink-soft, var(--admin-text-faint))" }}>{book.genres[0]?.genre.name ?? "—"}</div></div>
-              <div><strong>Age group</strong><div style={{ color: "var(--ink-soft, var(--admin-text-faint))" }}>{book.ageGroup ?? "—"}</div></div>
-              <div><strong>Language</strong><div style={{ color: "var(--ink-soft, var(--admin-text-faint))" }}>{book.language ?? "en"}</div></div>
-              <div><strong>Price</strong><div style={{ color: "var(--ink-soft, var(--admin-text-faint))" }}>${Number(book.price).toFixed(2)}</div></div>
-              <div><strong>Formats</strong><div style={{ color: "var(--ink-soft, var(--admin-text-faint))" }}>
+              <div><strong>Category</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.categories[0]?.category.name ?? "—"}</div></div>
+              <div><strong>Genre</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.genres[0]?.genre.name ?? "—"}</div></div>
+              <div><strong>Age group</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.ageGroup ?? "—"}</div></div>
+              <div><strong>Language</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.language ?? "en"}</div></div>
+              <div><strong>Price</strong><div style={{ color: "var(--admin-text-faint)" }}>${Number(book.price).toFixed(2)}</div></div>
+              <div><strong>Formats</strong><div style={{ color: "var(--admin-text-faint)" }}>
                 {[book.hasEbook && "eBook", book.hasPrint && "Print", book.hasAudiobook && "Audiobook"].filter(Boolean).join(", ") || "None selected"}
               </div></div>
             </div>
             <strong style={{ fontSize: 13.5 }}>Description</strong>
-            <p style={{ fontSize: 13.5, color: "var(--ink-soft, var(--admin-text-faint))", lineHeight: 1.7, marginTop: 4 }}>
+            <p style={{ fontSize: 13.5, color: "var(--admin-text-faint)", lineHeight: 1.7, marginTop: 4 }}>
               {book.description || "No description provided."}
             </p>
           </div>

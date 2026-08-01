@@ -85,12 +85,12 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread }: { url: 
 
   return (
     <div>
-      {loading && <p style={{ fontSize: 13, color: "var(--ink-faint, var(--admin-text-faint))" }}>Loading manuscript…</p>}
+      {loading && <p style={{ fontSize: 13, color: spread ? "var(--admin-text-faint)" : "var(--ink-faint)" }}>Loading manuscript…</p>}
       {error && <p style={{ fontSize: 13, color: "var(--coral-deep)" }}>{error}</p>}
       {!loading && !error && (
         <>
           <div
-            style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: spread ? 2 : 0, background: "var(--cream, var(--admin-panel))", borderRadius: 10, padding: 16, overflow: "auto", maxHeight: "75vh" }}
+            style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: spread ? "2mm" : 0, background: spread ? "var(--admin-panel)" : "var(--cream)", borderRadius: 10, padding: 16, overflow: "auto", maxHeight: "75vh" }}
             onContextMenu={(e) => e.preventDefault()}
           >
             <canvas ref={canvasRef} aria-label={`${title} — page ${pageNum}`} style={{ maxWidth: spread ? "49%" : "100%", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }} />
@@ -113,7 +113,7 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread }: { url: 
                 if (v >= 1 && numPages && v <= numPages) setPageNum(v);
               }}
             />
-            <span style={{ fontSize: 12.5, color: "var(--ink-faint, var(--admin-text-faint))" }}>
+            <span style={{ fontSize: 12.5, color: spread ? "var(--admin-text-faint)" : "var(--ink-faint)" }}>
               {spread ? `– ${Math.min(pageNum + 1, numPages ?? pageNum)}` : ""} / {numPages}
             </span>
             <button type="button" className="btn btn-primary btn-small" disabled={numPages === null || pageNum + step - 1 >= numPages} onClick={() => setPageNum((p) => Math.min(numPages ?? p, p + step))}>Next →</button>

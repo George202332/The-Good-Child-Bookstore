@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { canModerateContent } from "@/lib/roles";
+import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { createNotification } from "@/actions/notifications";
 
 /**
@@ -94,7 +94,7 @@ async function proposeOrApplyModeration(bookId: string, action: "SUSPEND" | "WIT
     const book = await prisma.book.findUnique({ where: { id: bookId }, include: { author: { include: { user: true } } } });
     if (!book) return { ok: false, error: "Book not found." };
 
-    if (role === "ADMIN") {
+    if (canRatifyModeration(role)) {
       await prisma.book.update({
         where: { id: bookId },
         data: { status: action === "SUSPEND" ? "SUSPENDED" : "WITHDRAWN", pendingAction: null, pendingActionBy: null, pendingActionNote: null },
@@ -109,6 +109,16 @@ async function proposeOrApplyModeration(bookId: string, action: "SUSPEND" | "WIT
         where: { id: bookId },
         data: { pendingAction: action, pendingActionBy: session?.user?.name ?? "An editor", pendingActionNote: note?.trim() || null },
       });
+      // Notify every Chief Editor and Admin directly — don't rely on
+      // them happening to reopen this specific book and notice a banner.
+      const ratifiers = await prisma.user.findMany({ where: { role: { in: ["CHIEF_EDITOR", "ADMIN"] } } });
+      for (const u of ratifiers) {
+        await createNotification(
+          u.id,
+          `${action === "SUSPEND" ? "Suspend" : "Withdraw"} proposed: "${book.title}"`,
+          `${session?.user?.name ?? "An editor"} proposed to ${action === "SUSPEND" ? "suspend" : "withdraw"} this book${note?.trim() ? `: ${note.trim()}` : "."}`
+        );
+      }
     }
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);
@@ -128,7 +138,7 @@ export async function proposeOrApplyWithdraw(bookId: string, note?: string) {
 /** Admin-only: confirms or declines an Editor's proposed Suspend/Withdraw. */
 export async function ratifyPendingModeration(bookId: string, approve: boolean): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can ratify this." };
+  if (!session?.user?.role || !canRatifyModeration(session.user.role)) return { ok: false, error: "Only an Admin or Chief Editor can ratify this." };
 
   const book = await prisma.book.findUnique({ where: { id: bookId }, include: { author: { include: { user: true } } } });
   if (!book) return { ok: false, error: "Book not found." };

@@ -4,47 +4,60 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { approveBook, rejectBook, proposeOrApplySuspend, proposeOrApplyWithdraw, ratifyPendingModeration } from "@/actions/admin";
 
-type Mode = "idle" | "revision" | "suspend" | "withdraw";
+type Tab = "attention" | "suspend" | "withdraw" | null;
 
+/**
+ * Approve / Attention / Suspend / Withdraw sit as one row of tabs,
+ * always visible together — not a form that replaces the buttons.
+ * Clicking Attention, Suspend, or Withdraw opens a separate message-box
+ * card below this one; nothing happens until Send is clicked. Approve
+ * still takes effect immediately, with no message needed.
+ */
 export function ReviewActions({
   bookId,
-  role,
+  canRatify,
   pendingAction,
   pendingActionBy,
 }: {
   bookId: string;
-  role: string;
+  canRatify: boolean;
   pendingAction: string | null;
   pendingActionBy: string | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [mode, setMode] = useState<Mode>("idle");
+  const [activeTab, setActiveTab] = useState<Tab>(null);
   const [comments, setComments] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  function run(action: () => Promise<{ ok: boolean; error?: string }>, onDone?: () => void) {
+  function run(action: () => Promise<{ ok: boolean; error?: string }>) {
     setError(null);
     startTransition(async () => {
       const res = await action();
       if (!res.ok) setError(res.error ?? "Failed");
       else {
-        setMode("idle");
+        setActiveTab(null);
         setComments("");
-        onDone?.();
         router.refresh();
       }
     });
   }
 
+  function handleSend() {
+    if (!comments.trim()) { setError("Write a message first."); return; }
+    if (activeTab === "attention") run(() => rejectBook(bookId, comments));
+    else if (activeTab === "suspend") run(() => proposeOrApplySuspend(bookId, comments));
+    else if (activeTab === "withdraw") run(() => proposeOrApplyWithdraw(bookId, comments));
+  }
+
   if (pendingAction) {
     return (
       <div className="map-card" style={{ padding: 18, background: "#FBE6B8" }}>
-        <h3 style={{ fontSize: 14, marginBottom: 8, color: "#8A5A0B" }}>Awaiting Admin ratification</h3>
+        <h3 style={{ fontSize: 14, marginBottom: 8, color: "#8A5A0B" }}>Awaiting ratification</h3>
         <p style={{ fontSize: 13, color: "#8A5A0B", marginBottom: 12 }}>
-          {pendingActionBy ?? "An editor"} proposed to <strong>{pendingAction === "SUSPEND" ? "Suspend" : "Withdraw"}</strong> this book.
+          {pendingActionBy ?? "An editor"} proposed to <strong>{pendingAction === "SUSPEND" ? "Suspend" : "Withdraw"}</strong> this book — Chief Editor and Admin have been notified.
         </p>
-        {role === "ADMIN" ? (
+        {canRatify ? (
           <div style={{ display: "flex", gap: 10 }}>
             <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={() => run(() => ratifyPendingModeration(bookId, true))}>
               Ratify
@@ -54,7 +67,7 @@ export function ReviewActions({
             </button>
           </div>
         ) : (
-          <p style={{ fontSize: 12.5, color: "#8A5A0B" }}>Only an Admin can finalize this.</p>
+          <p style={{ fontSize: 12.5, color: "#8A5A0B" }}>Only an Admin or Chief Editor can finalize this.</p>
         )}
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginTop: 8 }}>{error}</div>}
       </div>
@@ -62,52 +75,44 @@ export function ReviewActions({
   }
 
   return (
-    <div className="map-card" style={{ padding: 18 }}>
-      <h3 style={{ fontSize: 14, marginBottom: 12 }}>Decision</h3>
-      {mode === "idle" && (
+    <>
+      <div className="map-card" style={{ padding: 18 }}>
+        <h3 style={{ fontSize: 14, marginBottom: 12 }}>Decision</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={() => run(() => approveBook(bookId))}>
             Approve
           </button>
-          <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => setMode("revision")}>
-            Attention (send back for revision)
+          <button type="button" className={`btn btn-small ${activeTab === "attention" ? "btn-primary" : "btn-ghost"}`} disabled={isPending} onClick={() => { setActiveTab(activeTab === "attention" ? null : "attention"); setError(null); }}>
+            Attention
           </button>
-          <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => setMode("suspend")}>
+          <button type="button" className={`btn btn-small ${activeTab === "suspend" ? "btn-primary" : "btn-ghost"}`} disabled={isPending} onClick={() => { setActiveTab(activeTab === "suspend" ? null : "suspend"); setError(null); }}>
             Suspend
           </button>
-          <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => setMode("withdraw")}>
+          <button type="button" className={`btn btn-small ${activeTab === "withdraw" ? "btn-primary" : "btn-ghost"}`} disabled={isPending} onClick={() => { setActiveTab(activeTab === "withdraw" ? null : "withdraw"); setError(null); }}>
             Withdraw
           </button>
         </div>
-      )}
+      </div>
 
-      {mode !== "idle" && (
-        <div>
+      {activeTab && (
+        <div className="map-card" style={{ padding: 18, marginTop: 16 }}>
           <label className="field-label" htmlFor="decision-note">
-            {mode === "revision" ? "What needs to change?" : mode === "suspend" ? "Reason for suspending (dispute, copyright, etc.)" : "Reason for withdrawing"}
+            {activeTab === "attention"
+              ? "What needs to change? (sent to the author)"
+              : `Reason for ${activeTab === "suspend" ? "suspending" : "withdrawing"} (sent to Chief Editor and Admin)`}
           </label>
           <textarea className="field" id="decision-note" rows={4} value={comments} onChange={(e) => setComments(e.target.value)} />
-          <div style={{ display: "flex", gap: 10 }}>
-            <button
-              type="button"
-              className="btn btn-primary btn-small"
-              disabled={isPending}
-              onClick={() => {
-                if (!comments.trim()) { setError("Add a comment first."); return; }
-                if (mode === "revision") run(() => rejectBook(bookId, comments));
-                else if (mode === "suspend") run(() => proposeOrApplySuspend(bookId, comments));
-                else run(() => proposeOrApplyWithdraw(bookId, comments));
-              }}
-            >
-              {isPending ? "Working…" : mode === "revision" ? "Send back for revision" : role === "ADMIN" ? `Confirm ${mode === "suspend" ? "Suspend" : "Withdraw"}` : "Propose to Admin"}
+          {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
+          <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+            <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={handleSend}>
+              {isPending ? "Sending…" : "Send"}
             </button>
-            <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => { setMode("idle"); setError(null); }}>
+            <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => { setActiveTab(null); setComments(""); setError(null); }}>
               Cancel
             </button>
           </div>
         </div>
       )}
-      {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginTop: 8 }}>{error}</div>}
-    </div>
+    </>
   );
 }

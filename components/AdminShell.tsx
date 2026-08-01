@@ -42,6 +42,9 @@ function navItemsForRole(role: Role) {
       { key: "transactions", label: "Transactions", href: "/admin/transactions" },
     ];
   }
+  if (role === "CHIEF_EDITOR") {
+    return [...base, { key: "books-checklist", label: "Review Checklist", href: "/admin/books/checklist-settings" }];
+  }
   return base;
 }
 
@@ -73,7 +76,7 @@ export function AdminShell({
           <div className="admin-user-avatar">{initials}</div>
           <div>
             <div className="admin-user-name">{displayName}</div>
-            <div className="admin-user-role">{role === "ADMIN" ? "Admin" : role === "EDITOR" ? "Editor" : "Accountant"}</div>
+            <div className="admin-user-role">{role === "ADMIN" ? "Admin" : role === "EDITOR" ? "Editor" : role === "CHIEF_EDITOR" ? "Chief Editor" : "Accountant"}</div>
           </div>
         </div>
         <nav aria-label="Admin navigation" style={{ display: "flex", flexDirection: "column", gap: 2 }}>

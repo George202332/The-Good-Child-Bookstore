@@ -34,6 +34,7 @@ enum Role {
   READER
   AUTHOR
   EDITOR
+  CHIEF_EDITOR
   ADMIN
   ACCOUNTANT
 }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateUserRole, deleteUserAccount, toggleUserSuspension } from "@/actions/users-admin";
 import type { Role } from "@/lib/roles";
 
-const ROLES: Role[] = ["READER", "AUTHOR", "EDITOR", "ADMIN", "ACCOUNTANT"];
+const ROLES: Role[] = ["READER", "AUTHOR", "EDITOR", "CHIEF_EDITOR", "ADMIN", "ACCOUNTANT"];
 
 export function UserRowActions({ userId, currentRole, suspended }: { userId: string; currentRole: Role; suspended: boolean }) {
   const router = useRouter();

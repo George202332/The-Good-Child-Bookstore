@@ -13,6 +13,7 @@ const ROLE_TABS: { key: Role | "ALL"; label: string }[] = [
   { key: "AUTHOR", label: "Author" },
   
   { key: "EDITOR", label: "Editor" },
+  { key: "CHIEF_EDITOR", label: "Chief Editor" },
   { key: "ADMIN", label: "Admin" },
   { key: "ACCOUNTANT", label: "Accountant" },
 ];
