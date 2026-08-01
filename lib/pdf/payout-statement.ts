@@ -210,12 +210,13 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
   }
 
   // ---- Footer (on every page) ----
-  for (const p of doc.getPages()) {
+  const allPages = doc.getPages();
+  allPages.forEach((p, i) => {
     p.drawText("Confidential: prepared for the named author only. Not for redistribution.", { x: margin, y: 30, size: 7.5, font: italic, color: INK_SOFT });
-    const footerRight = "thegoodchildbookstore.com";
+    const footerRight = `thegoodchildbookstore.com   Page ${i + 1} of ${allPages.length}`;
     const fw = font.widthOfTextAtSize(footerRight, 7.5);
     p.drawText(footerRight, { x: p.getWidth() - margin - fw, y: 30, size: 7.5, font, color: GOLD });
-  }
+  });
 
   return doc.save();
 }
