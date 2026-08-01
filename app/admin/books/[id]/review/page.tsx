@@ -47,7 +47,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
 
   const manuscript = (book.files as { kind: string; url: string }[]).find((f) => f.kind === "MANUSCRIPT");
   const authorDisplayName = book.author.penName || book.author.user.name;
-  const checklistState = (book.reviewChecklist as Record<string, boolean> | null) ?? {};
+  const checklistState = (book.reviewChecklist as unknown as Record<string, boolean> | null) ?? {};
 
   return (
     <AdminShell role={role} activeKey="books" displayName={session.user.name ?? ""}>

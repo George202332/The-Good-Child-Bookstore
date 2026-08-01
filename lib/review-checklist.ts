@@ -37,7 +37,7 @@ export async function getReviewChecklistTemplate(): Promise<ChecklistGroup[]> {
   try {
     const setting = await prisma.setting.findUnique({ where: { key: CHECKLIST_SETTINGS_KEY } });
     if (Array.isArray(setting?.value) && setting.value.length > 0) {
-      return setting.value as ChecklistGroup[];
+      return setting.value as unknown as ChecklistGroup[];
     }
   } catch {
     // Fall through to defaults if the database is unreachable.
