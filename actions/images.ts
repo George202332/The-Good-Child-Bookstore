@@ -42,43 +42,43 @@ export async function uploadImage(
   formData: FormData,
   options?: { trim?: boolean; allowedTypes?: string[] }
 ): Promise<UploadImageResult> {
-  const session = await auth();
-  const role = session?.user?.role;
-  // Anyone signed in may upload (readers don't need this, but authors
-  // submitting book covers do) — actual write permissions for *where* an
-  // image gets used are enforced by the action that saves that
-  // reference (e.g. only Admin can save a logo URL).
-  if (!role) {
-    return { ok: false, error: "You need to be signed in to upload images." };
-  }
-
-  const file = formData.get("file");
-  if (!(file instanceof File)) {
-    return { ok: false, error: "No file was provided." };
-  }
-  if (file.size > MAX_UPLOAD_BYTES) {
-    return { ok: false, error: "Image is too large (max 8MB)." };
-  }
-
-  const allowedTypes = options?.allowedTypes;
-  let mimeOk: boolean;
-  let extOk: boolean;
-  const nameLower = file.name.toLowerCase();
-  if (allowedTypes && allowedTypes.length > 0) {
-    mimeOk = allowedTypes.includes(file.type);
-    extOk = allowedTypes.some((mime) => (MIME_TO_IMAGE_EXTENSIONS[mime] ?? []).some((ext) => nameLower.endsWith(ext)));
-    if (!mimeOk && !extOk) {
-      return { ok: false, error: `Please upload one of: ${allowedTypes.join(", ")}.` };
-    }
-  } else {
-    mimeOk = file.type.startsWith("image/");
-    extOk = IMAGE_EXTENSIONS.some((ext) => nameLower.endsWith(ext));
-    if (!mimeOk && !extOk) {
-      return { ok: false, error: "Please upload an image file." };
-    }
-  }
-
   try {
+    const session = await auth();
+    const role = session?.user?.role;
+    // Anyone signed in may upload (readers don't need this, but authors
+    // submitting book covers do) — actual write permissions for *where* an
+    // image gets used are enforced by the action that saves that
+    // reference (e.g. only Admin can save a logo URL).
+    if (!role) {
+      return { ok: false, error: "You need to be signed in to upload images." };
+    }
+
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return { ok: false, error: "No file was provided." };
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return { ok: false, error: "Image is too large (max 8MB)." };
+    }
+
+    const allowedTypes = options?.allowedTypes;
+    let mimeOk: boolean;
+    let extOk: boolean;
+    const nameLower = file.name.toLowerCase();
+    if (allowedTypes && allowedTypes.length > 0) {
+      mimeOk = allowedTypes.includes(file.type);
+      extOk = allowedTypes.some((mime) => (MIME_TO_IMAGE_EXTENSIONS[mime] ?? []).some((ext) => nameLower.endsWith(ext)));
+      if (!mimeOk && !extOk) {
+        return { ok: false, error: `Please upload one of: ${allowedTypes.join(", ")}.` };
+      }
+    } else {
+      mimeOk = file.type.startsWith("image/");
+      extOk = IMAGE_EXTENSIONS.some((ext) => nameLower.endsWith(ext));
+      if (!mimeOk && !extOk) {
+        return { ok: false, error: "Please upload an image file." };
+      }
+    }
+
     const arrayBuffer = await file.arrayBuffer();
     let pipeline = sharp(Buffer.from(arrayBuffer));
     // For logo/favicon uploads: many logo files (like this one) are
@@ -102,6 +102,15 @@ export async function uploadImage(
 
     return { ok: true, url: `/api/images/${record.id}` };
   } catch (e) {
+    // Logged server-side (visible in Vercel's function logs) so the
+    // real cause is diagnosable even though the client only ever sees
+    // a safe, generic message — Next.js redacts thrown-error details
+    // in production, but a *returned* error object like this one isn't
+    // redacted, so wrapping literally everything (including auth() and
+    // validation, previously outside the try/catch) in this single
+    // catch is what actually gets a real message to the user instead
+    // of the opaque "Server Components render" fallback.
+    console.error("uploadImage failed:", e);
     return { ok: false, error: e instanceof Error ? e.message : "Failed to process image." };
   }
 }
