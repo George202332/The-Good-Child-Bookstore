@@ -364,7 +364,7 @@ export function EbookSubmissionForm() {
         <div className="upload-cards-row">
           <FileUploadField
             label="Manuscript (PDF, EPUB, or MOBI)"
-            sizeHint="Max 50MB"
+            sizeHint="Max 4MB"
             allowedTypes={["application/pdf", "application/epub+zip", "application/x-mobipocket-ebook"]}
             accept=".pdf,.epub,.mobi"
             onUploaded={(ids) => setManuscriptFileId(ids[0])}

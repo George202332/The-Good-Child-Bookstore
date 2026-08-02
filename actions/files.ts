@@ -11,7 +11,7 @@ import { auth } from "@/lib/auth";
  * served back out through app/api/files/[id]/route.ts.
  */
 
-const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50MB, matching the manuscript size limit
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // 4MB — see next.config.ts for why this ceiling exists
 
 // Maps each accepted MIME type to its real file extension(s), so a file
 // can be validated by extension when the browser/OS reports an empty or

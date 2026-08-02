@@ -15,7 +15,7 @@ import { BACKEND_ROLES } from "@/lib/roles";
  * previously only accepted a pasted image URL.
  */
 
-const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // 8MB before conversion
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // 4MB — matches the server action body-size limit in next.config.ts
 
 // Common image file extensions, used as a fallback recognition path
 // when the browser/OS doesn't report a usable MIME type for the file

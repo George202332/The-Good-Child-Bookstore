@@ -350,7 +350,7 @@ export function PrintSubmissionForm() {
                   <tr><td>Safe area</td><td>0.5 in inside trim line</td></tr>
                   <tr><td>Trim size</td><td>{trimLabel}</td></tr>
                   <tr><td>Color profile</td><td>CMYK recommended</td></tr>
-                  <tr><td>File size limit</td><td>Up to 50 MB</td></tr>
+                  <tr><td>File size limit</td><td>Up to 4 MB</td></tr>
                   <tr><td>Accepted format</td><td>PDF only</td></tr>
                 </tbody>
               </table>
