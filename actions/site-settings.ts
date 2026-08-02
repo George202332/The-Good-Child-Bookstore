@@ -115,29 +115,33 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
     return { ok: false, error: "Only Admins can edit site settings." };
   }
 
-  // Any API key field left blank keeps whatever's already saved, rather
-  // than erasing a working credential just because the admin didn't
-  // retype it (the form never shows the real value back, on purpose).
-  const existing = await getSiteSettings();
-  const apiKeys: ApiKeys = {
-    paymentMode: settings.apiKeys.paymentMode,
-    luluClientKey: settings.apiKeys.luluClientKey?.trim() || existing.apiKeys.luluClientKey,
-    luluClientSecret: settings.apiKeys.luluClientSecret?.trim() || existing.apiKeys.luluClientSecret,
-    resendApiKey: settings.apiKeys.resendApiKey?.trim() || existing.apiKeys.resendApiKey,
-    fromEmail: settings.apiKeys.fromEmail?.trim() || existing.apiKeys.fromEmail,
-    paystackSecretKey: settings.apiKeys.paystackSecretKey?.trim() || existing.apiKeys.paystackSecretKey,
-    paystackPublicKey: settings.apiKeys.paystackPublicKey?.trim() || existing.apiKeys.paystackPublicKey,
-    wiseApiToken: settings.apiKeys.wiseApiToken?.trim() || existing.apiKeys.wiseApiToken,
-    wiseProfileId: settings.apiKeys.wiseProfileId?.trim() || existing.apiKeys.wiseProfileId,
-  };
+  try {
+    // Any API key field left blank keeps whatever's already saved, rather
+    // than erasing a working credential just because the admin didn't
+    // retype it (the form never shows the real value back, on purpose).
+    const existing = await getSiteSettings();
+    const apiKeys: ApiKeys = {
+      paymentMode: settings.apiKeys.paymentMode,
+      luluClientKey: settings.apiKeys.luluClientKey?.trim() || existing.apiKeys.luluClientKey,
+      luluClientSecret: settings.apiKeys.luluClientSecret?.trim() || existing.apiKeys.luluClientSecret,
+      resendApiKey: settings.apiKeys.resendApiKey?.trim() || existing.apiKeys.resendApiKey,
+      fromEmail: settings.apiKeys.fromEmail?.trim() || existing.apiKeys.fromEmail,
+      paystackSecretKey: settings.apiKeys.paystackSecretKey?.trim() || existing.apiKeys.paystackSecretKey,
+      paystackPublicKey: settings.apiKeys.paystackPublicKey?.trim() || existing.apiKeys.paystackPublicKey,
+      wiseApiToken: settings.apiKeys.wiseApiToken?.trim() || existing.apiKeys.wiseApiToken,
+      wiseProfileId: settings.apiKeys.wiseProfileId?.trim() || existing.apiKeys.wiseProfileId,
+    };
 
-  const value = JSON.parse(JSON.stringify({ ...settings, apiKeys }));
-  await prisma.setting.upsert({
-    where: { key: SITE_SETTINGS_KEY },
-    update: { value },
-    create: { key: SITE_SETTINGS_KEY, value },
-  });
-  revalidatePath("/");
-  revalidatePath("/admin/site-settings");
-  return { ok: true };
+    const value = JSON.parse(JSON.stringify({ ...settings, apiKeys }));
+    await prisma.setting.upsert({
+      where: { key: SITE_SETTINGS_KEY },
+      update: { value },
+      create: { key: SITE_SETTINGS_KEY, value },
+    });
+    revalidatePath("/");
+    revalidatePath("/admin/site-settings");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save settings — please try again." };
+  }
 }
