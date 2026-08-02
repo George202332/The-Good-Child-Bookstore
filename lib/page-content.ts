@@ -2,9 +2,12 @@ export interface HomeContent {
   eyebrow: string;
   heading: string;
   lede: string;
-  /** Shared background image behind the hero carousel (all 4 slides) —
-   * recommended 1600x600px (landscape, roughly 8:3). */
-  heroImage?: string;
+  /** One background image per hero carousel slide — recommended
+   * 1600x600px (landscape, roughly 8:3) each. */
+  heroWelcomeImage?: string;
+  heroBrowseImage?: string;
+  heroAuthorImage?: string;
+  heroAffiliateImage?: string;
   bookClubBannerTitle: string;
   bookClubBannerBody: string;
   /** Recommended 1200x500px. */

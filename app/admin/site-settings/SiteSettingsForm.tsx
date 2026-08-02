@@ -49,20 +49,22 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
   return (
     <form onSubmit={handleSave} className="form-section">
       <h3 style={{ fontSize: 15, marginBottom: 10 }}>Logo &amp; Favicon</h3>
-      <ImageUploadField
-        label="Logo image (leave empty to use the default owl mark)"
-        recommendedSize="Any size works — transparent padding around the artwork is trimmed automatically"
-        value={settings.logoImageUrl}
-        onChange={(url) => setSettings((s) => ({ ...s, logoImageUrl: url }))}
-        trim
-      />
-      <ImageUploadField
-        label="Favicon (browser tab icon — leave empty to use the default)"
-        recommendedSize="Recommended 64×64px, square"
-        value={settings.faviconImageUrl}
-        onChange={(url) => setSettings((s) => ({ ...s, faviconImageUrl: url }))}
-        trim
-      />
+      <div className="upload-cards-row">
+        <ImageUploadField
+          label="Logo image (leave empty to use the default owl mark)"
+          recommendedSize="Any size works — transparent padding around the artwork is trimmed automatically"
+          value={settings.logoImageUrl}
+          onChange={(url) => setSettings((s) => ({ ...s, logoImageUrl: url }))}
+          trim
+        />
+        <ImageUploadField
+          label="Favicon (browser tab icon — leave empty to use the default)"
+          recommendedSize="Recommended 64×64px, square"
+          value={settings.faviconImageUrl}
+          onChange={(url) => setSettings((s) => ({ ...s, faviconImageUrl: url }))}
+          trim
+        />
+      </div>
 
       <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Footer</h3>
       <label className="field-label" htmlFor="footer-tagline">Footer tagline</label>
@@ -87,15 +89,17 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
         Each of these already shows a real card-style icon by default. Upload an image here to replace it — for
         example, if you have the rights to use the official logo for that brand.
       </p>
-      {BADGE_FIELDS.map(({ key, label }) => (
-        <ImageUploadField
-          key={key}
-          label={`${label} image`}
-          recommendedSize="Recommended 120×40px"
-          value={settings.paymentBadges[key]}
-          onChange={(url) => setSettings((s) => ({ ...s, paymentBadges: { ...s.paymentBadges, [key]: url } }))}
-        />
-      ))}
+      <div className="upload-cards-row">
+        {BADGE_FIELDS.map(({ key, label }) => (
+          <ImageUploadField
+            key={key}
+            label={`${label} image`}
+            recommendedSize="Recommended 120×40px"
+            value={settings.paymentBadges[key]}
+            onChange={(url) => setSettings((s) => ({ ...s, paymentBadges: { ...s.paymentBadges, [key]: url } }))}
+          />
+        ))}
+      </div>
 
       <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>API credentials</h3>
       <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>

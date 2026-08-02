@@ -1649,12 +1649,12 @@
 
   .upload-cards-row{display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;}
   .upload-card{
-    flex:1;min-width:160px;background:var(--paper);border:2px dashed var(--line);border-radius:14px;
-    padding:24px 16px;text-align:center;transition:border-color .15s ease, background .15s ease;
+    flex:1;min-width:160px;background:transparent;border:2px dashed var(--line);border-radius:14px;
+    padding:24px 16px;text-align:center;transition:border-color .15s ease;
   }
   .upload-card:hover{border-color:var(--ink-faint);}
-  .upload-card.has-file{border-style:solid;border-color:#1F6B48;background:var(--mint);}
-  .upload-card.drag-over{border-style:solid;border-color:var(--coral-deep);background:var(--pink);transform:scale(1.02);transition:transform .1s ease;}
+  .upload-card.has-file{border-style:solid;border-color:#1F6B48;background:transparent;}
+  .upload-card.drag-over{border-style:solid;border-color:var(--coral-deep);background:transparent;transform:scale(1.02);transition:transform .1s ease;}
   .upload-card-inner{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;}
   .upload-card svg{width:30px;height:30px;color:var(--ink-soft);flex-shrink:0;}
   .upload-card.has-file svg{color:#1F6B48;}
