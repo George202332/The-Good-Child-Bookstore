@@ -23,10 +23,14 @@ export async function getPagesContent(): Promise<PagesContent> {
       return {
         home: { ...DEFAULT_PAGES_CONTENT.home, ...(stored.home ?? {}) },
         shop: { ...DEFAULT_PAGES_CONTENT.shop, ...(stored.shop ?? {}) },
-        authors: { ...DEFAULT_PAGES_CONTENT.authors, ...(stored.authors ?? {}) },
-        affiliate: { ...DEFAULT_PAGES_CONTENT.affiliate, ...(stored.affiliate ?? {}) },
+        authorship: { ...DEFAULT_PAGES_CONTENT.authorship, ...(stored.authorship ?? {}) },
+        affiliateMarketing: { ...DEFAULT_PAGES_CONTENT.affiliateMarketing, ...(stored.affiliateMarketing ?? {}) },
         blog: { ...DEFAULT_PAGES_CONTENT.blog, ...(stored.blog ?? {}) },
         contact: { ...DEFAULT_PAGES_CONTENT.contact, ...(stored.contact ?? {}) },
+        privacy: { ...DEFAULT_PAGES_CONTENT.privacy, ...(stored.privacy ?? {}) },
+        terms: { ...DEFAULT_PAGES_CONTENT.terms, ...(stored.terms ?? {}) },
+        returns: { ...DEFAULT_PAGES_CONTENT.returns, ...(stored.returns ?? {}) },
+        faq: { ...DEFAULT_PAGES_CONTENT.faq, ...(stored.faq ?? {}) },
       };
     }
   } catch {

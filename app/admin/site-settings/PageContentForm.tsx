@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { updatePagesContent } from "@/actions/page-content";
 import type { PagesContent } from "@/lib/page-content";
 import { ImageUploadField } from "@/components/ImageUploadField";
+import { MarketingPageEditor } from "./MarketingPageEditor";
+import { LegalPageEditor } from "./LegalPageEditor";
 
-const PAGE_LABELS: { key: keyof Omit<PagesContent, "home">; label: string }[] = [
+const PAGE_LABELS: { key: keyof Pick<PagesContent, "shop" | "blog" | "contact">; label: string }[] = [
   { key: "shop", label: "Bookshelf" },
-  { key: "authors", label: "Authorship" },
-  { key: "affiliate", label: "Affiliate" },
   { key: "blog", label: "Blog" },
   { key: "contact", label: "Contact Us" },
 ];
@@ -39,9 +39,8 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
   return (
     <form onSubmit={handleSave} className="form-section">
       <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 16 }}>
-        This covers the intro text visitors see first on each page. The longer, detailed sections further down
-        each page (like Authorship&apos;s and Affiliate&apos;s feature walkthroughs) aren&apos;t individually
-        editable yet — that would need a larger content-block editor, which is a bigger separate build.
+        Every page&apos;s hero text is editable here, and Authorship, Affiliate, and the legal/info pages
+        (Privacy, Terms, Returns, FAQs) have their own full section-by-section editors below, including images.
       </p>
 
       <h3 style={{ fontSize: 15, marginBottom: 10 }}>Home</h3>
@@ -128,6 +127,21 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
           />
         </div>
       </div>
+
+      <MarketingPageEditor
+        label="Authorship page"
+        value={content.authorship}
+        onChange={(next) => setContent((c) => ({ ...c, authorship: next }))}
+      />
+      <MarketingPageEditor
+        label="Affiliate page"
+        value={content.affiliateMarketing}
+        onChange={(next) => setContent((c) => ({ ...c, affiliateMarketing: next }))}
+      />
+      <LegalPageEditor label="Privacy Policy" headingLabel="Heading" value={content.privacy} onChange={(next) => setContent((c) => ({ ...c, privacy: next }))} />
+      <LegalPageEditor label="Terms of Service" headingLabel="Heading" value={content.terms} onChange={(next) => setContent((c) => ({ ...c, terms: next }))} />
+      <LegalPageEditor label="Return Policy" headingLabel="Heading" value={content.returns} onChange={(next) => setContent((c) => ({ ...c, returns: next }))} />
+      <LegalPageEditor label="FAQs" headingLabel="Question" value={content.faq} onChange={(next) => setContent((c) => ({ ...c, faq: next }))} />
 
       {PAGE_LABELS.map(({ key, label }) => (
         <div key={key}>
