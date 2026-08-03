@@ -69,6 +69,10 @@ enum OrderStatus {
 enum PayoutStatus {
   REQUESTED
   APPROVED
+  /** Claimed by an approvePayoutRequest call that's actively calling
+   * the Wise API right now — see actions/admin.ts for why this exists:
+   * it's what makes a duplicate/concurrent approval impossible. */
+  PROCESSING
   PAID
   REJECTED
 }
@@ -461,6 +465,9 @@ model BlogComment {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   content   String
   createdAt DateTime @default(now())
+
+  @@index([blogId])
+  @@index([userId])
 }
 
 // ---------- Reviews / ratings / social ----------
@@ -473,6 +480,9 @@ model Review {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   content   String
   createdAt DateTime @default(now())
+
+  @@index([bookId])
+  @@index([userId])
 }
 
 model Rating {
@@ -522,6 +532,9 @@ model Order {
   country       String?
   region        String?
   createdAt     DateTime    @default(now())
+
+  @@index([readerId])
+  @@index([status])
 }
 
 // One SaleLine per book in an order. This is where the confirmed revenue
@@ -659,6 +672,9 @@ model PayoutRequest {
   failureReason  String?
   requestedAt    DateTime     @default(now())
   resolvedAt     DateTime?
+
+  @@index([userId])
+  @@index([status])
 }
 
 /**
@@ -694,6 +710,8 @@ model Notification {
   body      String
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Message {

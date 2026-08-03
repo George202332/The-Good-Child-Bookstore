@@ -182,6 +182,15 @@ export async function saveReviewChecklist(bookId: string, checklist: Record<stri
 export async function approvePayoutRequest(payoutId: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminRole();
+
+    const claim = await prisma.payoutRequest.updateMany({
+      where: { id: payoutId, status: { in: ["REQUESTED", "APPROVED"] } },
+      data: { status: "PROCESSING" },
+    });
+    if (claim.count === 0) {
+      return { ok: false, error: "This payout has already been processed (or is no longer pending) — refresh to see its current status." };
+    }
+
     const payout = await prisma.payoutRequest.findUnique({ where: { id: payoutId }, include: { recipient: true } });
     if (!payout) return { ok: false, error: "Payout request not found." };
 
@@ -200,9 +209,14 @@ export async function approvePayoutRequest(payoutId: string): Promise<{ ok: bool
       });
       await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent via Wise.`);
     } else {
+      // Release the claim — a failed transfer must go back to a
+      // reviewable state, not stay stuck in PROCESSING forever. Back to
+      // REQUESTED specifically, since that's the only status the admin
+      // payouts list queries for; releasing to anything else would make
+      // a failed payout silently vanish from that queue.
       await prisma.payoutRequest.update({
         where: { id: payoutId },
-        data: { failureReason: result.error },
+        data: { status: "REQUESTED", failureReason: result.error },
       });
       return { ok: false, error: result.error ?? "Wise payout failed — Wise may not be configured in this environment." };
     }

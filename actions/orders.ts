@@ -2,12 +2,37 @@
 
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { calculateSplits, applyAuthorReferralCarveOut } from "@/lib/revenue";
 import { getCommissionRates, tierForReferralCount } from "@/lib/commission-settings";
 import { generateAccountNumber } from "@/lib/account-number";
 import { getRequestGeo } from "@/lib/geo";
+
+/**
+ * Runtime shape validation for checkout input — a Server Action is a
+ * real HTTP endpoint under the hood, callable with any JSON body a
+ * client sends, not just what a well-behaved browser sends through the
+ * real checkout form. TypeScript's own types are erased at build time
+ * and give zero runtime protection; this is the actual gate.
+ *
+ * Note this only validates *shape* (right types, sane ranges) — the
+ * price itself is never trusted from the client at all; see
+ * priceForFormat() below, which always looks the real price up fresh
+ * from the database by bookId, ignoring anything the client sent for it.
+ */
+const orderItemSchema = z.object({
+  bookId: z.string().min(1),
+  qty: z.number().int().min(1).max(50),
+  format: z.enum(["ebook", "paperback", "hardcover", "audiobook"]),
+});
+const createPendingOrderSchema = z.object({
+  items: z.array(orderItemSchema).min(1).max(50),
+  couponDiscountPct: z.number().min(0).max(100).optional(),
+  guestEmail: z.string().email().optional(),
+  guestName: z.string().min(1).max(200).optional(),
+});
 
 /**
  * Order creation: creates an Order + one SaleLine per book, with the
@@ -103,6 +128,12 @@ export async function createPendingOrder(input: {
   guestEmail?: string;
   guestName?: string;
 }): Promise<CreateOrderResult> {
+  const parsed = createPendingOrderSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "That order couldn't be processed — please refresh your cart and try again." };
+  }
+  input = parsed.data;
+
   const { readerProfileId, error } = await resolveReaderProfileId(input.guestEmail, input.guestName);
   if (!readerProfileId) {
     return { ok: false, error: error ?? "Couldn't start checkout." };
