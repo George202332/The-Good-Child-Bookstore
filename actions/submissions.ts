@@ -148,6 +148,7 @@ export interface SubmitBookInput {
   genre: string;
   language: string;
   coverImageUrl?: string;
+  coverAltText?: string;
   manuscriptFileId?: string;
   samplePagesFileId?: string;
   promotionalImageUrls?: string[];
@@ -201,6 +202,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       ageGroup: input.ageGroup,
       language: input.language || "en",
       coverImageUrl: input.coverImageUrl?.trim() || null,
+      coverAltText: input.coverAltText?.trim() || null,
       hasEbook: input.formats.ebook,
       hasPrint: input.formats.print,
       hasAudiobook: input.formats.audiobook,
@@ -226,6 +228,7 @@ export interface UpdateBookInput {
   genre: string;
   language: string;
   coverImageUrl?: string;
+  coverAltText?: string;
   formats: { ebook: boolean; print: boolean; audiobook: boolean };
 }
 
@@ -272,6 +275,7 @@ export async function updateBook(input: UpdateBookInput): Promise<{ ok: boolean;
         ageGroup: input.ageGroup,
         language: input.language || "en",
         coverImageUrl: input.coverImageUrl?.trim() || null,
+        coverAltText: input.coverAltText?.trim() || null,
         hasEbook: input.formats.ebook,
         hasPrint: input.formats.print,
         hasAudiobook: input.formats.audiobook,

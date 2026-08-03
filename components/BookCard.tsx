@@ -34,7 +34,7 @@ export function BookCard({ book }: { book: Book }) {
         <div className="cover">
           {book.coverImage && (
             // eslint-disable-next-line @next/next/no-img-element -- demo/user-uploaded covers, not static assets
-            <img src={book.coverImage} alt={`${book.title} cover`} loading="lazy" decoding="async" />
+            <img src={book.coverImage} alt={book.coverAltText || `${book.title} cover`} loading="lazy" decoding="async" />
           )}
         </div>
       </Link>

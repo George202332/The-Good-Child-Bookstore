@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { BACKEND_ROLES, type Role } from "@/lib/roles";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Route protection:
@@ -23,9 +24,22 @@ import { BACKEND_ROLES, type Role } from "@/lib/roles";
  * to get its real bookId/affiliateId at the moment of purchase, rather
  * than trusting whatever was baked into the cookie at click time.
  */
-export default auth((req) => {
+export default auth(async (req) => {
   const { pathname, searchParams } = req.nextUrl;
   const role = (req.auth?.user as { role?: string } | undefined)?.role;
+
+  // Admin-managed 301/302 redirects (see Admin → SEO & Marketing) — a
+  // book or blog post that moved or was deleted shouldn't just 404.
+  try {
+    const redirect = await prisma.redirect.findUnique({ where: { fromPath: pathname } });
+    if (redirect) {
+      const destination = redirect.toPath.startsWith("http") ? redirect.toPath : new URL(redirect.toPath, req.nextUrl.origin);
+      return NextResponse.redirect(destination, redirect.statusCode);
+    }
+  } catch {
+    // If the database is unreachable, fall through to normal routing
+    // rather than blocking the request on this check.
+  }
 
   // /admin/login is the backend's own sign-in page — it must stay
   // reachable by signed-out visitors, or this would redirect to itself
@@ -81,5 +95,6 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/admin/:path*", "/editor/:path*", "/account/:path*", "/book/:path*", "/signup/author"],
+  runtime: "nodejs",
+  matcher: ["/admin/:path*", "/editor/:path*", "/account/:path*", "/book/:path*", "/blog/:path*", "/signup/author"],
 };

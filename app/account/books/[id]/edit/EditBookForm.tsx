@@ -16,6 +16,7 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
   const [genre, setGenre] = useState(initial.genre);
   const [language, setLanguage] = useState(initial.language);
   const [coverImageUrl, setCoverImageUrl] = useState(initial.coverImageUrl ?? "");
+  const [coverAltText, setCoverAltText] = useState(initial.coverAltText ?? "");
   const [ebook, setEbook] = useState(initial.formats.ebook);
   const [print, setPrint] = useState(initial.formats.print);
   const [audiobook, setAudiobook] = useState(initial.formats.audiobook);
@@ -39,6 +40,7 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
       genre,
       language,
       coverImageUrl,
+      coverAltText,
       formats: { ebook, print, audiobook },
     });
     setSubmitting(false);
@@ -88,6 +90,8 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
           value={coverImageUrl}
           onChange={(url) => setCoverImageUrl(url)}
         />
+        <label className="field-label" htmlFor="edit-cover-alt">Cover alt text (for search engines and screen readers)</label>
+        <input className="field" id="edit-cover-alt" type="text" placeholder="Describe the cover image" value={coverAltText} onChange={(e) => setCoverAltText(e.target.value)} />
       </div>
 
       <p className="field-hint" style={{ marginTop: 14 }}>

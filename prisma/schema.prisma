@@ -273,6 +273,10 @@ model Book {
   isbn         String?
   price        Decimal       @db.Decimal(10, 2)
   coverImageUrl String?
+  /** SEO/accessibility alt text for the cover image — falls back to
+   * "{title} cover" if not set. Blog posts already had this; books
+   * didn't. */
+  coverAltText  String?
   status       ContentStatus @default(DRAFT)
   authorId     String
   author       AuthorProfile @relation(fields: [authorId], references: [id])
@@ -779,6 +783,29 @@ model SeoEntry {
   title       String?
   description String?
   ogImageUrl  String?
+}
+
+/** Admin-managed 301/302 redirects — e.g. a book or blog post that was
+ * deleted or had its URL changed, so the old link doesn't just 404.
+ * Checked by middleware.ts on every request that isn't otherwise
+ * matched by a real route. */
+model Redirect {
+  id         String   @id @default(cuid())
+  fromPath   String   @unique
+  toPath     String
+  statusCode Int      @default(301)
+  createdAt  DateTime @default(now())
+}
+
+/** A log of IndexNow submissions — lets an admin see what was
+ * submitted, when, and whether the search engine's endpoint accepted
+ * it, rather than firing pings into a black box with no record. */
+model IndexNowSubmission {
+  id         String   @id @default(cuid())
+  url        String
+  statusCode Int?
+  ok         Boolean
+  createdAt  DateTime @default(now())
 }
 
 model AnalyticsEvent {

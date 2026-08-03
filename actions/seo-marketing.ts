@@ -82,3 +82,73 @@ export async function deleteSeoEntry(id: string): Promise<{ ok: boolean; error?:
   revalidatePath("/admin/seo-marketing");
   return { ok: true };
 }
+
+export interface IndexNowLogRow {
+  id: string;
+  url: string;
+  statusCode: number | null;
+  ok: boolean;
+  createdAt: Date;
+}
+
+/** Manually fires an IndexNow submission for a specific URL — for a
+ * page that was updated outside the normal publish flow, or just to
+ * confirm the integration is actually working. */
+export async function triggerIndexNow(url: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
+  if (!url.trim()) return { ok: false, error: "Enter a URL first." };
+
+  const { submitUrlToIndexNow } = await import("@/lib/indexnow");
+  const result = await submitUrlToIndexNow(url.trim());
+  revalidatePath("/admin/seo-marketing");
+  return result.ok ? { ok: true } : { ok: false, error: `Submission failed${result.statusCode ? ` (status ${result.statusCode})` : ""}.` };
+}
+
+export async function listIndexNowLog(): Promise<IndexNowLogRow[]> {
+  const session = await auth();
+  if (!session?.user?.role || !canModerateContent(session.user.role)) return [];
+  return prisma.indexNowSubmission.findMany({ orderBy: { createdAt: "desc" }, take: 100 });
+}
+
+export interface RedirectRow {
+  id: string;
+  fromPath: string;
+  toPath: string;
+  statusCode: number;
+  createdAt: Date;
+}
+
+export async function listRedirects(): Promise<RedirectRow[]> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return [];
+  return prisma.redirect.findMany({ orderBy: { createdAt: "desc" } });
+}
+
+export async function createRedirect(input: { fromPath: string; toPath: string; statusCode: number }): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can manage redirects." };
+
+  const fromPath = input.fromPath.trim();
+  const toPath = input.toPath.trim();
+  if (!fromPath.startsWith("/")) return { ok: false, error: "The old path must start with /, e.g. /book/old-slug" };
+  if (!toPath.startsWith("/") && !toPath.startsWith("http")) return { ok: false, error: "The new path must start with / or be a full URL." };
+  if (fromPath === toPath) return { ok: false, error: "The old and new paths can't be the same." };
+
+  await prisma.redirect.upsert({
+    where: { fromPath },
+    update: { toPath, statusCode: input.statusCode },
+    create: { fromPath, toPath, statusCode: input.statusCode },
+  });
+  revalidatePath("/admin/seo-marketing");
+  return { ok: true };
+}
+
+export async function deleteRedirect(id: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can manage redirects." };
+  await prisma.redirect.delete({ where: { id } });
+  revalidatePath("/admin/seo-marketing");
+  return { ok: true };
+}

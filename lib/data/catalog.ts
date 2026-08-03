@@ -144,6 +144,9 @@ export interface Book {
   featured: boolean;
   affiliateEnabled: boolean;
   coverImage?: string;
+  /** SEO/accessibility alt text for the cover — real submitted books
+   * only; falls back to "{title} cover" if not set. */
+  coverAltText?: string;
   /** External marketplace links (Amazon, Apple Books, etc.) collected
    * during a real print submission — undefined for the static demo
    * catalog and for ebook-only real submissions. */

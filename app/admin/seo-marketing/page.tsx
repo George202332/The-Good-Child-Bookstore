@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { AdminShell } from "@/components/AdminShell";
-import { getSeoOverview, listSeoEntries } from "@/actions/seo-marketing";
+import { getSeoOverview, listSeoEntries, listIndexNowLog, listRedirects } from "@/actions/seo-marketing";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { SeoEntryForm } from "./SeoEntryForm";
+import { IndexNowPanel } from "./IndexNowPanel";
+import { RedirectsManager } from "./RedirectsManager";
 
 /**
  * SEO & Marketing — the admin tab for monitoring and evaluating the SEO/
@@ -19,7 +21,7 @@ export default async function SeoMarketingPage() {
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");
 
-  const [overview, entries] = await Promise.all([getSeoOverview(), listSeoEntries()]);
+  const [overview, entries, indexNowLog, redirects] = await Promise.all([getSeoOverview(), listSeoEntries(), listIndexNowLog(), listRedirects()]);
   const siteUrl = getPublicSiteUrl();
 
   const feeds = [
@@ -76,8 +78,14 @@ export default async function SeoMarketingPage() {
         ))}
       </div>
 
+      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Instant indexing (IndexNow)</h3>
+      <IndexNowPanel log={indexNowLog} keyFileUrl={`${siteUrl}/indexnow-key.txt`} />
+
       {role === "ADMIN" && (
         <>
+          <h3 style={{ fontSize: 16, marginBottom: 14 }}>Redirects</h3>
+          <RedirectsManager redirects={redirects} />
+
           <h3 style={{ fontSize: 16, marginBottom: 14 }}>Per-page metadata overrides</h3>
           <SeoEntryForm entries={entries} />
         </>

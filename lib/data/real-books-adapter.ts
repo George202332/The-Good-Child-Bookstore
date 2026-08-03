@@ -49,6 +49,7 @@ interface RealBookRow {
   isbn: string | null;
   price: unknown;
   coverImageUrl: string | null;
+  coverAltText: string | null;
   files: { kind: string; url: string }[];
   ageGroup: string | null;
   createdAt: Date;
@@ -109,6 +110,7 @@ function toCatalogBook(row: RealBookRow): Book {
     featured: meta?.includeInPromotions ?? false,
     affiliateEnabled: meta?.affiliateEnabled ?? false,
     coverImage: row.coverImageUrl ?? undefined,
+    coverAltText: row.coverAltText ?? undefined,
     marketplaceLinks: meta?.marketplaceLinks && Object.keys(meta.marketplaceLinks).length > 0 ? meta.marketplaceLinks : undefined,
   };
 }

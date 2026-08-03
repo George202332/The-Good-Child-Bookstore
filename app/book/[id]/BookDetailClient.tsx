@@ -127,7 +127,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={b.coverImage}
-                  alt={`${b.title} cover`}
+                  alt={b.coverAltText || `${b.title} cover`}
                   style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", display: "block" }}
                 />
               )}

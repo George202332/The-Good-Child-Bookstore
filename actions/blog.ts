@@ -187,6 +187,9 @@ export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?
   });
   const { createNotification } = await import("@/actions/notifications");
   await createNotification(blog.author.id, "Blog post published", `"${blog.title}" is now live on the journal.`);
+  const { submitUrlToIndexNow } = await import("@/lib/indexnow");
+  const { getPublicSiteUrl } = await import("@/lib/seo/site-url");
+  submitUrlToIndexNow(`${getPublicSiteUrl()}/blog/${blog.slug}`).catch(() => {});
   revalidatePath("/admin/blog");
   revalidatePath("/blog");
   return { ok: true };

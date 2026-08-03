@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { createNotification } from "@/actions/notifications";
+import { submitUrlToIndexNow } from "@/lib/indexnow";
+import { getPublicSiteUrl } from "@/lib/seo/site-url";
 
 /**
  * Converted from the editorial workflow described in the brief (Draft →
@@ -46,6 +48,7 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
       include: { author: { include: { user: true } } },
     });
     await createNotification(book.author.user.id, "Book approved", `"${book.title}" is now published on the shelf.`);
+    submitUrlToIndexNow(`${getPublicSiteUrl()}/book/${book.id}`).catch(() => {});
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);
     return { ok: true };
