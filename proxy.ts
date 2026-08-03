@@ -95,6 +95,5 @@ export default auth(async (req) => {
 });
 
 export const config = {
-  runtime: "nodejs",
   matcher: ["/admin/:path*", "/editor/:path*", "/account/:path*", "/book/:path*", "/blog/:path*", "/signup/author"],
 };
