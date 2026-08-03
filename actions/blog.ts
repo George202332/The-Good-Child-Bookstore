@@ -186,7 +186,7 @@ export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?
     include: { author: true },
   });
   const { createNotification } = await import("@/actions/notifications");
-  await createNotification(blog.author.id, "Blog post published", `"${blog.title}" is now live on the journal.`);
+  await createNotification(blog.author.id, `Published: "${blog.title}"`, `"${blog.title}" is now live on the journal.`, "BLOG_PUBLISHED");
   const { submitUrlToIndexNow } = await import("@/lib/indexnow");
   const { getPublicSiteUrl } = await import("@/lib/seo/site-url");
   submitUrlToIndexNow(`${getPublicSiteUrl()}/blog/${blog.slug}`).catch(() => {});
@@ -205,7 +205,7 @@ export async function rejectBlog(blogId: string): Promise<{ ok: boolean; error?:
     include: { author: true },
   });
   const { createNotification } = await import("@/actions/notifications");
-  await createNotification(blog.author.id, "Blog post needs changes", `"${blog.title}" was not approved this time.`);
+  await createNotification(blog.author.id, `Revision requested: "${blog.title}"`, `"${blog.title}" was not approved this time.`, "BLOG_REVISION");
   revalidatePath("/admin/blog");
   return { ok: true };
 }

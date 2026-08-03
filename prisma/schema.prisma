@@ -708,6 +708,11 @@ model Notification {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   body      String
+  /** Drives the Recent Activity card's color/icon coding and which
+   * sidebar nav item blinks — see lib/notification-types.ts. Plain
+   * string (not an enum) so a typo here never blocks a save; it just
+   * falls back to the generic look. */
+  type      String   @default("GENERAL")
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 

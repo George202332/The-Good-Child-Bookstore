@@ -52,6 +52,7 @@ export function EbookSubmissionForm() {
   const [publicationDate, setPublicationDate] = useState("");
   const [originalPublicationDate, setOriginalPublicationDate] = useState("");
   const [isbn, setIsbn] = useState("");
+  const [hasOwnIsbn, setHasOwnIsbn] = useState(false);
   const [copyrightYear, setCopyrightYear] = useState(String(new Date().getFullYear()));
 
   // Section 2
@@ -137,7 +138,7 @@ export function EbookSubmissionForm() {
     const res = await submitBook({
       title,
       subtitle,
-      isbn,
+      isbn: hasOwnIsbn ? isbn : "",
       description: shortDescription,
       price: Number(price) || 0,
       ageGroup,
@@ -254,9 +255,28 @@ export function EbookSubmissionForm() {
         </div>
         <div className="form-grid-2">
           <div>
-            <label className="field-label" htmlFor="f-isbn">ISBN</label>
-            <input className="field" id="f-isbn" type="text" placeholder="978-1-59299-541-7" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
-            <div className="field-hint">Leave blank and we&apos;ll generate one for you.</div>
+            <label className="field-label">Book identifier</label>
+            <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 400 }}>
+                <input type="radio" name="isbn-mode" checked={!hasOwnIsbn} onChange={() => setHasOwnIsbn(false)} />
+                Auto-generate an SN for me
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 400 }}>
+                <input type="radio" name="isbn-mode" checked={hasOwnIsbn} onChange={() => setHasOwnIsbn(true)} />
+                I have my own ISBN
+              </label>
+            </div>
+            {hasOwnIsbn ? (
+              <>
+                <input className="field" id="f-isbn" type="text" placeholder="978-1-59299-541-7" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
+                <div className="field-hint">Enter your existing ISBN for this eBook.</div>
+              </>
+            ) : (
+              <div className="field-hint" style={{ margin: 0 }}>
+                An SN (a 13-digit, all-numeric store identifier starting with 5, distinct from a real ISBN) will be
+                generated for this eBook automatically once it&apos;s submitted.
+              </div>
+            )}
           </div>
           <div>
             <label className="field-label" htmlFor="f-copyrightyear">Copyright year</label>

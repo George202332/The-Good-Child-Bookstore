@@ -14,7 +14,7 @@ export default async function ShopPage() {
 
   return (
     <Suspense fallback={null}>
-      <ShopPageClient eyebrow={shop.eyebrow} heading={shop.heading} introText={shop.introText} books={books} />
+      <ShopPageClient heading={shop.heading} books={books} />
     </Suspense>
   );
 }

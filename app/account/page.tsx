@@ -7,6 +7,7 @@ import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { getMyLinkPerformance } from "@/actions/affiliate-performance";
 import { listMyNotifications } from "@/actions/notifications";
+import { notificationTypeInfo } from "@/lib/notification-types";
 import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
 import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
@@ -24,6 +25,7 @@ interface AuthorBook {
   hasPrint: boolean;
   hasAudiobook: boolean;
   saleLines: SaleLineShare[];
+  ratings: { stars: number }[];
 }
 
 interface OrderLine {
@@ -155,7 +157,7 @@ export default async function AccountPage() {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       include: {
-        authorProfile: { include: { books: { include: { saleLines: true } } } },
+        authorProfile: { include: { books: { include: { saleLines: true, ratings: true } } } },
         affiliateProfile: {
           include: {
             authorReferralEarnings: true,
@@ -180,6 +182,13 @@ export default async function AccountPage() {
     );
     const promotionMonthly = promotionSaleLines.filter((l) => isCurrentMonth(l.createdAt, now)).reduce((s, l) => s + Number(l.affiliateShare), 0);
     const monthlyTotal = bookSalesMonthly + referralMonthly + promotionMonthly;
+
+    // All-time equivalents of the 4 cards above — same underlying data,
+    // just without the current-month filter, matching the Revenue page.
+    const bookSalesAllTime = allLines.reduce((s, l) => s + Number(l.authorShare), 0);
+    const referralAllTime = referralEarningLines.reduce((s, l) => s + Number(l.authorReferralShare), 0);
+    const promotionAllTime = promotionSaleLines.reduce((s, l) => s + Number(l.affiliateShare), 0);
+    const allTimeTotal = bookSalesAllTime + referralAllTime + promotionAllTime;
 
     // Sales trend — real unit counts, January through December of the
     // current calendar year.
@@ -207,6 +216,15 @@ export default async function AccountPage() {
 
     const notifications = await listMyNotifications();
     const recentActivity = notifications.slice(0, 20);
+
+    const allRatings = books.flatMap((b) => b.ratings);
+    const ratingCounts = [0, 0, 0, 0, 0]; // index 0 = 1 star, index 4 = 5 star
+    for (const r of allRatings) {
+      if (r.stars >= 1 && r.stars <= 5) ratingCounts[r.stars - 1] += 1;
+    }
+    const ratingTotal = allRatings.length;
+    const ratingAvg = ratingTotal > 0 ? (allRatings.reduce((s, r) => s + r.stars, 0) / ratingTotal) : 0;
+    const ratingPct = ratingCounts.map((c) => (ratingTotal > 0 ? Math.round((c / ratingTotal) * 100) : 0)).reverse(); // reversed to go 5-star first, matching the product page's order
 
     return (
       <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
@@ -239,6 +257,29 @@ export default async function AccountPage() {
           </div>
         </div>
 
+        <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 20 }}>
+          <div className="stat-card stat-card-referral">
+            <div className="stat-label">Royalty</div>
+            <div className="stat-value">${bookSalesAllTime.toFixed(2)}</div>
+            <div className="stat-sub">All time</div>
+          </div>
+          <div className="stat-card stat-card-promotion">
+            <div className="stat-label">Referral revenue</div>
+            <div className="stat-value">${referralAllTime.toFixed(2)}</div>
+            <div className="stat-sub">All time</div>
+          </div>
+          <div className="stat-card stat-card-total">
+            <div className="stat-label">Book promotions</div>
+            <div className="stat-value">${promotionAllTime.toFixed(2)}</div>
+            <div className="stat-sub">All time</div>
+          </div>
+          <div className="stat-card stat-card-due">
+            <div className="stat-label">Total earnings</div>
+            <div className="stat-value">${allTimeTotal.toFixed(2)}</div>
+            <div className="stat-sub">All time</div>
+          </div>
+        </div>
+
         <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, marginBottom: 20 }}>
           <div className="map-card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales trend: {now.getFullYear()}</h3>
@@ -258,7 +299,7 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
           <div className="map-card" style={{ padding: 14 }}>
             <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Affiliate snapshot</h3>
             {isAffiliateToo ? (
@@ -277,17 +318,44 @@ export default async function AccountPage() {
               </>
             )}
           </div>
+
+          <div className="map-card" style={{ padding: 14 }}>
+            <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Average rating</h3>
+            <div className="rb-card" style={{ border: "none", padding: 0 }}>
+              <div className="rb-score">
+                <div className="big">{ratingTotal > 0 ? ratingAvg.toFixed(1) : "—"}</div>
+                <div className="stars">★★★★★</div>
+                <div className="count">{ratingTotal} rating{ratingTotal === 1 ? "" : "s"}</div>
+              </div>
+              <div className="rb-bars">
+                {[5, 4, 3, 2, 1].map((star, i) => (
+                  <div className="rb-bar-row" key={star}>
+                    <span>{star} star</span>
+                    <div className="rb-bar-track"><div className="rb-bar-fill" style={{ width: `${ratingPct[i]}%` }} /></div>
+                    <span>{ratingPct[i]}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="map-card" style={{ padding: 14 }}>
             <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Recent activity</h3>
             {recentActivity.length === 0 ? (
               <p style={{ fontSize: 12, color: "var(--ink-faint)" }}>Nothing new yet.</p>
             ) : (
               <div className="scroll-fade-no-bar" style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 168, overflowY: "auto" }}>
-                {recentActivity.map((n) => (
-                  <div key={n.id} style={{ display: "flex", gap: 8 }}>
-                    <div style={{ fontSize: 12.5 }}>{n.title}{n.body ? `: "${n.body}"` : ""}</div>
-                  </div>
-                ))}
+                {recentActivity.map((n) => {
+                  const info = notificationTypeInfo(n.type);
+                  return (
+                    <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={info.color} strokeWidth={1.8} style={{ flexShrink: 0 }}>
+                        <path d={info.iconPath} />
+                      </svg>
+                      <div style={{ fontSize: 12.5, color: info.color, fontWeight: 600 }}>{n.title}</div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>

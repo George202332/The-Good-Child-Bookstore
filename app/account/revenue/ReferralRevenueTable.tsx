@@ -50,7 +50,7 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
   const filteredTotal = grouped.reduce((s, r) => s + r.commission, 0);
 
   return (
-    <div className="map-card" style={{ padding: 20 }}>
+    <div className="map-card" style={{ padding: 20, background: "linear-gradient(135deg, #FDF1E6, #F5D3B8)", border: "1px solid #F3CBA8" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontSize: 13.5 }}>
           Commission for this query: <strong>${filteredTotal.toFixed(2)}</strong>

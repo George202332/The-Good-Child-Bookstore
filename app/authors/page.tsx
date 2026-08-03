@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { BOOKS } from "@/lib/data/catalog";
-import { Motif } from "@/components/Motif";
 import { getPagesContent } from "@/actions/page-content";
 
 export const dynamic = "force-dynamic";
@@ -26,33 +25,25 @@ export default async function AuthorsPage() {
 
   return (
     <main>
-      <section className="hero recruit-hero fade-in-section visible">
-        <div className="wrap hero-inner">
-          <div className="hero-plain-inner">
-            <div className="eyebrow">{authorship.eyebrow}</div>
-            <h1>{authorship.heading}</h1>
-            <p className="lede">{authorship.introText}</p>
-            <div className="hero-ctas">
-              <Link href="/signup/author" className="btn btn-primary">Become an author</Link>
-              <a href="#why-publish" className="btn btn-ghost">See how it works</a>
+      <section className="fade-in-section visible" style={{ paddingTop: "0.5in" }}>
+        <div className="wrap">
+          <div
+            className="promo-banner promo-lavender"
+            style={{
+              height: 320, overflow: "hidden", boxSizing: "border-box",
+              ...(authorship.heroImage ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.4), rgba(20,14,26,0.4)), url(${authorship.heroImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+            }}
+          >
+            <div className="promo-banner-text">
+              <div className="promo-banner-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#4B3B75" strokeWidth={2}><circle cx={12} cy={8} r={3.6} /><path d="M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5" /></svg>
+              </div>
+              <div>
+                <h3 style={authorship.heroImage ? { color: "#fff" } : undefined}>{authorship.heading}</h3>
+                <p style={authorship.heroImage ? { color: "rgba(255,255,255,0.9)" } : undefined}>{authorship.introText}</p>
+              </div>
             </div>
-          </div>
-          <div className="hero-float-cluster">
-            <div className="hero-float-icon" style={{ width: 120, height: 120, background: "var(--lavender)", top: 10, left: 40, animationDelay: "0s" }}>
-              <svg viewBox="0 0 100 100"><Motif kind="star" color="#4B3B75" /></svg>
-            </div>
-            <div className="hero-float-icon" style={{ width: 90, height: 90, background: "var(--mint)", top: 70, right: 30, animationDelay: "0.6s" }}>
-              <svg viewBox="0 0 100 100"><Motif kind="leaf" color="#1F5E43" /></svg>
-            </div>
-            <div className="hero-float-icon" style={{ width: 100, height: 100, background: "var(--pink)", bottom: 90, left: 110, animationDelay: "1.2s" }}>
-              <svg viewBox="0 0 100 100"><Motif kind="heart" color="#8A3B5A" /></svg>
-            </div>
-            <div className="hero-float-icon" style={{ width: 80, height: 80, background: "var(--gold)", top: 180, left: 0, animationDelay: "1.8s" }}>
-              <svg viewBox="0 0 100 100"><Motif kind="owl" color="#7A5A0A" /></svg>
-            </div>
-            <div className="hero-float-icon" style={{ width: 96, height: 96, background: "#FFDCC9", bottom: 20, right: 70, animationDelay: "0.3s" }}>
-              <svg viewBox="0 0 100 100"><Motif kind="sun" color="#A8452B" /></svg>
-            </div>
+            <Link href="/signup/author" className="btn btn-primary btn-small">Become an author</Link>
           </div>
         </div>
       </section>
@@ -61,7 +52,7 @@ export default async function AuthorsPage() {
         <div className="trust-strip" style={{ justifyContent: "flex-start" }}>
           <span>✓ {authorCount}+ authors already publishing with us</span>
           <span>✓ {BOOKS.length}+ titles on the shelf</span>
-          <span>✓ Real-time sales, every account</span>
+          <span>✓ Real time sales, every account</span>
         </div>
       </div>
 

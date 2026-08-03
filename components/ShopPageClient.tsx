@@ -11,7 +11,7 @@ import { ShopSidebar } from "@/components/ShopSidebar";
  * `books` is the real, published catalog (real submitted books first,
  * demo catalog filling out the rest — see lib/data/real-books-adapter.ts)
  * rather than always the static 50-book fixture. */
-export function ShopPageClient({ eyebrow, heading, introText, books }: { eyebrow: string; heading: string; introText: string; books: Book[] }) {
+export function ShopPageClient({ heading, books }: { heading: string; books: Book[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -61,12 +61,10 @@ export function ShopPageClient({ eyebrow, heading, introText, books }: { eyebrow
   }
 
   return (
-    <div className="wrap" style={{ paddingTop: 48 }}>
+    <div className="wrap" style={{ paddingTop: "0.5in" }}>
       <div className="section-head" style={{ marginBottom: 20 }}>
         <div>
-          <span className="eyebrow">{eyebrow}</span>
-          <h1 style={{ marginTop: 6 }}>{heading}</h1>
-          <p style={{ color: "var(--ink-soft)", marginTop: 4 }}>{introText}</p>
+          <h1>{heading}</h1>
         </div>
       </div>
       <div className="shop-searchbar">

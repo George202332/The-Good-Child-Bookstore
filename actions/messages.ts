@@ -179,6 +179,8 @@ export async function sendMessage(recipientId: string, body: string): Promise<{ 
   await prisma.message.create({
     data: { senderId: session.user.id, recipientId, body: body.trim() },
   });
+  const { createNotification } = await import("@/actions/notifications");
+  await createNotification(recipientId, `New message from ${session.user.name}`, body.trim().slice(0, 140), "MESSAGE");
   revalidatePath("/account/messages");
   revalidatePath(`/account/messages/${recipientId}`);
   return { ok: true };
@@ -226,6 +228,9 @@ export async function sendDraft(draftId: string): Promise<{ ok: boolean; error?:
   if (!draft.body.trim()) return { ok: false, error: "Draft can't be empty." };
 
   await prisma.message.update({ where: { id: draftId }, data: { isDraft: false, createdAt: new Date() } });
+  const { createNotification } = await import("@/actions/notifications");
+  const sender = await prisma.user.findUnique({ where: { id: session.user.id } });
+  await createNotification(draft.recipientId, `New message from ${sender?.name ?? "someone"}`, draft.body.trim().slice(0, 140), "MESSAGE");
   revalidatePath("/account/messages");
   revalidatePath(`/account/messages/${draft.recipientId}`);
   return { ok: true };

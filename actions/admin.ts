@@ -47,7 +47,7 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
       data: { status: "PUBLISHED", revisionNotes: null },
       include: { author: { include: { user: true } } },
     });
-    await createNotification(book.author.user.id, "Book approved", `"${book.title}" is now published on the shelf.`);
+    await createNotification(book.author.user.id, `"${book.title}" is now published`, `"${book.title}" is now published on the shelf.`, "BOOK_PUBLISHED");
     submitUrlToIndexNow(`${getPublicSiteUrl()}/book/${book.id}`).catch(() => {});
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);
@@ -67,10 +67,11 @@ export async function rejectBook(bookId: string, comments?: string): Promise<{ o
     });
     await createNotification(
       book.author.user.id,
-      "Book needs changes",
+      `Revision requested: "${book.title}"`,
       comments?.trim()
         ? `"${book.title}" was sent back for revision: ${comments.trim()}`
-        : `"${book.title}" was not approved this time — please revise and resubmit.`
+        : `"${book.title}" was not approved this time — please revise and resubmit.`,
+      "REVISION"
     );
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);
@@ -104,8 +105,9 @@ async function proposeOrApplyModeration(bookId: string, action: "SUSPEND" | "WIT
       });
       await createNotification(
         book.author.user.id,
-        action === "SUSPEND" ? "Book suspended" : "Book withdrawn",
-        note?.trim() || `"${book.title}" has been ${action === "SUSPEND" ? "suspended" : "withdrawn"}.`
+        `${action === "SUSPEND" ? "Suspended" : "Withdrawn"}: "${book.title}"`,
+        note?.trim() || `"${book.title}" has been ${action === "SUSPEND" ? "suspended" : "withdrawn"}.`,
+        "REVISION"
       );
     } else {
       await prisma.book.update({
@@ -119,7 +121,8 @@ async function proposeOrApplyModeration(bookId: string, action: "SUSPEND" | "WIT
         await createNotification(
           u.id,
           `${action === "SUSPEND" ? "Suspend" : "Withdraw"} proposed: "${book.title}"`,
-          `${session?.user?.name ?? "An editor"} proposed to ${action === "SUSPEND" ? "suspend" : "withdraw"} this book${note?.trim() ? `: ${note.trim()}` : "."}`
+          `${session?.user?.name ?? "An editor"} proposed to ${action === "SUSPEND" ? "suspend" : "withdraw"} this book${note?.trim() ? `: ${note.trim()}` : "."}`,
+          "REVISION"
         );
       }
     }
@@ -154,8 +157,9 @@ export async function ratifyPendingModeration(bookId: string, approve: boolean):
     });
     await createNotification(
       book.author.user.id,
-      book.pendingAction === "SUSPEND" ? "Book suspended" : "Book withdrawn",
-      book.pendingActionNote || `"${book.title}" has been ${book.pendingAction === "SUSPEND" ? "suspended" : "withdrawn"}.`
+      `${book.pendingAction === "SUSPEND" ? "Suspended" : "Withdrawn"}: "${book.title}"`,
+      book.pendingActionNote || `"${book.title}" has been ${book.pendingAction === "SUSPEND" ? "suspended" : "withdrawn"}.`,
+      "REVISION"
     );
   } else {
     await prisma.book.update({ where: { id: bookId }, data: { pendingAction: null, pendingActionBy: null, pendingActionNote: null } });
@@ -207,7 +211,7 @@ export async function approvePayoutRequest(payoutId: string): Promise<{ ok: bool
         where: { id: payoutId },
         data: { status: "PAID", resolvedAt: new Date(), wiseTransferId: result.transferId },
       });
-      await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent via Wise.`);
+      await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent via Wise.`, "PAYOUT");
     } else {
       // Release the claim — a failed transfer must go back to a
       // reviewable state, not stay stuck in PROCESSING forever. Back to
@@ -234,7 +238,7 @@ export async function rejectPayoutRequest(payoutId: string): Promise<{ ok: boole
       where: { id: payoutId },
       data: { status: "REJECTED", resolvedAt: new Date() },
     });
-    await createNotification(payout.userId, "Payout rejected", `Your $${Number(payout.amount).toFixed(2)} payout request was not approved.`);
+    await createNotification(payout.userId, "Payout rejected", `Your $${Number(payout.amount).toFixed(2)} payout request was not approved.`, "PAYOUT");
     revalidatePath("/admin/payouts");
     return { ok: true };
   } catch (e) {

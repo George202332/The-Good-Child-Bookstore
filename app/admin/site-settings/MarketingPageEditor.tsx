@@ -43,6 +43,12 @@ export function MarketingPageEditor({
       <input className="field" type="text" value={value.heading} onChange={(e) => onChange({ ...value, heading: e.target.value })} />
       <label className="field-label">Hero intro text</label>
       <textarea className="field" rows={2} value={value.introText} onChange={(e) => onChange({ ...value, introText: e.target.value })} />
+      <ImageUploadField
+        label="Hero background image"
+        recommendedSize="Recommended 1200×600px — same size as the homepage hero banners"
+        value={value.heroImage}
+        onChange={(url) => onChange({ ...value, heroImage: url })}
+      />
 
       <label className="field-label" style={{ marginTop: 10 }}>Sections</label>
       {value.sections.map((s, i) => (

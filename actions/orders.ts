@@ -251,8 +251,9 @@ export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: b
     await prisma.notification.create({
       data: {
         userId: order.reader.user.id,
-        title: "Order confirmed",
+        title: `Payment received: Order #${orderId.slice(0, 8).toUpperCase()}`,
         body: `Your order #${orderId.slice(0, 8).toUpperCase()} for $${Number(order.totalAmount).toFixed(2)} is confirmed.`,
+        type: "PAYMENT",
       },
     });
   } catch {

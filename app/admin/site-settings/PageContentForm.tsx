@@ -54,25 +54,25 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
       <div className="upload-cards-row">
         <ImageUploadField
           label="Slide 1: Welcome"
-          recommendedSize="Recommended 1600×600px"
+          recommendedSize="Recommended 1200×600px"
           value={content.home.heroWelcomeImage}
           onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, heroWelcomeImage: url } }))}
         />
         <ImageUploadField
           label="Slide 2: Browse the bookshelf"
-          recommendedSize="Recommended 1600×600px"
+          recommendedSize="Recommended 1200×600px"
           value={content.home.heroBrowseImage}
           onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, heroBrowseImage: url } }))}
         />
         <ImageUploadField
           label="Slide 3: Become an author"
-          recommendedSize="Recommended 1600×600px"
+          recommendedSize="Recommended 1200×600px"
           value={content.home.heroAuthorImage}
           onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, heroAuthorImage: url } }))}
         />
         <ImageUploadField
           label="Slide 4: Become an affiliate"
-          recommendedSize="Recommended 1600×600px"
+          recommendedSize="Recommended 1200×600px"
           value={content.home.heroAffiliateImage}
           onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, heroAffiliateImage: url } }))}
         />
@@ -103,25 +103,25 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
         <div className="upload-cards-row">
           <ImageUploadField
             label="Book Club banner image"
-            recommendedSize="Recommended 1200×500px"
+            recommendedSize="Recommended 1200×600px"
             value={content.home.bookClubBannerImage}
             onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, bookClubBannerImage: url } }))}
           />
           <ImageUploadField
             label="Print banner image"
-            recommendedSize="Recommended 1200×500px"
+            recommendedSize="Recommended 1200×600px"
             value={content.home.printBannerImage}
             onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, printBannerImage: url } }))}
           />
           <ImageUploadField
             label="Affiliate banner image"
-            recommendedSize="Recommended 1200×500px"
+            recommendedSize="Recommended 1200×600px"
             value={content.home.affiliateBannerImage}
             onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, affiliateBannerImage: url } }))}
           />
           <ImageUploadField
             label="Journal banner image"
-            recommendedSize="Recommended 1200×500px"
+            recommendedSize="Recommended 1200×600px"
             value={content.home.journalBannerImage}
             onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, journalBannerImage: url } }))}
           />

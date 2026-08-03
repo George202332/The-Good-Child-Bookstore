@@ -6,14 +6,24 @@ export interface AffiliateAnalytics {
   totalConversions: number;
   conversionRate: number;
   countriesReached: number;
+  /** Always all 12 months of the current calendar year, zero-filled —
+   * a real template even before any clicks exist. */
   monthlyClicks: { month: string; clicks: number }[];
   countryBreakdown: { country: string; clicks: number }[];
-  linkBreakdown: { label: string; clicks: number; conversions: number }[];
+  linkBreakdown: { book: string; author: string; clicks: number; conversions: number; conversionRate: number }[];
+}
+
+function emptyMonths(): { month: string; clicks: number }[] {
+  const now = new Date();
+  return Array.from({ length: 12 }, (_, i) => ({
+    month: new Date(now.getFullYear(), i, 1).toLocaleDateString("en-US", { month: "short" }),
+    clicks: 0,
+  }));
 }
 
 const EMPTY: AffiliateAnalytics = {
   totalClicks: 0, totalConversions: 0, conversionRate: 0, countriesReached: 0,
-  monthlyClicks: [], countryBreakdown: [], linkBreakdown: [],
+  monthlyClicks: emptyMonths(), countryBreakdown: [], linkBreakdown: [],
 };
 
 /** Pure-numbers affiliate analytics — clicks, conversions, and the
@@ -31,7 +41,7 @@ export async function getAffiliateAnalytics(): Promise<AffiliateAnalytics> {
       affiliateProfile: {
         include: {
           affiliateLinks: {
-            include: { book: true, clicks: true, saleLines: true },
+            include: { book: { include: { author: { include: { user: true } } } }, clicks: true, saleLines: true },
           },
         },
       },
@@ -39,7 +49,7 @@ export async function getAffiliateAnalytics(): Promise<AffiliateAnalytics> {
   });
   const links = (user?.affiliateProfile?.affiliateLinks ?? []) as {
     code: string;
-    book: { title: string } | null;
+    book: { title: string; author: { penName: string | null; user: { name: string } } } | null;
     clicks: { country: string | null; createdAt: Date }[];
     saleLines: unknown[];
   }[];
@@ -61,13 +71,14 @@ export async function getAffiliateAnalytics(): Promise<AffiliateAnalytics> {
     .slice(0, 8);
   const countriesReached = countryCounts.size;
 
-  const monthCounts = new Map<string, number>();
+  // Jan-Dec of the current calendar year, always all 12, zero-filled.
   const now = new Date();
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    monthCounts.set(d.toLocaleDateString("en-US", { month: "short" }), 0);
+  const monthCounts = new Map<string, number>();
+  for (let m = 0; m < 12; m++) {
+    monthCounts.set(new Date(now.getFullYear(), m, 1).toLocaleDateString("en-US", { month: "short" }), 0);
   }
   for (const c of allClicks) {
+    if (c.createdAt.getFullYear() !== now.getFullYear()) continue;
     const key = c.createdAt.toLocaleDateString("en-US", { month: "short" });
     if (monthCounts.has(key)) monthCounts.set(key, (monthCounts.get(key) ?? 0) + 1);
   }
@@ -75,8 +86,17 @@ export async function getAffiliateAnalytics(): Promise<AffiliateAnalytics> {
 
   const linkBreakdown = [...links]
     .sort((a, b) => b.clicks.length - a.clicks.length)
-    .slice(0, 8)
-    .map((l) => ({ label: l.book?.title ?? l.code, clicks: l.clicks.length, conversions: l.saleLines.length }));
+    .map((l) => {
+      const clicks = l.clicks.length;
+      const conversions = l.saleLines.length;
+      return {
+        book: l.book?.title ?? l.code,
+        author: l.book ? (l.book.author.penName || l.book.author.user.name) : "—",
+        clicks,
+        conversions,
+        conversionRate: clicks > 0 ? +(((conversions / clicks) * 100).toFixed(1)) : 0,
+      };
+    });
 
   return { totalClicks, totalConversions, conversionRate, countriesReached, monthlyClicks, countryBreakdown, linkBreakdown };
 }

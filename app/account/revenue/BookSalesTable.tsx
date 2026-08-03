@@ -45,7 +45,7 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
   const filteredTotal = filtered.reduce((s, r) => s + r.share * r.units, 0);
 
   return (
-    <div className="map-card" style={{ padding: 20 }}>
+    <div className="map-card" style={{ padding: 20, background: "linear-gradient(135deg, #EEF4FE, #C9DBF8)", border: "1px solid #C3D6F5" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ fontSize: 13.5 }}>
           Royalty for this query: <strong>${filteredTotal.toFixed(2)}</strong>

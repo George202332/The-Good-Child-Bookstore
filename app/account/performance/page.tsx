@@ -3,10 +3,13 @@ import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { getAffiliateAnalytics } from "@/actions/affiliate-analytics-data";
-import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
+import { WorldMap } from "@/components/charts/WorldMap";
+import { ColHelp } from "@/components/ColHelp";
 
 const REGION_COLORS = ["#2451B7", "#B7472A", "#1F6B48", "#8A5A0B", "#7A5FB5", "#C6437E", "#3F8F8A", "#9A93A8"];
+const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", textAlign: "left" };
+const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid var(--line)" };
 
 /**
  * Affiliate — pure-numbers analytics (clicks, conversions, regions),
@@ -22,6 +25,8 @@ export default async function PerformancePage() {
   if (!(await hasAffiliateCapability(session.user.id))) redirect("/account");
 
   const data = await getAffiliateAnalytics();
+  const maxMonthlyClicks = Math.max(1, ...data.monthlyClicks.map((m) => m.clicks));
+  const countryCodes = new Set(data.countryBreakdown.map((c) => c.country).filter((c) => c !== "Unknown"));
 
   return (
     <DashboardShell role={role} activeKey="performance" displayName={session.user.name ?? ""}>
@@ -58,19 +63,37 @@ export default async function PerformancePage() {
         </div>
       </div>
 
-      <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
-        <h3 style={{ fontSize: 15, marginBottom: 16 }}>Clicks by month</h3>
-        <BarChart data={data.monthlyClicks.map((m) => ({ label: m.month, value: m.clicks }))} color="#2451B7" />
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 20, marginBottom: 24, alignItems: "start" }}>
         <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Clicks by region</h3>
-          <PieChart data={data.countryBreakdown.map((c, i) => ({ label: c.country, value: c.clicks, color: REGION_COLORS[i % REGION_COLORS.length] }))} />
+          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Clicks per month</h3>
+          <p className="field-hint" style={{ margin: "0 0 14px" }}>January through December, {new Date().getFullYear()}.</p>
+          <div>
+            {data.monthlyClicks.map((m) => (
+              <div key={m.month} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span style={{ width: 34, fontSize: 12, color: "var(--ink-faint)", flexShrink: 0 }}>{m.month}</span>
+                <div style={{ flex: 1, background: "var(--cream)", borderRadius: 6, overflow: "hidden", height: 16 }}>
+                  <div style={{ width: `${(m.clicks / maxMonthlyClicks) * 100}%`, background: "#2451B7", height: "100%", borderRadius: 6 }} />
+                </div>
+                <span style={{ width: 30, fontSize: 12, fontWeight: 700, textAlign: "right", flexShrink: 0 }}>{m.clicks}</span>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Top links by clicks</h3>
-          <BarChart data={data.linkBreakdown.map((l) => ({ label: l.label, value: l.clicks }))} color="#B7472A" />
+          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Clicks by region</h3>
+          {data.countryBreakdown.length === 0 ? (
+            <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No clicks yet.</p>
+          ) : (
+            <PieChart data={data.countryBreakdown.map((c, i) => ({ label: c.country, value: c.clicks, color: REGION_COLORS[i % REGION_COLORS.length] }))} />
+          )}
+        </div>
+      </div>
+
+      <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
+        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Where your clicks come from</h3>
+        <p className="field-hint" style={{ margin: "0 0 14px" }}>Countries highlighted below have at least one click on one of your links.</p>
+        <div style={{ height: 280 }}>
+          <WorldMap highlightedCountryCodes={countryCodes} />
         </div>
       </div>
 
@@ -78,21 +101,25 @@ export default async function PerformancePage() {
       <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
-            <tr style={{ textAlign: "left" }}>
-              {["Book", "Clicks", "Conversions"].map((h) => (
-                <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase" }}>{h}</th>
-              ))}
+            <tr>
+              <th style={TABLE_HEAD_STYLE}>Book</th>
+              <th style={TABLE_HEAD_STYLE}>Author</th>
+              <th style={TABLE_HEAD_STYLE}>Clicks<ColHelp text="How many times this book's promotional link has been clicked, all time." /></th>
+              <th style={TABLE_HEAD_STYLE}>Conversions<ColHelp text="How many of those clicks turned into an actual sale." /></th>
+              <th style={TABLE_HEAD_STYLE}>Conversion Rate<ColHelp text="Conversions divided by clicks — how effectively this link turns visits into sales." /></th>
             </tr>
           </thead>
           <tbody>
             {data.linkBreakdown.length === 0 ? (
-              <tr><td colSpan={3} style={{ padding: "24px 16px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>No links yet; generate one from Promotions.</td></tr>
+              <tr><td colSpan={5} style={{ padding: "24px 16px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>No links yet — generate one from Promotions to start tracking performance here.</td></tr>
             ) : (
-              data.linkBreakdown.map((l) => (
-                <tr key={l.label}>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.label}</td>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.clicks}</td>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{l.conversions}</td>
+              data.linkBreakdown.map((l, i) => (
+                <tr key={i}>
+                  <td style={TABLE_CELL_STYLE}><strong>{l.book}</strong></td>
+                  <td style={TABLE_CELL_STYLE}>{l.author}</td>
+                  <td style={TABLE_CELL_STYLE}>{l.clicks}</td>
+                  <td style={TABLE_CELL_STYLE}>{l.conversions}</td>
+                  <td style={TABLE_CELL_STYLE}>{l.conversionRate}%</td>
                 </tr>
               ))
             )}

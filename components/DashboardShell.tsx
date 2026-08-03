@@ -92,6 +92,12 @@ export async function DashboardShell({
     const session = await auth();
     if (session?.user?.id) affiliateAccess = await hasAffiliateCapability(session.user.id);
   }
+  const { getUnreadSidebarKeys, markSidebarKeyNotificationsRead } = await import("@/actions/notifications");
+  const unreadSidebarKeys = await getUnreadSidebarKeys();
+  // Fire-and-forget: visiting this section is itself the acknowledgment
+  // for that section's notifications — no need to block rendering on it.
+  markSidebarKeyNotificationsRead(activeKey).catch(() => {});
+
   const items = navItemsForRole(role, affiliateAccess);
   const sections: { name: string; items: NavItem[] }[] = [];
   items.forEach((it) => {
@@ -117,7 +123,12 @@ export async function DashboardShell({
                     className={`dashboard-nav-link ${activeKey === it.key ? "active" : ""}`}
                     aria-current={activeKey === it.key ? "page" : undefined}
                   >
-                    {NAV_ICONS[it.key] ? <span className="dashboard-nav-icon">{NAV_ICONS[it.key]}</span> : null}
+                    {NAV_ICONS[it.key] ? (
+                      <span className={`dashboard-nav-icon ${unreadSidebarKeys.has(it.key) && activeKey !== it.key ? "has-unread" : ""}`}>
+                        {NAV_ICONS[it.key]}
+                        {unreadSidebarKeys.has(it.key) && activeKey !== it.key && <span className="dashboard-nav-blink-dot" aria-label="New notification" />}
+                      </span>
+                    ) : null}
                     <span>{it.label}</span>
                     {it.badge ? <span className="nav-badge">{it.badge}</span> : null}
                   </Link>

@@ -3,26 +3,26 @@ export interface HomeContent {
   heading: string;
   lede: string;
   /** One background image per hero carousel slide — recommended
-   * 1600x600px (landscape, roughly 8:3) each. */
+   * 1200x600px (2:1 landscape) each. */
   heroWelcomeImage?: string;
   heroBrowseImage?: string;
   heroAuthorImage?: string;
   heroAffiliateImage?: string;
   bookClubBannerTitle: string;
   bookClubBannerBody: string;
-  /** Recommended 1200x500px. */
+  /** Recommended 1200x600px. */
   bookClubBannerImage?: string;
   printBannerTitle: string;
   printBannerBody: string;
-  /** Recommended 1200x500px. */
+  /** Recommended 1200x600px. */
   printBannerImage?: string;
   affiliateBannerTitle: string;
   affiliateBannerBody: string;
-  /** Recommended 1200x500px. */
+  /** Recommended 1200x600px. */
   affiliateBannerImage?: string;
   journalBannerTitle: string;
   journalBannerBody: string;
-  /** Recommended 1200x500px. */
+  /** Recommended 1200x600px. */
   journalBannerImage?: string;
 }
 
@@ -50,6 +50,8 @@ export interface MarketingPageContent {
   eyebrow: string;
   heading: string;
   introText: string;
+  /** Recommended 1200x600px — same size as the homepage hero banners. */
+  heroImage?: string;
   sections: MarketingPageSection[];
 }
 
@@ -177,6 +179,24 @@ export const DEFAULT_PAGES_CONTENT: PagesContent = {
         ],
         imageUrl: undefined,
       },
+      {
+        id: "editorial-review-team",
+        title: "A real editorial review, not an algorithm",
+        paragraphs: [
+          "Every submission is opened and read by an actual editor before it goes live, checking the basics that matter most for a children's title: accurate metadata, age appropriateness, and copyright.",
+          "If something needs a change, you get specific, written notes explaining exactly what to fix, then you resubmit; the goal is a stronger finished book on the shelf, not a rejection with no explanation attached to it.",
+        ],
+        imageUrl: undefined,
+      },
+      {
+        id: "reader-community",
+        title: "A shelf built around readers who actually look for children's books",
+        paragraphs: [
+          "There is no third party advertising anywhere on this site, and no outside advertiser can pay to appear next to your book; what a reader sees is what our editors and our own recommendation logic chose to show them.",
+          "For a children's bookstore in particular, that matters to the parents, teachers, and librarians who make up most of our audience, and it means your book is judged on its own merits, not on someone else's ad budget.",
+        ],
+        imageUrl: undefined,
+      },
     ],
   },
   affiliateMarketing: {
@@ -227,6 +247,24 @@ export const DEFAULT_PAGES_CONTENT: PagesContent = {
         paragraphs: [
           "Ready made banners, cover images, and suggested copy are available for every book on the shelf, so you are never starting a promotion from a blank page.",
           "Everything is sized and formatted for the platforms affiliates actually use: social posts, newsletters, and classroom handouts alike.",
+        ],
+        imageUrl: undefined,
+      },
+      {
+        id: "no-following-needed",
+        title: "No large following required",
+        paragraphs: [
+          "You do not need a following of any particular size to start earning through this program. A single well placed recommendation, shared in a classroom newsletter, a parents' group chat, or a small local book club, works exactly the same way, mechanically, as a link shared with a much larger audience online.",
+          "Commission is calculated the same way regardless of how the click arrived, so a small, genuinely engaged audience can perform just as well as a large one.",
+        ],
+        imageUrl: undefined,
+      },
+      {
+        id: "affiliate-support",
+        title: "Real support, not a self-serve dead end",
+        paragraphs: [
+          "Questions about a commission calculation, a payout, or a link that is not tracking correctly go to a real person, not a support ticket queue with no timeline attached to it.",
+          "Every affiliate account also has direct access to the same messaging system authors use, so a question about a specific book or promotion reaches the right person quickly.",
         ],
         imageUrl: undefined,
       },

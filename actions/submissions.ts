@@ -29,6 +29,17 @@ function generateIsbn(): string {
   return `978-1-${first12.slice(4, 9).join("")}-${first12.slice(9, 12).join("")}-${check}`;
 }
 
+/** eBook "SN" (serial number) — not a real ISBN, an internal
+ * store-issued identifier: 13 digits, all numeric, always starting
+ * with 5 so it's immediately distinguishable from a real ISBN-13
+ * (which always starts with 978/979). Used only when the author
+ * doesn't already have their own ISBN for the ebook. */
+function generateSerialNumber(): string {
+  let digits = "5";
+  for (let i = 0; i < 12; i++) digits += Math.floor(Math.random() * 10);
+  return digits;
+}
+
 function slugify(s: string): string {
   return (
     s
@@ -195,7 +206,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       subtitle: input.subtitle?.trim() || null,
       slug,
       description: input.description.trim(),
-      isbn: input.isbn?.trim() || (input.formats.ebook || input.formats.print ? generateIsbn() : null),
+      isbn: input.isbn?.trim() || (input.formats.print ? generateIsbn() : input.formats.ebook ? generateSerialNumber() : null),
       price: input.price,
       status: input.submitForReview ? "PENDING_REVIEW" : "DRAFT",
       authorId: user.authorProfile.id,

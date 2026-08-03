@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Motif } from "@/components/Motif";
 import { getPagesContent } from "@/actions/page-content";
 
 export const dynamic = "force-dynamic";
@@ -22,33 +21,25 @@ export default async function AffiliateMarketingPage() {
   const { affiliateMarketing } = await getPagesContent();
   return (
     <main>
-      <section className="hero recruit-hero fade-in-section visible">
-        <div className="wrap hero-inner">
-          <div className="hero-plain-inner">
-            <div className="eyebrow">{affiliateMarketing.eyebrow}</div>
-            <h1>{affiliateMarketing.heading}</h1>
-            <p className="lede">{affiliateMarketing.introText}</p>
-            <div className="hero-ctas">
-              <Link href="/signup/affiliate" className="btn btn-primary">Become an affiliate</Link>
-              <a href="#why-join" className="btn btn-ghost">See how it works</a>
+      <section className="fade-in-section visible" style={{ paddingTop: "0.5in" }}>
+        <div className="wrap">
+          <div
+            className="promo-banner promo-mint"
+            style={{
+              height: 320, overflow: "hidden", boxSizing: "border-box",
+              ...(affiliateMarketing.heroImage ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.4), rgba(20,14,26,0.4)), url(${affiliateMarketing.heroImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+            }}
+          >
+            <div className="promo-banner-text">
+              <div className="promo-banner-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#1F5E43" strokeWidth={2}><path d="M9 15l6-6" /><path d="M10 6.5h-.5A4.5 4.5 0 0 0 5 11v.5" /><path d="M14 17.5h.5A4.5 4.5 0 0 0 19 13v-.5" /></svg>
+              </div>
+              <div>
+                <h3 style={affiliateMarketing.heroImage ? { color: "#fff" } : undefined}>{affiliateMarketing.heading}</h3>
+                <p style={affiliateMarketing.heroImage ? { color: "rgba(255,255,255,0.9)" } : undefined}>{affiliateMarketing.introText}</p>
+              </div>
             </div>
-          </div>
-          <div className="hero-float-cluster">
-            <div className="hero-float-icon" style={{ width: 120, height: 120, background: "var(--mint)", top: 10, left: 40, animationDelay: "0s" }}>
-              <svg viewBox="0 0 100 100"><Motif kind="leaf" color="#1F5E43" /></svg>
-            </div>
-            <div className="hero-float-icon" style={{ width: 90, height: 90, background: "var(--gold)", top: 70, right: 30, animationDelay: "0.6s" }}>
-              <svg viewBox="0 0 100 100"><Motif kind="sun" color="#7A5A0A" /></svg>
-            </div>
-            <div className="hero-float-icon" style={{ width: 100, height: 100, background: "var(--pink)", bottom: 90, left: 110, animationDelay: "1.2s" }}>
-              <svg viewBox="0 0 100 100"><Motif kind="heart" color="#8A3B5A" /></svg>
-            </div>
-            <div className="hero-float-icon" style={{ width: 80, height: 80, background: "var(--lavender)", top: 180, left: 0, animationDelay: "1.8s" }}>
-              <svg viewBox="0 0 100 100"><Motif kind="star" color="#4B3B75" /></svg>
-            </div>
-            <div className="hero-float-icon" style={{ width: 96, height: 96, background: "#FFDCC9", bottom: 20, right: 70, animationDelay: "0.3s" }}>
-              <svg viewBox="0 0 100 100"><Motif kind="rainbow" color="#A8452B" /></svg>
-            </div>
+            <Link href="/signup/affiliate" className="btn btn-primary btn-small">Become an affiliate</Link>
           </div>
         </div>
       </section>
