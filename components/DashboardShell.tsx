@@ -31,7 +31,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "orders", label: "Orders", href: "/account/orders", section: "Details" },
       { key: "wishlist", label: "Wishlist", href: "/wishlist", section: "Details" },
       { key: "transaction-history", label: "Transactions", href: "/account/transaction-history", section: "Details" },
-      { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
     ];
     if (hasAffiliateAccess) {
       items.push(
@@ -44,6 +43,11 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
         { key: "payout-settings", label: "Payouts", href: "/account/payout-settings", section: "Financial" }
       );
     }
+    // Account always comes last — added after the conditional affiliate
+    // sections above so it renders as the final section whenever they're
+    // present, and it's still the final (and only remaining) section
+    // when they're not.
+    items.push({ key: "settings", label: "Settings", href: "/account/settings", section: "Account" });
     return items;
   }
   if (role === "AUTHOR") {

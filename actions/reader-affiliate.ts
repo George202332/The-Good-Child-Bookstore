@@ -22,18 +22,24 @@ export async function enableReaderAffiliateAccess(): Promise<{ ok: boolean; erro
   }
 
   const existing = await prisma.affiliateProfile.findUnique({ where: { userId: session.user.id } });
-  if (existing) return { ok: true };
+  if (!existing) {
+    await prisma.affiliateProfile.create({
+      data: { userId: session.user.id, referralCode: await generateUniqueReferralCode(session.user.name ?? "member") },
+    });
+  }
 
-  await prisma.affiliateProfile.create({
-    data: { userId: session.user.id, referralCode: await generateUniqueReferralCode(session.user.name ?? "member") },
-  });
-
+  // Always flip this back on, whether the AffiliateProfile was just
+  // created or already existed from an earlier activation — this is
+  // the actual toggle Settings reads, and re-enabling after a previous
+  // deactivation was silently failing because this line used to be
+  // skipped whenever the profile already existed.
   const readerProfile = await prisma.readerProfile.findUnique({ where: { userId: session.user.id } });
   if (readerProfile) {
     await prisma.readerProfile.update({ where: { userId: session.user.id }, data: { affiliateAccess: true } });
   }
 
   revalidatePath("/account");
+  revalidatePath("/account/settings");
   return { ok: true };
 }
 
