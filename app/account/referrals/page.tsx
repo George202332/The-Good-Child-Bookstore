@@ -94,7 +94,7 @@ export default async function ReferralsPage() {
       </div>
 
       {profile?.referralCode && (
-        <div className="map-card" style={{ padding: 24, marginBottom: 20, background: "linear-gradient(135deg, #FDF1E6, #F5D3B8)", border: "1px solid #F3CBA8" }}>
+        <div className="map-card tinted-peach" style={{ padding: 24, marginBottom: 20 }}>
           <h3 style={{ fontSize: 17, marginBottom: 8 }}>We reward the work you put in</h3>
           <p style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.7, marginBottom: "4mm" }}>
             Every author you introduce to this platform becomes a lasting partnership, not just a single
@@ -174,7 +174,7 @@ export default async function ReferralsPage() {
       </div>
 
       <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Authors you&apos;ve referred</h3>
-      <div className="map-card" style={{ padding: 20, background: "linear-gradient(135deg, #FDF1E6, #F5D3B8)", border: "1px solid #F3CBA8" }}>
+      <div className="map-card tinted-peach" style={{ padding: 20 }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>

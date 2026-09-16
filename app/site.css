@@ -1564,10 +1564,30 @@
   .stat-card-tan{background:linear-gradient(135deg, #FBF3E6, #EAD8B8);border:1px solid #E3CBA0;}
   .stat-card-conversions{background:linear-gradient(135deg, #FCEBEA, #F3C2BE);border:1px solid #EFB3AE;}
   .stat-card-due .stat-label{color:#1F6B48;}
+  .tinted-blue{background:linear-gradient(135deg, #EEF4FE, #C9DBF8) !important;border:1px solid #C3D6F5 !important;}
+  .tinted-peach{background:linear-gradient(135deg, #FDF1E6, #F5D3B8) !important;border:1px solid #F3CBA8 !important;}
+  .tinted-cream{background:linear-gradient(135deg, #FFFFFF, #F1EBE0) !important;border:1px solid var(--line) !important;}
+  .tinted-green{background:linear-gradient(135deg, #EBF8F0, #C3E6D0) !important;border:1px solid #B9E0C8 !important;}
+  .tinted-red{background:linear-gradient(135deg, #FCEBEA, #F3C2BE) !important;border:1px solid #EFB3AE !important;}
+  .tinted-blue-thead{background:#DCE8FB;}
+  html.dark-mode .tinted-blue-thead{background:var(--paper) !important;}
+  html.dark-mode .tinted-blue, html.dark-mode .tinted-peach, html.dark-mode .tinted-cream,
+  html.dark-mode .tinted-green, html.dark-mode .tinted-red{
+    background:var(--paper) !important;border:1px solid var(--line) !important;
+  }
+  html.dark-mode .tinted-blue thead, html.dark-mode .tinted-peach thead, html.dark-mode .tinted-cream thead,
+  html.dark-mode .tinted-green thead, html.dark-mode .tinted-red thead{
+    background:var(--paper) !important;
+  }
   html.dark-mode .stat-card-referral,
   html.dark-mode .stat-card-promotion,
   html.dark-mode .stat-card-total,
   html.dark-mode .stat-card-due,
+  html.dark-mode .stat-card-maroon,
+  html.dark-mode .stat-card-purple,
+  html.dark-mode .stat-card-grey,
+  html.dark-mode .stat-card-tan,
+  html.dark-mode .stat-card-conversions,
   html.dark-mode .class-card-blue,
   html.dark-mode .class-card-purple,
   html.dark-mode .class-card-grey,

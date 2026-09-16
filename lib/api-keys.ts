@@ -46,3 +46,22 @@ export async function getWiseCredentials(): Promise<{ apiToken: string | undefin
     profileId: stored?.wiseProfileId?.trim() || process.env.WISE_PROFILE_ID,
   };
 }
+
+export async function getPayoneerCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined }> {
+  const stored = await getStoredApiKeys();
+  return {
+    clientId: stored?.payoneerClientId?.trim() || process.env.PAYONEER_CLIENT_ID,
+    clientSecret: stored?.payoneerClientSecret?.trim() || process.env.PAYONEER_CLIENT_SECRET,
+  };
+}
+
+/** Whether each payout gateway is currently switched on — defaults
+ * match DEFAULT_SITE_SETTINGS (Wise on, Payoneer off) if nothing's
+ * been saved yet. */
+export async function getPayoutGatewayStatus(): Promise<{ wiseEnabled: boolean; payoneerEnabled: boolean }> {
+  const stored = await getStoredApiKeys();
+  return {
+    wiseEnabled: stored?.wiseEnabled ?? true,
+    payoneerEnabled: stored?.payoneerEnabled ?? false,
+  };
+}

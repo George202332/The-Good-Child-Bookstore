@@ -198,20 +198,33 @@ export async function approvePayoutRequest(payoutId: string): Promise<{ ok: bool
     const payout = await prisma.payoutRequest.findUnique({ where: { id: payoutId }, include: { recipient: true } });
     if (!payout) return { ok: false, error: "Payout request not found." };
 
-    const { executeWisePayout } = await import("@/lib/payments/wise");
-    const result = await executeWisePayout(
-      Number(payout.amount),
-      payout.recipient.currency,
-      payout.recipient.wiseRecipientId ?? payout.recipient.id,
-      payout.id
-    );
+    const { getPayoutGatewayStatus } = await import("@/lib/api-keys");
+    const gatewayStatus = await getPayoutGatewayStatus();
+    const gateway = payout.recipient.gateway === "PAYONEER" ? "PAYONEER" : "WISE";
+
+    if (gateway === "WISE" && !gatewayStatus.wiseEnabled) {
+      await prisma.payoutRequest.update({ where: { id: payoutId }, data: { status: "REQUESTED" } });
+      return { ok: false, error: "Wise is currently switched off in Payment Integrations — enable it, or ask this recipient to switch to Payoneer." };
+    }
+    if (gateway === "PAYONEER" && !gatewayStatus.payoneerEnabled) {
+      await prisma.payoutRequest.update({ where: { id: payoutId }, data: { status: "REQUESTED" } });
+      return { ok: false, error: "Payoneer is currently switched off in Payment Integrations — enable it, or ask this recipient to switch to Wise." };
+    }
+
+    const result = gateway === "PAYONEER"
+      ? await (await import("@/lib/payments/payoneer")).executePayoneerPayout(
+          Number(payout.amount), payout.recipient.currency, payout.recipient.payoneerRecipientId ?? payout.recipient.id, payout.id
+        )
+      : await (await import("@/lib/payments/wise")).executeWisePayout(
+          Number(payout.amount), payout.recipient.currency, payout.recipient.wiseRecipientId ?? payout.recipient.id, payout.id
+        );
 
     if (result.ok) {
       await prisma.payoutRequest.update({
         where: { id: payoutId },
         data: { status: "PAID", resolvedAt: new Date(), wiseTransferId: result.transferId },
       });
-      await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent via Wise.`, "PAYOUT");
+      await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent via ${gateway === "PAYONEER" ? "Payoneer" : "Wise"}.`, "PAYOUT");
     } else {
       // Release the claim — a failed transfer must go back to a
       // reviewable state, not stay stuck in PROCESSING forever. Back to
@@ -222,7 +235,7 @@ export async function approvePayoutRequest(payoutId: string): Promise<{ ok: bool
         where: { id: payoutId },
         data: { status: "REQUESTED", failureReason: result.error },
       });
-      return { ok: false, error: result.error ?? "Wise payout failed — Wise may not be configured in this environment." };
+      return { ok: false, error: result.error ?? `${gateway === "PAYONEER" ? "Payoneer" : "Wise"} payout failed — it may not be configured in this environment.` };
     }
     revalidatePath("/admin/payouts");
     return { ok: true };

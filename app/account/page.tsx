@@ -210,23 +210,27 @@ export default async function AccountPage() {
       if (f && f in formatCounts) formatCounts[f] += 1;
     }
 
-    const isAffiliateToo = await hasAffiliateCapability(session.user.id);
-    const affiliateLinks = isAffiliateToo ? await getMyLinkPerformance() : [];
+    const [{ isAffiliateToo, affiliateLinks }, lifetimePayoutAgg, authorsReferredCount, notifications] = await Promise.all([
+      (async () => {
+        const isAffiliateToo = await hasAffiliateCapability(session.user.id);
+        const affiliateLinks = isAffiliateToo ? await getMyLinkPerformance() : [];
+        return { isAffiliateToo, affiliateLinks };
+      })(),
+      prisma.payoutRequest.aggregate({
+        where: { userId: session.user.id, status: "PAID" },
+        _sum: { amount: true },
+      }),
+      user?.affiliateProfile
+        ? prisma.authorProfile.count({ where: { referredById: user.affiliateProfile.id } })
+        : Promise.resolve(0),
+      listMyNotifications(),
+    ]);
     const affiliateClicks = affiliateLinks.reduce((s, l) => s + l.clicks, 0);
     const affiliateSold = affiliateLinks.reduce((s, l) => s + l.conversions, 0);
-
-    const lifetimePayoutAgg = await prisma.payoutRequest.aggregate({
-      where: { userId: session.user.id, status: "PAID" },
-      _sum: { amount: true },
-    });
     const lifetimePayout = Number(lifetimePayoutAgg._sum.amount ?? 0);
     const totalBooksSold = allLines.length;
     const booksPublished = books.filter((b) => b.status === "PUBLISHED").length;
-    const authorsReferredCount = user?.affiliateProfile
-      ? await prisma.authorProfile.count({ where: { referredById: user.affiliateProfile.id } })
-      : 0;
 
-    const notifications = await listMyNotifications();
     const recentActivity = notifications.slice(0, 20);
 
     const allRatings = books.flatMap((b) => b.ratings);
@@ -367,11 +371,12 @@ export default async function AccountPage() {
                       </svg>
                       <div
                         style={{
-                          fontSize: 12.5, color: info.color, fontWeight: 600, lineHeight: 1.4,
+                          fontSize: 12.5, lineHeight: 1.4,
                           display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
                         }}
                       >
-                        {n.title}
+                        <span style={{ color: info.color, fontWeight: 700 }}>{n.title}</span>
+                        {n.body && <span style={{ color: "var(--ink-soft)" }}>: {n.body}</span>}
                       </div>
                     </div>
                   );

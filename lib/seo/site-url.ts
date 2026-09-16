@@ -13,6 +13,15 @@
  */
 export function getPublicSiteUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+  // The real custom domain is the correct default for production —
+  // referral links, promotion links, receipts, etc. should always
+  // point at thegoodchildbookstore.com, not a generic Vercel URL.
+  if (!process.env.VERCEL_ENV || process.env.VERCEL_ENV === "production") {
+    return "https://thegoodchildbookstore.com";
+  }
+  // Preview/branch deployments still get their own real URL, which is
+  // useful for actually testing a preview rather than always linking
+  // back to production.
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "https://thegoodchildbookstore.com";
 }

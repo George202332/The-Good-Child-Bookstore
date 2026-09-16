@@ -56,6 +56,8 @@ export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSetti
     paystackPublicKey: !!settings.apiKeys.paystackPublicKey,
     wiseApiToken: !!settings.apiKeys.wiseApiToken,
     wiseProfileId: !!settings.apiKeys.wiseProfileId,
+    payoneerClientId: !!settings.apiKeys.payoneerClientId,
+    payoneerClientSecret: !!settings.apiKeys.payoneerClientSecret,
   };
   return {
     settings: {
@@ -70,6 +72,10 @@ export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSetti
         paystackPublicKey: "",
         wiseApiToken: "",
         wiseProfileId: "",
+        wiseEnabled: settings.apiKeys.wiseEnabled,
+        payoneerClientId: "",
+        payoneerClientSecret: "",
+        payoneerEnabled: settings.apiKeys.payoneerEnabled,
       },
     },
     apiKeysSet,
@@ -130,6 +136,10 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
       paystackPublicKey: settings.apiKeys.paystackPublicKey?.trim() || existing.apiKeys.paystackPublicKey,
       wiseApiToken: settings.apiKeys.wiseApiToken?.trim() || existing.apiKeys.wiseApiToken,
       wiseProfileId: settings.apiKeys.wiseProfileId?.trim() || existing.apiKeys.wiseProfileId,
+      wiseEnabled: settings.apiKeys.wiseEnabled,
+      payoneerClientId: settings.apiKeys.payoneerClientId?.trim() || existing.apiKeys.payoneerClientId,
+      payoneerClientSecret: settings.apiKeys.payoneerClientSecret?.trim() || existing.apiKeys.payoneerClientSecret,
+      payoneerEnabled: settings.apiKeys.payoneerEnabled,
     };
 
     const value = JSON.parse(JSON.stringify({ ...settings, apiKeys }));

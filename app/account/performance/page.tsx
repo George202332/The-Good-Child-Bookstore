@@ -112,7 +112,7 @@ export default async function PerformancePage() {
       </div>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Link performance</h3>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto", background: "linear-gradient(135deg, #FCEBEA, #F3C2BE)", border: "1px solid #EFB3AE" }}>
+      <div className="map-card tinted-red" style={{ padding: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>

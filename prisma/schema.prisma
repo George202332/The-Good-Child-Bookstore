@@ -690,11 +690,19 @@ model WiseRecipient {
   id                String   @id @default(cuid())
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /** "WISE" or "PAYONEER" — which payout gateway this recipient record
+   * is for. Each payout is tied to exactly one recipient, so it only
+   * ever goes through exactly one gateway — combined with the atomic
+   * claim in approvePayoutRequest (actions/admin.ts), this is what
+   * makes double-paying the same payout through both systems
+   * impossible, not just unlikely. */
+  gateway           String   @default("WISE")
   type              String
   currency          String
   accountHolderName String
   details           Json
   wiseRecipientId   String?
+  payoneerRecipientId String?
   isDefault         Boolean  @default(false)
   createdAt         DateTime @default(now())
   payoutRequests    PayoutRequest[]

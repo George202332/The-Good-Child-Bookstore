@@ -36,6 +36,14 @@ export interface ApiKeys {
   paystackPublicKey?: string;
   wiseApiToken?: string;
   wiseProfileId?: string;
+  /** Independently controls whether each payout gateway can actually be
+   * used — approvePayoutRequest (actions/admin.ts) refuses to process a
+   * payout through a gateway that's switched off here, regardless of
+   * which one the recipient's own record points to. */
+  wiseEnabled?: boolean;
+  payoneerEnabled?: boolean;
+  payoneerClientId?: string;
+  payoneerClientSecret?: string;
 }
 
 export interface SiteSettings {
@@ -62,5 +70,5 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     "Storybooks chosen for the way they read aloud, the questions they raise at bedtime, and the shelf-worthy art on every cover. Trusted by parents, teachers, and school librarians.",
   footerCopyright: "© 2026 The Good Child Bookstore. Every cover here is invented for storytime.",
   paymentBadges: {},
-  apiKeys: { paymentMode: "test" },
+  apiKeys: { paymentMode: "test", wiseEnabled: true, payoneerEnabled: false },
 };

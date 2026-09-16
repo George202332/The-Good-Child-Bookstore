@@ -86,12 +86,13 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     const colX = colWidths.reduce<number[]>((acc, w, i) => [...acc, i === 0 ? x0 : acc[i - 1] + colWidths[i - 1]], []);
 
     ensureSpace(20 + rows.length * 20 + 40);
-    rect(x0, y, pageWidth, 20, PANEL);
+    rect(x0, y, pageWidth, 20, PLUM);
     cols.forEach((c, i) => {
       const align = c.align ?? "left";
       const label = c.label.toUpperCase();
-      if (align === "right") rightText(label, colX[i] + colWidths[i] - 6, y - 14, { font: bold, size: 7.5, color: PLUM });
-      else text(label, colX[i] + 6, y - 14, { font: bold, size: 7.5, color: PLUM });
+      const white = rgb(1, 1, 1);
+      if (align === "right") rightText(label, colX[i] + colWidths[i] - 6, y - 14, { font: bold, size: 7.5, color: white });
+      else text(label, colX[i] + 6, y - 14, { font: bold, size: 7.5, color: white });
     });
     y -= 20;
 
@@ -142,27 +143,26 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     );
   }
 
-  // ---- Header: GCB (left) — Seal (middle) — Statement info (right) ----
-  text("GCB", margin, y - 18, { font: bold, size: 20, color: PLUM });
-  text("The Good Child Bookstore", margin, y - 36, { font: bold, size: 11 });
-  text("Monthly Payout Statement", margin, y - 54, { font: bold, size: 15 });
+  // ---- Header: Company name (left) — Seal (middle) — Statement info (right) ----
+  text("The Good Child Bookstore LTD", margin, y - 20, { font: bold, size: 16, color: PLUM });
+  text("Monthly Payout Statement", margin, y - 42, { font: bold, size: 16 });
 
   if (sealImage) {
-    const sealSize = 64;
+    const sealSize = 90; // 64 * 1.4, per explicit instruction
     const sealX = margin + pageWidth / 2 - sealSize / 2;
     // Drawn directly with no background rectangle behind it — the
     // seal's own PNG transparency is respected, so only the seal
     // artwork itself shows, with the cream page color visible through
     // the rest, not a white or colored box.
-    page.drawImage(sealImage, { x: sealX, y: y - 70, width: sealSize, height: sealSize });
+    page.drawImage(sealImage, { x: sealX, y: y - 96, width: sealSize, height: sealSize });
   }
 
-  const rightColX = margin + pageWidth - 190;
-  text(`Statement for: ${data.authorName}`, rightColX, y - 6, { size: 9, color: INK_SOFT });
-  text(`Period: ${data.monthLabel}`, rightColX, y - 20, { size: 9, color: INK_SOFT });
-  text(`Generated: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, rightColX, y - 34, { size: 9, color: INK_SOFT });
+  const rightEdge = margin + pageWidth;
+  rightText(`Statement for: ${data.authorName}`, rightEdge, y - 6, { size: 9.5, color: INK_SOFT });
+  rightText(`Period: ${data.monthLabel}`, rightEdge, y - 20, { size: 9.5, color: INK_SOFT });
+  rightText(`Generated: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, rightEdge, y - 34, { size: 9.5, color: INK_SOFT });
 
-  y -= 90;
+  y -= 106;
 
   // ---- Total payout box ----
   const boxH = 78;

@@ -210,6 +210,14 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
       </div>
 
       <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Wise (author/affiliate payouts)</h4>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 10 }}>
+        <input
+          type="checkbox"
+          checked={settings.apiKeys.wiseEnabled ?? true}
+          onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseEnabled: e.target.checked } }))}
+        />
+        Wise is active — payouts to authors/affiliates using Wise as their payout method will go through
+      </label>
       <div className="form-grid-2">
         <div>
           <label className="field-label" htmlFor="api-wise-secret">Secret Key (API Token)</label>
@@ -233,6 +241,46 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
             placeholder={apiKeysSet.wiseProfileId ? "•••• already set — leave blank to keep it" : "Not set"}
             value={settings.apiKeys.wiseProfileId ?? ""}
             onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseProfileId: e.target.value } }))}
+          />
+        </div>
+      </div>
+
+      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Payoneer (author/affiliate payouts)</h4>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 10 }}>
+        <input
+          type="checkbox"
+          checked={settings.apiKeys.payoneerEnabled ?? false}
+          onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, payoneerEnabled: e.target.checked } }))}
+        />
+        Payoneer is active — payouts to authors/affiliates using Payoneer as their payout method will go through
+      </label>
+      <p className="field-hint" style={{ margin: "-6px 0 12px" }}>
+        Each payout only ever goes through the one gateway its recipient is actually set up for, so turning both
+        on at once is safe — there&apos;s no scenario where a single payout could be sent through both.
+      </p>
+      <div className="form-grid-2">
+        <div>
+          <label className="field-label" htmlFor="api-payoneer-secret">Secret Key (Client Secret)</label>
+          <input
+            className="field"
+            id="api-payoneer-secret"
+            type="password"
+            autoComplete="off"
+            placeholder={apiKeysSet.payoneerClientSecret ? "•••• already set — leave blank to keep it" : "Not set"}
+            value={settings.apiKeys.payoneerClientSecret ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, payoneerClientSecret: e.target.value } }))}
+          />
+        </div>
+        <div>
+          <label className="field-label" htmlFor="api-payoneer-public">Public Key (Client ID)</label>
+          <input
+            className="field"
+            id="api-payoneer-public"
+            type="password"
+            autoComplete="off"
+            placeholder={apiKeysSet.payoneerClientId ? "•••• already set — leave blank to keep it" : "Not set"}
+            value={settings.apiKeys.payoneerClientId ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, payoneerClientId: e.target.value } }))}
           />
         </div>
       </div>
