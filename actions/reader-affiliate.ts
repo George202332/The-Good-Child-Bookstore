@@ -37,6 +37,20 @@ export async function enableReaderAffiliateAccess(): Promise<{ ok: boolean; erro
   return { ok: true };
 }
 
+export async function disableReaderAffiliateAccess(): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "READER") {
+    return { ok: false, error: "Only reader accounts use this toggle." };
+  }
+  const readerProfile = await prisma.readerProfile.findUnique({ where: { userId: session.user.id } });
+  if (readerProfile) {
+    await prisma.readerProfile.update({ where: { userId: session.user.id }, data: { affiliateAccess: false } });
+  }
+  revalidatePath("/account");
+  revalidatePath("/account/settings");
+  return { ok: true };
+}
+
 export interface ReaderAffiliateStatus {
   enabled: boolean;
   totalEarnings: number;

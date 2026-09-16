@@ -24,7 +24,7 @@ export function SiteChrome({ children, settings }: { children: ReactNode; settin
   const isBackend = pathname.startsWith("/admin");
   const isLoginPage = pathname === "/login";
   const isAccountPage = pathname.startsWith("/account");
-  const useMinimalFooter = isLoginPage || isAccountPage;
+  const hideFooter = isLoginPage || isAccountPage;
 
   if (isBackend) return <>{children}</>;
 
@@ -34,13 +34,15 @@ export function SiteChrome({ children, settings }: { children: ReactNode; settin
         <Header logoImageUrl={settings.logoImageUrl} />
       </Suspense>
       <div style={{ flex: 1 }}>{children}</div>
-      <Footer
-        minimal={useMinimalFooter}
-        logoImageUrl={settings.logoImageUrl}
-        footerTagline={settings.footerTagline}
-        footerCopyright={settings.footerCopyright}
-        paymentBadges={settings.paymentBadges}
-      />
+      {!hideFooter && (
+        <Footer
+          minimal={false}
+          logoImageUrl={settings.logoImageUrl}
+          footerTagline={settings.footerTagline}
+          footerCopyright={settings.footerCopyright}
+          paymentBadges={settings.paymentBadges}
+        />
+      )}
     </div>
   );
 }

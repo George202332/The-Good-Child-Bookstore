@@ -55,7 +55,11 @@ function isCurrentMonth(d: Date, now: Date): boolean {
 export default async function RevenuePage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "AUTHOR") redirect("/account");
+  const role = session.user.role;
+  const { hasAffiliateCapability } = await import("@/lib/affiliate-capability");
+  const isReaderAffiliate = role === "READER" && (await hasAffiliateCapability(session.user.id));
+  if (role !== "AUTHOR" && !isReaderAffiliate) redirect("/account");
+  const isAuthor = role === "AUTHOR";
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -193,17 +197,19 @@ export default async function RevenuePage() {
     saleDate: l.createdAt.toISOString(),
   }));
 
-  const grandTotal = bookSalesTotal + referralTotal + promotionTotal;
-  const monthlyTotal = bookSalesMonthly + referralMonthly + promotionMonthly;
+  const grandTotal = (isAuthor ? bookSalesTotal : 0) + referralTotal + promotionTotal;
+  const monthlyTotal = (isAuthor ? bookSalesMonthly : 0) + referralMonthly + promotionMonthly;
 
   return (
-    <DashboardShell role="AUTHOR" activeKey="revenue" displayName={session.user.name ?? ""}>
+    <DashboardShell role={role} activeKey="revenue" displayName={session.user.name ?? ""}>
       <div className="stat-grid" style={{ marginBottom: 12 }}>
-        <div className="stat-card stat-card-referral">
-          <div className="stat-label">Lifetime royalties</div>
-          <div className="stat-value">${bookSalesTotal.toFixed(2)}</div>
-          <div className="stat-sub">All time</div>
-        </div>
+        {isAuthor && (
+          <div className="stat-card stat-card-referral">
+            <div className="stat-label">Lifetime royalties</div>
+            <div className="stat-value">${bookSalesTotal.toFixed(2)}</div>
+            <div className="stat-sub">All time</div>
+          </div>
+        )}
         <div className="stat-card stat-card-promotion">
           <div className="stat-label">Referral revenue</div>
           <div className="stat-value">${referralTotal.toFixed(2)}</div>
@@ -222,11 +228,13 @@ export default async function RevenuePage() {
       </div>
 
       <div className="stat-grid" style={{ marginBottom: 28 }}>
-        <div className="stat-card stat-card-referral">
-          <div className="stat-label">Royalty</div>
-          <div className="stat-value">${bookSalesMonthly.toFixed(2)}</div>
-          <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
-        </div>
+        {isAuthor && (
+          <div className="stat-card stat-card-referral">
+            <div className="stat-label">Royalty</div>
+            <div className="stat-value">${bookSalesMonthly.toFixed(2)}</div>
+            <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
+          </div>
+        )}
         <div className="stat-card stat-card-promotion">
           <div className="stat-label">Referral revenue</div>
           <div className="stat-value">${referralMonthly.toFixed(2)}</div>
@@ -244,10 +252,14 @@ export default async function RevenuePage() {
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Book Sales</h3>
-      <div style={{ marginBottom: 28 }}>
-        <BookSalesTable rows={bookSalesRows} />
-      </div>
+      {isAuthor && (
+        <>
+          <h3 style={{ fontSize: 16, marginBottom: 14 }}>Book Sales</h3>
+          <div style={{ marginBottom: 28 }}>
+            <BookSalesTable rows={bookSalesRows} />
+          </div>
+        </>
+      )}
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Referral Revenue</h3>
       <div style={{ marginBottom: 28 }}>

@@ -11,8 +11,12 @@ import { prisma } from "@/lib/prisma";
  */
 export async function hasAffiliateCapability(userId: string): Promise<boolean> {
   try {
-    const user = await prisma.user.findUnique({ where: { id: userId }, include: { affiliateProfile: true } });
-    return !!user?.affiliateProfile;
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { affiliateProfile: true, readerProfile: true } });
+    if (!user?.affiliateProfile) return false;
+    // Readers can switch affiliate access off from Settings without
+    // losing their underlying AffiliateProfile/history — respect that.
+    if (user.readerProfile) return user.readerProfile.affiliateAccess;
+    return true;
   } catch {
     return false;
   }

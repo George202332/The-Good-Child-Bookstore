@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getMySettings } from "@/actions/settings";
+import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { SettingsForm } from "./SettingsForm";
+import { AffiliateToggle } from "./AffiliateToggle";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -11,6 +13,7 @@ export default async function SettingsPage() {
   if (role !== "READER" && role !== "AUTHOR") redirect("/admin");
 
   const settings = await getMySettings();
+  const affiliateStatus = role === "READER" ? await getReaderAffiliateStatus() : null;
 
   return (
     <DashboardShell role={role} activeKey="settings" displayName={session.user.name ?? ""}>
@@ -21,6 +24,7 @@ export default async function SettingsPage() {
         </div>
       </div>
       <SettingsForm initial={settings} />
+      {role === "READER" && <AffiliateToggle initialEnabled={affiliateStatus?.enabled ?? false} />}
     </DashboardShell>
   );
 }

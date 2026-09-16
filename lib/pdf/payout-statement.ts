@@ -15,7 +15,7 @@ import type { PayoutStatementData, PayoutStatementFormatRow } from "../payout-st
  * Promotion Commission) instead of one combined table.
  */
 
-const PLUM = rgb(0.29, 0.06, 0.36); // deep purple, matches the seal's ring
+const PLUM = rgb(0.20, 0.03, 0.26); // dark purple, matches the seal's ring
 const GOLD = rgb(0.62, 0.48, 0.18); // matches the seal's gold linework
 const INK = rgb(0.165, 0.141, 0.22);
 const INK_SOFT = rgb(0.42, 0.39, 0.47);
@@ -143,9 +143,9 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     );
   }
 
-  // ---- Header: Company name (left) — Seal (middle) — Statement info (right) ----
-  text("The Good Child Bookstore LTD", margin, y - 20, { font: bold, size: 16, color: PLUM });
-  text("Monthly Payout Statement", margin, y - 42, { font: bold, size: 16 });
+  // ---- Header: Company name (left) — Seal (middle) — Statement info (right), all aligned on one line ----
+  text("The Good Child Bookstore LTD", margin, y - 10, { font: bold, size: 9.5, color: PLUM });
+  text("Monthly Payout Statement", margin, y - 24, { font: bold, size: 9.5 });
 
   if (sealImage) {
     const sealSize = 90; // 64 * 1.4, per explicit instruction
@@ -153,16 +153,17 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     // Drawn directly with no background rectangle behind it — the
     // seal's own PNG transparency is respected, so only the seal
     // artwork itself shows, with the cream page color visible through
-    // the rest, not a white or colored box.
-    page.drawImage(sealImage, { x: sealX, y: y - 96, width: sealSize, height: sealSize });
+    // the rest, not a white or colored box. Vertically centered on the
+    // same line as the left/right text blocks, not sitting lower.
+    page.drawImage(sealImage, { x: sealX, y: y - 8 - sealSize / 2, width: sealSize, height: sealSize });
   }
 
   const rightEdge = margin + pageWidth;
-  rightText(`Statement for: ${data.authorName}`, rightEdge, y - 6, { size: 9.5, color: INK_SOFT });
-  rightText(`Period: ${data.monthLabel}`, rightEdge, y - 20, { size: 9.5, color: INK_SOFT });
-  rightText(`Generated: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, rightEdge, y - 34, { size: 9.5, color: INK_SOFT });
+  rightText(`Statement for: ${data.authorName}`, rightEdge, y - 10, { size: 9.5, color: INK_SOFT });
+  rightText(`Period: ${data.monthLabel}`, rightEdge, y - 24, { size: 9.5, color: INK_SOFT });
+  rightText(`Generated: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, rightEdge, y - 38, { size: 9.5, color: INK_SOFT });
 
-  y -= 106;
+  y -= 100;
 
   // ---- Total payout box ----
   const boxH = 78;
