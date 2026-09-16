@@ -11,6 +11,9 @@ import { notificationTypeInfo } from "@/lib/notification-types";
 import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
 import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
+import { LiveRefresher } from "@/components/LiveRefresher";
+
+export const dynamic = "force-dynamic";
 
 interface SaleLineShare {
   authorShare: unknown;
@@ -74,6 +77,7 @@ export default async function AccountPage() {
 
     return (
       <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
+        <LiveRefresher />
         <div className="section-head" style={{ marginBottom: 16 }}>
           <div>
             <h2 style={{ fontSize: 20 }}>Dashboard</h2>
@@ -185,10 +189,7 @@ export default async function AccountPage() {
 
     // All-time equivalents of the 4 cards above — same underlying data,
     // just without the current-month filter, matching the Revenue page.
-    const bookSalesAllTime = allLines.reduce((s, l) => s + Number(l.authorShare), 0);
-    const referralAllTime = referralEarningLines.reduce((s, l) => s + Number(l.authorReferralShare), 0);
-    const promotionAllTime = promotionSaleLines.reduce((s, l) => s + Number(l.affiliateShare), 0);
-    const allTimeTotal = bookSalesAllTime + referralAllTime + promotionAllTime;
+    // (Lifetime Payout card below uses the actual paid-out total instead.)
 
     // Sales trend — real unit counts, January through December of the
     // current calendar year.
@@ -214,6 +215,17 @@ export default async function AccountPage() {
     const affiliateClicks = affiliateLinks.reduce((s, l) => s + l.clicks, 0);
     const affiliateSold = affiliateLinks.reduce((s, l) => s + l.conversions, 0);
 
+    const lifetimePayoutAgg = await prisma.payoutRequest.aggregate({
+      where: { userId: session.user.id, status: "PAID" },
+      _sum: { amount: true },
+    });
+    const lifetimePayout = Number(lifetimePayoutAgg._sum.amount ?? 0);
+    const totalBooksSold = allLines.length;
+    const booksPublished = books.filter((b) => b.status === "PUBLISHED").length;
+    const authorsReferredCount = user?.affiliateProfile
+      ? await prisma.authorProfile.count({ where: { referredById: user.affiliateProfile.id } })
+      : 0;
+
     const notifications = await listMyNotifications();
     const recentActivity = notifications.slice(0, 20);
 
@@ -228,13 +240,37 @@ export default async function AccountPage() {
 
     return (
       <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
+        <LiveRefresher />
         <div className="section-head" style={{ marginBottom: 16 }}>
           <div>
             <h2 style={{ fontSize: 20 }}>Dashboard</h2>
           </div>
         </div>
 
-        <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 28 }}>
+        <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 20 }}>
+          <div className="stat-card stat-card-maroon">
+            <div className="stat-label">Lifetime Payout</div>
+            <div className="stat-value">${lifetimePayout.toFixed(2)}</div>
+            <div className="stat-sub">Paid out to date</div>
+          </div>
+          <div className="stat-card stat-card-purple">
+            <div className="stat-label">Books Sold</div>
+            <div className="stat-value">{totalBooksSold}</div>
+            <div className="stat-sub">Organic and affiliate, all time</div>
+          </div>
+          <div className="stat-card stat-card-grey">
+            <div className="stat-label">Authors Referred</div>
+            <div className="stat-value">{authorsReferredCount}</div>
+            <div className="stat-sub">All time</div>
+          </div>
+          <div className="stat-card stat-card-tan">
+            <div className="stat-label">Books Published</div>
+            <div className="stat-value">{booksPublished}</div>
+            <div className="stat-sub">Currently live</div>
+          </div>
+        </div>
+
+        <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 20 }}>
           <div className="stat-card stat-card-referral">
             <div className="stat-label">Royalty</div>
             <div className="stat-value">${bookSalesMonthly.toFixed(2)}</div>
@@ -254,29 +290,6 @@ export default async function AccountPage() {
             <div className="stat-label">Total earnings</div>
             <div className="stat-value">${monthlyTotal.toFixed(2)}</div>
             <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
-          </div>
-        </div>
-
-        <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 20 }}>
-          <div className="stat-card stat-card-referral">
-            <div className="stat-label">Royalty</div>
-            <div className="stat-value">${bookSalesAllTime.toFixed(2)}</div>
-            <div className="stat-sub">All time</div>
-          </div>
-          <div className="stat-card stat-card-promotion">
-            <div className="stat-label">Referral revenue</div>
-            <div className="stat-value">${referralAllTime.toFixed(2)}</div>
-            <div className="stat-sub">All time</div>
-          </div>
-          <div className="stat-card stat-card-total">
-            <div className="stat-label">Book promotions</div>
-            <div className="stat-value">${promotionAllTime.toFixed(2)}</div>
-            <div className="stat-sub">All time</div>
-          </div>
-          <div className="stat-card stat-card-due">
-            <div className="stat-label">Total earnings</div>
-            <div className="stat-value">${allTimeTotal.toFixed(2)}</div>
-            <div className="stat-sub">All time</div>
           </div>
         </div>
 
@@ -348,11 +361,18 @@ export default async function AccountPage() {
                 {recentActivity.map((n) => {
                   const info = notificationTypeInfo(n.type);
                   return (
-                    <div key={n.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={info.color} strokeWidth={1.8} style={{ flexShrink: 0 }}>
+                    <div key={n.id} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={info.color} strokeWidth={1.8} style={{ flexShrink: 0, marginTop: 2 }}>
                         <path d={info.iconPath} />
                       </svg>
-                      <div style={{ fontSize: 12.5, color: info.color, fontWeight: 600 }}>{n.title}</div>
+                      <div
+                        style={{
+                          fontSize: 12.5, color: info.color, fontWeight: 600, lineHeight: 1.4,
+                          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                        }}
+                      >
+                        {n.title}
+                      </div>
                     </div>
                   );
                 })}
@@ -366,6 +386,7 @@ export default async function AccountPage() {
 
   return (
     <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
+      <LiveRefresher />
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Dashboard</h2>

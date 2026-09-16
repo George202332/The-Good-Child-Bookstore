@@ -1558,6 +1558,11 @@
   .stat-card-promotion .stat-label{color:#B7472A;}
   .stat-card-total{background:linear-gradient(135deg, #FFFFFF, #F1EBE0);border:1px solid var(--line);}
   .stat-card-due{background:linear-gradient(135deg, #EBF8F0, #C3E6D0);border:1px solid #B9E0C8;}
+  .stat-card-maroon{background:linear-gradient(135deg, #FBEAEC, #EFC3C9);border:1px solid #E8B3BB;}
+  .stat-card-purple{background:linear-gradient(135deg, #F3EEFB, #DCCBF0);border:1px solid #D4BAEA;}
+  .stat-card-grey{background:linear-gradient(135deg, #F5F5F7, #DDDDE3);border:1px solid #D2D2DA;}
+  .stat-card-tan{background:linear-gradient(135deg, #FBF3E6, #EAD8B8);border:1px solid #E3CBA0;}
+  .stat-card-conversions{background:linear-gradient(135deg, #FCEBEA, #F3C2BE);border:1px solid #EFB3AE;}
   .stat-card-due .stat-label{color:#1F6B48;}
   html.dark-mode .stat-card-referral,
   html.dark-mode .stat-card-promotion,
@@ -1808,7 +1813,7 @@
   .pie-legend-row .plabel{color:var(--ink-soft);flex:1;}
   .pie-legend-row .pval{font-weight:700;}
 
-  .map-card{background:var(--paper);border-radius:16px;padding:22px;margin-bottom:34px;}
+  .map-card{background:var(--paper);border-radius:16px;padding:20px;margin-bottom:34px;}
   .map-card h3{font-size:15px;margin-bottom:4px;}
   .map-caption{font-size:12px;color:var(--ink-faint);margin-bottom:0;max-width:520px;}
 

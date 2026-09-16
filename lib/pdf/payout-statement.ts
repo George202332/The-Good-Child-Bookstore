@@ -15,12 +15,13 @@ import type { PayoutStatementData, PayoutStatementFormatRow } from "../payout-st
  * Promotion Commission) instead of one combined table.
  */
 
-const PLUM = rgb(0.325, 0.114, 0.396); // deep purple, matches the seal's ring
+const PLUM = rgb(0.29, 0.06, 0.36); // deep purple, matches the seal's ring
 const GOLD = rgb(0.62, 0.48, 0.18); // matches the seal's gold linework
 const INK = rgb(0.165, 0.141, 0.22);
 const INK_SOFT = rgb(0.42, 0.39, 0.47);
 const LINE = rgb(0.906, 0.878, 0.937);
 const PANEL = rgb(0.973, 0.961, 0.984);
+const CREAM = rgb(0.980, 0.965, 0.941); // report background, per explicit instruction
 const PAID_GREEN = rgb(0.12, 0.42, 0.28);
 const PENDING_AMBER = rgb(0.54, 0.35, 0.04);
 
@@ -45,14 +46,20 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     // generates — just without the stamp, rather than failing entirely.
   }
 
-  let page = doc.addPage([595.28, 841.89]); // A4
+  function newPage() {
+    const p = doc.addPage([595.28, 841.89]); // A4
+    p.drawRectangle({ x: 0, y: 0, width: p.getWidth(), height: p.getHeight(), color: CREAM });
+    return p;
+  }
+
+  let page = newPage();
   const margin = 40;
   const pageWidth = page.getWidth() - margin * 2;
   let y = page.getHeight() - margin;
 
   function ensureSpace(needed: number) {
     if (y - needed < margin + 40) {
-      page = doc.addPage([595.28, 841.89]);
+      page = newPage();
       y = page.getHeight() - margin;
     }
   }
@@ -131,19 +138,31 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
         { label: "Gross", w: 0.14, align: "right" }, { label: "Company", w: 0.1, align: "right" }, { label: "Earnings", w: 0.1, align: "right" },
       ],
       rows.map((r) => [r.title, r.format, money(r.price), String(r.copies), money(r.gross), money(r.companyShare), money(r.yourEarnings)]),
-      [{ label: totalLabel, value: `${totals.copies} copies · ${money(totals.gross)} gross · ${money(totals.earnings)} earnings` }]
+      [{ label: totalLabel, value: money(totals.earnings) }]
     );
   }
 
-  // ---- Header ----
+  // ---- Header: GCB (left) — Seal (middle) — Statement info (right) ----
   text("GCB", margin, y - 18, { font: bold, size: 20, color: PLUM });
   text("The Good Child Bookstore", margin, y - 36, { font: bold, size: 11 });
   text("Monthly Payout Statement", margin, y - 54, { font: bold, size: 15 });
-  y -= 80;
-  text(`Statement for: ${data.authorName}`, margin, y, { size: 9, color: INK_SOFT });
-  text(`Period: ${data.monthLabel}`, margin, y - 14, { size: 9, color: INK_SOFT });
-  text(`Generated: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, margin, y - 28, { size: 9, color: INK_SOFT });
-  y -= 44;
+
+  if (sealImage) {
+    const sealSize = 64;
+    const sealX = margin + pageWidth / 2 - sealSize / 2;
+    // Drawn directly with no background rectangle behind it — the
+    // seal's own PNG transparency is respected, so only the seal
+    // artwork itself shows, with the cream page color visible through
+    // the rest, not a white or colored box.
+    page.drawImage(sealImage, { x: sealX, y: y - 70, width: sealSize, height: sealSize });
+  }
+
+  const rightColX = margin + pageWidth - 190;
+  text(`Statement for: ${data.authorName}`, rightColX, y - 6, { size: 9, color: INK_SOFT });
+  text(`Period: ${data.monthLabel}`, rightColX, y - 20, { size: 9, color: INK_SOFT });
+  text(`Generated: ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, rightColX, y - 34, { size: 9, color: INK_SOFT });
+
+  y -= 90;
 
   // ---- Total payout box ----
   const boxH = 78;
@@ -199,15 +218,6 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
   }
 
   drawFormatSection("Promotion Commission", `Copies sold through your own promotional links for ${data.monthLabel}`, data.promotionRows, "TOTALS");
-
-  // ---- Company seal (stamped, exactly as uploaded) ----
-  if (sealImage) {
-    ensureSpace(120);
-    const sealSize = 90;
-    const sealX = page.getWidth() - margin - sealSize;
-    page.drawImage(sealImage, { x: sealX, y: y - sealSize, width: sealSize, height: sealSize, opacity: 0.92 });
-    y -= sealSize + 10;
-  }
 
   // ---- Footer (on every page) ----
   const allPages = doc.getPages();

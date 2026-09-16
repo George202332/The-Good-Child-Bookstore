@@ -28,14 +28,23 @@ const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 14px", borderBott
  * of this list and into the "Books on Promotion" table instead. */
 export function BrowseBooksSection({ books }: { books: BrowsableBook[] }) {
   const [sortMode, setSortMode] = useState<SortMode>("latest");
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return books;
+    return books.filter(
+      (b) => b.sn.toLowerCase().includes(q) || b.title.toLowerCase().includes(q) || b.author.toLowerCase().includes(q)
+    );
+  }, [books, search]);
 
   const sorted = useMemo(() => {
-    const copy = [...books];
+    const copy = [...filtered];
     if (sortMode === "latest") copy.sort((a, b) => (a.pubDate < b.pubDate ? 1 : -1));
     else if (sortMode === "category") copy.sort((a, b) => a.category.localeCompare(b.category));
     else copy.sort((a, b) => a.genre.localeCompare(b.genre));
     return copy;
-  }, [books, sortMode]);
+  }, [filtered, sortMode]);
 
   return (
     <div className="map-card" style={{ padding: 20 }}>
@@ -48,9 +57,18 @@ export function BrowseBooksSection({ books }: { books: BrowsableBook[] }) {
         </div>
       </div>
 
+      <input
+        type="text"
+        className="field"
+        placeholder="Search by SN / ISBN, title, or author…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ marginBottom: 14 }}
+      />
+
       {sorted.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
-          Every promotable book already has your link — check Books on Promotion below.
+          {search.trim() ? "No books match that search." : "Every promotable book already has your link — check Books on Promotion below."}
         </div>
       ) : (
         <div className="no-scrollbar" style={{ maxHeight: ROW_HEIGHT * VISIBLE_ROWS, overflowY: "auto" }}>

@@ -8,6 +8,7 @@ import { getCommissionRates, tierForReferralCount } from "@/lib/commission-setti
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { getReferredAuthorsDetail } from "@/actions/referred-authors";
 import { ColHelp } from "@/components/ColHelp";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
 const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid var(--line)" };
@@ -110,7 +111,11 @@ export default async function ReferralsPage() {
               company&apos;s revenue from their book sales, for as long as they publish with us — your current tier
               is <strong>{currentTier.name}</strong>.
             </p>
-            <code style={{ fontSize: 12.5 }}>{siteUrl}/signup/author?ref={profile.referralCode}</code>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>Referral Link:</span>
+              <code style={{ fontSize: 12.5 }}>{siteUrl}/signup/author?ref={profile.referralCode}</code>
+              <CopyLinkButton text={`${siteUrl}/signup/author?ref=${profile.referralCode}`} />
+            </div>
           </div>
         </div>
       )}
@@ -169,7 +174,7 @@ export default async function ReferralsPage() {
       </div>
 
       <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Authors you&apos;ve referred</h3>
-      <div className="map-card" style={{ padding: 20 }}>
+      <div className="map-card" style={{ padding: 20, background: "linear-gradient(135deg, #FDF1E6, #F5D3B8)", border: "1px solid #F3CBA8" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>

@@ -46,7 +46,7 @@ export default async function PerformancePage() {
           <div className="stat-value">{data.totalClicks}</div>
           <div className="stat-sub">All time</div>
         </div>
-        <div className="stat-card stat-card-promotion">
+        <div className="stat-card stat-card-conversions">
           <div className="stat-label">Conversions</div>
           <div className="stat-value">{data.totalConversions}</div>
           <div className="stat-sub">Sales referred</div>
@@ -63,8 +63,8 @@ export default async function PerformancePage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 20, marginBottom: 24, alignItems: "start" }}>
-        <div className="map-card" style={{ padding: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 20, marginBottom: 24, alignItems: "stretch" }}>
+        <div className="map-card" style={{ padding: 20, margin: 0 }}>
           <h3 style={{ fontSize: 15, marginBottom: 4 }}>Clicks per month</h3>
           <p className="field-hint" style={{ margin: "0 0 14px" }}>January through December, {new Date().getFullYear()}.</p>
           <div>
@@ -79,26 +79,40 @@ export default async function PerformancePage() {
             ))}
           </div>
         </div>
-        <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Clicks by region</h3>
-          {data.countryBreakdown.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No clicks yet.</p>
-          ) : (
-            <PieChart data={data.countryBreakdown.map((c, i) => ({ label: c.country, value: c.clicks, color: REGION_COLORS[i % REGION_COLORS.length] }))} />
-          )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, height: "100%" }}>
+          <div className="map-card" style={{ padding: 20, margin: 0, flex: 1 }}>
+            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Clicks by region</h3>
+            {data.countryBreakdown.length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No clicks yet.</p>
+            ) : (
+              <PieChart data={data.countryBreakdown.map((c, i) => ({ label: c.country, value: c.clicks, color: REGION_COLORS[i % REGION_COLORS.length] }))} />
+            )}
+          </div>
+          <div className="map-card" style={{ padding: 20, margin: 0, flex: 1 }}>
+            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Conversions by book</h3>
+            {data.linkBreakdown.filter((l) => l.conversions > 0).length === 0 ? (
+              <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No conversions yet.</p>
+            ) : (
+              <PieChart
+                data={data.linkBreakdown
+                  .filter((l) => l.conversions > 0)
+                  .map((l, i) => ({ label: l.book, value: l.conversions, color: REGION_COLORS[i % REGION_COLORS.length] }))}
+              />
+            )}
+          </div>
         </div>
       </div>
 
       <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
         <h3 style={{ fontSize: 15, marginBottom: 4 }}>Where your clicks come from</h3>
         <p className="field-hint" style={{ margin: "0 0 14px" }}>Countries highlighted below have at least one click on one of your links.</p>
-        <div style={{ height: 280 }}>
+        <div style={{ height: 280, marginLeft: -20, marginRight: -20, width: "calc(100% + 40px)" }}>
           <WorldMap highlightedCountryCodes={countryCodes} />
         </div>
       </div>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Link performance</h3>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0, overflowX: "auto", background: "linear-gradient(135deg, #FCEBEA, #F3C2BE)", border: "1px solid #EFB3AE" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>

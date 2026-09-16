@@ -108,10 +108,10 @@ export default async function AuthorAnalyticsPage() {
       </div>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>All books</h3>
-      <div className="map-card" style={{ padding: 0, marginBottom: 24 }}>
+      <div className="map-card" style={{ padding: 0, marginBottom: 24, background: "linear-gradient(135deg, #EEF4FE, #C9DBF8)", border: "1px solid #C3D6F5" }}>
         <div className="no-scrollbar" style={{ maxHeight: 520, overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead style={{ position: "sticky", top: 0, background: "var(--paper)", zIndex: 1 }}>
+            <thead style={{ position: "sticky", top: 0, background: "#DCE8FB", zIndex: 1 }}>
               <tr>
                 <th style={TABLE_HEAD_STYLE}>SN<ColHelp text="Row number." /></th>
                 <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title." /></th>
