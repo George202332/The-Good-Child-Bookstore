@@ -122,7 +122,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     y -= 16;
   }
 
-  function drawFormatSection(heading: string, sub: string, rows: PayoutStatementFormatRow[], totalLabel: string) {
+  function drawFormatSection(heading: string, sub: string, rows: PayoutStatementFormatRow[], totalLabel: string, hideCompanyColumn = false) {
     if (rows.length === 0) return;
     ensureSpace(60);
     text(heading, margin, y, { font: bold, size: 13, color: PLUM });
@@ -132,15 +132,23 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
       (acc, r) => ({ copies: acc.copies + r.copies, gross: acc.gross + r.gross, earnings: acc.earnings + r.yourEarnings }),
       { copies: 0, gross: 0, earnings: 0 }
     );
-    drawTable(
-      [
-        { label: "Title", w: 0.3 }, { label: "Format", w: 0.14 },
-        { label: "Price", w: 0.12, align: "right" }, { label: "Copies", w: 0.1, align: "right" },
-        { label: "Gross", w: 0.14, align: "right" }, { label: "Company", w: 0.1, align: "right" }, { label: "Earnings", w: 0.1, align: "right" },
-      ],
-      rows.map((r) => [r.title, r.format, money(r.price), String(r.copies), money(r.gross), money(r.companyShare), money(r.yourEarnings)]),
-      [{ label: totalLabel, value: money(totals.earnings) }]
+    const columns = hideCompanyColumn
+      ? [
+          { label: "Title", w: 0.34 }, { label: "Format", w: 0.16 },
+          { label: "Price", w: 0.14, align: "right" as const }, { label: "Copies", w: 0.12, align: "right" as const },
+          { label: "Gross", w: 0.12, align: "right" as const }, { label: "Earnings", w: 0.12, align: "right" as const },
+        ]
+      : [
+          { label: "Title", w: 0.3 }, { label: "Format", w: 0.14 },
+          { label: "Price", w: 0.12, align: "right" as const }, { label: "Copies", w: 0.1, align: "right" as const },
+          { label: "Gross", w: 0.14, align: "right" as const }, { label: "Company", w: 0.1, align: "right" as const }, { label: "Earnings", w: 0.1, align: "right" as const },
+        ];
+    const rowValues = rows.map((r) =>
+      hideCompanyColumn
+        ? [r.title, r.format, money(r.price), String(r.copies), money(r.gross), money(r.yourEarnings)]
+        : [r.title, r.format, money(r.price), String(r.copies), money(r.gross), money(r.companyShare), money(r.yourEarnings)]
     );
+    drawTable(columns, rowValues, [{ label: totalLabel, value: money(totals.earnings) }]);
   }
 
   // ---- Header: Company name (left) — Seal (middle) — Statement info (right), all aligned on one line ----
@@ -155,7 +163,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     // artwork itself shows, with the cream page color visible through
     // the rest, not a white or colored box. Vertically centered on the
     // same line as the left/right text blocks, not sitting lower.
-    page.drawImage(sealImage, { x: sealX, y: y - 8 - sealSize / 2, width: sealSize, height: sealSize });
+    page.drawImage(sealImage, { x: sealX, y: y - 8 - sealSize / 2 - 8.5, width: sealSize, height: sealSize }); // 8.5pt \u2248 3mm lower, per explicit instruction
   }
 
   const rightEdge = margin + pageWidth;
@@ -218,7 +226,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     );
   }
 
-  drawFormatSection("Promotion Commission", `Copies sold through your own promotional links for ${data.monthLabel}`, data.promotionRows, "TOTALS");
+  drawFormatSection("Promotion Commission", `Copies sold through your own promotional links for ${data.monthLabel}`, data.promotionRows, "TOTALS", true);
 
   // ---- Footer (on every page) ----
   const allPages = doc.getPages();
