@@ -288,7 +288,9 @@ export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: b
 export interface OrderSummary {
   id: string;
   totalAmount: number;
-  items: { title: string; price: number; downloadUrl: string | null; hasEbook: boolean; hasAudiobook: boolean; coverImageUrl: string | null }[];
+  printJobStatus: string | null;
+  printJobError: string | null;
+  items: { title: string; price: number; downloadUrl: string | null; hasEbook: boolean; hasAudiobook: boolean; isPrint: boolean; coverImageUrl: string | null }[];
 }
 
 /** Fetches an order for the confirmation page — used both by the demo-mode
@@ -308,17 +310,26 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary | n
     return {
       id: order.id,
       totalAmount: Number(order.totalAmount),
+      printJobStatus: order.printJobStatus,
+      printJobError: order.printJobError,
       items: order.lines.map((l: {
-        book: { title: string; hasEbook: boolean; hasAudiobook: boolean; coverImageUrl: string | null; files: { kind: string; url: string }[] };
+        book: { title: string; coverImageUrl: string | null; files: { kind: string; url: string }[] };
         grossAmount: unknown;
-      }) => ({
-        title: l.book.title,
-        price: Number(l.grossAmount),
-        downloadUrl: l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url ?? null,
-        hasEbook: l.book.hasEbook,
-        hasAudiobook: l.book.hasAudiobook,
-        coverImageUrl: l.book.coverImageUrl,
-      })),
+        format: string | null;
+      }) => {
+        const isEbook = l.format === "ebook";
+        const isAudiobook = l.format === "audiobook";
+        const isPrint = l.format === "paperback" || l.format === "hardcover";
+        return {
+          title: l.book.title,
+          price: Number(l.grossAmount),
+          downloadUrl: isEbook ? (l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url ?? null) : null,
+          hasEbook: isEbook,
+          hasAudiobook: isAudiobook,
+          isPrint,
+          coverImageUrl: l.book.coverImageUrl,
+        };
+      }),
     };
   } catch {
     return null;

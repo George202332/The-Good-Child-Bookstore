@@ -54,7 +54,7 @@ export default async function CheckoutConfirmationPage({
               )}
             </div>
             <div style={{ flex: 1 }}>
-              <div className="summary-row" style={{ marginBottom: it.downloadUrl || (it.hasEbook || it.hasAudiobook) ? 6 : 0 }}>
+              <div className="summary-row" style={{ marginBottom: it.downloadUrl || it.hasEbook || it.hasAudiobook || it.isPrint ? 6 : 0 }}>
                 <span style={{ fontWeight: 700 }}>{it.title}</span><span>${it.price.toFixed(2)}</span>
               </div>
               {it.downloadUrl && (
@@ -65,6 +65,16 @@ export default async function CheckoutConfirmationPage({
               {(it.hasEbook || it.hasAudiobook) && !it.downloadUrl && (
                 <p style={{ fontSize: 12, color: "var(--ink-faint)", margin: 0 }}>
                   Download available from your Library once the file is on record.
+                </p>
+              )}
+              {it.isPrint && order.printJobStatus === "SUBMITTED" && (
+                <p style={{ fontSize: 12, color: "#1F6B48", margin: 0, fontWeight: 600 }}>
+                  ✓ Sent to our print partner for production — this copy will ship to the address you provided.
+                </p>
+              )}
+              {it.isPrint && order.printJobStatus === "FAILED" && (
+                <p style={{ fontSize: 12, color: "var(--coral-deep)", margin: 0, fontWeight: 600 }}>
+                  We hit an issue sending this to our print partner — our team has been notified and will follow up by email.
                 </p>
               )}
             </div>

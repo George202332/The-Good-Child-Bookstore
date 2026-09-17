@@ -539,6 +539,12 @@ model Order {
   shipPhone     String?
   shipCountry   String?
   shipAddress   String?
+  // Real status of the Lulu print-job submission (see
+  // lib/payments/lulu.ts) — null if this order has no physical copies,
+  // otherwise reflects what actually happened, not an assumption.
+  printJobStatus String?
+  printJobId     String?
+  printJobError  String?
 
   @@index([readerId])
   @@index([status])

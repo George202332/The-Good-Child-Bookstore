@@ -6,12 +6,14 @@ import { DashboardShell } from "@/components/DashboardShell";
 
 interface OrderLine {
   book: { title: string };
+  format: string | null;
 }
 interface OrderWithLines {
   id: string;
   totalAmount: unknown;
   status: string;
   createdAt: Date;
+  printJobStatus: string | null;
   lines: OrderLine[];
 }
 
@@ -21,7 +23,11 @@ interface OrderWithLines {
 export default async function OrdersPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "READER") redirect("/account");
+  // Authors can purchase books too (a readerProfile is created for them
+  // automatically the first time they check out — see
+  // resolveReaderProfileId in actions/orders.ts), so they need to see
+  // their own order history here as well, not just Readers.
+  if (session.user.role !== "READER" && session.user.role !== "AUTHOR") redirect("/account");
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -34,7 +40,7 @@ export default async function OrdersPage() {
   const orders = (user?.readerProfile?.orders ?? []) as OrderWithLines[];
 
   return (
-    <DashboardShell role="READER" activeKey="orders" displayName={session.user.name ?? ""}>
+    <DashboardShell role={session.user.role} activeKey="orders" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Orders</h2>
@@ -57,6 +63,13 @@ export default async function OrdersPage() {
                 {o.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} · {o.status}
               </div>
               <div style={{ fontSize: 13 }}>{o.lines.map((l: OrderLine) => l.book.title).join(", ")}</div>
+              {o.lines.some((l) => l.format === "paperback" || l.format === "hardcover") && (
+                <div style={{ fontSize: 12, marginTop: 6, fontWeight: 600, color: o.printJobStatus === "FAILED" ? "var(--coral-deep)" : "#1F6B48" }}>
+                  {o.printJobStatus === "SUBMITTED" && "✓ Sent to our print partner for production"}
+                  {o.printJobStatus === "FAILED" && "We hit an issue sending this to our print partner — our team has been notified"}
+                  {!o.printJobStatus && "Preparing to send to our print partner"}
+                </div>
+              )}
             </div>
           ))}
         </div>

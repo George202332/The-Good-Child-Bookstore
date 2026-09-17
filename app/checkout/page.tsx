@@ -111,6 +111,7 @@ export default function CheckoutPage() {
     .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity, format: i.format }))
     .filter((l): l is { book: NonNullable<typeof l.book>; qty: number; format: typeof l.format } => !!l.book);
   const subtotal = lines.reduce((sum, l) => sum + priceFor(l.book, l.format) * l.qty, 0);
+  const hasPrintItem = lines.some((l) => l.format === "paperback" || l.format === "hardcover");
   const couponAmount = +(subtotal * data.couponDiscount).toFixed(2);
   const grandTotal = +(subtotal - couponAmount).toFixed(2);
 
@@ -314,9 +315,13 @@ export default function CheckoutPage() {
           <input className="field field-compact" id="co-phone" type="tel" required value={data.phone} onChange={(e) => setData((d) => ({ ...d, phone: e.target.value }))} />
           <label className="field-label field-label-compact" htmlFor="co-country">Country</label>
           <input className="field field-compact" id="co-country" type="text" required value={data.country} onChange={(e) => setData((d) => ({ ...d, country: e.target.value }))} />
-          <label className="field-label field-label-compact" htmlFor="co-address">Billing address</label>
+          <label className="field-label field-label-compact" htmlFor="co-address">{hasPrintItem ? "Shipping address" : "Billing address"}</label>
           <textarea className="field field-compact" id="co-address" required value={data.billingAddress} onChange={(e) => setData((d) => ({ ...d, billingAddress: e.target.value }))} />
-          <div className="field-hint">Books are delivered digitally; this address is used for billing and tax purposes only.</div>
+          <div className="field-hint">
+            {hasPrintItem
+              ? "Your print copy will be shipped to this address — please include street, city, and postal code."
+              : "Books are delivered digitally; this address is used for billing and tax purposes only."}
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 10 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(1)}>← Back to cart</button>
             <button className="btn btn-primary btn-small" type="submit">Continue</button>

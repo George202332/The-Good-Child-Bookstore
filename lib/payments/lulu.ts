@@ -178,6 +178,15 @@ export async function submitPrintJobsForOrder(orderId: string): Promise<void> {
       order.id
     );
     if (!result.ok) console.error("Lulu print job submission failed for order", order.id, result.error);
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        printJobStatus: result.ok ? "SUBMITTED" : "FAILED",
+        printJobId: result.luluJobId ?? null,
+        printJobError: result.ok ? null : (result.error ?? "Unknown error"),
+      },
+    });
   } catch (e) {
     console.error("Lulu print job submission threw for order", orderId, e);
   }

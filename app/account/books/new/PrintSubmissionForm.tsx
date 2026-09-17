@@ -18,7 +18,6 @@ const GENRES = ["Adventure", "Fantasy", "Animal Story", "Fairy Tale", "Poetry", 
 const AGE_RANGES = ["0-2 years", "3-5 years", "6-8 years", "9-12 years", "12-15 years"];
 const READING_LEVELS = ["Pre-reader", "Beginner", "Early Reader", "Independent Reader", "Fluent Reader"];
 const LANGUAGES = ["English", "Spanish", "French", "Swahili"];
-const SHIPPING_LEVELS = ["Mail (slowest, cheapest)", "Priority Mail", "Ground", "Expedited", "Express"];
 
 const PAPERBACK_BINDINGS = LULU_CONFIG.bindings.filter((b) => !b.hardcover);
 
@@ -92,15 +91,6 @@ export function PrintSubmissionForm() {
   const [paperbackRetailPrice, setPaperbackRetailPrice] = useState("0");
   const [hardcoverRetailPrice, setHardcoverRetailPrice] = useState("0");
 
-  // Section 7
-  const [contactEmail, setContactEmail] = useState("");
-  const [streetAddress, setStreetAddress] = useState("");
-  const [city, setCity] = useState("");
-  const [countryCode, setCountryCode] = useState("US");
-  const [stateRegionCode, setStateRegionCode] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [shippingLevel, setShippingLevel] = useState(SHIPPING_LEVELS[0]);
 
   // Section 8
   const [sellThroughWebsite, setSellThroughWebsite] = useState(true);
@@ -171,14 +161,6 @@ export function PrintSubmissionForm() {
         frontCoverImageUrl,
         customBackCoverPdfFileId,
         backCoverMode,
-        contactEmail,
-        streetAddress,
-        city,
-        countryCode,
-        stateRegionCode,
-        postalCode,
-        phoneNumber,
-        shippingLevel,
         sellThroughWebsite,
         luluGlobalDistribution,
         privatePrinting,
@@ -499,46 +481,9 @@ export function PrintSubmissionForm() {
         )}
       </Card>
 
-      {/* Section 7 */}
-      <Card>
-        <SectionHeader n={7} title="Shipping & contact" sub="Required by the print API to calculate shipping cost and route the job." />
-        <label className="field-label" htmlFor="p-email">Contact email</label>
-        <input className="field" id="p-email" type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
-        <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="p-street">Street address</label>
-            <input className="field" id="p-street" type="text" value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-city">City</label>
-            <input className="field" id="p-city" type="text" value={city} onChange={(e) => setCity(e.target.value)} />
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
-          <div>
-            <label className="field-label" htmlFor="p-country">Country code</label>
-            <input className="field" id="p-country" type="text" value={countryCode} onChange={(e) => setCountryCode(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-state">State/region code</label>
-            <input className="field" id="p-state" type="text" value={stateRegionCode} onChange={(e) => setStateRegionCode(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-postal">Postal code</label>
-            <input className="field" id="p-postal" type="text" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
-          </div>
-        </div>
-        <label className="field-label" htmlFor="p-phone">Phone number</label>
-        <input className="field" id="p-phone" type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
-        <label className="field-label" htmlFor="p-shiplevel">Shipping level</label>
-        <select className="field" id="p-shiplevel" value={shippingLevel} onChange={(e) => setShippingLevel(e.target.value)}>
-          {SHIPPING_LEVELS.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </Card>
-
       {/* Section 8 */}
       <Card>
-        <SectionHeader n={8} title="Distribution" sub="Where this print edition can be sold." />
+        <SectionHeader n={7} title="Distribution" sub="Where this print edition can be sold." />
         <div className="form-grid-2">
           <div>
             <div className="toggle-row">
@@ -569,7 +514,7 @@ export function PrintSubmissionForm() {
 
       {/* Section 9 */}
       <Card>
-        <SectionHeader n={9} title="Book Preview" sub="Use this preview window to see how your book will look. Carefully review the margin, bleed, and fold areas to ensure your book will print correctly." />
+        <SectionHeader n={8} title="Book Preview" sub="Use this preview window to see how your book will look. Carefully review the margin, bleed, and fold areas to ensure your book will print correctly." />
         <CoverWrapPreview
           title={title}
           subtitle={subtitle}
@@ -585,7 +530,7 @@ export function PrintSubmissionForm() {
 
       {/* Section 10 */}
       <Card>
-        <SectionHeader n={10} title="ISBN Barcode" sub="Generated automatically from the ISBN assigned to this title." />
+        <SectionHeader n={9} title="ISBN Barcode" sub="Generated automatically from the ISBN assigned to this title." />
         <Ean13Barcode isbn={isbn} />
       </Card>
 
