@@ -532,6 +532,13 @@ model Order {
   country       String?
   region        String?
   createdAt     DateTime    @default(now())
+  // Buyer-entered contact/shipping details from checkout — used for
+  // print orders (Lulu print job submission, see lib/payments/lulu.ts)
+  // and order receipts. Optional since eBook-only orders never need them.
+  shipName      String?
+  shipPhone     String?
+  shipCountry   String?
+  shipAddress   String?
 
   @@index([readerId])
   @@index([status])

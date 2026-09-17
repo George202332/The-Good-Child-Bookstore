@@ -32,6 +32,10 @@ const createPendingOrderSchema = z.object({
   couponDiscountPct: z.number().min(0).max(100).optional(),
   guestEmail: z.string().email().optional(),
   guestName: z.string().min(1).max(200).optional(),
+  shipName: z.string().max(200).optional(),
+  shipPhone: z.string().max(50).optional(),
+  shipCountry: z.string().max(100).optional(),
+  shipAddress: z.string().max(1000).optional(),
 });
 
 /**
@@ -127,6 +131,10 @@ export async function createPendingOrder(input: {
   couponDiscountPct?: number;
   guestEmail?: string;
   guestName?: string;
+  shipName?: string;
+  shipPhone?: string;
+  shipCountry?: string;
+  shipAddress?: string;
 }): Promise<CreateOrderResult> {
   const parsed = createPendingOrderSchema.safeParse(input);
   if (!parsed.success) {
@@ -149,11 +157,12 @@ export async function createPendingOrder(input: {
     return { ok: false, error: "Your cart is empty." };
   }
 
-  function priceForFormat(book: { price: unknown; ebookPrice: unknown; paperbackPrice: unknown; hardcoverPrice: unknown; audiobookPrice: unknown }, format: string): number {
+  function priceForFormat(book: { price: unknown; ebookPrice: unknown; paperbackPrice: unknown; hardcoverPrice: unknown; audiobookPrice: unknown; submissionMetadata?: unknown }, format: string): number {
+    const meta = (book.submissionMetadata as { paperbackEnabled?: boolean; hardcoverEnabled?: boolean; paperbackRetailPrice?: number; hardcoverRetailPrice?: number } | null) ?? null;
     const perFormat =
       format === "ebook" ? book.ebookPrice :
-      format === "paperback" ? book.paperbackPrice :
-      format === "hardcover" ? book.hardcoverPrice :
+      format === "paperback" ? (book.paperbackPrice ?? (meta?.paperbackEnabled ? meta.paperbackRetailPrice : null)) :
+      format === "hardcover" ? (book.hardcoverPrice ?? (meta?.hardcoverEnabled ? meta.hardcoverRetailPrice : null)) :
       book.audiobookPrice;
     return perFormat !== null && perFormat !== undefined ? Number(perFormat) : Number(book.price);
   }
@@ -211,6 +220,10 @@ export async function createPendingOrder(input: {
       totalAmount,
       country: geo.country,
       region: geo.region,
+      shipName: input.shipName?.trim() || null,
+      shipPhone: input.shipPhone?.trim() || null,
+      shipCountry: input.shipCountry?.trim() || null,
+      shipAddress: input.shipAddress?.trim() || null,
       lines: {
         create: lines.map((l) => {
           const lineGross = +(priceForFormat(l.book, l.format) * l.qty * (1 - couponPct)).toFixed(2);
@@ -259,6 +272,14 @@ export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: b
   } catch {
     // Non-critical.
   }
+
+  // Any physical copies in this order get submitted to Lulu as a real
+  // print-on-demand job — never allowed to block or undo the order
+  // confirmation itself if it fails, since the customer's payment
+  // already succeeded.
+  const { submitPrintJobsForOrder } = await import("@/lib/payments/lulu");
+  await submitPrintJobsForOrder(orderId);
+
   const { sendOrderReceiptEmail } = await import("@/actions/order-emails");
   await sendOrderReceiptEmail(orderId);
   return { ok: true };

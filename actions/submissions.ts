@@ -49,15 +49,6 @@ function slugify(s: string): string {
   );
 }
 
-export interface MarketplaceLinks {
-  amazon?: string;
-  appleBooks?: string;
-  google?: string;
-  barnesNoble?: string;
-  kobo?: string;
-  overdrive?: string;
-}
-
 /** Everything from the form that doesn't have its own Book column —
  * stored as JSON (Book.submissionMetadata). */
 export interface SubmissionMetadata {
@@ -97,7 +88,6 @@ export interface SubmissionMetadata {
   allowDiscounts: boolean;
   allowBundles: boolean;
   affiliateEnabled: boolean;
-  marketplaceLinks?: MarketplaceLinks;
   seoTitle?: string;
   seoDescription?: string;
   keywords?: string;
@@ -217,6 +207,12 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       hasEbook: input.formats.ebook,
       hasPrint: input.formats.print,
       hasAudiobook: input.formats.audiobook,
+      paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
+        ? input.metadata.paperbackRetailPrice
+        : null,
+      hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice
+        ? input.metadata.hardcoverRetailPrice
+        : null,
       submissionMetadata: JSON.parse(JSON.stringify(input.metadata)),
       files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
       categories: { create: [{ categoryId: category.id }] },

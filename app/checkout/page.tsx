@@ -142,6 +142,10 @@ export default function CheckoutPage() {
       couponDiscountPct: data.couponDiscount || undefined,
       guestEmail: data.email,
       guestName: data.fullName,
+      shipName: data.fullName,
+      shipPhone: data.phone,
+      shipCountry: data.country,
+      shipAddress: data.billingAddress,
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);
@@ -177,6 +181,10 @@ export default function CheckoutPage() {
       couponDiscountPct: data.couponDiscount || undefined,
       guestEmail: data.email,
       guestName: data.fullName,
+      shipName: data.fullName,
+      shipPhone: data.phone,
+      shipCountry: data.country,
+      shipAddress: data.billingAddress,
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);

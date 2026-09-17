@@ -18,14 +18,6 @@ const LICENSE_TYPES = ["All rights reserved", "Exclusive Distribution", "Non-Exc
 const CURRENCIES = ["USD", "EUR", "GBP"];
 const TAX_SETTINGS = ["Calculate automatically by customer location", "Tax Exempt", "Fixed Rate"];
 const FILE_FORMATS = ["EPUB", "PDF", "MOBI"];
-const MARKETPLACES: { key: "amazon" | "appleBooks" | "google" | "barnesNoble" | "kobo" | "overdrive"; label: string }[] = [
-  { key: "amazon", label: "Amazon" },
-  { key: "appleBooks", label: "Apple Books" },
-  { key: "google", label: "Google" },
-  { key: "barnesNoble", label: "Barnes and Noble" },
-  { key: "kobo", label: "Kobo" },
-  { key: "overdrive", label: "Overdrive" },
-];
 
 /**
  * Converted to match the exact reference design provided: 11 numbered
@@ -101,8 +93,6 @@ export function EbookSubmissionForm() {
   const [allowDiscounts, setAllowDiscounts] = useState(true);
   const [allowBundles, setAllowBundles] = useState(false);
   const [affiliateEnabled, setAffiliateEnabled] = useState(false);
-  const [activeMarketplace, setActiveMarketplace] = useState<typeof MARKETPLACES[number]["key"]>("amazon");
-  const [marketplaceLinks, setMarketplaceLinks] = useState<Record<string, string>>({});
 
   // Section 8
   const [worldwideRights, setWorldwideRights] = useState(true);
@@ -187,7 +177,6 @@ export function EbookSubmissionForm() {
         allowDiscounts,
         allowBundles,
         affiliateEnabled,
-        marketplaceLinks,
         seoTitle,
         seoDescription,
         keywords,
@@ -483,26 +472,6 @@ export function EbookSubmissionForm() {
             </div>
           </div>
         </div>
-        <label className="field-label" style={{ marginTop: 14 }}>Affiliate links by marketplace</label>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-          {MARKETPLACES.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              className={`btn btn-small ${activeMarketplace === m.key ? "btn-primary" : "btn-ghost"}`}
-              onClick={() => setActiveMarketplace(m.key)}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <input
-          className="field"
-          type="url"
-          placeholder={`Paste your ${MARKETPLACES.find((m) => m.key === activeMarketplace)?.label} link here`}
-          value={marketplaceLinks[activeMarketplace] ?? ""}
-          onChange={(e) => setMarketplaceLinks((m) => ({ ...m, [activeMarketplace]: e.target.value }))}
-        />
       </Card>
 
       {/* Section 8 */}

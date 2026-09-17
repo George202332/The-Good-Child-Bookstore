@@ -11,7 +11,6 @@ import { FollowAuthorButton } from "@/components/FollowAuthorButton";
 import { ReadSampleViewer } from "@/components/ReadSampleViewer";
 import { bookJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
-import { OutboundLink } from "@/components/OutboundLink";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 
@@ -81,7 +80,6 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
     : reviewStats(b, []);
   const reviews = isRealBook ? [] : reviewsForBook(b, []);
   const inWishlist = has(b.id);
-  const query = encodeURIComponent(`${b.title} ${b.author}`);
   const scrollTrack = (id: string, dir: 1 | -1) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -175,14 +173,6 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
           </div>
 
           <div className="az-desc">
-            <div className="buy-tabs">
-              <a className="buy-tab" href={`https://www.amazon.com/s?k=${query}`} target="_blank" rel="noopener">Amazon</a>
-              <a className="buy-tab" href={`https://books.apple.com/us/search?term=${query}`} target="_blank" rel="noopener">Apple Books</a>
-              <a className="buy-tab" href={`https://www.google.com/search?tbm=bks&q=${query}`} target="_blank" rel="noopener">Google</a>
-              <a className="buy-tab" href={`https://www.barnesandnoble.com/s/${query}`} target="_blank" rel="noopener">Barnes and Noble</a>
-              <a className="buy-tab" href={`https://www.kobo.com/search?query=${query}`} target="_blank" rel="noopener">Kobo</a>
-              <a className="buy-tab" href={`https://www.overdrive.com/search?q=${query}`} target="_blank" rel="noopener">Overdrive</a>
-            </div>
             <p className="az-quote">&quot;A gentle, richly illustrated story built for read-aloud evenings.&quot;</p>
             <p className="az-lede">A quietly beloved pick from The Good Child Bookstore shelf team.</p>
             <p>{b.blurb}</p>
@@ -378,18 +368,6 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
             </div>
           </div>
         </div>
-        {b.marketplaceLinks && Object.keys(b.marketplaceLinks).length > 0 && (
-          <div style={{ margin: "24px 0" }}>
-            <h3 style={{ fontSize: 15, marginBottom: 10 }}>Also available on</h3>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {Object.entries(b.marketplaceLinks).map(([marketplace, url]) => (
-                <OutboundLink key={marketplace} href={url} className="btn btn-ghost btn-small">
-                  {marketplace.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())}
-                </OutboundLink>
-              ))}
-            </div>
-          </div>
-        )}
         <LiveReviewSection bookId={b.id} />
       </div>
     </div>

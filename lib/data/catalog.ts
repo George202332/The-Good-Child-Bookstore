@@ -150,7 +150,6 @@ export interface Book {
   /** External marketplace links (Amazon, Apple Books, etc.) collected
    * during a real print submission — undefined for the static demo
    * catalog and for ebook-only real submissions. */
-  marketplaceLinks?: Record<string, string>;
 }
 
 function buildBooks(): Book[] {

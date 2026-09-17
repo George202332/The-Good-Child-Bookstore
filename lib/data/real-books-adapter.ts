@@ -73,7 +73,9 @@ function toCatalogBook(row: RealBookRow): Book {
   const seed = hashStr(row.id);
   const price = Number(row.price);
   const avgRating = row.ratings.length > 0 ? row.ratings.reduce((s, r) => s + r.stars, 0) / row.ratings.length : 0;
-  const meta = (row.submissionMetadata as { affiliateEnabled?: boolean; includeInPromotions?: boolean; marketplaceLinks?: Record<string, string> } | null) ?? null;
+  const meta = (row.submissionMetadata as { affiliateEnabled?: boolean; includeInPromotions?: boolean; paperbackEnabled?: boolean; hardcoverEnabled?: boolean; paperbackRetailPrice?: number; hardcoverRetailPrice?: number } | null) ?? null;
+  const paperbackPrice = row.paperbackPrice != null ? Number(row.paperbackPrice) : (meta?.paperbackEnabled && meta.paperbackRetailPrice ? meta.paperbackRetailPrice : null);
+  const hardcoverPrice = row.hardcoverPrice != null ? Number(row.hardcoverPrice) : (meta?.hardcoverEnabled && meta.hardcoverRetailPrice ? meta.hardcoverRetailPrice : null);
 
   return {
     id: row.id,
@@ -88,14 +90,14 @@ function toCatalogBook(row: RealBookRow): Book {
     price,
     formats: {
       ebook: row.ebookPrice ? Number(row.ebookPrice) : price,
-      print: row.hardcoverPrice ? Number(row.hardcoverPrice) : price,
-      paperback: row.paperbackPrice ? Number(row.paperbackPrice) : price,
+      print: hardcoverPrice ?? price,
+      paperback: paperbackPrice ?? price,
       audiobook: row.audiobookPrice ? Number(row.audiobookPrice) : price,
     },
     formatAvailable: {
       ebook: row.hasEbook,
-      paperback: row.hasPrint && row.paperbackPrice != null,
-      hardcover: row.hasPrint && row.hardcoverPrice != null,
+      paperback: row.hasPrint && paperbackPrice != null,
+      hardcover: row.hasPrint && hardcoverPrice != null,
       audiobook: row.hasAudiobook,
     },
     manuscriptUrl: row.files.find((f) => f.kind === "MANUSCRIPT")?.url,
@@ -111,7 +113,6 @@ function toCatalogBook(row: RealBookRow): Book {
     affiliateEnabled: meta?.affiliateEnabled ?? false,
     coverImage: row.coverImageUrl ?? undefined,
     coverAltText: row.coverAltText ?? undefined,
-    marketplaceLinks: meta?.marketplaceLinks && Object.keys(meta.marketplaceLinks).length > 0 ? meta.marketplaceLinks : undefined,
   };
 }
 
