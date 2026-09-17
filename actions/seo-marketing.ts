@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canModerateContent } from "@/lib/roles";
+import { getPublicSiteUrl } from "@/lib/seo/site-url";
 
 /**
  * SEO & Marketing admin dashboard data — wires up two models that
@@ -151,4 +152,83 @@ export async function deleteRedirect(id: string): Promise<{ ok: boolean; error?:
   await prisma.redirect.delete({ where: { id } });
   revalidatePath("/admin/seo-marketing");
   return { ok: true };
+}
+
+export interface IndexingRow {
+  url: string;
+  type: "Book" | "Blog post" | "Author profile" | "Static page";
+  title: string;
+  status: "SUBMITTED" | "FAILED" | "NOT_YET_SUBMITTED";
+  lastSubmittedAt: Date | null;
+}
+
+/**
+ * A real indexing report — every book, blog post, author profile, and
+ * static page currently eligible for indexing (the same set the
+ * sitemaps expose), cross-referenced against the actual IndexNow
+ * submission log (see lib/indexnow.ts) to show real status.
+ *
+ * One honest limit worth being direct about: "submitted successfully"
+ * here means IndexNow's own API accepted the ping — it is not the same
+ * as Google or Bing confirming they actually crawled and indexed the
+ * page. That confirmation only exists inside Google Search Console and
+ * Bing Webmaster Tools themselves, which requires verified site
+ * ownership and OAuth access this app doesn't have configured. This
+ * report shows the most complete, honest picture available without
+ * that: what's eligible for indexing, and what was actually submitted.
+ */
+export async function getIndexingReport(): Promise<IndexingRow[]> {
+  const session = await auth();
+  if (!session?.user?.role || !canModerateContent(session.user.role)) return [];
+
+  try {
+    const siteUrl = getPublicSiteUrl();
+    const [books, blogs, authors, submissions] = await Promise.all([
+      prisma.book.findMany({ where: { status: "PUBLISHED" }, select: { id: true, title: true } }),
+      prisma.blog.findMany({ where: { status: "PUBLISHED" }, select: { slug: true, title: true } }),
+      prisma.authorProfile.findMany({
+        where: { books: { some: { status: "PUBLISHED" } } },
+        select: { id: true, user: { select: { name: true } } },
+      }),
+      prisma.indexNowSubmission.findMany({ orderBy: { createdAt: "desc" } }),
+    ]);
+
+    const STATIC_PAGES = ["/", "/shop", "/blog", "/authors", "/affiliate", "/about", "/contact", "/faq"];
+
+    const latestByUrl = new Map<string, { ok: boolean; createdAt: Date }>();
+    for (const s of submissions) {
+      if (!latestByUrl.has(s.url)) latestByUrl.set(s.url, { ok: s.ok, createdAt: s.createdAt });
+    }
+
+    function statusFor(url: string): { status: IndexingRow["status"]; lastSubmittedAt: Date | null } {
+      const match = latestByUrl.get(url);
+      if (!match) return { status: "NOT_YET_SUBMITTED", lastSubmittedAt: null };
+      return { status: match.ok ? "SUBMITTED" : "FAILED", lastSubmittedAt: match.createdAt };
+    }
+
+    const rows: IndexingRow[] = [];
+    for (const b of books) {
+      const url = `${siteUrl}/book/${b.id}`;
+      rows.push({ url, type: "Book", title: b.title, ...statusFor(url) });
+    }
+    for (const b of blogs) {
+      const url = `${siteUrl}/blog/${b.slug}`;
+      rows.push({ url, type: "Blog post", title: b.title, ...statusFor(url) });
+    }
+    for (const a of authors) {
+      const url = `${siteUrl}/authors/profile/${a.id}`;
+      rows.push({ url, type: "Author profile", title: a.user.name, ...statusFor(url) });
+    }
+    for (const path of STATIC_PAGES) {
+      const url = `${siteUrl}${path}`;
+      rows.push({ url, type: "Static page", title: path === "/" ? "Home" : path, ...statusFor(url) });
+    }
+
+    return rows.sort((a, b) => {
+      if (a.status !== b.status) return a.status === "NOT_YET_SUBMITTED" ? 1 : -1;
+      return (b.lastSubmittedAt?.getTime() ?? 0) - (a.lastSubmittedAt?.getTime() ?? 0);
+    });
+  } catch {
+    return [];
+  }
 }

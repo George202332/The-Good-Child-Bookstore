@@ -163,7 +163,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     // artwork itself shows, with the cream page color visible through
     // the rest, not a white or colored box. Vertically centered on the
     // same line as the left/right text blocks, not sitting lower.
-    page.drawImage(sealImage, { x: sealX, y: y - 8 - sealSize / 2 - 8.5, width: sealSize, height: sealSize }); // 8.5pt \u2248 3mm lower, per explicit instruction
+    page.drawImage(sealImage, { x: sealX, y: y - 8 - sealSize / 2 - 8.5 - 14.17, width: sealSize, height: sealSize }); // total ~8mm lower than the original position (3mm + 5mm, per two rounds of explicit instruction)
   }
 
   const rightEdge = margin + pageWidth;

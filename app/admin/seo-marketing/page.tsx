@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { AdminShell } from "@/components/AdminShell";
 import { getSeoOverview, listSeoEntries, listIndexNowLog, listRedirects } from "@/actions/seo-marketing";
@@ -69,7 +70,7 @@ export default async function SeoMarketingPage() {
       </div>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Generated feeds</h3>
-      <div className="map-card" style={{ padding: "6px 16px", marginBottom: 24 }}>
+      <div className="map-card" style={{ padding: "6px 16px", marginBottom: 12 }}>
         {feeds.map((f) => (
           <div key={f.href} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
             <span>{f.label}</span>
@@ -77,6 +78,9 @@ export default async function SeoMarketingPage() {
           </div>
         ))}
       </div>
+      <Link href="/admin/seo-marketing/indexing" className="btn btn-ghost btn-small" style={{ display: "inline-block", marginBottom: 24 }}>
+        View indexing report →
+      </Link>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Instant indexing (IndexNow)</h3>
       <IndexNowPanel log={indexNowLog} keyFileUrl={`${siteUrl}/indexnow-key.txt`} />
