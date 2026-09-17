@@ -3,6 +3,8 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { AdminShell } from "@/components/AdminShell";
 import { getBookStats, listBooksForModeration } from "@/actions/book-management";
+import { getSiteSettings } from "@/actions/site-settings";
+import { PublishingFormatToggles } from "./PublishingFormatToggles";
 
 const STATUS_TABS: { key: "ALL" | "PUBLISHED" | "PENDING_REVIEW" | "DRAFT" | "REJECTED"; label: string }[] = [
   { key: "ALL", label: "All" },
@@ -32,7 +34,7 @@ export default async function BookManagementPage({
   const { status: statusParam } = await searchParams;
   const activeStatus = (STATUS_TABS.find((t) => t.key === statusParam)?.key ?? "ALL");
 
-  const [stats, books] = await Promise.all([getBookStats(), listBooksForModeration(activeStatus)]);
+  const [stats, books, siteSettings] = await Promise.all([getBookStats(), listBooksForModeration(activeStatus), getSiteSettings()]);
 
   return (
     <AdminShell role={role} activeKey="books" displayName={session.user.name ?? ""}>
@@ -42,6 +44,8 @@ export default async function BookManagementPage({
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Every book on the platform, at every stage.</p>
         </div>
       </div>
+
+      {role === "ADMIN" && <PublishingFormatToggles initial={siteSettings.publishingFormatsEnabled} />}
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card">

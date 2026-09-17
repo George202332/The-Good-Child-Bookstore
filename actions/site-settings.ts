@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { DEFAULT_SITE_SETTINGS, type SiteSettings, type ApiKeys } from "@/lib/site-settings";
+import { DEFAULT_SITE_SETTINGS, type SiteSettings, type ApiKeys, type PublishingFormatsEnabled } from "@/lib/site-settings";
 
 /**
  * Site-wide branding/footer/API-credentials control. Built on the same
@@ -30,6 +30,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
         ...stored,
         paymentBadges: { ...DEFAULT_SITE_SETTINGS.paymentBadges, ...(stored.paymentBadges ?? {}) },
         apiKeys: { ...DEFAULT_SITE_SETTINGS.apiKeys, ...(stored.apiKeys ?? {}) },
+        publishingFormatsEnabled: { ...DEFAULT_SITE_SETTINGS.publishingFormatsEnabled, ...(stored.publishingFormatsEnabled ?? {}) },
       };
     }
   } catch {
@@ -112,6 +113,27 @@ export async function testPaystackConnection(): Promise<{ ok: boolean; message: 
     return { ok: false, message: `Paystack responded with an unexpected status (${res.status}). The key format may be valid, but something else is wrong — check Paystack's own dashboard for account issues.` };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? `Could not reach Paystack: ${e.message}` : "Could not reach Paystack." };
+  }
+}
+
+export async function updatePublishingFormats(formats: PublishingFormatsEnabled): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") {
+    return { ok: false, error: "Only Admins can control which formats are open for submission." };
+  }
+  try {
+    const existing = await getSiteSettings();
+    const value = JSON.parse(JSON.stringify({ ...existing, publishingFormatsEnabled: formats }));
+    await prisma.setting.upsert({
+      where: { key: SITE_SETTINGS_KEY },
+      update: { value },
+      create: { key: SITE_SETTINGS_KEY, value },
+    });
+    revalidatePath("/admin/books");
+    revalidatePath("/account/books/new");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save — please try again." };
   }
 }
 

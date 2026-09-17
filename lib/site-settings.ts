@@ -46,12 +46,23 @@ export interface ApiKeys {
   payoneerClientSecret?: string;
 }
 
+export interface PublishingFormatsEnabled {
+  ebook: boolean;
+  print: boolean;
+  audiobook: boolean;
+}
+
 export interface SiteSettings {
   logoImageUrl?: string;
   faviconImageUrl?: string;
   footerTagline: string;
   footerCopyright: string;
   paymentBadges: PaymentBadgeUrls;
+  /** Which formats authors can currently submit new titles in — Admin
+   * controls this from Book Management. A format switched off here
+   * disappears entirely from the "Submit a new title" page's tabs;
+   * it does not affect books already submitted in that format. */
+  publishingFormatsEnabled: PublishingFormatsEnabled;
   apiKeys: ApiKeys;
 }
 
@@ -70,5 +81,6 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     "Storybooks chosen for the way they read aloud, the questions they raise at bedtime, and the shelf-worthy art on every cover. Trusted by parents, teachers, and school librarians.",
   footerCopyright: "© 2026 The Good Child Bookstore. Every cover here is invented for storytime.",
   paymentBadges: {},
+  publishingFormatsEnabled: { ebook: true, print: false, audiobook: true },
   apiKeys: { paymentMode: "test", wiseEnabled: true, payoneerEnabled: false },
 };

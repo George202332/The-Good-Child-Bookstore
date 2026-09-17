@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
+import { getSiteSettings } from "@/actions/site-settings";
 import { NewBookFormTabs } from "./NewBookFormTabs";
 
 // File uploads on this page (manuscript, print-ready PDF, cover images)
@@ -26,6 +27,8 @@ export default async function NewBookPage() {
   if (!session?.user) redirect("/login");
   if (session.user.role !== "AUTHOR") redirect("/account");
 
+  const settings = await getSiteSettings();
+
   return (
     <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
@@ -36,7 +39,7 @@ export default async function NewBookPage() {
           </p>
         </div>
       </div>
-      <NewBookFormTabs />
+      <NewBookFormTabs enabledFormats={settings.publishingFormatsEnabled} />
     </DashboardShell>
   );
 }
