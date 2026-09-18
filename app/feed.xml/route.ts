@@ -38,9 +38,9 @@ export async function GET() {
       pubDate: p.publishAt ?? p.createdAt,
       author: (p.authorFirstName || p.authorLastName) ? `${p.authorFirstName ?? ""} ${p.authorLastName ?? ""}`.trim() : p.author.name,
     })),
-    ...books.map((b: { title: string; id: string; description: string | null; createdAt: Date; author: { user: { name: string } } }) => ({
+    ...books.map((b: { title: string; id: string; slug: string; description: string | null; createdAt: Date; author: { user: { name: string } } }) => ({
       title: `New book: ${b.title}`,
-      link: `${siteUrl}/book/${b.id}`,
+      link: `${siteUrl}/${b.slug}`,
       description: b.description ?? "",
       pubDate: b.createdAt,
       author: b.author.user.name,

@@ -184,7 +184,7 @@ export async function getIndexingReport(): Promise<IndexingRow[]> {
   try {
     const siteUrl = getPublicSiteUrl();
     const [books, blogs, authors, submissions] = await Promise.all([
-      prisma.book.findMany({ where: { status: "PUBLISHED" }, select: { id: true, title: true } }),
+      prisma.book.findMany({ where: { status: "PUBLISHED" }, select: { id: true, title: true, slug: true } }),
       prisma.blog.findMany({ where: { status: "PUBLISHED" }, select: { slug: true, title: true } }),
       prisma.authorProfile.findMany({
         where: { books: { some: { status: "PUBLISHED" } } },
@@ -208,7 +208,7 @@ export async function getIndexingReport(): Promise<IndexingRow[]> {
 
     const rows: IndexingRow[] = [];
     for (const b of books) {
-      const url = `${siteUrl}/book/${b.id}`;
+      const url = `${siteUrl}/${b.slug}`;
       rows.push({ url, type: "Book", title: b.title, ...statusFor(url) });
     }
     for (const b of blogs) {

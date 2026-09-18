@@ -110,6 +110,11 @@ export const PUB_MONTHS = [
 export interface Book {
   id: string;
   title: string;
+  /** URL slug for this book's page (/[slug], not /book/[id]) — real
+   * books have a real, stored slug; demo books get one computed from
+   * the title (see bookSlug() below) since the static catalog never
+   * had this field. */
+  slug?: string;
   author: string;
   /** Links to the public author profile page (/authors/profile/[id]) —
    * only set for real, submitted books; the static demo catalog has no
@@ -252,4 +257,14 @@ export function getCatalogFallbackAuthors(): CatalogAuthor[] {
       sampleBook: a.sampleBook,
     }))
     .sort((x, y) => y.avgRating - x.avgRating || y.bookCount - x.bookCount || y.totalReviews - x.totalReviews);
+}
+
+/** The URL slug for a book's page — its real, stored slug if it has
+ * one (real submitted books), otherwise one computed from the title
+ * (the static demo catalog never had this field). Use this everywhere
+ * a book URL is built, instead of the id, so every book link is
+ * "/{slug}" rather than "/book/{id}". */
+export function bookSlug(book: { id: string; title: string; slug?: string }): string {
+  if (book.slug) return book.slug;
+  return book.title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || book.id;
 }

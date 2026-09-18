@@ -49,6 +49,7 @@ interface RealBookRow {
   isbn: string | null;
   price: unknown;
   coverImageUrl: string | null;
+  slug: string;
   coverAltText: string | null;
   files: { kind: string; url: string }[];
   ageGroup: string | null;
@@ -79,6 +80,7 @@ function toCatalogBook(row: RealBookRow): Book {
 
   return {
     id: row.id,
+    slug: row.slug,
     title: row.title,
     author: row.author.user.name,
     authorId: row.authorId,
@@ -175,6 +177,26 @@ export async function getRealPublishedBookById(id: string): Promise<Book | null>
   try {
     const row = await prisma.book.findUnique({
       where: { id },
+      include: {
+        author: { include: { user: true } },
+        categories: { include: { category: true } },
+        genres: { include: { genre: true } },
+        files: true,
+        reviews: true,
+        ratings: true,
+      },
+    });
+    if (!row || row.status !== "PUBLISHED") return null;
+    return toCatalogBook(row as RealBookRow);
+  } catch {
+    return null;
+  }
+}
+
+export async function getRealPublishedBookBySlug(slug: string): Promise<Book | null> {
+  try {
+    const row = await prisma.book.findUnique({
+      where: { slug },
       include: {
         author: { include: { user: true } },
         categories: { include: { category: true } },

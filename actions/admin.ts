@@ -48,7 +48,7 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
       include: { author: { include: { user: true } } },
     });
     await createNotification(book.author.user.id, `"${book.title}" is now published`, `"${book.title}" is now published on the shelf.`, "BOOK_PUBLISHED");
-    submitUrlToIndexNow(`${getPublicSiteUrl()}/book/${book.id}`).catch(() => {});
+    submitUrlToIndexNow(`${getPublicSiteUrl()}/${book.slug}`).catch(() => {});
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);
     return { ok: true };

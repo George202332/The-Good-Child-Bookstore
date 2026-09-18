@@ -9,17 +9,27 @@ export function KeywordsField({
   keywords,
   onChange,
   descriptionHtml,
+  title,
 }: {
   keywords: string[];
   onChange: (next: string[]) => void;
   descriptionHtml: string;
+  title: string;
 }) {
   const [autoGenerate, setAutoGenerate] = useState(false);
   const [draft, setDraft] = useState("");
 
+  const [draftError, setDraftError] = useState<string | null>(null);
+
   function commitDraft() {
     const value = draft.trim();
     if (!value || keywords.length >= MAX_KEYWORDS || keywords.includes(value)) return;
+    const wordCount = value.split(/\s+/).filter(Boolean).length;
+    if (wordCount < 2 || wordCount > 5) {
+      setDraftError("Each keyword should be 2 to 5 words.");
+      return;
+    }
+    setDraftError(null);
     onChange([...keywords, value]);
     setDraft("");
   }
@@ -31,14 +41,14 @@ export function KeywordsField({
   function handleAutoToggle(checked: boolean) {
     setAutoGenerate(checked);
     if (checked && keywords.length === 0) {
-      onChange(extractSuggestedKeywords(descriptionHtml, MAX_KEYWORDS));
+      onChange(extractSuggestedKeywords(descriptionHtml, title, MAX_KEYWORDS));
     }
   }
 
   return (
     <div>
       <label className="field-label">Keywords</label>
-      <p className="field-hint" style={{ margin: "0 0 8px" }}>Up to 7, used to help readers and search find this book.</p>
+      <p className="field-hint" style={{ margin: "0 0 8px" }}>Up to 7 phrases, each 2 to 5 words, used to help readers and search find this book.</p>
       <div className="toggle-row" style={{ marginBottom: 10 }}>
         <label className="toggle-switch"><input type="checkbox" checked={autoGenerate} onChange={(e) => handleAutoToggle(e.target.checked)} /><span className="toggle-slider" /></label>
         <span>Auto-generate from the book description (you can still edit these)</span>
@@ -77,7 +87,7 @@ export function KeywordsField({
           type="text"
           placeholder={`Type a keyword and press Enter (${keywords.length}/${MAX_KEYWORDS})`}
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => { setDraft(e.target.value); setDraftError(null); }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === ",") {
               e.preventDefault();
@@ -87,6 +97,7 @@ export function KeywordsField({
           onBlur={commitDraft}
         />
       )}
+      {draftError && <p style={{ fontSize: 12, color: "var(--coral-deep)", margin: "6px 0 0" }}>{draftError}</p>}
     </div>
   );
 }

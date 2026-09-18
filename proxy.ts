@@ -72,7 +72,7 @@ export default auth(async (req) => {
   const response = NextResponse.next();
 
   const affCode = searchParams.get("aff");
-  if (pathname.startsWith("/book/") && affCode) {
+  if (affCode) {
     response.cookies.set("gcb_aff", affCode, {
       maxAge: 60 * 60 * 24 * 30,
       path: "/",
@@ -95,5 +95,5 @@ export default auth(async (req) => {
 });
 
 export const config = {
-  matcher: ["/admin/:path*", "/editor/:path*", "/account/:path*", "/book/:path*", "/blog/:path*", "/signup/author"],
+  matcher: ["/admin/:path*", "/editor/:path*", "/account/:path*", "/book/:path*", "/blog/:path*", "/signup/author", "/:slug"],
 };

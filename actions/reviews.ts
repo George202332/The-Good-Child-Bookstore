@@ -62,7 +62,9 @@ export async function submitReview(input: { bookId: string; content: string; sta
     data: { bookId: input.bookId, userId: session.user.id, content: input.content.trim() },
   });
 
+  const reviewedBook = await prisma.book.findUnique({ where: { id: input.bookId }, select: { slug: true } });
   revalidatePath(`/book/${input.bookId}`);
+  if (reviewedBook?.slug) revalidatePath(`/${reviewedBook.slug}`);
   revalidatePath("/account/reviews");
   return { ok: true };
 }
@@ -70,6 +72,7 @@ export async function submitReview(input: { bookId: string; content: string; sta
 export interface MyReview {
   id: string;
   bookId: string;
+  bookSlug: string;
   bookTitle: string;
   content: string;
   stars: number;
@@ -88,9 +91,10 @@ export async function getMyReviews(): Promise<MyReview[]> {
     const ratings = await prisma.rating.findMany({ where: { userId: session.user.id } });
     const ratingByBook = new Map(ratings.map((r: { bookId: string; stars: number }) => [r.bookId, r.stars]));
 
-    return reviews.map((r: { id: string; bookId: string; content: string; createdAt: Date; book: { title: string } }) => ({
+    return reviews.map((r: { id: string; bookId: string; content: string; createdAt: Date; book: { title: string; slug: string } }) => ({
       id: r.id,
       bookId: r.bookId,
+      bookSlug: r.book.slug,
       bookTitle: r.book.title,
       content: r.content,
       stars: ratingByBook.get(r.bookId) ?? 5,

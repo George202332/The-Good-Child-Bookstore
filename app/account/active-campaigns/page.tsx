@@ -4,7 +4,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { listMyAffiliateLinks } from "@/actions/affiliate";
 import { getRealPublishedBooks } from "@/lib/data/real-books-adapter";
-import { BOOKS } from "@/lib/data/catalog";
+import { BOOKS, bookSlug } from "@/lib/data/catalog";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { CopyLinkButton } from "./CopyLinkButton";
 import { BrowseBooksSection } from "./BrowseBooksSection";
@@ -35,7 +35,7 @@ export default async function ActiveCampaignsPage() {
   const allBooks = [...realBooks, ...BOOKS];
   const browsable = allBooks
     .filter((b) => b.affiliateEnabled && !promotedBookIds.has(b.id))
-    .map((b) => ({ id: b.id, sn: b.isbn, title: b.title, author: b.author, price: b.price, category: b.category, genre: b.genre, pubDate: b.pubDate }));
+    .map((b) => ({ id: b.id, slug: bookSlug(b), sn: b.isbn, title: b.title, author: b.author, price: b.price, category: b.category, genre: b.genre, pubDate: b.pubDate }));
 
   return (
     <DashboardShell role={role} activeKey="active-campaigns" displayName={session.user.name ?? ""}>
@@ -97,7 +97,8 @@ export default async function ActiveCampaignsPage() {
               </thead>
               <tbody>
                 {links.map((l) => {
-                  const url = `${siteUrl}/book/${l.bookId}?aff=${l.code}`;
+                  const matchedBook = realBooks.find((b) => b.id === l.bookId);
+                  const url = `${siteUrl}/${matchedBook ? bookSlug(matchedBook) : l.bookId}?aff=${l.code}`;
                   return (
                     <tr key={l.id}>
                       <td style={TABLE_CELL_STYLE}>

@@ -4,14 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getOrCreateAffiliateLink } from "@/actions/affiliate";
 
-export function GetLinkButton({ bookId, existingCode }: { bookId: string; existingCode?: string }) {
+export function GetLinkButton({ bookId, bookSlug, existingCode }: { bookId: string; bookSlug: string; existingCode?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [code, setCode] = useState<string | null>(existingCode ?? null);
   const [error, setError] = useState<string | null>(null);
 
   if (code) {
-    const url = typeof window !== "undefined" ? `${window.location.origin}/book/${bookId}?aff=${code}` : `/book/${bookId}?aff=${code}`;
+    const url = typeof window !== "undefined" ? `${window.location.origin}/${bookSlug}?aff=${code}` : `/${bookSlug}?aff=${code}`;
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <code style={{ fontSize: 11.5 }}>{url}</code>

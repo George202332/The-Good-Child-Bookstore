@@ -71,7 +71,6 @@ export function EbookSubmissionForm() {
   // Author information
   const [authorFirstName, setAuthorFirstName] = useState("");
   const [authorLastName, setAuthorLastName] = useState("");
-  const [translator, setTranslator] = useState("");
   const [authorBio, setAuthorBio] = useState("");
 
   // Book classification
@@ -155,7 +154,6 @@ export function EbookSubmissionForm() {
         publicationDate,
         originalPublicationDate,
         copyrightYear: copyrightYear ? Number(copyrightYear) : undefined,
-        translator,
         authorBio,
         readingLevel,
         longDescriptionHtml: descriptionHtml,
@@ -290,8 +288,6 @@ export function EbookSubmissionForm() {
       <Card>
         <SectionHeader n={3} title="Author information" sub="Who's credited on this title." />
         <AuthorAliasField firstName={authorFirstName} lastName={authorLastName} onChange={(f, l) => { setAuthorFirstName(f); setAuthorLastName(l); }} />
-        <label className="field-label" htmlFor="f-translator" style={{ marginTop: 14 }}>Translator</label>
-        <input className="field" id="f-translator" type="text" placeholder="If this edition is translated" value={translator} onChange={(e) => setTranslator(e.target.value)} />
         <label className="field-label" htmlFor="f-authorbio">Author bio</label>
         <textarea className="field" id="f-authorbio" rows={3} placeholder="A couple of sentences about you, for your author page" value={authorBio} onChange={(e) => setAuthorBio(e.target.value)} />
       </Card>
@@ -333,9 +329,9 @@ export function EbookSubmissionForm() {
       <Card>
         <SectionHeader n={5} title="Book description" sub="The copy readers, teachers, and our editorial team will see." />
         <label className="field-label">Description</label>
-        <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={400} minHeight={312} />
+        <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={400} minHeight={250} />
         <div style={{ marginTop: 18 }}>
-          <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} />
+          <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} title={title} />
         </div>
       </Card>
 
@@ -458,11 +454,30 @@ export function EbookSubmissionForm() {
             <p className="field-hint" style={{ margin: "0 0 10px" }}>
               Page by page, the same viewer our editors use during review. Your cover is attached to the
               manuscript itself, so it appears as the very first page here and in the final downloaded file.
-              On purchase, readers can download this title as a PDF; EPUB and MOBI downloads are on the way as a
-              separate, upcoming feature.
             </p>
-            <div style={{ height: 520, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
-              <ManuscriptReviewViewer url={`/api/files/${manuscriptFileId}`} title={title || "Manuscript preview"} />
+            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, alignItems: "start" }}>
+              <div style={{ height: 560, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+                <ManuscriptReviewViewer url={`/api/files/${manuscriptFileId}`} title={title || "Manuscript preview"} />
+              </div>
+              <div>
+                <div style={{ background: "#1B1B3A", color: "#fff", borderRadius: "10px 10px 0 0", padding: "12px 16px", textAlign: "center", fontWeight: 700, fontSize: 14 }}>
+                  Download Your Book Preview
+                </div>
+                <div style={{ border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div className="map-card" style={{ padding: 12, textAlign: "center" }}>
+                    <button type="button" className="btn btn-primary btn-small" style={{ width: "100%", marginBottom: 6 }} disabled>DOWNLOAD MOBI</button>
+                    <p className="field-hint" style={{ margin: 0 }}>Coming soon — a separate, upcoming feature.</p>
+                  </div>
+                  <div className="map-card" style={{ padding: 12, textAlign: "center" }}>
+                    <button type="button" className="btn btn-primary btn-small" style={{ width: "100%", marginBottom: 6 }} disabled>DOWNLOAD EPUB</button>
+                    <p className="field-hint" style={{ margin: 0 }}>Coming soon — a separate, upcoming feature.</p>
+                  </div>
+                  <div className="map-card" style={{ padding: 12, textAlign: "center" }}>
+                    <a href={`/api/files/${manuscriptFileId}`} target="_blank" rel="noreferrer" className="btn btn-primary btn-small" style={{ width: "100%", marginBottom: 6, display: "block" }}>DOWNLOAD PDF</a>
+                    <p className="field-hint" style={{ margin: 0 }}>Available now — what readers get on purchase, cover included.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         ) : (

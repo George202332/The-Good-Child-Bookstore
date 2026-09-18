@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { BOOKS } from "@/lib/data/catalog";
+import { BOOKS, bookSlug } from "@/lib/data/catalog";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { buildUrlsetXml, XML_HEADERS, type SitemapUrlEntry } from "@/lib/seo/xml-helpers";
 
@@ -16,10 +16,10 @@ export async function GET() {
   let entries: SitemapUrlEntry[] = [];
 
   try {
-    const books = await prisma.book.findMany({ where: { status: "PUBLISHED" }, select: { id: true, updatedAt: true } });
+    const books = await prisma.book.findMany({ where: { status: "PUBLISHED" }, select: { id: true, slug: true, updatedAt: true } });
     if (Array.isArray(books) && books.length > 0) {
-      entries = books.map((b: { id: string; updatedAt: Date }) => ({
-        loc: `${siteUrl}/book/${b.id}`,
+      entries = books.map((b: { id: string; slug: string; updatedAt: Date }) => ({
+        loc: `${siteUrl}/${b.slug}`,
         lastmod: b.updatedAt.toISOString(),
         changefreq: "weekly",
         priority: 0.6,
@@ -30,7 +30,7 @@ export async function GET() {
   }
 
   if (entries.length === 0) {
-    entries = BOOKS.map((b) => ({ loc: `${siteUrl}/book/${b.id}`, changefreq: "weekly", priority: 0.6 }));
+    entries = BOOKS.map((b) => ({ loc: `${siteUrl}/${bookSlug(b)}`, changefreq: "weekly", priority: 0.6 }));
   }
 
   return new NextResponse(buildUrlsetXml(entries), { headers: XML_HEADERS });

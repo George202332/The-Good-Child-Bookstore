@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CATS, type Book } from "@/lib/data/catalog";
+import { CATS, bookSlug, type Book } from "@/lib/data/catalog";
 import { hashStr } from "@/lib/hash";
 
 function catName(id: string): string {
@@ -30,7 +30,7 @@ export function BookCard({ book }: { book: Book }) {
   return (
     <div className="book-card fade-in-section visible">
       {discount && <span className="discount-badge">-{discount.pct}%</span>}
-      <Link href={`/book/${book.id}`}>
+      <Link href={`/${bookSlug(book)}`}>
         <div className="cover">
           {book.coverImage && (
             // eslint-disable-next-line @next/next/no-img-element -- demo/user-uploaded covers, not static assets
@@ -39,7 +39,7 @@ export function BookCard({ book }: { book: Book }) {
         </div>
       </Link>
       <div className="cat-tag">{catName(book.category)}</div>
-      <Link href={`/book/${book.id}`}>
+      <Link href={`/${bookSlug(book)}`}>
         <h3>{book.title}</h3>
       </Link>
       <div className="author">{book.author}</div>

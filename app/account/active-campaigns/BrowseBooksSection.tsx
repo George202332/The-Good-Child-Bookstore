@@ -6,6 +6,7 @@ import { GetLinkButton } from "./GetLinkButton";
 
 export interface BrowsableBook {
   id: string;
+  slug: string;
   sn: string;
   title: string;
   author: string;
@@ -94,8 +95,8 @@ export function BrowseBooksSection({ books }: { books: BrowsableBook[] }) {
                   <td style={TABLE_CELL_STYLE}>{b.category}</td>
                   <td style={TABLE_CELL_STYLE}>{b.genre}</td>
                   <td style={TABLE_CELL_STYLE}>${b.price.toFixed(2)}</td>
-                  <td style={TABLE_CELL_STYLE}><Link href={`/book/${b.id}`} target="_blank" className="btn btn-ghost btn-small">View</Link></td>
-                  <td style={TABLE_CELL_STYLE}><GetLinkButton bookId={b.id} /></td>
+                  <td style={TABLE_CELL_STYLE}><Link href={`/${b.slug}`} target="_blank" className="btn btn-ghost btn-small">View</Link></td>
+                  <td style={TABLE_CELL_STYLE}><GetLinkButton bookId={b.id} bookSlug={b.slug} /></td>
                 </tr>
               ))}
             </tbody>

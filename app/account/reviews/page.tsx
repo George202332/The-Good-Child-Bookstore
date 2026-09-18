@@ -29,7 +29,7 @@ export default async function MyReviewsPage() {
           {reviews.map((r) => (
             <div key={r.id} style={{ padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <Link href={`/book/${r.bookId}`} style={{ fontWeight: 700, fontSize: 13.5 }}>{r.bookTitle}</Link>
+                <Link href={`/${r.bookSlug}`} style={{ fontWeight: 700, fontSize: 13.5 }}>{r.bookTitle}</Link>
                 <span>{"★".repeat(r.stars)}{"☆".repeat(5 - r.stars)}</span>
               </div>
               <p style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 4 }}>{r.content}</p>

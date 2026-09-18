@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { fiveStarBooks, type Book } from "@/lib/data/catalog";
+import { fiveStarBooks, bookSlug, type Book } from "@/lib/data/catalog";
 
 /**
  * Converted from heroShelfSvg() / bookCoverSvg() / shelfBooksForThisHour()
@@ -121,7 +121,7 @@ export function HeroShelf() {
         const cx = startX + i * stepX;
         const textW = i === books.length - 1 ? bw : stepX;
         return (
-          <Link key={b.id} href={`/book/${b.id}`} className="hero-book" style={{ "--book-order": i } as React.CSSProperties}>
+          <Link key={b.id} href={`/${bookSlug(b)}`} className="hero-book" style={{ "--book-order": i } as React.CSSProperties}>
             <title>{b.title} — {b.rating}★</title>
             <g transform={`translate(${cx},${startY})`}>
               <BookCover bw={bw} bh={bh} textW={textW} book={b} />

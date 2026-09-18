@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { BOOKS, CATS, type Book } from "@/lib/data/catalog";
+import { BOOKS, CATS, bookSlug, type Book } from "@/lib/data/catalog";
 import { reviewStats, reviewsForBook } from "@/lib/data/reviews";
 import { BookCard } from "@/components/BookCard";
 import { AffiliateClickTracker } from "@/components/AffiliateClickTracker";
@@ -103,7 +103,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
     { name: "Home", url: `${siteUrl}/` },
     { name: "Bookshelf", url: `${siteUrl}/shop` },
     { name: catName(b.category), url: `${siteUrl}/shop?cat=${b.category}` },
-    { name: b.title, url: `${siteUrl}/book/${b.id}` },
+    { name: b.title, url: `${siteUrl}/${bookSlug(b)}` },
   ]);
 
   return (

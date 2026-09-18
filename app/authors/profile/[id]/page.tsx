@@ -80,8 +80,8 @@ export default async function AuthorProfilePage({ params }: { params: Promise<{ 
         <p style={{ color: "var(--ink-faint)", fontSize: 13.5 }}>No published books yet.</p>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 16 }}>
-          {author.books.map((b: { id: string; title: string; coverImageUrl: string | null }) => (
-            <Link key={b.id} href={`/book/${b.id}`} style={{ textAlign: "center" }}>
+          {author.books.map((b: { id: string; title: string; slug: string; coverImageUrl: string | null }) => (
+            <Link key={b.id} href={`/${b.slug}`} style={{ textAlign: "center" }}>
               {b.coverImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={b.coverImageUrl} alt={b.title} style={{ width: "100%", aspectRatio: "2/3", objectFit: "cover", borderRadius: 8 }} />
