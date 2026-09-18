@@ -68,7 +68,7 @@ export async function uploadGenericFile(formData: FormData, allowedTypes: string
 
     if (isDocx) {
       const { convertDocxToPdf } = await import("@/lib/docx-to-pdf");
-      const pdfBytes = await convertDocxToPdf(Buffer.from(arrayBuffer));
+      const pdfBytes = new Uint8Array(await convertDocxToPdf(Buffer.from(arrayBuffer)));
       const record = await prisma.uploadedFile.create({
         data: {
           data: pdfBytes,
