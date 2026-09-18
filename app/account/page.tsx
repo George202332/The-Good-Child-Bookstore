@@ -210,7 +210,7 @@ export default async function AccountPage() {
       if (f && f in formatCounts) formatCounts[f] += 1;
     }
 
-    const [{ isAffiliateToo, affiliateLinks }, lifetimePayoutAgg, authorsReferredCount, notifications] = await Promise.all([
+    const [{ isAffiliateToo, affiliateLinks }, lifetimePayoutAgg, authorsReferredCount, notifications, publishedBlogCount] = await Promise.all([
       (async () => {
         const isAffiliateToo = await hasAffiliateCapability(session.user.id);
         const affiliateLinks = isAffiliateToo ? await getMyLinkPerformance() : [];
@@ -224,6 +224,7 @@ export default async function AccountPage() {
         ? prisma.authorProfile.count({ where: { referredById: user.affiliateProfile.id } })
         : Promise.resolve(0),
       listMyNotifications(),
+      prisma.blog.count({ where: { authorId: session.user.id, status: "PUBLISHED" } }),
     ]);
     const affiliateClicks = affiliateLinks.reduce((s, l) => s + l.clicks, 0);
     const affiliateSold = affiliateLinks.reduce((s, l) => s + l.conversions, 0);
@@ -321,9 +322,10 @@ export default async function AccountPage() {
             <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Affiliate snapshot</h3>
             {isAffiliateToo ? (
               <>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}><span>Referrals</span><strong>{affiliateLinks.length}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}><span>Under promotion</span><strong>{affiliateLinks.length}</strong></div>
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}><span>Promo clicks</span><strong>{affiliateClicks}</strong></div>
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13 }}><span>Books sold via your links</span><strong>{affiliateSold}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}><span>Books sold via your links</span><strong>{affiliateSold}</strong></div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13 }}><span>Blogs</span><strong>{publishedBlogCount}</strong></div>
                 <Link href="/account/promotions" style={{ display: "inline-block", marginTop: 10, fontSize: 12, fontWeight: 700, color: "var(--coral-deep)" }}>Manage affiliate program →</Link>
               </>
             ) : (

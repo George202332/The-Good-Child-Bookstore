@@ -15,11 +15,13 @@ export function RichTextEditor({
   onChange,
   placeholder,
   maxWords,
+  minHeight,
 }: {
   value: string;
   onChange: (html: string) => void;
   placeholder: string;
   maxWords?: number;
+  minHeight?: number;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [wordCount, setWordCount] = useState(0);
@@ -89,6 +91,7 @@ export function RichTextEditor({
         onInput={handleInput}
         data-placeholder={placeholder}
         suppressContentEditableWarning
+        style={minHeight ? { minHeight } : undefined}
       />
       <div className="editor-word-count">{maxWords ? `${wordCount} / ${maxWords} words` : `${wordCount} words`}</div>
     </div>

@@ -4,6 +4,45 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
+export interface AuthorAliasRow {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+/** Every pen name/display name this real author has used before —
+ * powers the "Author" dropdown on new-title submission so they can
+ * reuse a name instead of retyping it. */
+export async function listMyAuthorAliases(): Promise<AuthorAliasRow[]> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "AUTHOR") return [];
+  const profile = await prisma.authorProfile.findUnique({ where: { userId: session.user.id } });
+  if (!profile) return [];
+  const aliases = await prisma.authorAlias.findMany({ where: { authorProfileId: profile.id }, orderBy: { createdAt: "asc" } });
+  return aliases.map((a: { id: string; firstName: string; lastName: string }) => ({ id: a.id, firstName: a.firstName, lastName: a.lastName }));
+}
+
+/** Remembers a new pen name for future submissions — safe to call
+ * every time a title is submitted; does nothing if this exact name is
+ * already on file (see the unique constraint on AuthorAlias). */
+export async function rememberAuthorAlias(firstName: string, lastName: string): Promise<void> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "AUTHOR") return;
+  if (!firstName.trim() || !lastName.trim()) return;
+  const profile = await prisma.authorProfile.findUnique({ where: { userId: session.user.id } });
+  if (!profile) return;
+  try {
+    await prisma.authorAlias.upsert({
+      where: { authorProfileId_firstName_lastName: { authorProfileId: profile.id, firstName: firstName.trim(), lastName: lastName.trim() } },
+      update: {},
+      create: { authorProfileId: profile.id, firstName: firstName.trim(), lastName: lastName.trim() },
+    });
+    revalidatePath("/account/books/new");
+  } catch {
+    // Non-critical — a failed remember shouldn't block the actual submission.
+  }
+}
+
 /**
  * Real book submission — a full port of the original's submission form
  * (collectSubmissionFormData()), rebuilt to match the exact reference
@@ -76,17 +115,17 @@ export interface SubmissionMetadata {
   educationalBenefits?: string;
   discountPrice?: number;
   promoPrice?: number;
-  currency: string;
+  currency?: string;
   taxSetting: string;
   worldwideRights: boolean;
   countryRestrictions?: string;
   copyrightHolder?: string;
   licenseType: string;
   sellOnStore: boolean;
-  includeInPromotions: boolean;
+  includeInPromotions?: boolean;
   featuredRequest: boolean;
-  allowDiscounts: boolean;
-  allowBundles: boolean;
+  allowDiscounts?: boolean;
+  allowBundles?: boolean;
   affiliateEnabled: boolean;
   seoTitle?: string;
   seoDescription?: string;
@@ -172,6 +211,20 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
   if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
+
+  const authorFirstName = (input.metadata as { authorFirstName?: string }).authorFirstName;
+  const authorLastName = (input.metadata as { authorLastName?: string }).authorLastName;
+  if (authorFirstName?.trim() && authorLastName?.trim()) {
+    try {
+      await prisma.authorAlias.upsert({
+        where: { authorProfileId_firstName_lastName: { authorProfileId: user.authorProfile.id, firstName: authorFirstName.trim(), lastName: authorLastName.trim() } },
+        update: {},
+        create: { authorProfileId: user.authorProfile.id, firstName: authorFirstName.trim(), lastName: authorLastName.trim() },
+      });
+    } catch {
+      // Non-critical -- a failed remember shouldn't block the actual submission.
+    }
+  }
 
   const baseSlug = slugify(input.title);
   let slug = baseSlug;

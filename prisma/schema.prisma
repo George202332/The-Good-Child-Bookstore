@@ -192,6 +192,26 @@ model AuthorProfile {
   referredBy         AffiliateProfile? @relation("AffiliateReferrals", fields: [referredById], references: [id])
   books              Book[]
   followers          AuthorFollow[]
+  aliases            AuthorAlias[]
+}
+
+/** A pen name / display name a real author has used when submitting a
+ * book — shown on the order page and book detail page instead of the
+ * account's actual name, if chosen. Deliberately NOT a new
+ * AuthorProfile/User: this is just a remembered label for the "Author"
+ * field on future submissions, not a separate real account, and has no
+ * bearing on who actually gets paid (that's always tied to the real
+ * AuthorProfile/User). */
+model AuthorAlias {
+  id              String        @id @default(cuid())
+  authorProfileId String
+  authorProfile   AuthorProfile @relation(fields: [authorProfileId], references: [id], onDelete: Cascade)
+  firstName       String
+  lastName        String
+  createdAt       DateTime      @default(now())
+
+  @@unique([authorProfileId, firstName, lastName])
+  @@index([authorProfileId])
 }
 
 model AffiliateProfile {

@@ -24,6 +24,7 @@ const MIME_TO_EXTENSIONS: Record<string, string[]> = {
   "application/pdf": [".pdf"],
   "application/epub+zip": [".epub"],
   "application/x-mobipocket-ebook": [".mobi"],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
   "image/jpeg": [".jpg", ".jpeg"],
   "image/png": [".png"],
   "image/webp": [".webp"],
@@ -52,7 +53,7 @@ export async function uploadGenericFile(formData: FormData, allowedTypes: string
     return { ok: false, error: "No file was provided." };
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return { ok: false, error: "File is too large (max 50MB)." };
+    return { ok: false, error: "File is too large (max 4MB)." };
   }
   const mimeOk = allowedTypes.length === 0 || allowedTypes.includes(file.type);
   const extOk = hasAllowedExtension(file.name, allowedTypes);
@@ -60,8 +61,24 @@ export async function uploadGenericFile(formData: FormData, allowedTypes: string
     return { ok: false, error: `That file type isn't allowed here (expected ${allowedTypes.join(", ")}).` };
   }
 
+  const isDocx = file.name.toLowerCase().endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
   try {
     const arrayBuffer = await file.arrayBuffer();
+
+    if (isDocx) {
+      const { convertDocxToPdf } = await import("@/lib/docx-to-pdf");
+      const pdfBytes = await convertDocxToPdf(Buffer.from(arrayBuffer));
+      const record = await prisma.uploadedFile.create({
+        data: {
+          data: pdfBytes,
+          mimeType: "application/pdf",
+          originalName: file.name.replace(/\.docx$/i, ".pdf"),
+        },
+      });
+      return { ok: true, fileId: record.id, fileName: record.originalName };
+    }
+
     // Trust the file's real extension for the stored MIME type when the
     // browser didn't report one (or reported something generic) — keeps
     // the served-back file's Content-Type accurate.

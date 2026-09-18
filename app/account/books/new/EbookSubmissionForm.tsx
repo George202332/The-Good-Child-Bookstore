@@ -1,39 +1,59 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitBook } from "@/actions/submissions";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { SectionHeader, Card } from "./shared";
+import { AuthorAliasField } from "./AuthorAliasField";
+import { KeywordsField } from "./KeywordsField";
+import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 
-const AGE_RANGES = ["0-2 years", "3-5 years", "6-8 years", "9-12 years", "12-15 years"];
 const CATEGORIES = ["Picture books", "Bedtime stories", "Middle grade", "Educational"];
 const GENRES = ["Adventure", "Fantasy", "Animal Story", "Fairy Tale", "Poetry", "Educational"];
+const AGE_RANGES = ["0-2 years", "3-5 years", "6-8 years", "9-12 years", "12-15 years"];
 const READING_LEVELS = ["Pre-reader", "Beginner", "Early Reader", "Independent Reader", "Fluent Reader"];
-const SCHOOL_GRADES = ["Pre-K", "Kindergarten", "1st Grade", "2nd Grade", "3rd Grade", "4th-6th Grade"];
 const LANGUAGES = ["English", "Spanish", "French", "Swahili"];
 const LICENSE_TYPES = ["All rights reserved", "Exclusive Distribution", "Non-Exclusive Distribution"];
-const CURRENCIES = ["USD", "EUR", "GBP"];
 const TAX_SETTINGS = ["Calculate automatically by customer location", "Tax Exempt", "Fixed Rate"];
-const FILE_FORMATS = ["EPUB", "PDF", "MOBI"];
+
+/** A 13-digit, all-numeric SN preview, matching the same shape the
+ * server generates (see generateSerialNumber in actions/submissions.ts)
+ * — always starts with 5. This is a client-side preview only; the
+ * real, final SN is generated server-side at submission, but shown
+ * here so the author sees a real example before they submit. */
+function previewSerialNumber(): string {
+  let digits = "5";
+  for (let i = 0; i < 12; i++) digits += Math.floor(Math.random() * 10);
+  return digits;
+}
+
+function plainTextFromHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function slugFromTitle(title: string): string {
+  return title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
 
 /**
- * Converted to match the exact reference design provided: 11 numbered
- * sections (Book information, Author information, Book classification,
- * Book description, Files, Pricing, Distribution, Rights, SEO, Preview,
- * Submission checklist), a rich-text long description editor, real
- * file-upload cards, live cover/listing preview, and a live submission
- * checklist gating the Publish button. This is the eBook tab in full
- * detail; Print/Audiobook tabs reuse the shared fields and only differ
- * in their format-specific section.
+ * eBook submission — Files come first (manuscript + cover only），then
+ * Book information, Author (a reusable name picker, not tied to the
+ * account's real name), Book classification, Book description (long
+ * description only) + Keywords, Pricing, Distribution, Rights, SEO
+ * (fully derived, not author-editable), Preview, and the submission
+ * checklist.
  */
 export function EbookSubmissionForm() {
   const router = useRouter();
-  const activeFormat = "ebook" as const;
 
-  // Section 1
+  // Files
+  const [manuscriptFileId, setManuscriptFileId] = useState<string | undefined>();
+  const [coverImageUrl, setCoverImageUrl] = useState("");
+
+  // Book information
   const [title, setTitle] = useState("");
   const [subtitle, setSubtitle] = useState("");
   const [edition, setEdition] = useState("");
@@ -45,78 +65,65 @@ export function EbookSubmissionForm() {
   const [originalPublicationDate, setOriginalPublicationDate] = useState("");
   const [isbn, setIsbn] = useState("");
   const [hasOwnIsbn, setHasOwnIsbn] = useState(false);
+  const [generatedSn] = useState(previewSerialNumber);
   const [copyrightYear, setCopyrightYear] = useState(String(new Date().getFullYear()));
 
-  // Section 2
+  // Author information
   const [authorFirstName, setAuthorFirstName] = useState("");
   const [authorLastName, setAuthorLastName] = useState("");
-  const [coAuthors, setCoAuthors] = useState("");
-  const [illustrator, setIllustrator] = useState("");
-  const [editor, setEditor] = useState("");
   const [translator, setTranslator] = useState("");
   const [authorBio, setAuthorBio] = useState("");
 
-  // Section 3
+  // Book classification
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [genre, setGenre] = useState(GENRES[0]);
-  const [subgenre, setSubgenre] = useState("");
   const [ageGroup, setAgeGroup] = useState(AGE_RANGES[0]);
   const [readingLevel, setReadingLevel] = useState(READING_LEVELS[0]);
-  const [schoolGrade, setSchoolGrade] = useState(SCHOOL_GRADES[0]);
-  const [curriculum, setCurriculum] = useState("");
 
-  // Section 4
-  const [shortDescription, setShortDescription] = useState("");
-  const [longDescriptionHtml, setLongDescriptionHtml] = useState("");
-  const [backCoverDescription, setBackCoverDescription] = useState("");
-  const [learningObjectives, setLearningObjectives] = useState("");
-  const [educationalBenefits, setEducationalBenefits] = useState("");
+  // Book description
+  const [descriptionHtml, setDescriptionHtml] = useState("");
 
-  // Section 5
-  const [manuscriptFileId, setManuscriptFileId] = useState<string | undefined>();
-  const [coverImageUrl, setCoverImageUrl] = useState("");
-  const [samplePagesFileId, setSamplePagesFileId] = useState<string | undefined>();
-  const [promotionalImageUrls, setPromotionalImageUrls] = useState<string[]>([]);
+  // Keywords
+  const [keywords, setKeywords] = useState<string[]>([]);
 
-  // Section 6
+  // Pricing
   const [price, setPrice] = useState("12.99");
   const [discountPrice, setDiscountPrice] = useState("");
-  const [promoPrice, setPromoPrice] = useState("");
-  const [currency, setCurrency] = useState(CURRENCIES[0]);
   const [taxSetting, setTaxSetting] = useState(TAX_SETTINGS[0]);
-  const [fileFormat, setFileFormat] = useState(FILE_FORMATS[0]);
 
-  // Section 7
+  // Distribution
   const [sellOnStore, setSellOnStore] = useState(true);
-  const [includeInPromotions, setIncludeInPromotions] = useState(false);
   const [featuredRequest, setFeaturedRequest] = useState(false);
-  const [allowDiscounts, setAllowDiscounts] = useState(true);
-  const [allowBundles, setAllowBundles] = useState(false);
   const [affiliateEnabled, setAffiliateEnabled] = useState(false);
 
-  // Section 8
+  // Rights
   const [worldwideRights, setWorldwideRights] = useState(true);
   const [countryRestrictions, setCountryRestrictions] = useState("");
   const [copyrightHolder, setCopyrightHolder] = useState("");
   const [licenseType, setLicenseType] = useState(LICENSE_TYPES[0]);
 
-  // Section 9
-  const [seoTitle, setSeoTitle] = useState("");
-  const [seoDescription, setSeoDescription] = useState("");
-  const [keywords, setKeywords] = useState("");
-
-
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // SEO — fully derived from what's already been filled in elsewhere,
+  // never a separate author input. Kept aligned with the same
+  // structure the rest of the site's SEO already uses (see
+  // lib/seo/json-ld.ts and the per-page metadata pattern).
+  const seoTitle = title || "Your book title";
+  const seoDescription = useMemo(() => {
+    const plain = plainTextFromHtml(descriptionHtml);
+    return plain.length > 160 ? `${plain.slice(0, 157)}…` : plain;
+  }, [descriptionHtml]);
+  const seoSlug = title ? slugFromTitle(title) : "…";
+
   const checklist = [
+    { label: "Manuscript uploaded", ok: !!manuscriptFileId },
+    { label: "Cover image uploaded", ok: !!coverImageUrl },
     { label: "Book title", ok: !!title.trim() },
     { label: "Author name", ok: !!authorFirstName.trim() && !!authorLastName.trim() },
     { label: "Category selected", ok: !!category },
     { label: "Age group selected", ok: !!ageGroup },
-    { label: "Short description", ok: !!shortDescription.trim() },
-    { label: "Cover image uploaded", ok: !!coverImageUrl },
-    { label: "Manuscript uploaded", ok: !!manuscriptFileId },
+    { label: "Book description", ok: !!plainTextFromHtml(descriptionHtml) },
     { label: "List price set", ok: Number(price) > 0 },
     { label: "Copyright holder named", ok: !!copyrightHolder.trim() },
   ];
@@ -128,8 +135,8 @@ export function EbookSubmissionForm() {
     const res = await submitBook({
       title,
       subtitle,
-      isbn: hasOwnIsbn ? isbn : "",
-      description: shortDescription,
+      isbn: hasOwnIsbn ? isbn : generatedSn,
+      description: plainTextFromHtml(descriptionHtml).slice(0, 500),
       price: Number(price) || 0,
       ageGroup,
       category,
@@ -137,8 +144,6 @@ export function EbookSubmissionForm() {
       language,
       coverImageUrl,
       manuscriptFileId,
-      samplePagesFileId,
-      promotionalImageUrls,
       formats: { ebook: true, print: false, audiobook: false },
       metadata: {
         authorFirstName,
@@ -150,37 +155,22 @@ export function EbookSubmissionForm() {
         publicationDate,
         originalPublicationDate,
         copyrightYear: copyrightYear ? Number(copyrightYear) : undefined,
-        coAuthors,
-        illustrator,
-        editor,
         translator,
         authorBio,
-        subgenre,
         readingLevel,
-        schoolGrade,
-        curriculum,
-        longDescriptionHtml,
-        backCoverDescription,
-        learningObjectives,
-        educationalBenefits,
+        longDescriptionHtml: descriptionHtml,
         discountPrice: discountPrice ? Number(discountPrice) : undefined,
-        promoPrice: promoPrice ? Number(promoPrice) : undefined,
-        currency,
         taxSetting,
         worldwideRights,
         countryRestrictions,
         copyrightHolder,
         licenseType,
         sellOnStore,
-        includeInPromotions,
         featuredRequest,
-        allowDiscounts,
-        allowBundles,
         affiliateEnabled,
         seoTitle,
         seoDescription,
-        keywords,
-        fileType: activeFormat === "ebook" ? fileFormat : undefined,
+        keywords: keywords.join(", "),
       },
       submitForReview,
     });
@@ -194,9 +184,29 @@ export function EbookSubmissionForm() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {/* Section 1 */}
+      {/* Section 1 — Files, first per explicit instruction */}
       <Card>
-        <SectionHeader n={1} title="Book information" sub="Core bibliographic details." />
+        <SectionHeader n={1} title="Files" sub="Manuscript and cover — this is where we start." />
+        <div className="upload-cards-row">
+          <FileUploadField
+            label="Manuscript (PDF, EPUB, MOBI, or DOCX)"
+            sizeHint="Max 4MB — a DOCX file is converted to PDF automatically"
+            allowedTypes={["application/pdf", "application/epub+zip", "application/x-mobipocket-ebook", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
+            accept=".pdf,.epub,.mobi,.docx"
+            onUploaded={(ids) => setManuscriptFileId(ids[0])}
+            fillWidth
+          />
+          <ImageUploadField label="Cover image" recommendedSize="Any image format — Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} fillWidth />
+        </div>
+        <p className="field-hint" style={{ marginTop: 10 }}>
+          Readers get a free preview of the first 10 pages from the &quot;Read sample&quot; button on the book&apos;s
+          page — there&apos;s nothing separate to upload for that.
+        </p>
+      </Card>
+
+      {/* Section 2 — Book information */}
+      <Card>
+        <SectionHeader n={2} title="Book information" sub="Core bibliographic details." />
         <label className="field-label" htmlFor="f-title">Book title</label>
         <input className="field" id="f-title" type="text" placeholder="Working title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <div className="form-grid-2">
@@ -261,10 +271,12 @@ export function EbookSubmissionForm() {
                 <div className="field-hint">Enter your existing ISBN for this eBook.</div>
               </>
             ) : (
-              <div className="field-hint" style={{ margin: 0 }}>
-                An SN (a 13-digit, all-numeric store identifier starting with 5, distinct from a real ISBN) will be
-                generated for this eBook automatically once it&apos;s submitted.
-              </div>
+              <>
+                <input className="field" type="text" value={generatedSn} readOnly disabled style={{ fontFamily: "monospace", letterSpacing: 1 }} />
+                <div className="field-hint" style={{ margin: 0 }}>
+                  Your SN — a 13-digit, all-numeric identifier starting with 5, distinct from a real ISBN.
+                </div>
+              </>
             )}
           </div>
           <div>
@@ -274,40 +286,19 @@ export function EbookSubmissionForm() {
         </div>
       </Card>
 
-      {/* Section 2 */}
+      {/* Section 3 — Author information */}
       <Card>
-        <SectionHeader n={2} title="Author information" sub="Everyone credited on this title." />
-        <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="f-authfirst">Primary author: first name</label>
-            <input className="field" id="f-authfirst" type="text" value={authorFirstName} onChange={(e) => setAuthorFirstName(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="f-authlast">Primary author: last name</label>
-            <input className="field" id="f-authlast" type="text" value={authorLastName} onChange={(e) => setAuthorLastName(e.target.value)} />
-          </div>
-        </div>
-        <label className="field-label" htmlFor="f-coauthors">Co-author(s)</label>
-        <input className="field" id="f-coauthors" type="text" placeholder="Comma-separated, if any" value={coAuthors} onChange={(e) => setCoAuthors(e.target.value)} />
-        <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="f-illustrator">Illustrator</label>
-            <input className="field" id="f-illustrator" type="text" value={illustrator} onChange={(e) => setIllustrator(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="f-editor">Editor</label>
-            <input className="field" id="f-editor" type="text" value={editor} onChange={(e) => setEditor(e.target.value)} />
-          </div>
-        </div>
-        <label className="field-label" htmlFor="f-translator">Translator</label>
+        <SectionHeader n={3} title="Author information" sub="Who's credited on this title." />
+        <AuthorAliasField firstName={authorFirstName} lastName={authorLastName} onChange={(f, l) => { setAuthorFirstName(f); setAuthorLastName(l); }} />
+        <label className="field-label" htmlFor="f-translator" style={{ marginTop: 14 }}>Translator</label>
         <input className="field" id="f-translator" type="text" placeholder="If this edition is translated" value={translator} onChange={(e) => setTranslator(e.target.value)} />
         <label className="field-label" htmlFor="f-authorbio">Author bio</label>
         <textarea className="field" id="f-authorbio" rows={3} placeholder="A couple of sentences about you, for your author page" value={authorBio} onChange={(e) => setAuthorBio(e.target.value)} />
       </Card>
 
-      {/* Section 3 */}
+      {/* Section 4 — Book classification */}
       <Card>
-        <SectionHeader n={3} title="Book classification" sub="How this title is categorized and shelved." />
+        <SectionHeader n={4} title="Book classification" sub="How this title is categorized and shelved." />
         <div className="form-grid-2">
           <div>
             <label className="field-label" htmlFor="f-category">Category</label>
@@ -322,8 +313,6 @@ export function EbookSubmissionForm() {
             </select>
           </div>
         </div>
-        <label className="field-label" htmlFor="f-subgenre">Subgenre</label>
-        <input className="field" id="f-subgenre" type="text" value={subgenre} onChange={(e) => setSubgenre(e.target.value)} />
         <div className="form-grid-2">
           <div>
             <label className="field-label" htmlFor="f-age">Age group</label>
@@ -338,143 +327,60 @@ export function EbookSubmissionForm() {
             </select>
           </div>
         </div>
-        <label className="field-label" htmlFor="f-schoolgrade">School grade</label>
-        <select className="field" id="f-schoolgrade" value={schoolGrade} onChange={(e) => setSchoolGrade(e.target.value)}>
-          {SCHOOL_GRADES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <label className="field-label" htmlFor="f-curriculum">Curriculum alignment</label>
-        <input className="field" id="f-curriculum" type="text" placeholder="e.g. Common Core ELA, IB PYP" value={curriculum} onChange={(e) => setCurriculum(e.target.value)} />
       </Card>
 
-      {/* Section 4 */}
+      {/* Section 5 — Book description + Keywords */}
       <Card>
-        <SectionHeader n={4} title="Book description" sub="The copy readers, teachers, and our editorial team will see." />
-        <label className="field-label" htmlFor="f-shortdesc">Short description</label>
-        <textarea className="field" id="f-shortdesc" rows={2} placeholder="One or two sentences for listings and search results" value={shortDescription} onChange={(e) => setShortDescription(e.target.value)} />
-        <label className="field-label">Long description</label>
-        <RichTextEditor value={longDescriptionHtml} onChange={setLongDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={400} />
-        <label className="field-label" htmlFor="f-backcover">Back cover description</label>
-        <textarea className="field" id="f-backcover" rows={3} placeholder="Shown on the printed back cover" value={backCoverDescription} onChange={(e) => setBackCoverDescription(e.target.value)} />
-        <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="f-learnobj">Learning objectives</label>
-            <textarea className="field" id="f-learnobj" rows={3} value={learningObjectives} onChange={(e) => setLearningObjectives(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="f-edubenefits">Educational benefits</label>
-            <textarea className="field" id="f-edubenefits" rows={3} value={educationalBenefits} onChange={(e) => setEducationalBenefits(e.target.value)} />
-          </div>
+        <SectionHeader n={5} title="Book description" sub="The copy readers, teachers, and our editorial team will see." />
+        <label className="field-label">Description</label>
+        <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={400} minHeight={312} />
+        <div style={{ marginTop: 18 }}>
+          <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} />
         </div>
       </Card>
 
-      {/* Section 5 */}
+      {/* Section 6 — Pricing */}
       <Card>
-        <SectionHeader n={5} title="Files" sub="Manuscript, cover, and supporting images. Type and size are validated automatically." />
-        <div className="upload-cards-row">
-          <FileUploadField
-            label="Manuscript (PDF, EPUB, or MOBI)"
-            sizeHint="Max 4MB"
-            allowedTypes={["application/pdf", "application/epub+zip", "application/x-mobipocket-ebook"]}
-            accept=".pdf,.epub,.mobi"
-            onUploaded={(ids) => setManuscriptFileId(ids[0])}
-            fillWidth
-          />
-          <ImageUploadField label="Cover image" recommendedSize="Any image format — Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} fillWidth />
-          <FileUploadField
-            label="Sample pages (PDF)"
-            sizeHint="Optional preview excerpt"
-            allowedTypes={["application/pdf"]}
-            accept=".pdf"
-            onUploaded={(ids) => setSamplePagesFileId(ids[0])}
-            fillWidth
-          />
-          <FileUploadField
-            label="Promotional images"
-            sizeHint="Multiple files allowed"
-            allowedTypes={["image/jpeg", "image/png", "image/webp"]}
-            accept="image/*"
-            multiple
-            onUploaded={(ids) => setPromotionalImageUrls(ids.map((id) => `/api/files/${id}`))}
-            fillWidth
-          />
-        </div>
-      </Card>
-
-      {/* Section 6 */}
-      <Card>
-        <SectionHeader n={6} title="Pricing" sub="What readers pay, and how discounts apply." />
+        <SectionHeader n={6} title="Pricing" sub="What readers pay, in US dollars — any currency conversion happens at checkout, outside this site." />
         <div className="form-grid-2">
           <div>
-            <label className="field-label" htmlFor="f-price">List price</label>
+            <label className="field-label" htmlFor="f-price">List price (USD)</label>
             <input className="field" id="f-price" type="number" step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} />
           </div>
           <div>
-            <label className="field-label" htmlFor="f-discountprice">Discount price</label>
+            <label className="field-label" htmlFor="f-discountprice">Discount price (USD)</label>
             <input className="field" id="f-discountprice" type="number" step={0.01} value={discountPrice} onChange={(e) => setDiscountPrice(e.target.value)} />
           </div>
         </div>
-        <label className="field-label" htmlFor="f-promoprice">Promotional price</label>
-        <input className="field" id="f-promoprice" type="number" step={0.01} value={promoPrice} onChange={(e) => setPromoPrice(e.target.value)} />
-        <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="f-currency">Currency</label>
-            <select className="field" id="f-currency" value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="field-label" htmlFor="f-tax">Tax settings</label>
-            <select className="field" id="f-tax" value={taxSetting} onChange={(e) => setTaxSetting(e.target.value)}>
-              {TAX_SETTINGS.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
+        <label className="field-label" htmlFor="f-tax">Tax settings</label>
+        <select className="field" id="f-tax" value={taxSetting} onChange={(e) => setTaxSetting(e.target.value)}>
+          {TAX_SETTINGS.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </Card>
+
+      {/* Section 7 — Distribution */}
+      <Card>
+        <SectionHeader n={7} title="Distribution" sub="Where and how this title can be found and sold." />
+        <div className="toggle-row">
+          <label className="toggle-switch"><input type="checkbox" checked={sellOnStore} onChange={(e) => setSellOnStore(e.target.checked)} /><span className="toggle-slider" /></label>
+          <span>Sell on store</span>
         </div>
-        {activeFormat === "ebook" && (
-          <>
-            <label className="field-label" htmlFor="f-fileformat">File format</label>
-            <select className="field" id="f-fileformat" value={fileFormat} onChange={(e) => setFileFormat(e.target.value)}>
-              {FILE_FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </>
+        <div className="toggle-row">
+          <label className="toggle-switch"><input type="checkbox" checked={featuredRequest} onChange={(e) => setFeaturedRequest(e.target.checked)} /><span className="toggle-slider" /></label>
+          <span>Request featured placement</span>
+        </div>
+        <div className="toggle-row">
+          <label className="toggle-switch"><input type="checkbox" checked={affiliateEnabled} onChange={(e) => setAffiliateEnabled(e.target.checked)} /><span className="toggle-slider" /></label>
+          <span>Enable this book for the affiliate program</span>
+        </div>
+        {affiliateEnabled && (
+          <p className="field-hint" style={{ marginTop: 4 }}>
+            Affiliates who sell this book will automatically earn 10% of the list price.
+          </p>
         )}
       </Card>
 
-      {/* Section 7 */}
-      <Card>
-        <SectionHeader n={7} title="Distribution" sub="Where and how this title can be found and sold." />
-        <div className="form-grid-2">
-          <div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={sellOnStore} onChange={(e) => setSellOnStore(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Sell on store</span>
-            </div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={featuredRequest} onChange={(e) => setFeaturedRequest(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Request featured placement</span>
-            </div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={allowBundles} onChange={(e) => setAllowBundles(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Allow bundles</span>
-            </div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={affiliateEnabled} onChange={(e) => setAffiliateEnabled(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Enable this book for the affiliate program</span>
-            </div>
-          </div>
-          <div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={includeInPromotions} onChange={(e) => setIncludeInPromotions(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Include in promotions</span>
-            </div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={allowDiscounts} onChange={(e) => setAllowDiscounts(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Allow discounts</span>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Section 8 */}
+      {/* Section 8 — Rights */}
       <Card>
         <SectionHeader n={8} title="Rights" sub="Ownership and licensing terms for this title." />
         <div className="toggle-row" style={{ marginBottom: 16 }}>
@@ -501,24 +407,24 @@ export function EbookSubmissionForm() {
         )}
       </Card>
 
-      {/* Section 9 */}
+      {/* Section 9 — SEO, fully derived, not author-editable */}
       <Card>
-        <SectionHeader n={9} title="SEO" sub="How this title appears in search results." />
-        <label className="field-label" htmlFor="f-seotitle">SEO title</label>
-        <input className="field" id="f-seotitle" type="text" placeholder="Defaults to the book title" value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} />
-        <label className="field-label" htmlFor="f-seodesc">SEO description</label>
-        <textarea className="field" id="f-seodesc" rows={2} value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} />
-        <label className="field-label" htmlFor="f-keywords">Keywords</label>
-        <input className="field" id="f-keywords" type="text" placeholder="e.g. friendship, bedtime, forest animals" value={keywords} onChange={(e) => setKeywords(e.target.value)} />
+        <SectionHeader n={9} title="SEO" sub="Automatically built from what you've already filled in above — matches the SEO system used across the rest of the site." />
+        <label className="field-label">SEO title</label>
+        <div className="field" style={{ background: "var(--cream)", cursor: "default" }}>{seoTitle}</div>
+        <label className="field-label">SEO description</label>
+        <div className="field" style={{ background: "var(--cream)", cursor: "default", minHeight: 44 }}>{seoDescription || "Write a description above to see it here."}</div>
+        <label className="field-label">Keywords</label>
+        <div className="field" style={{ background: "var(--cream)", cursor: "default" }}>{keywords.length > 0 ? keywords.join(", ") : "Add keywords above to see them here."}</div>
         <label className="field-label">Search preview</label>
         <div className="search-preview">
-          <div className="sp-url">thegoodchildbookstore.com › book › {title ? title.toLowerCase().replace(/\s+/g, "-") : "..."}</div>
-          <div className="sp-title">{seoTitle || title || "Your book title"}</div>
+          <div className="sp-url">thegoodchildbookstore.com › book › {seoSlug}</div>
+          <div className="sp-title">{seoTitle}</div>
           <div className="sp-desc">{seoDescription || "Your SEO description will appear here."}</div>
         </div>
       </Card>
 
-      {/* Section 10 */}
+      {/* Section 10 — Preview */}
       <Card>
         <SectionHeader n={10} title="Preview" sub="How this title will look once it's live." />
         <div className="form-grid-2">
@@ -532,6 +438,10 @@ export function EbookSubmissionForm() {
                 No cover uploaded yet
               </div>
             )}
+            <p className="field-hint" style={{ marginTop: 8, maxWidth: 220 }}>
+              Your cover is attached to the manuscript itself — readers who download this book will see it as the
+              very first page.
+            </p>
           </div>
           <div>
             <label className="field-label">Store listing preview</label>
@@ -542,9 +452,25 @@ export function EbookSubmissionForm() {
             </div>
           </div>
         </div>
+        {manuscriptFileId ? (
+          <div style={{ marginTop: 14 }}>
+            <label className="field-label">Book preview</label>
+            <p className="field-hint" style={{ margin: "0 0 10px" }}>
+              Page by page, the same viewer our editors use during review. Your cover is attached to the
+              manuscript itself, so it appears as the very first page here and in the final downloaded file.
+              On purchase, readers can download this title as a PDF; EPUB and MOBI downloads are on the way as a
+              separate, upcoming feature.
+            </p>
+            <div style={{ height: 520, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+              <ManuscriptReviewViewer url={`/api/files/${manuscriptFileId}`} title={title || "Manuscript preview"} />
+            </div>
+          </div>
+        ) : (
+          <p className="field-hint" style={{ marginTop: 14 }}>Upload a manuscript above to preview it page by page.</p>
+        )}
       </Card>
 
-      {/* Section 11 */}
+      {/* Section 11 — Submission checklist */}
       <Card>
         <SectionHeader n={11} title="Submission checklist" sub="Everything below must be complete before submitting." />
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
