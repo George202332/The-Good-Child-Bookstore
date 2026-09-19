@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from "react";
  * but there's no download/print/save control anywhere in the viewer's
  * own UI).
  */
-export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme }: { url: string; title: string; maxPages?: number; spread?: boolean; theme?: "admin" | "light" }) {
+export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme, scale }: { url: string; title: string; maxPages?: number; spread?: boolean; theme?: "admin" | "light"; scale?: number }) {
   const resolvedTheme = theme ?? (spread ? "admin" : "light");
   const isAdminTheme = resolvedTheme === "admin";
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -69,7 +69,7 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme }: 
       }
       const page = await doc.getPage(targetPage);
       if (cancelled) return;
-      const viewport = page.getViewport({ scale: 1.3 });
+      const viewport = page.getViewport({ scale: scale ?? 1.3 });
       canvasEl.width = viewport.width;
       canvasEl.height = viewport.height;
       const ctx = canvasEl.getContext("2d");
@@ -83,7 +83,7 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme }: 
     return () => {
       cancelled = true;
     };
-  }, [pageNum, numPages, spread]);
+  }, [pageNum, numPages, spread, scale]);
 
   return (
     <div>
@@ -92,7 +92,7 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme }: 
       {!loading && !error && (
         <>
           <div
-            style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: spread ? "2mm" : 0, background: isAdminTheme ? "var(--admin-panel)" : "var(--cream)", borderRadius: 10, padding: 16, overflow: "auto", maxHeight: "75vh" }}
+            style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: spread ? "2mm" : 0, background: isAdminTheme ? "var(--admin-panel)" : "var(--cream)", borderRadius: 10, padding: 16, overflow: "visible" }}
             onContextMenu={(e) => e.preventDefault()}
           >
             <canvas ref={canvasRef} aria-label={`${title} — page ${pageNum}`} style={{ maxWidth: spread ? "49%" : "100%", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }} />

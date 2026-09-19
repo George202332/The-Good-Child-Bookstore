@@ -201,10 +201,10 @@ export function EbookSubmissionForm() {
         <SectionHeader n={1} title="Files" sub="Manuscript and cover — this is where we start." />
         <div className="upload-cards-row">
           <FileUploadField
-            label="Manuscript (PDF, EPUB, MOBI, or DOCX)"
+            label="Manuscript (PDF or DOCX)"
             sizeHint="Max 4MB — a DOCX file is converted to PDF automatically"
-            allowedTypes={["application/pdf", "application/epub+zip", "application/x-mobipocket-ebook", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
-            accept=".pdf,.epub,.mobi,.docx"
+            allowedTypes={["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
+            accept=".pdf,.docx"
             onUploaded={(ids) => setManuscriptFileId(ids[0])}
             fillWidth
           />
@@ -468,7 +468,7 @@ export function EbookSubmissionForm() {
             <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 14 }}>
               Read-only — this opens the manuscript for review here, it doesn&apos;t offer a download.
             </p>
-            <ManuscriptReviewViewer url={`/api/files/${manuscriptFileId}`} title={title || "Manuscript preview"} spread theme="light" />
+            <ManuscriptReviewViewer url={`/api/files/${manuscriptFileId}`} title={title || "Manuscript preview"} spread theme="light" scale={2} />
           </div>
         ) : (
           <p className="field-hint" style={{ marginTop: 14 }}>Upload a manuscript above to preview it page by page.</p>
