@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitBook } from "@/actions/submissions";
+import { checkManuscriptMetadata, type MetadataCheckResult } from "@/actions/metadata-check";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { RichTextEditor } from "@/components/RichTextEditor";
@@ -52,6 +53,7 @@ export function EbookSubmissionForm() {
   // Files
   const [manuscriptFileId, setManuscriptFileId] = useState<string | undefined>();
   const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [previewStyle, setPreviewStyle] = useState<{ font: "serif" | "sans"; dropCap: "drop-cap" | "phrase-cap" | "none" }>({ font: "serif", dropCap: "drop-cap" });
 
   // Book information
   const [title, setTitle] = useState("");
@@ -108,12 +110,24 @@ export function EbookSubmissionForm() {
   // never a separate author input. Kept aligned with the same
   // structure the rest of the site's SEO already uses (see
   // lib/seo/json-ld.ts and the per-page metadata pattern).
-  const seoTitle = title || "Your book title";
+  const authorDisplayName = `${authorFirstName} ${authorLastName}`.trim();
+  const seoTitle = title
+    ? `${title}${authorDisplayName ? ` by ${authorDisplayName}` : ""} | The Good Child Bookstore`
+    : "Your book title";
   const seoDescription = useMemo(() => {
     const plain = plainTextFromHtml(descriptionHtml);
     return plain.length > 160 ? `${plain.slice(0, 157)}…` : plain;
   }, [descriptionHtml]);
   const seoSlug = title ? slugFromTitle(title) : "…";
+
+  const [metadataCheck, setMetadataCheck] = useState<MetadataCheckResult>({ titleFound: true, authorFound: true, checked: false });
+  useEffect(() => {
+    if (!manuscriptFileId || !title.trim()) return;
+    const timer = setTimeout(() => {
+      checkManuscriptMetadata(manuscriptFileId, title, `${authorFirstName} ${authorLastName}`.trim()).then(setMetadataCheck);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [manuscriptFileId, title, authorFirstName, authorLastName]);
 
   const checklist = [
     { label: "Manuscript uploaded", ok: !!manuscriptFileId },
@@ -127,6 +141,7 @@ export function EbookSubmissionForm() {
     { label: "Copyright holder named", ok: !!copyrightHolder.trim() },
   ];
   const allChecksPass = checklist.every((c) => c.ok);
+  const metadataMismatch = !!manuscriptFileId && !!title.trim() && metadataCheck.checked && (!metadataCheck.titleFound || !metadataCheck.authorFound);
 
   async function handleSubmit(submitForReview: boolean) {
     setSubmitting(true);
@@ -414,7 +429,7 @@ export function EbookSubmissionForm() {
         <div className="field" style={{ background: "var(--cream)", cursor: "default" }}>{keywords.length > 0 ? keywords.join(", ") : "Add keywords above to see them here."}</div>
         <label className="field-label">Search preview</label>
         <div className="search-preview">
-          <div className="sp-url">thegoodchildbookstore.com › book › {seoSlug}</div>
+          <div className="sp-url">thegoodchildbookstore.com › {seoSlug}</div>
           <div className="sp-title">{seoTitle}</div>
           <div className="sp-desc">{seoDescription || "Your SEO description will appear here."}</div>
         </div>
@@ -455,22 +470,46 @@ export function EbookSubmissionForm() {
               Page by page, the same viewer our editors use during review. Your cover is attached to the
               manuscript itself, so it appears as the very first page here and in the final downloaded file.
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, alignItems: "start" }}>
-              <div style={{ height: 560, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr", gap: 20, alignItems: "start" }}>
+              <div style={{ height: 820, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
                 <ManuscriptReviewViewer url={`/api/files/${manuscriptFileId}`} title={title || "Manuscript preview"} />
               </div>
               <div>
+                <div style={{ background: "#1B1B3A", color: "#fff", borderRadius: "10px 10px 0 0", padding: "12px 16px", textAlign: "center", fontWeight: 700, fontSize: 14 }}>
+                  Preview Style
+                </div>
+                <div className="map-card" style={{ padding: 16, borderRadius: "0 0 10px 10px", borderTop: "none", marginBottom: 20 }}>
+                  <label className="field-label" htmlFor="f-previewfont">Font</label>
+                  <select className="field" id="f-previewfont" value={previewStyle.font} onChange={(e) => setPreviewStyle((s) => ({ ...s, font: e.target.value as typeof previewStyle.font }))}>
+                    <option value="serif">Serif</option>
+                    <option value="sans">Sans-serif</option>
+                  </select>
+                  <label className="field-label" htmlFor="f-previewdropcap">Chapter start</label>
+                  <select className="field" id="f-previewdropcap" value={previewStyle.dropCap} onChange={(e) => setPreviewStyle((s) => ({ ...s, dropCap: e.target.value as typeof previewStyle.dropCap }))}>
+                    <option value="drop-cap">Drop cap</option>
+                    <option value="phrase-cap">Phrase cap</option>
+                    <option value="none">None</option>
+                  </select>
+                  <p className="field-hint" style={{ margin: 0 }}>Cosmetic reader-style preferences — doesn&apos;t change your actual uploaded file.</p>
+                </div>
+
                 <div style={{ background: "#1B1B3A", color: "#fff", borderRadius: "10px 10px 0 0", padding: "12px 16px", textAlign: "center", fontWeight: 700, fontSize: 14 }}>
                   Download Your Book Preview
                 </div>
                 <div style={{ border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
                   <div className="map-card" style={{ padding: 12, textAlign: "center" }}>
                     <button type="button" className="btn btn-primary btn-small" style={{ width: "100%", marginBottom: 6 }} disabled>DOWNLOAD MOBI</button>
-                    <p className="field-hint" style={{ margin: 0 }}>Coming soon — a separate, upcoming feature.</p>
+                    <p className="field-hint" style={{ margin: 0 }}>Not available — genuine MOBI conversion needs infrastructure this platform doesn&apos;t have yet.</p>
                   </div>
                   <div className="map-card" style={{ padding: 12, textAlign: "center" }}>
-                    <button type="button" className="btn btn-primary btn-small" style={{ width: "100%", marginBottom: 6 }} disabled>DOWNLOAD EPUB</button>
-                    <p className="field-hint" style={{ margin: 0 }}>Coming soon — a separate, upcoming feature.</p>
+                    <a
+                      href={`/api/convert/epub?fileId=${manuscriptFileId}&title=${encodeURIComponent(title)}&author=${encodeURIComponent(authorDisplayName)}`}
+                      className="btn btn-primary btn-small"
+                      style={{ width: "100%", marginBottom: 6, display: "block" }}
+                    >
+                      DOWNLOAD EPUB
+                    </a>
+                    <p className="field-hint" style={{ margin: 0 }}>Generated on the spot from your manuscript&apos;s text.</p>
                   </div>
                   <div className="map-card" style={{ padding: 12, textAlign: "center" }}>
                     <a href={`/api/files/${manuscriptFileId}`} target="_blank" rel="noreferrer" className="btn btn-primary btn-small" style={{ width: "100%", marginBottom: 6, display: "block" }}>DOWNLOAD PDF</a>
@@ -500,6 +539,17 @@ export function EbookSubmissionForm() {
             </div>
           ))}
         </div>
+        {metadataMismatch && (
+          <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 10, background: "#FDECEA", border: "1px solid #F3B6AE", fontSize: 13, color: "#8A2E1F" }}>
+            ⚠ We checked the first couple of pages of your uploaded manuscript, and{" "}
+            {!metadataCheck.titleFound && !metadataCheck.authorFound
+              ? "neither the title nor the author name you entered could be found in it"
+              : !metadataCheck.titleFound
+              ? "the title you entered couldn't be found in it"
+              : "the author name you entered couldn't be found in it"}
+            . Please double check you&apos;ve uploaded the right file for this title.
+          </div>
+        )}
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginTop: 12 }}>{error}</div>}
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
           <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={() => handleSubmit(false)}>

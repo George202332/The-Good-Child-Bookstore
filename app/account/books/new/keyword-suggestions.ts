@@ -9,7 +9,7 @@ const STOPWORDS = new Set([
 ]);
 
 const MIN_PHRASE_WORDS = 2;
-const MAX_PHRASE_WORDS = 5;
+const MAX_PHRASE_WORDS = 3;
 
 /**
  * Extracts up to `max` keyword *phrases* (2-5 words each, per explicit
@@ -48,11 +48,18 @@ export function extractSuggestedKeywords(text: string, title = "", max = 7): str
     return phrase.split(" ").some((w) => titleWords.has(w)) ? 1 : 0;
   }
 
+  function distinctivenessScore(phrase: string): number {
+    // A phrase with at least one longer word tends to be more specific
+    // and genuinely searchable than one made only of short, common
+    // words — "brightly colored room" over "her new day", for example.
+    return phrase.split(" ").some((w) => w.length >= 6) ? 1 : 0;
+  }
+
   // Drop phrases that are pure substrings of a longer, equally-frequent
   // phrase already picked, so "brightly colored room" doesn't also
   // produce "colored room" as a separate, redundant entry.
   const ranked = Array.from(counts.entries())
-    .sort((a, b) => (b[1] - a[1]) || (titleOverlapScore(b[0]) - titleOverlapScore(a[0])) || (b[0].length - a[0].length));
+    .sort((a, b) => (b[1] - a[1]) || (distinctivenessScore(b[0]) - distinctivenessScore(a[0])) || (titleOverlapScore(b[0]) - titleOverlapScore(a[0])) || (b[0].length - a[0].length));
 
   const chosen: string[] = [];
   for (const [phrase] of ranked) {

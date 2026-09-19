@@ -9,15 +9,22 @@ import { prisma } from "@/lib/prisma";
  * purchase check (it's also used for editorial review), so this is the
  * real gate for "download something I bought."
  *
- * For a PDF manuscript (a native PDF upload, or a DOCX converted to PDF
- * at upload time — see lib/docx-to-pdf.ts), the book's cover image is
- * merged in as page 1 using pdf-lib, so the downloaded file actually
- * opens on the cover. EPUB/MOBI manuscripts are served as-is — merging
- * an image into those formats needs different tooling than this.
+ * ?format=epub generates a real EPUB from the manuscript's actual text
+ * (see lib/epub-generator.ts) — offered alongside PDF, per explicit
+ * instruction that a reader should be able to get more than one
+ * format. Genuine MOBI conversion isn't offered — it needs real
+ * infrastructure this platform doesn't have, and faking it would be
+ * worse than not offering it.
+ *
+ * Otherwise, for a PDF manuscript (a native PDF upload, or a DOCX
+ * converted to PDF at upload time — see lib/docx-to-pdf.ts), the
+ * book's cover image is merged in as page 1 using pdf-lib, so the
+ * downloaded file actually opens on the cover.
  */
 export async function GET(request: Request, { params }: { params: Promise<{ bookId: string }> }) {
   const { bookId } = await params;
-  const { origin } = new URL(request.url);
+  const { origin, searchParams } = new URL(request.url);
+  const format = searchParams.get("format");
   const session = await auth();
   if (!session?.user) return NextResponse.redirect(new URL("/login", origin), { status: 302 });
 
@@ -32,12 +39,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ book
   });
   if (!ownsBook) return new NextResponse("You haven't purchased this book.", { status: 403 });
 
-  const book = await prisma.book.findUnique({ where: { id: bookId }, include: { files: true } });
+  const book = await prisma.book.findUnique({ where: { id: bookId }, include: { files: true, author: { include: { user: true } } } });
   const file = book?.files.find((f: { kind: string }) => f.kind === "MANUSCRIPT");
   if (!file) return new NextResponse("No downloadable file is available for this book yet.", { status: 404 });
 
   const fileId = file.url.split("/").pop();
   const uploadedFile = fileId ? await prisma.uploadedFile.findUnique({ where: { id: fileId } }) : null;
+
+  if (format === "epub" && uploadedFile?.mimeType === "application/pdf") {
+    try {
+      const { extractPdfPages, generateEpub } = await import("@/lib/epub-generator");
+      const pages = await extractPdfPages(new Uint8Array(uploadedFile.data));
+      const authorName = book?.author.penName || book?.author.user.name || "";
+      const epubBytes = await generateEpub(pages, book?.title ?? "book", authorName);
+      return new NextResponse(Buffer.from(epubBytes), {
+        headers: {
+          "Content-Type": "application/epub+zip",
+          "Content-Disposition": `attachment; filename="${(book?.title || "book").replace(/[^a-z0-9]+/gi, "-")}.epub"`,
+        },
+      });
+    } catch {
+      return new NextResponse("EPUB generation failed for this title.", { status: 500 });
+    }
+  }
 
   if (uploadedFile?.mimeType === "application/pdf" && book?.coverImageUrl) {
     try {
