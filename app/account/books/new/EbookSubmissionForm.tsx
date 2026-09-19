@@ -53,7 +53,6 @@ export function EbookSubmissionForm() {
   // Files
   const [manuscriptFileId, setManuscriptFileId] = useState<string | undefined>();
   const [coverImageUrl, setCoverImageUrl] = useState("");
-  const [previewStyle, setPreviewStyle] = useState<{ font: "serif" | "sans"; dropCap: "drop-cap" | "phrase-cap" | "none" }>({ font: "serif", dropCap: "drop-cap" });
 
   // Book information
   const [title, setTitle] = useState("");
@@ -465,59 +464,11 @@ export function EbookSubmissionForm() {
         </div>
         {manuscriptFileId ? (
           <div style={{ marginTop: 14 }}>
-            <label className="field-label">Book preview</label>
-            <p className="field-hint" style={{ margin: "0 0 10px" }}>
-              Page by page, the same viewer our editors use during review. Your cover is attached to the
-              manuscript itself, so it appears as the very first page here and in the final downloaded file.
+            <h3 style={{ textAlign: "center", fontSize: 18, marginBottom: 4 }}>Manuscript preview</h3>
+            <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 14 }}>
+              Read-only — this opens the manuscript for review here, it doesn&apos;t offer a download.
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr", gap: 20, alignItems: "start" }}>
-              <div style={{ height: 820, border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
-                <ManuscriptReviewViewer url={`/api/files/${manuscriptFileId}`} title={title || "Manuscript preview"} />
-              </div>
-              <div>
-                <div style={{ background: "#1B1B3A", color: "#fff", borderRadius: "10px 10px 0 0", padding: "12px 16px", textAlign: "center", fontWeight: 700, fontSize: 14 }}>
-                  Preview Style
-                </div>
-                <div className="map-card" style={{ padding: 16, borderRadius: "0 0 10px 10px", borderTop: "none", marginBottom: 20 }}>
-                  <label className="field-label" htmlFor="f-previewfont">Font</label>
-                  <select className="field" id="f-previewfont" value={previewStyle.font} onChange={(e) => setPreviewStyle((s) => ({ ...s, font: e.target.value as typeof previewStyle.font }))}>
-                    <option value="serif">Serif</option>
-                    <option value="sans">Sans-serif</option>
-                  </select>
-                  <label className="field-label" htmlFor="f-previewdropcap">Chapter start</label>
-                  <select className="field" id="f-previewdropcap" value={previewStyle.dropCap} onChange={(e) => setPreviewStyle((s) => ({ ...s, dropCap: e.target.value as typeof previewStyle.dropCap }))}>
-                    <option value="drop-cap">Drop cap</option>
-                    <option value="phrase-cap">Phrase cap</option>
-                    <option value="none">None</option>
-                  </select>
-                  <p className="field-hint" style={{ margin: 0 }}>Cosmetic reader-style preferences — doesn&apos;t change your actual uploaded file.</p>
-                </div>
-
-                <div style={{ background: "#1B1B3A", color: "#fff", borderRadius: "10px 10px 0 0", padding: "12px 16px", textAlign: "center", fontWeight: 700, fontSize: 14 }}>
-                  Download Your Book Preview
-                </div>
-                <div style={{ border: "1px solid var(--line)", borderTop: "none", borderRadius: "0 0 10px 10px", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div className="map-card" style={{ padding: 12, textAlign: "center" }}>
-                    <button type="button" className="btn btn-primary btn-small" style={{ width: "100%", marginBottom: 6 }} disabled>DOWNLOAD MOBI</button>
-                    <p className="field-hint" style={{ margin: 0 }}>Not available — genuine MOBI conversion needs infrastructure this platform doesn&apos;t have yet.</p>
-                  </div>
-                  <div className="map-card" style={{ padding: 12, textAlign: "center" }}>
-                    <a
-                      href={`/api/convert/epub?fileId=${manuscriptFileId}&title=${encodeURIComponent(title)}&author=${encodeURIComponent(authorDisplayName)}`}
-                      className="btn btn-primary btn-small"
-                      style={{ width: "100%", marginBottom: 6, display: "block" }}
-                    >
-                      DOWNLOAD EPUB
-                    </a>
-                    <p className="field-hint" style={{ margin: 0 }}>Generated on the spot from your manuscript&apos;s text.</p>
-                  </div>
-                  <div className="map-card" style={{ padding: 12, textAlign: "center" }}>
-                    <a href={`/api/files/${manuscriptFileId}`} target="_blank" rel="noreferrer" className="btn btn-primary btn-small" style={{ width: "100%", marginBottom: 6, display: "block" }}>DOWNLOAD PDF</a>
-                    <p className="field-hint" style={{ margin: 0 }}>Available now — what readers get on purchase, cover included.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ManuscriptReviewViewer url={`/api/files/${manuscriptFileId}`} title={title || "Manuscript preview"} spread theme="light" />
           </div>
         ) : (
           <p className="field-hint" style={{ marginTop: 14 }}>Upload a manuscript above to preview it page by page.</p>
