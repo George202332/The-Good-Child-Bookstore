@@ -22,11 +22,10 @@ export function TimeBasedGreeting({ name }: { name: string }) {
     setGreeting(g);
   }, []);
 
-  if (!greeting) return null;
-  const firstName = name.split(" ")[0] || name;
+  if (!greeting) return <div style={{ minWidth: 160, minHeight: 19 }} />;
   return (
-    <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink-soft)" }}>
-      {greeting}, {firstName}
+    <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink-soft)", minHeight: 19 }}>
+      {greeting}, {name}
     </div>
   );
 }

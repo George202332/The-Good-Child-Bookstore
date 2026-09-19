@@ -59,7 +59,7 @@ export default async function PayoutSettingsPage() {
     <DashboardShell role={role} activeKey="payout-settings" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 15.5 }}>Payout Settings</h2>
+          <h2 style={{ fontSize: 15.5 }}>Payouts</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             Your payout schedule and history. To choose or change where your money is sent, go to Profile → Payment
             Details.

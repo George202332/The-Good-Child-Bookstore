@@ -12,7 +12,6 @@ import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
 import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { LiveRefresher } from "@/components/LiveRefresher";
-import { TimeBasedGreeting } from "@/components/TimeBasedGreeting";
 
 export const dynamic = "force-dynamic";
 
@@ -251,7 +250,6 @@ export default async function AccountPage() {
           <div>
             <h2 style={{ fontSize: 15.5 }}>Dashboard</h2>
           </div>
-          <TimeBasedGreeting name={displayName} />
         </div>
 
         <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 20 }}>

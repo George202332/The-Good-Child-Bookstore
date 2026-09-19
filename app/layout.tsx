@@ -103,6 +103,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const settings = await getSiteSettings();
   const session = await auth();
   const userRole = session?.user?.role;
+  const userName = session?.user?.name ?? "";
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 
@@ -157,7 +158,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </noscript>
         )}
         <Providers>
-          <SiteChrome settings={settings} userRole={userRole}>{children}</SiteChrome>
+          <SiteChrome settings={settings} userRole={userRole} userName={userName}>{children}</SiteChrome>
         </Providers>
       </body>
     </html>
