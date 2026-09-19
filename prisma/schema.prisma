@@ -660,7 +660,7 @@ model AffiliateLink {
   affiliateId  String
   affiliate    AffiliateProfile @relation(fields: [affiliateId], references: [id])
   bookId       String?
-  book         Book?    @relation(fields: [bookId], references: [id])
+  book         Book?    @relation(fields: [bookId], references: [id], onDelete: Cascade)
   campaignId   String?
   campaign     Campaign? @relation(fields: [campaignId], references: [id])
   code         String   @unique
@@ -694,7 +694,7 @@ model AffiliateClick {
 model PayoutRequest {
   id             String       @id @default(cuid())
   userId         String
-  user           User         @relation(fields: [userId], references: [id])
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   recipientId    String
   recipient      WiseRecipient @relation(fields: [recipientId], references: [id])
   amount         Decimal      @db.Decimal(10, 2)

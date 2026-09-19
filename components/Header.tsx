@@ -48,6 +48,11 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   // Reader/Author/Affiliate session counts as signed-in here.
   const backendRole = (session?.user as { role?: string } | undefined)?.role;
   const isBackendSession = backendRole === "ADMIN" || backendRole === "EDITOR" || backendRole === "ACCOUNTANT";
+  // Authors don't browse/shop "as themselves" on the public storefront
+  // — the account icon here should never show them as signed in; if
+  // they want to browse the shop, they need a separate reader account
+  // for that, the same as anyone else.
+  const isAuthorSession = backendRole === "AUTHOR";
 
   // Keep the box in sync with ?q= when already on /shop (e.g. back/forward
   // nav, or a filter chip removed elsewhere), without fighting local typing.
@@ -71,7 +76,7 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
     router.replace(`/shop?${params.toString()}`, { scroll: false });
   }
 
-  const user = isBackendSession ? undefined : session?.user;
+  const user = (isBackendSession || isAuthorSession) ? undefined : session?.user;
   const initials = user?.name
     ?.split(" ")
     .map((w) => w[0])

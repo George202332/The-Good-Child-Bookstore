@@ -4,9 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { ReviewActions } from "./ReviewActions";
-import { ReviewChecklist } from "./ReviewChecklist";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
-import { getReviewChecklistTemplate } from "@/lib/review-checklist";
 import { getBookReviewsForModeration } from "@/actions/book-management";
 import { ReviewModerationList } from "../ReviewModerationList";
 
@@ -32,27 +30,23 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
   const role = session.user.role;
   if (!canModerateContent(role)) redirect("/account");
 
-  const [book, checklistTemplate] = await Promise.all([
-    prisma.book.findUnique({
-      where: { id },
-      include: {
-        author: { include: { user: true } },
-        categories: { include: { category: true } },
-        genres: { include: { genre: true } },
-        files: true,
-      },
-    }),
-    getReviewChecklistTemplate(),
-  ]);
+  const book = await prisma.book.findUnique({
+    where: { id },
+    include: {
+      author: { include: { user: true } },
+      categories: { include: { category: true } },
+      genres: { include: { genre: true } },
+      files: true,
+    },
+  });
   if (!book) notFound();
 
   const manuscript = (book.files as { kind: string; url: string }[]).find((f) => f.kind === "MANUSCRIPT");
   const authorDisplayName = book.author.penName || book.author.user.name;
-  const checklistState = (book.reviewChecklist as unknown as Record<string, boolean> | null) ?? {};
   const reviews = await getBookReviewsForModeration(book.id);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "var(--admin-bg, #0F1420)", overflowY: "auto" }}>
+    <div className="admin-shell" style={{ position: "fixed", inset: 0, zIndex: 1000, background: "var(--admin-bg, #0F1420)", overflowY: "auto" }}>
       <Link
         href="/admin/books"
         aria-label="Close"
@@ -74,10 +68,8 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      {/* Top row: checklist (left) — 2-page preview (center) — decision (right) */}
-      <div style={{ display: "grid", gridTemplateColumns: "240px 1fr 260px", gap: 20, marginBottom: 24, alignItems: "start" }}>
-        <ReviewChecklist bookId={book.id} groups={checklistTemplate} initial={checklistState} />
-
+      {/* Top row: 2-page preview (left) — decision (right) */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 20, marginBottom: 24, alignItems: "start" }}>
         <div className="map-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 4, textAlign: "center" }}>Manuscript preview</h3>
           <p className="field-hint" style={{ margin: "0 0 12px", textAlign: "center" }}>
@@ -94,7 +86,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
       </div>
 
       {/* Beneath: cover + every other submission detail */}
-      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 24, alignItems: "start" }}>
         <div className="map-card" style={{ padding: 16 }}>
           {book.coverImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- real uploaded book cover

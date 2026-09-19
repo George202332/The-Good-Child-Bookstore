@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signIn, getSession, signOut } from "next-auth/react";
 import { PasswordField } from "@/components/PasswordField";
 
@@ -21,7 +20,6 @@ import { PasswordField } from "@/components/PasswordField";
  * which defeated the point of having a separate backend login at all.
  */
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(false);
@@ -47,7 +45,7 @@ export default function LoginPage() {
       return;
     }
     setSubmitting(false);
-    router.push("/account");
+    window.location.href = "/account";
   }
 
   return (

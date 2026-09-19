@@ -182,7 +182,30 @@ export async function deleteUserAccount(userId: string): Promise<{ ok: boolean; 
   if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can delete accounts." };
   if (userId === session.user.id) return { ok: false, error: "You can't delete your own account." };
 
-  await prisma.user.delete({ where: { id: userId } });
-  revalidatePath("/admin/users");
-  return { ok: true };
+  // Real financial history (an author whose books have actual sales,
+  // or a reader with a paid order) must never be silently erased by a
+  // cascading account deletion — block it here with a clear reason,
+  // the same protective pattern used for deleting a book directly.
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      authorProfile: { include: { books: { include: { _count: { select: { saleLines: true } } } } } },
+      readerProfile: { include: { orders: { where: { status: "PAID" } } } },
+    },
+  });
+  if (!user) return { ok: false, error: "Account not found." };
+
+  const hasBookSales = user.authorProfile?.books.some((b: { _count: { saleLines: number } }) => b._count.saleLines > 0) ?? false;
+  const hasPaidOrders = (user.readerProfile?.orders.length ?? 0) > 0;
+  if (hasBookSales || hasPaidOrders) {
+    return { ok: false, error: "This account has real sales or order history and can't be deleted — suspend it instead to prevent sign-in while keeping its financial records intact." };
+  }
+
+  try {
+    await prisma.user.delete({ where: { id: userId } });
+    revalidatePath("/admin/users");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't delete this account." };
+  }
 }
