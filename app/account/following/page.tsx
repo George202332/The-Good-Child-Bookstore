@@ -14,7 +14,7 @@ export default async function FollowingPage() {
     <DashboardShell role="READER" activeKey="following" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Following</h2>
+          <h2 style={{ fontSize: 15.5 }}>Following</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Authors you follow.</p>
         </div>
       </div>

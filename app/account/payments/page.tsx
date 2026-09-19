@@ -19,7 +19,7 @@ export default async function PaymentsPage() {
     <DashboardShell role={role} activeKey="payments" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Payments</h2>
+          <h2 style={{ fontSize: 15.5 }}>Payments</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Every payout you&apos;ve requested, via Wise.</p>
         </div>
         <Link href="/account/payout-settings" className="btn btn-ghost btn-small">Manage payout destinations</Link>

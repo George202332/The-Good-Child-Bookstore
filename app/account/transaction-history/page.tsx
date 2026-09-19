@@ -14,7 +14,7 @@ export default async function AuthorTransactionHistoryPage() {
     <DashboardShell role="AUTHOR" activeKey="transaction-history" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Transaction History</h2>
+          <h2 style={{ fontSize: 15.5 }}>Transaction History</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Every sale and payout on your account.</p>
         </div>
       </div>

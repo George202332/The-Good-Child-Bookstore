@@ -13,7 +13,7 @@ export default async function SecurityPage() {
     <DashboardShell role={role} activeKey="security" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Security</h2>
+          <h2 style={{ fontSize: 15.5 }}>Security</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Manage your password.</p>
         </div>
       </div>

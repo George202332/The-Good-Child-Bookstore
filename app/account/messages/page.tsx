@@ -24,7 +24,7 @@ export default async function MessagesPage() {
     <DashboardShell role={role} activeKey="messages" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Messages</h2>
+          <h2 style={{ fontSize: 15.5 }}>Messages</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Direct messages with authors, readers, and affiliates.</p>
         </div>
       </div>

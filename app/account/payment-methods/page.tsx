@@ -25,7 +25,7 @@ export default async function PaymentMethodsPage() {
     <DashboardShell role="READER" activeKey="payment-methods" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Payment Methods</h2>
+          <h2 style={{ fontSize: 15.5 }}>Payment Methods</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             Cards you&apos;ve used that support faster checkout next time. Your card number is never stored on our
             servers — only a secure token from Paystack.

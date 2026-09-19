@@ -12,6 +12,7 @@ import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
 import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { LiveRefresher } from "@/components/LiveRefresher";
+import { TimeBasedGreeting } from "@/components/TimeBasedGreeting";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +81,7 @@ export default async function AccountPage() {
         <LiveRefresher />
         <div className="section-head" style={{ marginBottom: 16 }}>
           <div>
-            <h2 style={{ fontSize: 20 }}>Dashboard</h2>
+            <h2 style={{ fontSize: 15.5 }}>Dashboard</h2>
             <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
               Welcome back, {displayName.split(" ")[0]}.
             </p>
@@ -248,8 +249,9 @@ export default async function AccountPage() {
         <LiveRefresher />
         <div className="section-head" style={{ marginBottom: 16 }}>
           <div>
-            <h2 style={{ fontSize: 20 }}>Dashboard</h2>
+            <h2 style={{ fontSize: 15.5 }}>Dashboard</h2>
           </div>
+          <TimeBasedGreeting name={displayName} />
         </div>
 
         <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 20 }}>
@@ -396,7 +398,7 @@ export default async function AccountPage() {
       <LiveRefresher />
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Dashboard</h2>
+          <h2 style={{ fontSize: 15.5 }}>Dashboard</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             Welcome back, {displayName.split(" ")[0]}.
           </p>

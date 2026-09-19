@@ -125,12 +125,6 @@ export default async function BlogPage() {
 
   return (
     <DashboardShell role={role} activeKey="blog" displayName={session.user.name ?? ""}>
-      <div className="section-head" style={{ marginBottom: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 20 }}>Blog</h2>
-          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Write a new post, or manage your existing ones.</p>
-        </div>
-      </div>
       <BlogPageTabs posts={posts} defaultAuthorName={session.user.name ?? ""} />
     </DashboardShell>
   );

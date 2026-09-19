@@ -83,6 +83,12 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
   // Affiliate.
   const referralCode = role === "AUTHOR" ? await generateUniqueReferralCode(name) : undefined;
 
+  // Real IP-based geolocation (see lib/geo.ts) captured at the moment
+  // of signup — used to show which country an author actually signed
+  // up from (e.g. on the affiliate's "Authors you've referred" table).
+  const { getRequestGeo } = await import("@/lib/geo");
+  const signupGeo = await getRequestGeo();
+
   await prisma.user.create({
     data: {
       accountNumber,
@@ -93,7 +99,7 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
       ...(input.role === "READER" ? { readerProfile: { create: {} } } : {}),
       ...(input.role === "AUTHOR"
         ? {
-            authorProfile: { create: { primaryGenre: input.genre, penName: input.penName?.trim() || null, referredById } },
+            authorProfile: { create: { primaryGenre: input.genre, penName: input.penName?.trim() || null, referredById, country: signupGeo.country } },
             affiliateProfile: { create: { referralCode: referralCode! } },
           }
         : {}),

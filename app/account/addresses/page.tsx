@@ -15,7 +15,7 @@ export default async function AddressesPage() {
     <DashboardShell role="READER" activeKey="addresses" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Addresses</h2>
+          <h2 style={{ fontSize: 15.5 }}>Addresses</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             Used for billing on digital orders, and shipping on print orders.
           </p>

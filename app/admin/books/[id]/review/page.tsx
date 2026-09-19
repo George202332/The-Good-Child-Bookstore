@@ -2,12 +2,13 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { AdminShell } from "@/components/AdminShell";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { ReviewActions } from "./ReviewActions";
 import { ReviewChecklist } from "./ReviewChecklist";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 import { getReviewChecklistTemplate } from "@/lib/review-checklist";
+import { getBookReviewsForModeration } from "@/actions/book-management";
+import { ReviewModerationList } from "../ReviewModerationList";
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft", PENDING_REVIEW: "Under Review", PUBLISHED: "Approved", REJECTED: "Under Revision",
@@ -48,9 +49,22 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
   const manuscript = (book.files as { kind: string; url: string }[]).find((f) => f.kind === "MANUSCRIPT");
   const authorDisplayName = book.author.penName || book.author.user.name;
   const checklistState = (book.reviewChecklist as unknown as Record<string, boolean> | null) ?? {};
+  const reviews = await getBookReviewsForModeration(book.id);
 
   return (
-    <AdminShell role={role} activeKey="books" displayName={session.user.name ?? ""}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "var(--admin-bg, #0F1420)", overflowY: "auto" }}>
+      <Link
+        href="/admin/books"
+        aria-label="Close"
+        style={{
+          position: "fixed", top: 20, right: 24, zIndex: 1001, width: 40, height: 40, borderRadius: "50%",
+          background: "var(--admin-panel, #171D2B)", border: "1px solid var(--admin-border, #2A3244)",
+          display: "flex", alignItems: "center", justifyContent: "center", color: "var(--admin-text, #E8EBF2)", fontSize: 20, textDecoration: "none",
+        }}
+      >
+        ×
+      </Link>
+      <div className="wrap" style={{ padding: "40px 0 60px" }}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Reviewing: {book.title}</h2>
@@ -58,7 +72,6 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
             by {authorDisplayName} · Status: {STATUS_LABEL[book.status] ?? book.status}
           </p>
         </div>
-        <Link href={`/admin/books/${book.id}`} className="btn btn-ghost btn-small">View customer reviews</Link>
       </div>
 
       {/* Top row: checklist (left) — 2-page preview (center) — decision (right) */}
@@ -117,8 +130,14 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
               <p style={{ fontSize: 13.5, color: "#8A5A0B", lineHeight: 1.6 }}>{book.revisionNotes}</p>
             </div>
           )}
+
+          <div className="map-card" style={{ padding: 20 }}>
+            <h3 style={{ fontSize: 15, marginBottom: 14 }}>Customer reviews ({reviews.length})</h3>
+            <ReviewModerationList reviews={reviews} />
+          </div>
         </div>
       </div>
-    </AdminShell>
+      </div>
+    </div>
   );
 }

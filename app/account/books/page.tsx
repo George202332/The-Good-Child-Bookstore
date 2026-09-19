@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
 import { ColHelp } from "@/components/ColHelp";
 import { SuspendButton } from "./SuspendButton";
+import { WithdrawButton } from "./WithdrawButton";
 
 interface SaleLineShare {
   authorShare: unknown;
@@ -53,7 +54,7 @@ export default async function MyBooksPage() {
     <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>My Books</h2>
+          <h2 style={{ fontSize: 15.5 }}>My Books</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Your titles and how each is performing.</p>
         </div>
         <Link href="/account/books/new" className="btn btn-primary btn-small">Submit a new title</Link>
@@ -74,6 +75,7 @@ export default async function MyBooksPage() {
                 <th style={TABLE_HEAD_STYLE}>Royalties<ColHelp text="Your total lifetime earnings from this book's sales." /></th>
                 <th style={TABLE_HEAD_STYLE}>Edit<ColHelp text="Opens the submission form to update this book's details. Saving resubmits it for review." /></th>
                 <th style={TABLE_HEAD_STYLE}>Suspend<ColHelp text="Removes this book from the store shelf without deleting it. You can restore it any time." /></th>
+                <th style={TABLE_HEAD_STYLE}>Withdraw<ColHelp text="Removes this book from the catalog for good — its sales history stays on record, but it's no longer for sale." /></th>
               </tr>
             </thead>
             <tbody>
@@ -100,6 +102,9 @@ export default async function MyBooksPage() {
                       {(b.status === "SUSPENDED" || b.status === "WITHDRAWN")
                         ? <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Contact support</span>
                         : <SuspendButton bookId={b.id} suspended={b.status === "ARCHIVED"} />}
+                    </td>
+                    <td style={TABLE_CELL_STYLE}>
+                      <WithdrawButton bookId={b.id} alreadyWithdrawn={b.status === "WITHDRAWN"} />
                     </td>
                   </tr>
                 );

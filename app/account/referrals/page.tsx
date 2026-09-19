@@ -63,7 +63,7 @@ export default async function ReferralsPage() {
     <DashboardShell role={role} activeKey="referrals" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Referrals</h2>
+          <h2 style={{ fontSize: 15.5 }}>Referrals</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             What you&apos;ve earned, and made possible, by referring authors onto the platform.
           </p>
@@ -179,25 +179,25 @@ export default async function ReferralsPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="The name of the author who signed up using your referral link." /></th>
-                <th style={TABLE_HEAD_STYLE}>Country<ColHelp text="The country the author has listed on their own profile. Blank if they haven't set it." /></th>
-                <th style={TABLE_HEAD_STYLE}>Gender<ColHelp text="Self-reported by the author on their own profile. Blank if they haven't set it." /></th>
-                <th style={TABLE_HEAD_STYLE}>Books Published<ColHelp text="How many of this author's books are currently live and for sale." /></th>
-                <th style={TABLE_HEAD_STYLE}>Company Revenue<ColHelp text="The company's lifetime revenue from this author's book sales, before your commission is carved out of it." /></th>
-                <th style={TABLE_HEAD_STYLE}>Your Commission<ColHelp text="What you've earned, lifetime, from this specific author's sales." /></th>
+                <th style={TABLE_HEAD_STYLE}>Account ID<ColHelp text="The referred author's account ID, with the middle digits masked for privacy." /></th>
+                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="First name only, for anonymity." /></th>
+                <th style={TABLE_HEAD_STYLE}>Country<ColHelp text="The country the author actually signed up from." /></th>
+                <th style={TABLE_HEAD_STYLE}>Published<ColHelp text="How many of this author's books are currently live and for sale." /></th>
+                <th style={TABLE_HEAD_STYLE}>Company<ColHelp text="The company's lifetime revenue from this author's book sales, before your commission is carved out of it." /></th>
+                <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="What you've earned, lifetime, from this specific author's sales." /></th>
               </tr>
             </thead>
             <tbody>
               {referredAuthors.length === 0 ? (
-                <tr><td style={TABLE_CELL_STYLE} colSpan={6}>No authors referred yet — share your link above to get started.</td></tr>
+                <tr><td style={TABLE_CELL_STYLE} colSpan={6}>No authors referred yet; share your link above to get started.</td></tr>
               ) : (
                 referredAuthors.map((a, i) => (
                   <tr key={i}>
-                    <td style={TABLE_CELL_STYLE}>{a.name}</td>
-                    <td style={TABLE_CELL_STYLE}>{a.country || "—"}</td>
-                    <td style={TABLE_CELL_STYLE}>{a.gender || "—"}</td>
-                    <td style={TABLE_CELL_STYLE}>{a.booksPublished}</td>
-                    <td style={TABLE_CELL_STYLE}>${a.companyRevenue.toFixed(2)}</td>
+                    <td style={TABLE_CELL_STYLE}>{a.maskedAccountId}</td>
+                    <td style={TABLE_CELL_STYLE}>{a.firstName}</td>
+                    <td style={TABLE_CELL_STYLE}>{a.country || "N/A"}</td>
+                    <td style={TABLE_CELL_STYLE}>{a.published}</td>
+                    <td style={TABLE_CELL_STYLE}>${a.company.toFixed(2)}</td>
                     <td style={TABLE_CELL_STYLE}>${a.commission.toFixed(2)}</td>
                   </tr>
                 ))

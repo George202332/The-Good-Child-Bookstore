@@ -79,6 +79,22 @@ function generateSerialNumber(): string {
   return digits;
 }
 
+/** Generates a genuinely unique SN, called on demand (not automatically)
+ * from the "generate an SN for me" button — checks the database and
+ * regenerates on any collision, so this is a real uniqueness guarantee,
+ * not just a random guess that happens to rarely collide. */
+export async function generateUniqueSerialNumber(): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const candidate = generateSerialNumber();
+    const existing = await prisma.book.findUnique({ where: { isbn: candidate } });
+    if (!existing) return candidate;
+  }
+  // Vanishingly unlikely to ever reach this after 20 tries against a
+  // 12-digit random space, but never return a value that wasn't
+  // actually checked.
+  throw new Error("Could not generate a unique SN — please try again.");
+}
+
 function slugify(s: string): string {
   return (
     s
@@ -368,6 +384,27 @@ export async function setBookSuspended(bookId: string, suspended: boolean): Prom
     where: { id: bookId },
     data: { status: suspended ? "ARCHIVED" : "PENDING_REVIEW" },
   });
+
+  revalidatePath("/account/books");
+  return { ok: true };
+}
+
+/** Withdraws a book from the catalog — removes it from the public
+ * shelf entirely. A real status change (WITHDRAWN), not a hard delete:
+ * the book's sales history and royalty records must stay intact for
+ * accounting purposes even after it's pulled from sale, and a hard
+ * delete would silently break those. */
+export async function withdrawBook(bookId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "AUTHOR") return { ok: false, error: "Only author accounts can do this." };
+
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
+  if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
+
+  const book = await prisma.book.findUnique({ where: { id: bookId } });
+  if (!book || book.authorId !== user.authorProfile.id) return { ok: false, error: "Book not found." };
+
+  await prisma.book.update({ where: { id: bookId }, data: { status: "WITHDRAWN" } });
 
   revalidatePath("/account/books");
   return { ok: true };

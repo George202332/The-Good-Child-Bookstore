@@ -32,7 +32,7 @@ export default async function PerformancePage() {
     <DashboardShell role={role} activeKey="performance" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Affiliate</h2>
+          <h2 style={{ fontSize: 15.5 }}>Affiliate</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             How your promotional links are performing — pure numbers, not revenue. Your commission lives on the
             Referrals and Promotions pages.

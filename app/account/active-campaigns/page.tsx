@@ -41,7 +41,7 @@ export default async function ActiveCampaignsPage() {
     <DashboardShell role={role} activeKey="active-campaigns" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Promotions</h2>
+          <h2 style={{ fontSize: 15.5 }}>Promotions</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             Sharing a book&apos;s link anywhere: a blog post, social media, email, wherever, earns you a commission
             whenever someone buys through it, in any format.

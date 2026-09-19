@@ -23,7 +23,7 @@ export default async function ProfilePage() {
     <DashboardShell role={role} activeKey="profile" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Profile</h2>
+          <h2 style={{ fontSize: 15.5 }}>Profile</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Your account details.</p>
         </div>
       </div>

@@ -5,6 +5,7 @@ import { AdminShell } from "@/components/AdminShell";
 import { getBookStats, listBooksForModeration } from "@/actions/book-management";
 import { getSiteSettings } from "@/actions/site-settings";
 import { PublishingFormatToggles } from "./PublishingFormatToggles";
+import { DeleteBookButton } from "./DeleteBookButton";
 
 const STATUS_TABS: { key: "ALL" | "PUBLISHED" | "PENDING_REVIEW" | "DRAFT" | "REJECTED"; label: string }[] = [
   { key: "ALL", label: "All" },
@@ -89,27 +90,42 @@ export default async function BookManagementPage({
         ))}
       </div>
 
-      <div className="map-card" style={{ padding: "6px 16px" }}>
+      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
         {books.length === 0 ? (
           <div style={{ padding: "20px 0", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
             Nothing here yet.
           </div>
         ) : (
-          books.map((b) => (
-            <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
-              <div>
-                <Link href={`/admin/books/${b.id}/review`} style={{ fontWeight: 700, fontSize: 13.5, color: "var(--ink)" }}>{b.title}</Link>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                  by {b.authorName} · {b.status} · submitted {b.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                  {b.reviewCount > 0 && ` · ${b.reviewCount} review${b.reviewCount === 1 ? "" : "s"}`}
-                  {b.averageRating !== null && ` · ${b.averageRating.toFixed(1)}★`}
-                </div>
-              </div>
-              <Link href={`/admin/books/${b.id}/review`} className="btn btn-primary btn-small">
-                {b.status === "PENDING_REVIEW" ? "Review" : "Open"}
-              </Link>
-            </div>
-          ))
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>SN / ISBN</th>
+                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Title</th>
+                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Author</th>
+                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Account</th>
+                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Status</th>
+                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Open</th>
+                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Delete</th>
+              </tr>
+            </thead>
+            <tbody>
+              {books.map((b) => (
+                <tr key={b.id}>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.isbn || "N/A"}</td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}><strong>{b.title}</strong></td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.authorName}</td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.authorAccountNumber}</td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.status}</td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
+                    <Link href={`/admin/books/${b.id}/review`} className="btn btn-primary btn-small">Open</Link>
+                  </td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
+                    <DeleteBookButton bookId={b.id} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </AdminShell>

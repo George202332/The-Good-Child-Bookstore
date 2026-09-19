@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { submitBook } from "@/actions/submissions";
+import { submitBook, generateUniqueSerialNumber } from "@/actions/submissions";
 import { checkManuscriptMetadata, type MetadataCheckResult } from "@/actions/metadata-check";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
@@ -19,17 +19,6 @@ const READING_LEVELS = ["Pre-reader", "Beginner", "Early Reader", "Independent R
 const LANGUAGES = ["English", "Spanish", "French", "Swahili"];
 const LICENSE_TYPES = ["All rights reserved", "Exclusive Distribution", "Non-Exclusive Distribution"];
 const TAX_SETTINGS = ["Calculate automatically by customer location", "Tax Exempt", "Fixed Rate"];
-
-/** A 13-digit, all-numeric SN preview, matching the same shape the
- * server generates (see generateSerialNumber in actions/submissions.ts)
- * — always starts with 5. This is a client-side preview only; the
- * real, final SN is generated server-side at submission, but shown
- * here so the author sees a real example before they submit. */
-function previewSerialNumber(): string {
-  let digits = "5";
-  for (let i = 0; i < 12; i++) digits += Math.floor(Math.random() * 10);
-  return digits;
-}
 
 function plainTextFromHtml(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -65,8 +54,9 @@ export function EbookSubmissionForm() {
   const [publicationDate, setPublicationDate] = useState("");
   const [originalPublicationDate, setOriginalPublicationDate] = useState("");
   const [isbn, setIsbn] = useState("");
-  const [hasOwnIsbn, setHasOwnIsbn] = useState(false);
-  const [generatedSn] = useState(previewSerialNumber);
+  const [hasOwnIsbn, setHasOwnIsbn] = useState(true);
+  const [generatedSn, setGeneratedSn] = useState<string | null>(null);
+  const [generatingSn, setGeneratingSn] = useState(false);
   const [copyrightYear, setCopyrightYear] = useState(String(new Date().getFullYear()));
 
   // Author information
@@ -130,6 +120,7 @@ export function EbookSubmissionForm() {
 
   const checklist = [
     { label: "Manuscript uploaded", ok: !!manuscriptFileId },
+    { label: "Book identifier (ISBN or generated SN)", ok: hasOwnIsbn ? !!isbn.trim() : !!generatedSn },
     { label: "Cover image uploaded", ok: !!coverImageUrl },
     { label: "Book title", ok: !!title.trim() },
     { label: "Author name", ok: !!authorFirstName.trim() && !!authorLastName.trim() },
@@ -148,7 +139,7 @@ export function EbookSubmissionForm() {
     const res = await submitBook({
       title,
       subtitle,
-      isbn: hasOwnIsbn ? isbn : generatedSn,
+      isbn: hasOwnIsbn ? isbn : (generatedSn ?? ""),
       description: plainTextFromHtml(descriptionHtml).slice(0, 500),
       price: Number(price) || 0,
       ageGroup,
@@ -282,11 +273,32 @@ export function EbookSubmissionForm() {
                 <input className="field" id="f-isbn" type="text" placeholder="978-1-59299-541-7" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
                 <div className="field-hint">Enter your existing ISBN for this eBook.</div>
               </>
-            ) : (
+            ) : generatedSn ? (
               <>
                 <input className="field" type="text" value={generatedSn} readOnly disabled style={{ fontFamily: "monospace", letterSpacing: 1 }} />
                 <div className="field-hint" style={{ margin: 0 }}>
-                  Your SN — a 13-digit, all-numeric identifier starting with 5, distinct from a real ISBN.
+                  Your SN — a 13-digit, all-numeric identifier starting with 5, distinct from a real ISBN, and
+                  checked against every other book on the platform so it&apos;s guaranteed unique.
+                </div>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-small"
+                  disabled={generatingSn}
+                  onClick={async () => {
+                    setGeneratingSn(true);
+                    const sn = await generateUniqueSerialNumber();
+                    setGeneratedSn(sn);
+                    setGeneratingSn(false);
+                  }}
+                >
+                  {generatingSn ? "Generating…" : "Generate SN"}
+                </button>
+                <div className="field-hint" style={{ margin: "6px 0 0" }}>
+                  Generates a real, unique 13-digit identifier starting with 5 — checked against every other book
+                  on the platform.
                 </div>
               </>
             )}

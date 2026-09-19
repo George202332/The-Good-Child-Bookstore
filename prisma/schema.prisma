@@ -294,7 +294,7 @@ model Book {
   subtitle     String?
   slug         String        @unique
   description  String?
-  isbn         String?
+  isbn         String?       @unique
   price        Decimal       @db.Decimal(10, 2)
   coverImageUrl String?
   /** SEO/accessibility alt text for the cover image — falls back to

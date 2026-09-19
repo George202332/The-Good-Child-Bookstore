@@ -106,7 +106,7 @@ export async function DashboardShell({
     sec.items.push(it);
   });
   return (
-    <div className="wrap" style={{ padding: "37px 0 80px" }}>
+    <div className="wrap" style={{ padding: "26px 0 80px" }}>
       <SessionInactivityTimer />
       <div className="dashboard-layout">
         <aside className="dashboard-sidebar" id="dashboard-sidebar-nav" aria-label={`Account menu for ${displayName}`}>

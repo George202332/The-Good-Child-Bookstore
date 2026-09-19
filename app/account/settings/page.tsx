@@ -19,7 +19,7 @@ export default async function SettingsPage() {
     <DashboardShell role={role} activeKey="settings" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Settings</h2>
+          <h2 style={{ fontSize: 15.5 }}>Settings</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Display and notification preferences.</p>
         </div>
       </div>

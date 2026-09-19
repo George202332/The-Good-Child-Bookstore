@@ -92,14 +92,20 @@ export function BlogPageTabs({ posts, defaultAuthorName }: { posts: BlogListItem
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <button type="button" className={`btn btn-small ${tab === "list" ? "btn-primary" : "btn-ghost"}`} onClick={() => setTab("list")}>
-          Your posts
-        </button>
+      <div className="section-head" style={{ marginBottom: 16 }}>
+        <div>
+          <h2 style={{ fontSize: 15.5 }}>Blog</h2>
+          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Write a new post, or manage your existing ones.</p>
+        </div>
         <button type="button" className="btn btn-primary btn-small" onClick={startNewPost}>
           Submit a new blog
         </button>
       </div>
+      {tab === "submit" && (
+        <button type="button" className="btn btn-ghost btn-small" style={{ marginBottom: 14 }} onClick={backToList}>
+          ← Back to posts
+        </button>
+      )}
 
       {tab === "submit" && (
         <BlogEditorForm defaultAuthorName={defaultAuthorName} editingPost={editingPost} onDone={backToList} />

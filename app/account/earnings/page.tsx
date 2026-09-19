@@ -30,7 +30,7 @@ export default async function EarningsPage() {
     <DashboardShell role={role} activeKey="earnings" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Earnings</h2>
+          <h2 style={{ fontSize: 15.5 }}>Earnings</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             Your commission wallet. Everything earned in a calendar month is automatically paid out on the 15th of
             the following month.

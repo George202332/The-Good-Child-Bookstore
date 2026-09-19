@@ -33,7 +33,7 @@ export default async function NewBookPage() {
     <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Submit a new title</h2>
+          <h2 style={{ fontSize: 15.5 }}>Submit a new title</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             A professional publishing intake, organized the way our editorial and distribution teams process it.
           </p>

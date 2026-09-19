@@ -23,7 +23,7 @@ export default async function MarketingResourcesPage() {
     <DashboardShell role={role} activeKey="resources" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Marketing Resources</h2>
+          <h2 style={{ fontSize: 15.5 }}>Marketing Resources</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             Cover images and suggested captions for every book, ready to share.
           </p>
