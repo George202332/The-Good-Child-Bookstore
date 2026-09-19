@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BOOKS, CATS, bookSlug, type Book } from "@/lib/data/catalog";
 import { reviewStats, reviewsForBook } from "@/lib/data/reviews";
 import { BookCard } from "@/components/BookCard";
@@ -42,6 +43,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
   const b = book;
   const [format, setFormat] = useState<FormatKey>("print");
   const { addItem } = useCart();
+  const router = useRouter();
   const { has, toggle } = useWishlist();
 
   if (!b) {
@@ -261,6 +263,13 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
           </div>
 
           <button className="btn btn-primary btn-block btn-compact" onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to cart</button>
+          <button
+            className="btn btn-ghost btn-block btn-compact"
+            style={{ marginTop: 8 }}
+            onClick={() => router.push(`/checkout?directBookId=${b.id}&directFormat=${effectiveFormat === "print" ? "hardcover" : effectiveFormat}`)}
+          >
+            Buy Direct
+          </button>
           {effectiveFormat === "print" || effectiveFormat === "paperback" ? (
             <div className="buybox-note">
               You&apos;re adding the {fmtLabel.toLowerCase()} edition. Need more than one? Adjust the quantity from

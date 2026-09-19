@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
 import { SignOutButton } from "./SignOutButton";
+import { SessionInactivityTimer } from "./SessionInactivityTimer";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { NAV_ICONS } from "./nav-icons";
 
@@ -55,7 +56,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
-      { key: "library", label: "My Library", href: "/account/library", section: "Overview" },
       { key: "mybooks", label: "My Books", href: "/account/books", section: "Publishing" },
       { key: "blog", label: "My Blogs", href: "/account/blog", section: "Publishing" },
       { key: "referrals", label: "Referrals", href: "/account/referrals", section: "Affiliate" },
@@ -107,6 +107,7 @@ export async function DashboardShell({
   });
   return (
     <div className="wrap" style={{ padding: "37px 0 80px" }}>
+      <SessionInactivityTimer />
       <div className="dashboard-layout">
         <aside className="dashboard-sidebar" id="dashboard-sidebar-nav" aria-label={`Account menu for ${displayName}`}>
           <nav aria-label="Account navigation">

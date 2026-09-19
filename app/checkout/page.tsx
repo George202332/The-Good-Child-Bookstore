@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type { Book } from "@/lib/data/catalog";
 import { Motif } from "@/components/Motif";
-import { useCart } from "@/hooks/useCart";
+import { useCart, type CartItem } from "@/hooks/useCart";
 import { createPendingOrder, confirmOrderPaidDirectly } from "@/actions/orders";
 import { initiateGatewayCheckout } from "@/actions/payment-init";
 import { validateCoupon } from "@/actions/coupons";
@@ -60,8 +60,20 @@ const STEPS = [
   { n: 5, label: "Confirmation" },
 ];
 
-export default function CheckoutPage() {
-  const { items, setQty, removeItem } = useCart();
+function CheckoutPageInner() {
+  const { items: cartItems, setQty, removeItem } = useCart();
+  const searchParams = useSearchParams();
+  const directBookId = searchParams.get("directBookId");
+  const directFormat = searchParams.get("directFormat") as CartItem["format"] | null;
+  const isDirectBuy = !!directBookId && !!directFormat;
+  // A "Buy Direct" purchase never touches the persisted cart — it's an
+  // entirely separate, one-item source for this checkout session only,
+  // so whatever's already in the real cart is completely unaffected and
+  // still there if the customer goes back to /cart afterward.
+  const items: CartItem[] = useMemo(
+    () => (isDirectBuy ? [{ bookId: directBookId, format: directFormat, quantity: 1 }] : cartItems),
+    [isDirectBuy, directBookId, directFormat, cartItems]
+  );
   const { data: session } = useSession();
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -269,9 +281,9 @@ export default function CheckoutPage() {
                     ) : (
                       <div className="cart-item-digital-note">Printed and shipped by Lulu Publishing</div>
                     )}
-                    <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>
+                    {!isDirectBuy && <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>}
                   </div>
-                  {isDigital ? (
+                  {isDigital || isDirectBuy ? (
                     <div />
                   ) : (
                     <div className="qty-control">
@@ -437,5 +449,13 @@ export default function CheckoutPage() {
       )}
 
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckoutPageInner />
+    </Suspense>
   );
 }

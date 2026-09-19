@@ -92,11 +92,11 @@ export function BlogPageTabs({ posts, defaultAuthorName }: { posts: BlogListItem
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <button type="button" className={`btn btn-small ${tab === "list" ? "btn-primary" : "btn-ghost"}`} onClick={() => setTab("list")}>
           Your posts
         </button>
-        <button type="button" className={`btn btn-small ${tab === "submit" ? "btn-primary" : "btn-ghost"}`} onClick={startNewPost}>
+        <button type="button" className="btn btn-primary btn-small" onClick={startNewPost}>
           Submit a new blog
         </button>
       </div>

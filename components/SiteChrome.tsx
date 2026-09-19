@@ -19,21 +19,27 @@ import type { SiteSettings } from "@/lib/site-settings";
  * original always showed inside the same site chrome) keeps the normal
  * header/footer.
  */
-export function SiteChrome({ children, settings }: { children: ReactNode; settings: SiteSettings }) {
+export function SiteChrome({ children, settings, userRole }: { children: ReactNode; settings: SiteSettings; userRole?: string }) {
   const pathname = usePathname();
   const isBackend = pathname.startsWith("/admin");
   const isLoginPage = pathname === "/login";
   const isAccountPage = pathname.startsWith("/account");
   const hideFooter = isLoginPage || isAccountPage;
+  // Authors don't see the public site header anywhere in their account;
+  // readers still do — this only applies within /account, and only for
+  // the AUTHOR role specifically.
+  const hideHeader = isAccountPage && userRole === "AUTHOR";
 
   if (isBackend) return <>{children}</>;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <Suspense fallback={null}>
-        <Header logoImageUrl={settings.logoImageUrl} />
-      </Suspense>
-      <div style={{ flex: 1 }}>{children}</div>
+      {!hideHeader && (
+        <Suspense fallback={null}>
+          <Header logoImageUrl={settings.logoImageUrl} />
+        </Suspense>
+      )}
+      <div style={{ flex: 1, ...(hideHeader ? { paddingTop: "0.5in" } : {}) }}>{children}</div>
       {!hideFooter && (
         <Footer
           minimal={false}
