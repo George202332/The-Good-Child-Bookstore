@@ -36,7 +36,7 @@ export function SeoEntryForm({ entries }: { entries: SeoEntryRow[] }) {
         <div className="form-grid-2">
           <div>
             <label className="field-label" htmlFor="seo-path">Path</label>
-            <input className="field" id="seo-path" type="text" placeholder="/shop" required value={path} onChange={(e) => setPath(e.target.value)} />
+            <input className="field" id="seo-path" type="text" placeholder="/bookshelf" required value={path} onChange={(e) => setPath(e.target.value)} />
           </div>
           <div>
             <label className="field-label" htmlFor="seo-title">Title override</label>

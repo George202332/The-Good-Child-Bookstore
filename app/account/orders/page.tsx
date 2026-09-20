@@ -49,7 +49,7 @@ export default async function OrdersPage() {
       </div>
       {orders.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
-          No orders yet; <Link href="/shop">browse the bookshelf</Link> to get started.
+          No orders yet; <Link href="/bookshelf">browse the bookshelf</Link> to get started.
         </div>
       ) : (
         <div className="map-card" style={{ padding: "6px 16px" }}>

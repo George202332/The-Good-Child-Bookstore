@@ -60,7 +60,7 @@ export async function updatePagesContent(content: PagesContent): Promise<{ ok: b
   });
 
   revalidatePath("/");
-  revalidatePath("/shop");
+  revalidatePath("/bookshelf");
   revalidatePath("/authors");
   revalidatePath("/affiliate");
   revalidatePath("/blog");

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
+import { LibraryReviewButton } from "@/components/LibraryReviewButton";
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" };
 const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--line)" };
@@ -78,6 +79,7 @@ export default async function LibraryPage() {
                 <th style={TABLE_HEAD_STYLE}>Format</th>
                 <th style={TABLE_HEAD_STYLE}>Copies</th>
                 <th style={TABLE_HEAD_STYLE}>Download</th>
+                {role === "READER" && <th style={TABLE_HEAD_STYLE}>Review</th>}
               </tr>
             </thead>
             <tbody>
@@ -91,6 +93,11 @@ export default async function LibraryPage() {
                   <td style={TABLE_CELL_STYLE}>
                     <a href={`/api/downloads/${it.id}`} className="btn btn-ghost btn-small">Download</a>
                   </td>
+                  {role === "READER" && (
+                    <td style={TABLE_CELL_STYLE}>
+                      <LibraryReviewButton bookId={it.id} bookTitle={it.title} />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

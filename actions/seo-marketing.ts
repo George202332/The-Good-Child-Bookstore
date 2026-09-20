@@ -193,7 +193,7 @@ export async function getIndexingReport(): Promise<IndexingRow[]> {
       prisma.indexNowSubmission.findMany({ orderBy: { createdAt: "desc" } }),
     ]);
 
-    const STATIC_PAGES = ["/", "/shop", "/blog", "/authors", "/affiliate", "/about", "/contact", "/faq"];
+    const STATIC_PAGES = ["/", "/bookshelf", "/blog", "/authors", "/affiliate", "/about", "/contact", "/faq"];
 
     const latestByUrl = new Map<string, { ok: boolean; createdAt: Date }>();
     for (const s of submissions) {

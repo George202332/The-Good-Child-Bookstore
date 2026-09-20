@@ -241,7 +241,7 @@ function CheckoutPageInner() {
           <svg className="motif-big" viewBox="0 0 100 100"><Motif kind="star" color="#DED2F5" /></svg>
           <h2>Your cart is empty.</h2>
           <p style={{ color: "var(--ink-soft)", margin: "10px 0 24px" }}>Add a few books before checking out.</p>
-          <Link href="/shop" className="btn btn-primary">Browse the bookshelf</Link>
+          <Link href="/bookshelf" className="btn btn-primary">Browse the bookshelf</Link>
         </div>
       </div>
     );
@@ -304,7 +304,7 @@ function CheckoutPageInner() {
             <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 18 }} onClick={() => goTo(2)}>
               Continue
             </button>
-            <Link href="/shop" className="see-all" style={{ display: "block", textAlign: "center", marginTop: 14 }}>
+            <Link href="/bookshelf" className="see-all" style={{ display: "block", textAlign: "center", marginTop: 14 }}>
               Continue browsing
             </Link>
           </div>

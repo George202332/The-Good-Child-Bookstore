@@ -50,7 +50,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
     return (
       <div className="wrap" style={{ padding: "80px 0" }}>
         <h2>We couldn&apos;t find that book.</h2>
-        <Link href="/shop" className="btn btn-primary" style={{ marginTop: 20 }}>
+        <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 20 }}>
           Back to the bookshelf
         </Link>
       </div>
@@ -103,8 +103,8 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
   });
   const breadcrumbLd = breadcrumbJsonLd([
     { name: "Home", url: `${siteUrl}/` },
-    { name: "Bookshelf", url: `${siteUrl}/shop` },
-    { name: catName(b.category), url: `${siteUrl}/shop?cat=${b.category}` },
+    { name: "Bookshelf", url: `${siteUrl}/bookshelf` },
+    { name: catName(b.category), url: `${siteUrl}/bookshelf?cat=${b.category}` },
     { name: b.title, url: `${siteUrl}/${bookSlug(b)}` },
   ]);
 
@@ -116,8 +116,8 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
         <AffiliateClickTracker />
       </Suspense>
       <div className="breadcrumb">
-        <Link href="/">Home</Link> › <Link href="/shop">Bookshelf</Link> ›{" "}
-        <Link href={`/shop?cat=${b.category}`}>{catName(b.category)}</Link> › {b.genre}
+        <Link href="/">Home</Link> › <Link href="/bookshelf">Bookshelf</Link> ›{" "}
+        <Link href={`/bookshelf?cat=${b.category}`}>{catName(b.category)}</Link> › {b.genre}
       </div>
       <div className="az-grid">
         <div className="az-left">
@@ -262,9 +262,9 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
             )}
           </div>
 
-          <button className="btn btn-primary btn-block btn-compact" onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to cart</button>
+          <button className="btn btn-primary btn-block btn-compact" onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to Cart</button>
           <button
-            className="btn btn-ghost btn-block btn-compact"
+            className="btn btn-gold btn-block btn-compact"
             style={{ marginTop: 8 }}
             onClick={() => router.push(`/checkout?directBookId=${b.id}&directFormat=${effectiveFormat === "print" ? "hardcover" : effectiveFormat}`)}
           >
@@ -289,7 +289,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
           )}
 
           <div className="buybox-divider" />
-          <button type="button" className="btn btn-ghost btn-block btn-compact" onClick={() => toggle(b.id)}>
+          <button type="button" className="btn btn-primary btn-block btn-compact" onClick={() => toggle(b.id)}>
             {inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
           </button>
 

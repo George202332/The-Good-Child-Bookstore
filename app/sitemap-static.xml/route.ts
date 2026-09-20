@@ -9,7 +9,7 @@ export async function GET() {
   const siteUrl = getPublicSiteUrl();
   const entries = [
     { loc: `${siteUrl}/`, changefreq: "daily", priority: 1 },
-    { loc: `${siteUrl}/shop`, changefreq: "daily", priority: 0.9 },
+    { loc: `${siteUrl}/bookshelf`, changefreq: "daily", priority: 0.9 },
     { loc: `${siteUrl}/blog`, changefreq: "daily", priority: 0.7 },
     { loc: `${siteUrl}/authors`, changefreq: "monthly", priority: 0.6 },
     { loc: `${siteUrl}/affiliate`, changefreq: "monthly", priority: 0.6 },

@@ -20,7 +20,7 @@ export default function WishlistPage() {
         <div className="empty-state">
           <h3>Nothing saved yet</h3>
           <p>Tap the heart icon on any book to save it here for later.</p>
-          <Link href="/shop" className="btn btn-primary" style={{ marginTop: 16 }}>Browse the bookshelf</Link>
+          <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 16 }}>Browse the bookshelf</Link>
         </div>
       ) : (
         <div className="book-grid" aria-label="Wishlist">

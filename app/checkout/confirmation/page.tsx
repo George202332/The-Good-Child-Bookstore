@@ -27,7 +27,7 @@ export default async function CheckoutConfirmationPage({
     return (
       <div className="wrap cart-wrap" style={{ maxWidth: 520, textAlign: "center" }}>
         <p>No recent order found.</p>
-        <Link href="/shop" className="btn btn-primary" style={{ marginTop: 16 }}>Browse the bookshelf</Link>
+        <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 16 }}>Browse the bookshelf</Link>
       </div>
     );
   }
@@ -89,7 +89,7 @@ export default async function CheckoutConfirmationPage({
             Go to your Library
           </Link>
         )}
-        <Link href="/shop" className="see-all" style={{ display: "block", textAlign: "center" }}>Continue shopping</Link>
+        <Link href="/bookshelf" className="see-all" style={{ display: "block", textAlign: "center" }}>Continue shopping</Link>
       </div>
     </div>
   );

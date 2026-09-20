@@ -34,7 +34,7 @@ export default function AboutPage() {
             argued over, and voted onto the shelf by our small team before it ever reaches a shipping box.
           </p>
           <p>We&apos;re not trying to be the biggest children&apos;s bookstore; just the one you trust to hand your child the right book at the right age.</p>
-          <Link href="/shop" className="btn btn-primary" style={{ marginTop: 10 }}>Browse the bookshelf</Link>
+          <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 10 }}>Browse the bookshelf</Link>
         </div>
         <div className="about-illustration">
           <svg viewBox="0 0 100 100"><Motif kind="owl" color="#9A7EDD" /></svg>

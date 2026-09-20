@@ -44,8 +44,8 @@ export function HeroBannerCarousel({
   affiliateImage?: string;
 }) {
   const slides: HeroSlide[] = [
-    { tone: "lavender", icon: ICONS.welcome, title: heading, body: lede, ctaHref: "/shop", ctaLabel: "Browse the bookshelf", imageUrl: welcomeImage },
-    { tone: "mint", icon: ICONS.browse, title: "Browse the bookshelf", body: "Picture books, bedtime stories, and middle-grade adventures, curated with parents, teachers, and librarians in mind.", ctaHref: "/shop", ctaLabel: "Browse the bookshelf", imageUrl: browseImage },
+    { tone: "lavender", icon: ICONS.welcome, title: heading, body: lede, ctaHref: "/bookshelf", ctaLabel: "Browse the bookshelf", imageUrl: welcomeImage },
+    { tone: "mint", icon: ICONS.browse, title: "Browse the bookshelf", body: "Picture books, bedtime stories, and middle-grade adventures, curated with parents, teachers, and librarians in mind.", ctaHref: "/bookshelf", ctaLabel: "Browse the bookshelf", imageUrl: browseImage },
     { tone: "pink", icon: ICONS.author, title: "Become an author", body: "Publish your own children's book as an eBook, paperback, hardcover, or audiobook — and earn real royalties on every sale.", ctaHref: "/signup/author", ctaLabel: "Become an author", imageUrl: authorImage },
     { tone: "lavender", icon: ICONS.affiliate, title: "Become an affiliate", body: "Refer authors, promote books, and earn a lifetime share of the revenue you help bring in — all from one account.", ctaHref: "/signup/author", ctaLabel: "Become an affiliate", imageUrl: affiliateImage },
   ];

@@ -51,6 +51,15 @@ export async function submitReview(input: { bookId: string; content: string; sta
   if (!input.content.trim()) {
     return { ok: false, error: "Please write something before submitting." };
   }
+
+  const readerProfile = await prisma.readerProfile.findUnique({ where: { userId: session.user.id } });
+  const ownsBook = readerProfile
+    ? await prisma.saleLine.findFirst({ where: { bookId: input.bookId, order: { readerId: readerProfile.id, status: "PAID" } } })
+    : null;
+  if (!ownsBook) {
+    return { ok: false, error: "You can only review a book you've actually purchased." };
+  }
+
   const stars = Math.min(5, Math.max(1, Math.round(input.stars)));
 
   await prisma.rating.upsert({

@@ -119,7 +119,7 @@ export default async function HomePage() {
           </div>
           <div className="cat-grid">
             {CATS.map((c, i) => (
-              <Link key={c.id} href={`/shop?cat=${c.id}`} className={`cat-tile ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
+              <Link key={c.id} href={`/bookshelf?cat=${c.id}`} className={`cat-tile ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
                 <span>{c.name}</span>
                 <small>{c.blurb}</small>
                 <span className="cat-count">{BOOKS.filter((b) => b.category === c.id).length} books</span>
@@ -151,7 +151,7 @@ export default async function HomePage() {
           </div>
           <div className="age-grid">
             {AGE_EXPLORER.map((a, i) => (
-              <Link key={a.range} href={`/shop?age=${a.range}`} className={`age-card ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
+              <Link key={a.range} href={`/bookshelf?age=${a.range}`} className={`age-card ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
                 <div className="age-range">{a.range}</div>
                 <div className="age-label">{a.label}</div>
                 <div className="age-count">{a.count} books</div>
@@ -187,7 +187,7 @@ export default async function HomePage() {
               <h2 className="home-section-heading">New Arrivals</h2>
               <p>Books that have just been published.</p>
             </div>
-            <Link href="/shop" className="see-all">See the full bookshelf →</Link>
+            <Link href="/bookshelf" className="see-all">See the full bookshelf →</Link>
           </div>
           <div className="book-grid-12">
             {newArrivals.map((b) => (
@@ -210,7 +210,7 @@ export default async function HomePage() {
             title={hero.printBannerTitle}
             body={hero.printBannerBody}
             imageUrl={hero.printBannerImage}
-            ctaHref="/shop?format=print"
+            ctaHref="/bookshelf?format=print"
             ctaLabel="Shop print copies"
           />
         </div>

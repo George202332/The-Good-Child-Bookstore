@@ -98,10 +98,10 @@ export function Footer({
           <div>
             <h4>Shop</h4>
             <ul>
-              <li><Link href="/shop">All books</Link></li>
-              <li><Link href="/shop?cat=picture">Picture books</Link></li>
-              <li><Link href="/shop?cat=bedtime">Bedtime stories</Link></li>
-              <li><Link href="/shop?cat=middle">Middle grade</Link></li>
+              <li><Link href="/bookshelf">All books</Link></li>
+              <li><Link href="/bookshelf?cat=picture">Picture books</Link></li>
+              <li><Link href="/bookshelf?cat=bedtime">Bedtime stories</Link></li>
+              <li><Link href="/bookshelf?cat=middle">Middle grade</Link></li>
             </ul>
           </div>
           <div>

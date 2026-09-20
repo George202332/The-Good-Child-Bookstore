@@ -19,7 +19,7 @@ import { useWishlist } from "@/hooks/useWishlist";
  */
 const NAV_ITEMS = [
   { href: "/", label: "Home", match: "home" },
-  { href: "/shop", label: "Bookshelf", match: "shop" },
+  { href: "/bookshelf", label: "Bookshelf", match: "bookshelf" },
   { href: "/authors", label: "Authorship", match: "authors" },
   { href: "/affiliate", label: "Affiliate", match: "affiliate" },
   { href: "/blog", label: "Blog", match: "blog" },
@@ -48,16 +48,16 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   // Reader/Author/Affiliate session counts as signed-in here.
   const backendRole = (session?.user as { role?: string } | undefined)?.role;
   const isBackendSession = backendRole === "ADMIN" || backendRole === "EDITOR" || backendRole === "ACCOUNTANT";
-  // Authors don't browse/shop "as themselves" on the public storefront
+  // Authors don't browse/bookshelf "as themselves" on the public storefront
   // — the account icon here should never show them as signed in; if
   // they want to browse the shop, they need a separate reader account
   // for that, the same as anyone else.
   const isAuthorSession = backendRole === "AUTHOR";
 
-  // Keep the box in sync with ?q= when already on /shop (e.g. back/forward
+  // Keep the box in sync with ?q= when already on /bookshelf (e.g. back/forward
   // nav, or a filter chip removed elsewhere), without fighting local typing.
   useEffect(() => {
-    if (pathname === "/shop") {
+    if (pathname === "/bookshelf") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearch(searchParams.get("q") ?? "");
     }
@@ -65,15 +65,15 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
 
   // Converted from the global-search input listener in attachHeaderHandlers()
   // (the-good-child-bookstore_54_1.html:15175-15185): typing here live-
-  // navigates to /shop with the query applied, same as the original jumping
-  // to #/shop on the first keystroke.
+  // navigates to /bookshelf with the query applied, same as the original jumping
+  // to #/bookshelf on the first keystroke.
   function handleSearchChange(value: string) {
     setSearch(value);
-    const params = new URLSearchParams(pathname === "/shop" ? searchParams.toString() : "");
+    const params = new URLSearchParams(pathname === "/bookshelf" ? searchParams.toString() : "");
     if (value) params.set("q", value);
     else params.delete("q");
     params.delete("page");
-    router.replace(`/shop?${params.toString()}`, { scroll: false });
+    router.replace(`/bookshelf?${params.toString()}`, { scroll: false });
   }
 
   const user = (isBackendSession || isAuthorSession) ? undefined : session?.user;
