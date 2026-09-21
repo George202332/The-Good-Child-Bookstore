@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { ReviewActions } from "./ReviewActions";
@@ -25,7 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
  */
 export default async function BookReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (!canModerateContent(role)) redirect("/account");

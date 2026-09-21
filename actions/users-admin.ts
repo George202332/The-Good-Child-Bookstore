@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authEither as auth } from "@/lib/auth-either";
 import type { Role } from "@/lib/roles";
 import { generateAccountNumber } from "@/lib/account-number";
 import { generateUniqueReferralCode } from "@/lib/referral-code";

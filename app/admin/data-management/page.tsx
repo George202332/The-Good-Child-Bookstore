@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getTestDataSummary, getTestDataAuditLog } from "@/actions/test-data";
 import { TestDataControls } from "./TestDataControls";
@@ -8,7 +8,7 @@ import { TestDataControls } from "./TestDataControls";
 export const dynamic = "force-dynamic";
 
 export default async function DataManagementPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 

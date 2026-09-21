@@ -1,5 +1,5 @@
 import { redirect, notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/AdminShell";
 import { getBookReviewsForModeration } from "@/actions/book-management";
@@ -11,7 +11,7 @@ import { ReviewModerationList } from "./ReviewModerationList";
  * was published.
  */
 export default async function BookModerationDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");

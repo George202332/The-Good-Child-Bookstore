@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authEither as auth } from "@/lib/auth-either";
 
 async function requireAdmin(): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await auth();
@@ -184,19 +185,32 @@ export async function deleteAllTestData(): Promise<{ ok: boolean; error?: string
   const session = await auth();
 
   try {
-    const orders = await prisma.order.deleteMany({ where: { isTestData: true } });
-    const books = await prisma.book.deleteMany({ where: { isTestData: true } });
-    // Never delete backend staff accounts through this tool, even if
-    // isTestData were somehow set true on one — only Reader/Author
-    // test accounts are ever removed here.
-    const accounts = await prisma.user.deleteMany({ where: { isTestData: true, role: { in: ["READER", "AUTHOR"] } } });
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      // No sales-count or transaction-existence check here, by
+      // design: everything in this scope is already flagged as test
+      // data (via evidence-based detection or explicit marking,
+      // reviewed by the admin beforehand) — dependent test records
+      // (sale lines, payment logs, affiliate links, etc.) are removed
+      // together with their parent order/book/account, not treated as
+      // a reason to block. That blocking behavior still exists, and
+      // is still correct, for the separate single-book admin delete
+      // action, which has no such prior evidence review.
+      const orders = await tx.order.deleteMany({ where: { isTestData: true } });
+      const books = await tx.book.deleteMany({ where: { isTestData: true } });
+      // Never delete backend staff accounts through this tool, even if
+      // isTestData were somehow set true on one — only Reader/Author
+      // test accounts are ever removed here.
+      const accounts = await tx.user.deleteMany({ where: { isTestData: true, role: { in: ["READER", "AUTHOR"] } } });
 
-    await prisma.auditLog.create({
-      data: {
-        actorId: session!.user.id,
-        action: "DELETE_ALL_TEST_DATA",
-        metadata: { accounts: accounts.count, books: books.count, orders: orders.count, deletedAt: new Date().toISOString() },
-      },
+      await tx.auditLog.create({
+        data: {
+          actorId: session!.user.id,
+          action: "DELETE_ALL_TEST_DATA",
+          metadata: { accounts: accounts.count, books: books.count, orders: orders.count, deletedAt: new Date().toISOString() },
+        },
+      });
+
+      return { accounts: accounts.count, books: books.count, orders: orders.count };
     });
 
     revalidatePath("/admin");
@@ -204,7 +218,7 @@ export async function deleteAllTestData(): Promise<{ ok: boolean; error?: string
     revalidatePath("/admin/books");
     revalidatePath("/admin/users");
 
-    return { ok: true, deleted: { accounts: accounts.count, books: books.count, orders: orders.count } };
+    return { ok: true, deleted: result };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Couldn't delete test data." };
   }

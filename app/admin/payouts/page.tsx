@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/AdminShell";
 import { ModerationActions } from "./ModerationActions";
@@ -22,7 +22,7 @@ interface PendingPayout {
  * view this queue (their whole reason for backend access) but the
  * approve/reject buttons only render for Admin. */
 export default async function PayoutsPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role as Role;
   if (role !== "ADMIN" && role !== "ACCOUNTANT") redirect("/admin");

@@ -1,11 +1,11 @@
 import { redirect, notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getUserDetail } from "@/actions/users-admin";
 import { EditUserForm } from "./EditUserForm";
 
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 

@@ -67,7 +67,7 @@ export function AdminShell({
 
   return (
     <div className="admin-shell">
-      <SessionInactivityTimer />
+      <SessionInactivityTimer isAdmin />
       <aside className="admin-sidebar">
         <div className="admin-brand">
           <div className="admin-brand-mark">GC</div>
@@ -95,7 +95,7 @@ export function AdminShell({
             </Link>
           ))}
         </nav>
-        <SignOutButton className="admin-signout" callbackUrl="/admin/login" />
+        <SignOutButton className="admin-signout" callbackUrl="/admin/login" isAdmin />
       </aside>
       <main className="admin-content">{children}</main>
     </div>

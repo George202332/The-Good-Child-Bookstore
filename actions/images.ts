@@ -2,7 +2,7 @@
 
 import sharp from "sharp";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authEither as auth } from "@/lib/auth-either";
 import { BACKEND_ROLES } from "@/lib/roles";
 
 /**

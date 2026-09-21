@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authEither as auth } from "@/lib/auth-either";
 
 async function requireAdmin(): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await auth();

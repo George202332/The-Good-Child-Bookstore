@@ -10,6 +10,7 @@ import { useState } from "react";
  */
 export function PasswordField({
   id,
+  name,
   value,
   onChange,
   required,
@@ -18,6 +19,7 @@ export function PasswordField({
   placeholder,
 }: {
   id: string;
+  name?: string;
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
@@ -32,6 +34,7 @@ export function PasswordField({
       <input
         className="field"
         id={id}
+        name={name}
         type={visible ? "text" : "password"}
         required={required}
         minLength={minLength}

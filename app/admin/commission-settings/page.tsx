@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getCommissionRates } from "@/lib/commission-settings";
 import { CommissionSettingsForm } from "./CommissionSettingsForm";
@@ -13,7 +13,7 @@ import { RecalculateRevenueButton } from "./RecalculateRevenueButton";
  * from 3% to 5% per explicit instruction.
  */
 export default async function CommissionSettingsPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (session?.user?.role !== "ADMIN") redirect("/login");
 
   const rates = await getCommissionRates();

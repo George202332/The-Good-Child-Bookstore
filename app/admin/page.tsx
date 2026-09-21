@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/AdminShell";
 import { canViewFinancials } from "@/lib/roles";
@@ -14,7 +14,7 @@ import { getTransactionLedger } from "@/actions/transactions";
  * per "Editor cannot access financial information".
  */
 export default async function AdminDashboardPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");

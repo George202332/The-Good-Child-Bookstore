@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getIndexingReport } from "@/actions/seo-marketing";
 
@@ -18,7 +18,7 @@ const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 14px", borderBott
  * available without that separate integration.
  */
 export default async function IndexingPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");

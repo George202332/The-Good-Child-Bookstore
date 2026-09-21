@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { listLibrary } from "@/actions/library";
 import { LibraryClient } from "./LibraryClient";
@@ -14,7 +14,7 @@ import { LibraryClient } from "./LibraryClient";
  * Content) — not guessed from filenames or upload order.
  */
 export default async function LibraryPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (session?.user?.role !== "ADMIN") redirect("/admin");
 
   const items = await listLibrary();

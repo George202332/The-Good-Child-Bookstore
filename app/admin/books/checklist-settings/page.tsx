@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { canRatifyModeration } from "@/lib/roles";
 import { getReviewChecklistTemplate } from "@/lib/review-checklist";
@@ -12,7 +12,7 @@ import { ChecklistSettingsForm } from "./ChecklistSettingsForm";
  * editable groups and items, rather than a hardcoded list.
  */
 export default async function ChecklistSettingsPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user?.role || !canRatifyModeration(session.user.role)) redirect("/admin");
 
   const groups = await getReviewChecklistTemplate();

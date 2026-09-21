@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { ModerationActions } from "./ModerationActions";
 import { getBlogStats, listBlogsForModeration } from "@/actions/blog-management";
@@ -23,7 +23,7 @@ export default async function BlogModerationPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");

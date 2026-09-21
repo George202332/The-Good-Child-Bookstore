@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getSeoOverview, listSeoEntries, listIndexNowLog, listRedirects } from "@/actions/seo-marketing";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
@@ -17,7 +17,7 @@ import { RedirectsManager } from "./RedirectsManager";
  * until now).
  */
 export default async function SeoMarketingPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");

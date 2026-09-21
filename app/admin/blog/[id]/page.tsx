@@ -1,5 +1,5 @@
 import { redirect, notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/AdminShell";
 import { getBlogCommentsForModeration } from "@/actions/blog-management";
@@ -10,7 +10,7 @@ import { CommentModerationList } from "./CommentModerationList";
  * comments, which previously had no moderation path at all.
  */
 export default async function BlogModerationDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");

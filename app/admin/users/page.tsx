@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { CreateUserForm } from "./CreateUserForm";
 import { UserRowActions } from "./UserRowActions";
 import { AdminShell } from "@/components/AdminShell";
@@ -30,7 +30,7 @@ export default async function UsersPage({
 }: {
   searchParams: Promise<{ role?: string }>;
 }) {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 

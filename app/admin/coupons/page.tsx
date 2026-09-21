@@ -1,12 +1,12 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { listCoupons } from "@/actions/coupons";
 import { CouponManager } from "./CouponManager";
 
 /** Admin-only coupon management — "manage coupons" from the brief. */
 export default async function CouponsPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 

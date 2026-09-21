@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getAnalyticsSummary } from "@/actions/analytics";
 
@@ -10,7 +10,7 @@ import { getAnalyticsSummary } from "@/actions/analytics";
  * only, per "Editor cannot access financial information".
  */
 export default async function AnalyticsPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");

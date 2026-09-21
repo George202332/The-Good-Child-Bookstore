@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { PasswordField } from "@/components/PasswordField";
+import { adminSignIn } from "@/actions/admin-auth";
 
 /**
  * A dedicated backend login — separate from the public /login page
@@ -12,9 +11,16 @@ import { PasswordField } from "@/components/PasswordField";
  * role tabs, "New here" signup cards, etc). This one shows only email
  * and password, styled with the same dark admin theme as the rest of
  * /admin (see ../admin.css), and nothing else — per explicit request.
+ *
+ * Signs in through the admin-only NextAuth instance (lib/auth-admin.ts)
+ * via a server action, not the client-side next-auth/react hook — that
+ * hook is hardcoded to the default /api/auth/* path and would silently
+ * authenticate against the public instance instead, which is exactly
+ * backwards for a backend login. Field names and autocomplete values
+ * are deliberately distinct from the public login form's, so a
+ * browser's saved reader/author credentials are never suggested here.
  */
 export default function AdminLoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,14 +30,13 @@ export default function AdminLoginPage() {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const result = await signIn("credentials", { email, password, redirect: false });
+    const result = await adminSignIn(email, password);
     setSubmitting(false);
-    if (result?.error) {
-      setError("That email or password isn't right.");
+    if (!result.ok) {
+      setError(result.error ?? "That email or password isn't right.");
       return;
     }
-    router.push("/admin");
-    router.refresh();
+    window.location.href = "/admin";
   }
 
   return (
@@ -40,22 +45,24 @@ export default function AdminLoginPage() {
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontWeight: 700, fontSize: 18 }}>The Good Child Bookstore</div>
         </div>
-        <form onSubmit={handleSubmit} className="form-section admin-login-form">
-          <label className="field-label" htmlFor="admin-email">Email</label>
+        <form onSubmit={handleSubmit} className="form-section admin-login-form" autoComplete="off">
+          <label className="field-label" htmlFor="admin-portal-email">Email</label>
           <input
             className="field"
-            id="admin-email"
+            id="admin-portal-email"
+            name="admin-portal-email"
             type="email"
             required
-            autoComplete="username"
+            autoComplete="off"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <label className="field-label" htmlFor="admin-password">Password</label>
+          <label className="field-label" htmlFor="admin-portal-password">Password</label>
           <PasswordField
-            id="admin-password"
+            id="admin-portal-password"
+            name="admin-portal-password"
             required
-            autoComplete="current-password"
+            autoComplete="off"
             value={password}
             onChange={setPassword}
           />

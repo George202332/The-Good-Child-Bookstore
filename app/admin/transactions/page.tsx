@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getTransactionLedger } from "@/actions/transactions";
 import { canViewFinancials } from "@/lib/roles";
@@ -8,7 +8,7 @@ import { canViewFinancials } from "@/lib/roles";
  * 7 columns. Financial data, so gated the same way as Analytics (Editor
  * cannot access financial information). */
 export default async function TransactionsPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");

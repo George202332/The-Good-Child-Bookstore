@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getSiteSettingsForEditing } from "@/actions/site-settings";
 import { getPagesContent } from "@/actions/page-content";
@@ -14,7 +14,7 @@ import { PageContentForm } from "./PageContentForm";
  * request to "control the site from the backend."
  */
 export default async function SiteSettingsPage() {
-  const session = await auth();
+  const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 

@@ -52,13 +52,15 @@ export default function LoginPage() {
     <section className="auth-section">
       <div className="auth-card">
         <h1>Welcome</h1>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} autoComplete="on">
           <label className="field-label" htmlFor="l-email">Email</label>
           <input
             className="field"
             id="l-email"
+            name="reader-email"
             type="email"
             placeholder="you@example.com"
+            autoComplete="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -66,7 +68,9 @@ export default function LoginPage() {
           <label className="field-label" htmlFor="l-password">Password</label>
           <PasswordField
             id="l-password"
+            name="reader-password"
             placeholder="Your password"
+            autoComplete="current-password"
             required
             value={password}
             onChange={setPassword}

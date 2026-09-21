@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authEither as auth } from "@/lib/auth-either";
 import { getCommissionRates, type CommissionRates } from "@/lib/commission-settings";
 
 const COMMISSION_SETTINGS_KEY = "commission_rates";

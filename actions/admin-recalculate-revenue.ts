@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authEither as auth } from "@/lib/auth-either";
 import { calculateSplits, applyAuthorReferralCarveOut } from "@/lib/revenue";
 import { getCommissionRates, tierForReferralCount } from "@/lib/commission-settings";
 

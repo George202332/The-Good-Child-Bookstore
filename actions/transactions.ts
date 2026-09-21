@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { authEither as auth } from "@/lib/auth-either";
 import { BACKEND_ROLES, canViewFinancials } from "@/lib/roles";
 
 /**
