@@ -13,15 +13,14 @@ import { getTransactionLedger } from "@/actions/transactions";
  * the most recent transactions. Financial figures are hidden for EDITOR
  * per "Editor cannot access financial information".
  */
-export default async function AdminDashboardPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+export default async function AdminDashboardPage() {
   const session = await auth();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");
 
-  const { mode: modeParam } = await searchParams;
-  const mode: "live" | "test" = modeParam === "test" ? "test" : "live";
-  const isTestData = mode === "test";
+  // Always live data — the Live/Test toggle lives on Data Management now.
+  const isTestData = false;
 
   const [userCount, usersByRole, bookCounts, pendingBooks, pendingBlogs, pendingPayouts] = await Promise.all([
     prisma.user.count({ where: { isTestData } }),
@@ -57,27 +56,13 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
   return (
     <AdminShell role={role} activeKey="dashboard" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div>
           <h2 style={{ fontSize: 20 }}>{role === "ADMIN" ? "Admin" : role === "EDITOR" ? "Editor" : "Accountant"} dashboard</h2>
-          {role === "ADMIN" && (
-            <div style={{ display: "flex", gap: 6 }}>
-              <Link href="/admin?mode=live" className={`btn btn-small ${mode === "live" ? "btn-primary" : "btn-ghost"}`}>Live</Link>
-              <Link href="/admin?mode=test" className={`btn btn-small ${mode === "test" ? "btn-primary" : "btn-ghost"}`}>Test</Link>
-            </div>
-          )}
-        </div>
-        <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-          {mode === "test" ? "Showing test/demo data only." : "Platform-wide overview — real accounts, books, and transactions."}
-        </p>
-      </div>
-      {mode === "test" && (
-        <div className="map-card" style={{ padding: "10px 16px", marginBottom: 20, background: "#FBE6B8" }}>
-          <p style={{ fontSize: 12.5, color: "#8A5A0B", margin: 0 }}>
-            You&apos;re viewing test data. Blog and payout-request pending counts below still reflect everything,
-            live and test combined — those aren&apos;t split by mode yet.
+          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
+            Platform-wide overview — real accounts, books, and transactions.
           </p>
         </div>
-      )}
+      </div>
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card">

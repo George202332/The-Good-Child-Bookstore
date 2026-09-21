@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { AdminShell } from "@/components/AdminShell";
 import { getTestDataSummary, getTestDataAuditLog } from "@/actions/test-data";
@@ -6,10 +7,13 @@ import { TestDataControls } from "./TestDataControls";
 
 export const dynamic = "force-dynamic";
 
-export default async function DataManagementPage() {
+export default async function DataManagementPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
   const session = await auth();
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
+
+  const { mode: modeParam } = await searchParams;
+  const mode: "live" | "test" = modeParam === "test" ? "test" : "live";
 
   const [summary, auditLog] = await Promise.all([getTestDataSummary(), getTestDataAuditLog()]);
   if ("error" in summary) redirect("/admin");
@@ -17,18 +21,34 @@ export default async function DataManagementPage() {
   return (
     <AdminShell role="ADMIN" activeKey="data-management" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
-        <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <h2 style={{ fontSize: 20 }}>Data Management</h2>
-          <p style={{ color: "var(--admin-text-faint)", fontSize: 13.5, marginTop: 2 }}>
-            Real counts of what&apos;s flagged as test vs. live data, and the tools to manage it.
-          </p>
+          <div style={{ display: "flex", gap: 6 }}>
+            <Link href="/admin/data-management?mode=live" className={`btn btn-small ${mode === "live" ? "btn-primary" : "btn-ghost"}`}>Live</Link>
+            <Link href="/admin/data-management?mode=test" className={`btn btn-small ${mode === "test" ? "btn-primary" : "btn-ghost"}`}>Test</Link>
+          </div>
         </div>
+        <p style={{ color: "var(--admin-text-faint)", fontSize: 13.5, marginTop: 2 }}>
+          {mode === "test" ? "Showing what's currently flagged as test data." : "Showing real, live data only."}
+        </p>
       </div>
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
-        <div className="stat-card"><div className="stat-label">Test accounts</div><div className="stat-value">{summary.testAccounts}</div><div className="stat-sub">{summary.liveAccounts} live</div></div>
-        <div className="stat-card"><div className="stat-label">Test books</div><div className="stat-value">{summary.testBooks}</div><div className="stat-sub">{summary.liveBooks} live</div></div>
-        <div className="stat-card"><div className="stat-label">Test orders</div><div className="stat-value">{summary.testOrders}</div><div className="stat-sub">{summary.liveOrders} live</div></div>
+        <div className="stat-card">
+          <div className="stat-label">{mode === "test" ? "Test accounts" : "Live accounts"}</div>
+          <div className="stat-value">{mode === "test" ? summary.testAccounts : summary.liveAccounts}</div>
+          <div className="stat-sub">{mode === "test" ? `${summary.liveAccounts} live` : `${summary.testAccounts} test`}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">{mode === "test" ? "Test books" : "Live books"}</div>
+          <div className="stat-value">{mode === "test" ? summary.testBooks : summary.liveBooks}</div>
+          <div className="stat-sub">{mode === "test" ? `${summary.liveBooks} live` : `${summary.testBooks} test`}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">{mode === "test" ? "Test orders" : "Live orders"}</div>
+          <div className="stat-value">{mode === "test" ? summary.testOrders : summary.liveOrders}</div>
+          <div className="stat-sub">{mode === "test" ? `${summary.liveOrders} live` : `${summary.testOrders} test`}</div>
+        </div>
       </div>
 
       <TestDataControls summary={summary} />

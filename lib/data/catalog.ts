@@ -157,6 +157,7 @@ export interface Book {
    * catalog and for ebook-only real submissions. */
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept intentionally in case demo/seed data is needed again later
 function buildBooks(): Book[] {
   const books: Book[] = TITLES.map((t, i) => {
     const cat = CATS[i % CATS.length].id;
@@ -207,7 +208,7 @@ function buildBooks(): Book[] {
   return books;
 }
 
-export const BOOKS: Book[] = buildBooks();
+export const BOOKS: Book[] = [];
 
 export function fiveStarBooks(): Book[] {
   return BOOKS.filter((b) => parseFloat(b.rating) === 5);
