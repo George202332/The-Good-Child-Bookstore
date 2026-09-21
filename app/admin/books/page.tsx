@@ -120,7 +120,7 @@ export default async function BookManagementPage({
                     <Link href={`/admin/books/${b.id}/review`} className="btn btn-primary btn-small">Open</Link>
                   </td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
-                    <DeleteBookButton bookId={b.id} />
+                    <DeleteBookButton bookId={b.id} bookTitle={b.title} />
                   </td>
                 </tr>
               ))}

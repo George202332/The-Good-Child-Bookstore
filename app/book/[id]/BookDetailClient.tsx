@@ -135,7 +135,9 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
           </div>
           <div className="az-sample-btns">
             <ReadSampleViewer manuscriptUrl={b.manuscriptUrl} title={b.title} />
-            <button type="button" className="btn btn-ghost btn-small btn-block">Listen to sample</button>
+            {b.formatAvailable?.audiobook && (
+              <button type="button" className="btn btn-ghost btn-small btn-block">Listen to sample</button>
+            )}
           </div>
           <div className="az-author-card">
             <div className="az-author-card-label">About the author</div>
@@ -264,7 +266,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
 
           <button className="btn btn-primary btn-block btn-compact" onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to Cart</button>
           <button
-            className="btn btn-gold btn-block btn-compact"
+            className="btn btn-ghost btn-block btn-compact"
             style={{ marginTop: 8 }}
             onClick={() => router.push(`/checkout?directBookId=${b.id}&directFormat=${effectiveFormat === "print" ? "hardcover" : effectiveFormat}`)}
           >
@@ -289,7 +291,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
           )}
 
           <div className="buybox-divider" />
-          <button type="button" className="btn btn-primary btn-block btn-compact" onClick={() => toggle(b.id)}>
+          <button type="button" className="btn btn-ghost btn-block btn-compact" onClick={() => toggle(b.id)}>
             {inWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
           </button>
 

@@ -81,6 +81,9 @@ export default async function CheckoutConfirmationPage({
           </div>
         ))}
         <div className="summary-row total" style={{ marginTop: 14 }}><span>Total paid</span><span>${order.totalAmount.toFixed(2)}</span></div>
+        <a href={`/api/receipts/${order.id}`} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "var(--coral-deep)" }}>
+          Download your receipt (PDF) →
+        </a>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>

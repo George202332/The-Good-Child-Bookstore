@@ -28,7 +28,12 @@ async function getEmailCredentials(): Promise<{ apiKey?: string; fromEmail: stri
   }
 }
 
-export async function sendEmail(to: string, subject: string, html: string): Promise<{ ok: boolean; error?: string }> {
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  attachment?: { filename: string; content: Uint8Array }
+): Promise<{ ok: boolean; error?: string }> {
   const { apiKey, fromEmail } = await getEmailCredentials();
   if (!apiKey) {
     console.log(`[email skipped — not configured] to=${to} subject="${subject}"`);
@@ -39,7 +44,13 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from: fromEmail, to, subject, html }),
+      body: JSON.stringify({
+        from: fromEmail,
+        to,
+        subject,
+        html,
+        ...(attachment ? { attachments: [{ filename: attachment.filename, content: Buffer.from(attachment.content).toString("base64") }] } : {}),
+      }),
     });
     if (!res.ok) {
       const body = await res.text();

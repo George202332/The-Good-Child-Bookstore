@@ -51,7 +51,25 @@ export async function sendOrderReceiptEmail(orderId: string): Promise<void> {
       </div>
     `;
 
-    await sendEmail(order.reader.user.email, `Your order #${orderId.slice(0, 8).toUpperCase()} is confirmed`, html);
+    const { generateOrderReceipt } = await import("@/lib/pdf/order-receipt");
+    const receiptBytes = await generateOrderReceipt({
+      orderId: order.id,
+      customerName: order.reader.user.name,
+      purchaseDate: order.createdAt,
+      items: order.lines.map((l: { book: { title: string }; format: string | null; grossAmount: unknown }) => ({
+        title: l.book.title,
+        format: l.format ?? "ebook",
+        price: Number(l.grossAmount),
+      })),
+      totalAmount: Number(order.totalAmount),
+    });
+
+    await sendEmail(
+      order.reader.user.email,
+      `Your order #${orderId.slice(0, 8).toUpperCase()} is confirmed`,
+      html,
+      { filename: `receipt-${orderId.slice(0, 8)}.pdf`, content: receiptBytes }
+    );
   } catch {
     // Email is a nice-to-have on top of a successful order — never let
     // a failure here affect the purchase itself.
