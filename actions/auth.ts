@@ -89,6 +89,12 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
   const { getRequestGeo } = await import("@/lib/geo");
   const signupGeo = await getRequestGeo();
 
+  // When the site is in test mode (see Admin → Data Management), every
+  // new signup is automatically flagged as test data — no manual
+  // marking needed, and it's ready to be deleted in one go later.
+  const { getSiteDataMode } = await import("@/actions/test-data");
+  const siteMode = await getSiteDataMode();
+
   await prisma.user.create({
     data: {
       accountNumber,
@@ -96,6 +102,7 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
       name,
       passwordHash,
       role,
+      isTestData: siteMode === "test",
       ...(input.role === "READER" ? { readerProfile: { create: {} } } : {}),
       ...(input.role === "AUTHOR"
         ? {

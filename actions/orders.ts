@@ -213,11 +213,15 @@ export async function createPendingOrder(input: {
     referralPctByAffiliateId.set(affiliateId, tierForReferralCount(count, commissionRates.tiers).pct);
   }
 
+  const { getSiteDataMode } = await import("@/actions/test-data");
+  const siteMode = await getSiteDataMode();
+
   const order = await prisma.order.create({
     data: {
       readerId: readerProfileId,
       status: "PENDING",
       totalAmount,
+      isTestData: siteMode === "test",
       country: geo.country,
       region: geo.region,
       shipName: input.shipName?.trim() || null,

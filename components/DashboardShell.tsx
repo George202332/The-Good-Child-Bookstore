@@ -64,7 +64,6 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "performance", label: "Affiliate", href: "/account/performance", section: "Analytics" },
       { key: "blog-analytics", label: "Blogs", href: "/account/blog-analytics", section: "Analytics" },
       { key: "revenue", label: "Revenue", href: "/account/revenue", section: "Financial" },
-      { key: "transaction-history", label: "Transactions", href: "/account/transaction-history", section: "Financial" },
       { key: "payout-settings", label: "Payouts", href: "/account/payout-settings", section: "Financial" },
       { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
     ];

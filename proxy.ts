@@ -65,7 +65,7 @@ export default async function middleware(req: NextRequest) {
 
   const isAccountRoute = pathname.startsWith("/account");
   if (isAccountRoute) {
-    const publicToken = await getToken({ req, secret: process.env.AUTH_SECRET });
+    const publicToken = await getToken({ req, cookieName: "gcb-session-token", secret: process.env.AUTH_SECRET });
     const role = (publicToken as { role?: string } | null)?.role;
     if (!role) {
       return NextResponse.redirect(new URL("/login", req.nextUrl.origin));

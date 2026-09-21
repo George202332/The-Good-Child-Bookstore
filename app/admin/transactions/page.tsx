@@ -3,6 +3,7 @@ import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getTransactionLedger } from "@/actions/transactions";
 import { canViewFinancials } from "@/lib/roles";
+import { DeleteTransactionButton } from "./DeleteTransactionButton";
 
 /** Unified transaction ledger — every sale and every payout, one table,
  * 7 columns. Financial data, so gated the same way as Analytics (Editor
@@ -31,7 +32,7 @@ export default async function TransactionsPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>
-              {["Transaction ID", "Date", "Type", "Party", "Detail", "Amount", "Affiliate Commission"].map((h) => (
+              {["Transaction ID", "Date", "Type", "Party", "Detail", "Amount", "Affiliate Commission", "Action"].map((h) => (
                 <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
                   {h}
                 </th>
@@ -41,7 +42,7 @@ export default async function TransactionsPage() {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
+                <td colSpan={8} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
                   No transactions recorded yet — this table will fill in as sales and payouts happen.
                 </td>
               </tr>
@@ -64,6 +65,9 @@ export default async function TransactionsPage() {
                   </td>
                   <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", color: r.affiliateInfo === "—" ? "var(--ink-faint)" : "#1F6B48", fontWeight: r.affiliateInfo === "—" ? 400 : 700 }}>
                     {r.affiliateInfo}
+                  </td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>
+                    {role === "ADMIN" && <DeleteTransactionButton id={r.id} type={r.type === "Payout" ? "payout" : "sale"} detail={r.detail} />}
                   </td>
                 </tr>
               ))

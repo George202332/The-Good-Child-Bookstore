@@ -1,21 +1,18 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
-import { getTestDataSummary, getTestDataAuditLog } from "@/actions/test-data";
+import { getTestDataSummary, getTestDataAuditLog, getSiteDataMode } from "@/actions/test-data";
 import { TestDataControls } from "./TestDataControls";
+import { SiteModeToggle } from "./SiteModeToggle";
 
 export const dynamic = "force-dynamic";
 
-export default async function DataManagementPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
+export default async function DataManagementPage() {
   const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 
-  const { mode: modeParam } = await searchParams;
-  const mode: "live" | "test" = modeParam === "test" ? "test" : "live";
-
-  const [summary, auditLog] = await Promise.all([getTestDataSummary(), getTestDataAuditLog()]);
+  const [summary, auditLog, siteMode] = await Promise.all([getTestDataSummary(), getTestDataAuditLog(), getSiteDataMode()]);
   if ("error" in summary) redirect("/admin");
 
   return (
@@ -23,31 +20,30 @@ export default async function DataManagementPage({ searchParams }: { searchParam
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <h2 style={{ fontSize: 20 }}>Data Management</h2>
-          <div style={{ display: "flex", gap: 6 }}>
-            <Link href="/admin/data-management?mode=live" className={`btn btn-small ${mode === "live" ? "btn-primary" : "btn-ghost"}`}>Live</Link>
-            <Link href="/admin/data-management?mode=test" className={`btn btn-small ${mode === "test" ? "btn-primary" : "btn-ghost"}`}>Test</Link>
-          </div>
+          <SiteModeToggle currentMode={siteMode} />
         </div>
         <p style={{ color: "var(--admin-text-faint)", fontSize: 13.5, marginTop: 2 }}>
-          {mode === "test" ? "Showing what's currently flagged as test data." : "Showing real, live data only."}
+          The site is currently in <strong>{siteMode === "test" ? "Test" : "Live"}</strong> mode — every new account, book, and
+          order created right now is automatically flagged as {siteMode === "test" ? "test data" : "real/live"}, until this is
+          switched.
         </p>
       </div>
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card">
-          <div className="stat-label">{mode === "test" ? "Test accounts" : "Live accounts"}</div>
-          <div className="stat-value">{mode === "test" ? summary.testAccounts : summary.liveAccounts}</div>
-          <div className="stat-sub">{mode === "test" ? `${summary.liveAccounts} live` : `${summary.testAccounts} test`}</div>
+          <div className="stat-label">Test accounts</div>
+          <div className="stat-value">{summary.testAccounts}</div>
+          <div className="stat-sub">{summary.liveAccounts} live</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">{mode === "test" ? "Test books" : "Live books"}</div>
-          <div className="stat-value">{mode === "test" ? summary.testBooks : summary.liveBooks}</div>
-          <div className="stat-sub">{mode === "test" ? `${summary.liveBooks} live` : `${summary.testBooks} test`}</div>
+          <div className="stat-label">Test books</div>
+          <div className="stat-value">{summary.testBooks}</div>
+          <div className="stat-sub">{summary.liveBooks} live</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">{mode === "test" ? "Test orders" : "Live orders"}</div>
-          <div className="stat-value">{mode === "test" ? summary.testOrders : summary.liveOrders}</div>
-          <div className="stat-sub">{mode === "test" ? `${summary.liveOrders} live` : `${summary.testOrders} test`}</div>
+          <div className="stat-label">Test orders</div>
+          <div className="stat-value">{summary.testOrders}</div>
+          <div className="stat-sub">{summary.liveOrders} live</div>
         </div>
       </div>
 

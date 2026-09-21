@@ -99,3 +99,43 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
     return [];
   }
 }
+
+/**
+ * Permanently deletes a single transaction — Admin only. Works for
+ * both a sale ("Organic Sale"/"Affiliate Sale", backed by SaleLine)
+ * and a payout (backed by PayoutRequest), real or test. Deliberately
+ * no sales-history or transaction-existence block here — this is a
+ * direct, explicit per-transaction delete, not the bulk test-data
+ * cleanup flow, and the whole point is that it must work on real
+ * transactions too. Deleting the SaleLine row removes its royalty and
+ * commission shares in the same action, since companyShare/
+ * authorShare/affiliateShare/authorReferralShare are columns on that
+ * same row, not separate records — there's nothing left over to clean
+ * up afterward. The same row is what both the admin ledger and an
+ * author's own Transactions view read from, so removing it here
+ * removes it from both at once, automatically.
+ */
+export async function deleteTransaction(id: string, type: "sale" | "payout"): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can delete a transaction." };
+
+  try {
+    if (type === "sale") {
+      await prisma.saleLine.delete({ where: { id } });
+    } else {
+      await prisma.payoutRequest.delete({ where: { id } });
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: session.user.id,
+        action: "DELETE_TRANSACTION",
+        metadata: { transactionId: id, transactionType: type, deletedAt: new Date().toISOString() },
+      },
+    });
+
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't delete this transaction." };
+  }
+}

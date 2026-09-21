@@ -11,6 +11,39 @@ async function requireAdmin(): Promise<{ ok: true } | { ok: false; error: string
   return { ok: true };
 }
 
+const SITE_MODE_KEY = "site_data_mode";
+
+/** The site-wide data mode: when "test", every new account, book
+ * submission, and order is automatically flagged as test data the
+ * moment it's created — no manual marking needed afterward. Read from
+ * anywhere in the app (signup, book submission, order creation) via
+ * getSiteDataMode(); changed only from Data Management, and only by
+ * an Admin. */
+export async function getSiteDataMode(): Promise<"live" | "test"> {
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: SITE_MODE_KEY } });
+    const value = setting?.value as { mode?: string } | null;
+    return value?.mode === "test" ? "test" : "live";
+  } catch {
+    return "live";
+  }
+}
+
+export async function setSiteDataMode(mode: "live" | "test"): Promise<{ ok: boolean; error?: string }> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  await prisma.setting.upsert({
+    where: { key: SITE_MODE_KEY },
+    update: { value: { mode } },
+    create: { key: SITE_MODE_KEY, value: { mode } },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/data-management");
+  return { ok: true };
+}
+
 export interface AffectedAccount {
   id: string;
   email: string;

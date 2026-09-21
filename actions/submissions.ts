@@ -254,9 +254,10 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   if (input.samplePagesFileId) bookFiles.push({ kind: "SAMPLE", url: `/api/files/${input.samplePagesFileId}` });
   for (const url of input.promotionalImageUrls ?? []) bookFiles.push({ kind: "PROMOTIONAL", url });
 
-  const [category, genre] = await Promise.all([
+  const [category, genre, siteMode] = await Promise.all([
     prisma.category.upsert({ where: { name: input.category }, update: {}, create: { name: input.category } }),
     prisma.genre.upsert({ where: { name: input.genre }, update: {}, create: { name: input.genre } }),
+    import("@/actions/test-data").then((m) => m.getSiteDataMode()),
   ]);
 
   const book = await prisma.book.create({
@@ -267,6 +268,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       description: input.description.trim(),
       isbn: input.isbn?.trim() || (input.formats.print ? generateIsbn() : input.formats.ebook ? generateSerialNumber() : null),
       price: input.price,
+      isTestData: siteMode === "test",
       status: input.submitForReview ? "PENDING_REVIEW" : "DRAFT",
       authorId: user.authorProfile.id,
       ageGroup: input.ageGroup,

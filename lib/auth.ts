@@ -16,6 +16,12 @@ import { BACKEND_ROLES, type Role } from "@/lib/roles";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
+  cookies: {
+    sessionToken: {
+      name: "gcb-session-token",
+      options: { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" },
+    },
+  },
   providers: [
     Credentials({
       credentials: {
