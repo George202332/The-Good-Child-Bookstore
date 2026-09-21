@@ -195,7 +195,7 @@ model AuthorProfile {
   // affiliate earns a lifetime 5% cut of the COMPANY's revenue from this
   // author's sales (see AffiliateProfile.referredAuthors below).
   referredById       String?
-  referredBy         AffiliateProfile? @relation("AffiliateReferrals", fields: [referredById], references: [id])
+  referredBy         AffiliateProfile? @relation("AffiliateReferrals", fields: [referredById], references: [id], onDelete: SetNull)
   books              Book[]
   followers          AuthorFollow[]
   aliases            AuthorAlias[]
@@ -312,7 +312,7 @@ model Book {
   coverAltText  String?
   status       ContentStatus @default(DRAFT)
   authorId     String
-  author       AuthorProfile @relation(fields: [authorId], references: [id])
+  author       AuthorProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
   categories   CategoryOnBook[]
   genres       GenreOnBook[]
   tags         TagOnBook[]
@@ -459,7 +459,7 @@ model Blog {
   // Affiliate accounts can write blog posts too, not just Author
   // accounts — blogging is open to every account type.
   authorId        String
-  author          User          @relation(fields: [authorId], references: [id])
+  author          User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
   publishAt       DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -547,7 +547,7 @@ model Bookmark {
 model Order {
   id            String      @id @default(cuid())
   readerId      String
-  reader        ReaderProfile @relation(fields: [readerId], references: [id])
+  reader        ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
   status        OrderStatus @default(PENDING)
   totalAmount   Decimal     @db.Decimal(10, 2)
   /** Marks this order (and its financial history) as test/demo data —
@@ -611,7 +611,7 @@ model SaleLine {
    * entirely. Carved out of companyShare, not added on top. */
   authorReferralShare      Decimal @db.Decimal(10, 2) @default(0)
   authorReferralAffiliateId String?
-  authorReferralAffiliate   AffiliateProfile? @relation("AuthorReferralEarnings", fields: [authorReferralAffiliateId], references: [id])
+  authorReferralAffiliate   AffiliateProfile? @relation("AuthorReferralEarnings", fields: [authorReferralAffiliateId], references: [id], onDelete: SetNull)
 
   createdAt          DateTime @default(now())
 
@@ -650,7 +650,7 @@ model PaymentLog {
 model Subscription {
   id            String   @id @default(cuid())
   readerId      String
-  reader        ReaderProfile @relation(fields: [readerId], references: [id])
+  reader        ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
   planName      String
   active        Boolean  @default(true)
   startedAt     DateTime @default(now())
@@ -660,7 +660,7 @@ model Subscription {
 model Download {
   id        String   @id @default(cuid())
   readerId  String
-  reader    ReaderProfile @relation(fields: [readerId], references: [id])
+  reader    ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
   bookId    String
   downloadedAt DateTime @default(now())
 }
@@ -670,7 +670,7 @@ model Download {
 model AffiliateLink {
   id           String   @id @default(cuid())
   affiliateId  String
-  affiliate    AffiliateProfile @relation(fields: [affiliateId], references: [id])
+  affiliate    AffiliateProfile @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
   bookId       String?
   book         Book?    @relation(fields: [bookId], references: [id], onDelete: Cascade)
   campaignId   String?
@@ -775,9 +775,9 @@ model Notification {
 model Message {
   id         String   @id @default(cuid())
   senderId   String
-  sender     User     @relation("MessageSender", fields: [senderId], references: [id])
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
   recipientId String
-  recipient  User     @relation("MessageRecipient", fields: [recipientId], references: [id])
+  recipient  User     @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
   body       String
   readAt     DateTime?
   /** A saved-but-unsent message — doesn't appear in the recipient's
@@ -800,7 +800,7 @@ model SupportTicket {
 model AuditLog {
   id        String   @id @default(cuid())
   actorId   String
-  actor     User     @relation("AuditActor", fields: [actorId], references: [id])
+  actor     User     @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
   action    String
   metadata  Json?
   createdAt DateTime @default(now())
