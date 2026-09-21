@@ -64,6 +64,36 @@ export async function listAccountsAffectedByDelete(): Promise<AffectedAccount[] 
   }));
 }
 
+export interface AuditLogEntry {
+  id: string;
+  actorName: string;
+  actorEmail: string;
+  action: string;
+  metadata: unknown;
+  createdAt: Date;
+}
+
+export async function getTestDataAuditLog(): Promise<AuditLogEntry[] | { error: string }> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { error: gate.error };
+
+  const entries = await prisma.auditLog.findMany({
+    where: { action: "DELETE_ALL_TEST_DATA" },
+    include: { actor: { select: { name: true, email: true } } },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  return entries.map((e: { id: string; actor: { name: string; email: string }; action: string; metadata: unknown; createdAt: Date }) => ({
+    id: e.id,
+    actorName: e.actor.name,
+    actorEmail: e.actor.email,
+    action: e.action,
+    metadata: e.metadata,
+    createdAt: e.createdAt,
+  }));
+}
+
 export interface TestDataSummary {
   testAccounts: number;
   testBooks: number;
@@ -87,6 +117,28 @@ export async function getTestDataSummary(): Promise<TestDataSummary | { error: s
   ]);
 
   return { testAccounts, testBooks, testOrders, liveAccounts, liveBooks, liveOrders };
+}
+
+/**
+ * Applies the isTestData flag only to the specific records identified
+ * by the evidence-based scan (see actions/test-data-detection.ts) —
+ * not a blanket "mark everything" anymore. Nothing is deleted here;
+ * this is still a reversible flag-set, reviewed by the admin against
+ * the actual preview report before this is ever called.
+ */
+export async function applyDetectedTestDataFlags(userIds: string[], bookIds: string[], orderIds: string[]): Promise<{ ok: boolean; error?: string }> {
+  const gate = await requireAdmin();
+  if (!gate.ok) return { ok: false, error: gate.error };
+
+  await prisma.$transaction([
+    prisma.user.updateMany({ where: { id: { in: userIds }, role: { in: ["READER", "AUTHOR"] } }, data: { isTestData: true } }),
+    prisma.book.updateMany({ where: { id: { in: bookIds } }, data: { isTestData: true } }),
+    prisma.order.updateMany({ where: { id: { in: orderIds } }, data: { isTestData: true } }),
+  ]);
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/data-management");
+  return { ok: true };
 }
 
 /**
@@ -129,6 +181,7 @@ export async function markAllExistingDataAsTest(): Promise<{ ok: boolean; error?
 export async function deleteAllTestData(): Promise<{ ok: boolean; error?: string; deleted?: { accounts: number; books: number; orders: number } }> {
   const gate = await requireAdmin();
   if (!gate.ok) return { ok: false, error: gate.error };
+  const session = await auth();
 
   try {
     const orders = await prisma.order.deleteMany({ where: { isTestData: true } });
@@ -137,6 +190,14 @@ export async function deleteAllTestData(): Promise<{ ok: boolean; error?: string
     // isTestData were somehow set true on one — only Reader/Author
     // test accounts are ever removed here.
     const accounts = await prisma.user.deleteMany({ where: { isTestData: true, role: { in: ["READER", "AUTHOR"] } } });
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: session!.user.id,
+        action: "DELETE_ALL_TEST_DATA",
+        metadata: { accounts: accounts.count, books: books.count, orders: orders.count, deletedAt: new Date().toISOString() },
+      },
+    });
 
     revalidatePath("/admin");
     revalidatePath("/admin/data-management");
