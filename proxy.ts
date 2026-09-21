@@ -38,15 +38,22 @@ export default async function middleware(req: NextRequest) {
 
   // Admin-managed 301/302 redirects (see Admin → SEO & Marketing) — a
   // book or blog post that moved or was deleted shouldn't just 404.
-  try {
-    const redirect = await prisma.redirect.findUnique({ where: { fromPath: pathname } });
-    if (redirect) {
-      const destination = redirect.toPath.startsWith("http") ? redirect.toPath : new URL(redirect.toPath, req.nextUrl.origin);
-      return NextResponse.redirect(destination, redirect.statusCode);
+  // Scoped to only the public content routes where this can ever
+  // matter — previously ran on every single request, including every
+  // /account and /admin click, adding an unneeded database round trip
+  // before those pages even started loading.
+  const isPublicContentRoute = pathname.startsWith("/blog") || pathname.startsWith("/book") || (!pathname.startsWith("/admin") && !pathname.startsWith("/editor") && !pathname.startsWith("/account") && pathname !== "/signup/author");
+  if (isPublicContentRoute) {
+    try {
+      const redirect = await prisma.redirect.findUnique({ where: { fromPath: pathname } });
+      if (redirect) {
+        const destination = redirect.toPath.startsWith("http") ? redirect.toPath : new URL(redirect.toPath, req.nextUrl.origin);
+        return NextResponse.redirect(destination, redirect.statusCode);
+      }
+    } catch {
+      // If the database is unreachable, fall through to normal routing
+      // rather than blocking the request on this check.
     }
-  } catch {
-    // If the database is unreachable, fall through to normal routing
-    // rather than blocking the request on this check.
   }
 
   // /admin/login is the backend's own sign-in page — it must stay

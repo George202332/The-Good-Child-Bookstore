@@ -18,6 +18,8 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
   const [socialLinks, setSocialLinks] = useState((initial.socialLinks ?? []).join(", "));
   const [availableForCollabs, setAvailableForCollabs] = useState(initial.availableForCollabs ?? false);
   const [showEmailPublicly, setShowEmailPublicly] = useState(initial.showEmailPublicly ?? false);
+  const [country, setCountry] = useState(initial.country ?? "");
+  const [gender, setGender] = useState(initial.gender ?? "");
   const [preferredFormat, setPreferredFormat] = useState(initial.preferredFormat ?? "");
   const [shoppingAges, setShoppingAges] = useState<string[]>(initial.shoppingForAgeRanges ?? []);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
     const res = await updateMyProfile({
       name, email, bio, penName, primaryGenre, pressKitUrl, availableForCollabs, showEmailPublicly,
       socialLinks: socialLinks.split(",").map((s) => s.trim()).filter(Boolean),
-      preferredFormat, shoppingForAgeRanges: shoppingAges,
+      preferredFormat, shoppingForAgeRanges: shoppingAges, country, gender,
     });
     setSubmitting(false);
     if (!res.ok) {
@@ -93,6 +95,22 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
             <input className="field" id="pf-presskit" type="url" value={pressKitUrl} onChange={(e) => setPressKitUrl(e.target.value)} />
             <label className="field-label" htmlFor="pf-social">Social profile links</label>
             <input className="field" id="pf-social" type="text" placeholder="Comma-separated URLs: Twitter, Instagram, website, etc." value={socialLinks} onChange={(e) => setSocialLinks(e.target.value)} />
+            <div className="form-grid-2">
+              <div>
+                <label className="field-label" htmlFor="pf-country">Country</label>
+                <input className="field" id="pf-country" type="text" placeholder="e.g. Kenya" value={country} onChange={(e) => setCountry(e.target.value)} />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="pf-gender">Gender</label>
+                <select className="field" id="pf-gender" value={gender} onChange={(e) => setGender(e.target.value)}>
+                  <option value="">Prefer not to say</option>
+                  <option value="Female">Female</option>
+                  <option value="Male">Male</option>
+                  <option value="Non-binary">Non-binary</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13.5, marginBottom: 10 }}>
               <input type="checkbox" style={{ width: "auto" }} checked={availableForCollabs} onChange={(e) => setAvailableForCollabs(e.target.checked)} /> Available for collaborations
             </label>

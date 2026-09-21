@@ -27,6 +27,8 @@ export interface MyProfile {
   availableForCollabs?: boolean;
   showEmailPublicly?: boolean;
   socialLinks?: string[];
+  country?: string;
+  gender?: string;
   // Reader
   preferredFormat?: string;
   shoppingForAgeRanges?: string[];
@@ -57,6 +59,8 @@ export async function getMyProfile(): Promise<MyProfile | null> {
     socialLinks: user.authorProfile?.socialLinks ?? [],
     availableForCollabs: user.authorProfile?.availableForCollabs,
     showEmailPublicly: user.authorProfile?.showEmailPublicly,
+    country: user.authorProfile?.country ?? undefined,
+    gender: user.authorProfile?.gender ?? undefined,
     preferredFormat: user.readerProfile?.preferredFormat ?? undefined,
     shoppingForAgeRanges: user.readerProfile?.shoppingForAgeRanges,
     referralCode: user.affiliateProfile?.referralCode ?? undefined,
@@ -73,6 +77,8 @@ export async function updateMyProfile(input: {
   availableForCollabs?: boolean;
   showEmailPublicly?: boolean;
   socialLinks?: string[];
+  country?: string;
+  gender?: string;
   preferredFormat?: string;
   shoppingForAgeRanges?: string[];
 }): Promise<{ ok: boolean; error?: string }> {
@@ -103,6 +109,8 @@ export async function updateMyProfile(input: {
         socialLinks: (input.socialLinks ?? []).map((s) => s.trim()).filter(Boolean),
         availableForCollabs: input.availableForCollabs ?? false,
         showEmailPublicly: input.showEmailPublicly ?? false,
+        country: input.country?.trim() || null,
+        gender: input.gender?.trim() || null,
       },
     });
   }
