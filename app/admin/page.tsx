@@ -13,17 +13,21 @@ import { getTransactionLedger } from "@/actions/transactions";
  * the most recent transactions. Financial figures are hidden for EDITOR
  * per "Editor cannot access financial information".
  */
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({ searchParams }: { searchParams: Promise<{ mode?: string }> }) {
   const session = await auth();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");
 
+  const { mode: modeParam } = await searchParams;
+  const mode: "live" | "test" = modeParam === "test" ? "test" : "live";
+  const isTestData = mode === "test";
+
   const [userCount, usersByRole, bookCounts, pendingBooks, pendingBlogs, pendingPayouts] = await Promise.all([
-    prisma.user.count(),
-    prisma.user.groupBy({ by: ["role"], _count: { role: true } }),
-    prisma.book.groupBy({ by: ["status"], _count: { status: true } }),
-    prisma.book.count({ where: { status: "PENDING_REVIEW" } }),
+    prisma.user.count({ where: { isTestData } }),
+    prisma.user.groupBy({ by: ["role"], _count: { role: true }, where: { isTestData } }),
+    prisma.book.groupBy({ by: ["status"], _count: { status: true }, where: { isTestData } }),
+    prisma.book.count({ where: { status: "PENDING_REVIEW", isTestData } }),
     prisma.blog.count({ where: { status: "PENDING_REVIEW" } }),
     prisma.payoutRequest.count({ where: { status: "REQUESTED" } }),
   ]);
@@ -34,8 +38,8 @@ export default async function AdminDashboardPage() {
   let totalOrders = 0;
   if (canViewFinancials(role)) {
     const [agg, orderCount] = await Promise.all([
-      prisma.saleLine.aggregate({ _sum: { companyShare: true, authorShare: true, affiliateShare: true } }),
-      prisma.order.count({ where: { status: "PAID" } }),
+      prisma.saleLine.aggregate({ _sum: { companyShare: true, authorShare: true, affiliateShare: true }, where: { order: { isTestData } } }),
+      prisma.order.count({ where: { status: "PAID", isTestData } }),
     ]);
     companyRevenue = Number(agg._sum.companyShare ?? 0);
     authorRevenue = Number(agg._sum.authorShare ?? 0);
@@ -53,11 +57,27 @@ export default async function AdminDashboardPage() {
   return (
     <AdminShell role={role} activeKey="dashboard" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
-        <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <h2 style={{ fontSize: 20 }}>{role === "ADMIN" ? "Admin" : role === "EDITOR" ? "Editor" : "Accountant"} dashboard</h2>
-          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Platform-wide overview.</p>
+          {role === "ADMIN" && (
+            <div style={{ display: "flex", gap: 6 }}>
+              <Link href="/admin?mode=live" className={`btn btn-small ${mode === "live" ? "btn-primary" : "btn-ghost"}`}>Live</Link>
+              <Link href="/admin?mode=test" className={`btn btn-small ${mode === "test" ? "btn-primary" : "btn-ghost"}`}>Test</Link>
+            </div>
+          )}
         </div>
+        <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
+          {mode === "test" ? "Showing test/demo data only." : "Platform-wide overview — real accounts, books, and transactions."}
+        </p>
       </div>
+      {mode === "test" && (
+        <div className="map-card" style={{ padding: "10px 16px", marginBottom: 20, background: "#FBE6B8" }}>
+          <p style={{ fontSize: 12.5, color: "#8A5A0B", margin: 0 }}>
+            You&apos;re viewing test data. Blog and payout-request pending counts below still reflect everything,
+            live and test combined — those aren&apos;t split by mode yet.
+          </p>
+        </div>
+      )}
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card">

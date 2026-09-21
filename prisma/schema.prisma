@@ -98,6 +98,12 @@ model User {
   email         String   @unique
   passwordHash  String
   name          String
+  /** Marks this account as test/demo data rather than a real person —
+   * lets the admin's Live/Test toggle (see /admin/data-management)
+   * filter dashboards and reports without needing to actually delete
+   * anything until an admin explicitly chooses to. Defaults to false:
+   * every new signup going forward is real/live data by default. */
+  isTestData    Boolean  @default(false)
   role          Role     @default(READER)
   avatarUrl     String?
   emailVerified DateTime?
@@ -295,6 +301,9 @@ model Book {
   slug         String        @unique
   description  String?
   isbn         String?       @unique
+  /** Marks this book as test/demo data — see User.isTestData for the
+   * full explanation of how this powers the admin's Live/Test toggle. */
+  isTestData   Boolean       @default(false)
   price        Decimal       @db.Decimal(10, 2)
   coverImageUrl String?
   /** SEO/accessibility alt text for the cover image — falls back to
@@ -541,6 +550,9 @@ model Order {
   reader        ReaderProfile @relation(fields: [readerId], references: [id])
   status        OrderStatus @default(PENDING)
   totalAmount   Decimal     @db.Decimal(10, 2)
+  /** Marks this order (and its financial history) as test/demo data —
+   * see User.isTestData for the full explanation. */
+  isTestData    Boolean     @default(false)
   couponId      String?
   coupon        Coupon?     @relation(fields: [couponId], references: [id])
   lines         SaleLine[]

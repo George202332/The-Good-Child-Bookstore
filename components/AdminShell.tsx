@@ -42,6 +42,7 @@ function navItemsForRole(role: Role) {
       { key: "coupons", label: "Coupons", href: "/admin/coupons" },
       { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },
       { key: "transactions", label: "Transactions", href: "/admin/transactions" },
+      { key: "data-management", label: "Data Management", href: "/admin/data-management" },
     ];
   }
   if (role === "CHIEF_EDITOR") {
