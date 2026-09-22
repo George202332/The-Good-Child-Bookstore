@@ -13,6 +13,7 @@ import { validateCoupon } from "@/actions/coupons";
 import { resolveCartBooks } from "@/actions/cart-books";
 import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } from "@/actions/payment-methods";
 import { PaymentBadgeIcon } from "@/components/PaymentBadgeIcon";
+import { COUNTRIES } from "@/lib/countries";
 import { getSiteSettings } from "@/actions/site-settings";
 import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-settings";
 
@@ -41,6 +42,7 @@ interface CheckoutData {
   fullName: string;
   email: string;
   phone: string;
+  phoneCountryCode: string;
   country: string;
   billingAddress: string;
   couponCode: string;
@@ -81,6 +83,7 @@ function CheckoutPageInner() {
     fullName: "",
     email: "",
     phone: "",
+    phoneCountryCode: "+1",
     country: "",
     billingAddress: "",
     couponCode: "",
@@ -156,7 +159,7 @@ function CheckoutPageInner() {
       guestEmail: data.email,
       guestName: data.fullName,
       shipName: data.fullName,
-      shipPhone: data.phone,
+      shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
       shipCountry: data.country,
       shipAddress: data.billingAddress,
     });
@@ -195,7 +198,7 @@ function CheckoutPageInner() {
       guestEmail: data.email,
       guestName: data.fullName,
       shipName: data.fullName,
-      shipPhone: data.phone,
+      shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
       shipCountry: data.country,
       shipAddress: data.billingAddress,
     });
@@ -323,10 +326,33 @@ function CheckoutPageInner() {
           <input className="field field-compact" id="co-name" type="text" required value={data.fullName} onChange={(e) => setData((d) => ({ ...d, fullName: e.target.value }))} />
           <label className="field-label field-label-compact" htmlFor="co-email">Email address</label>
           <input className="field field-compact" id="co-email" type="email" required value={data.email} onChange={(e) => setData((d) => ({ ...d, email: e.target.value }))} />
-          <label className="field-label field-label-compact" htmlFor="co-phone">Phone number</label>
-          <input className="field field-compact" id="co-phone" type="tel" required value={data.phone} onChange={(e) => setData((d) => ({ ...d, phone: e.target.value }))} />
           <label className="field-label field-label-compact" htmlFor="co-country">Country</label>
-          <input className="field field-compact" id="co-country" type="text" required value={data.country} onChange={(e) => setData((d) => ({ ...d, country: e.target.value }))} />
+          <select
+            className="field field-compact"
+            id="co-country"
+            required
+            value={data.country}
+            onChange={(e) => {
+              const selected = COUNTRIES.find((c) => c.name === e.target.value);
+              setData((d) => ({ ...d, country: e.target.value, phoneCountryCode: selected?.dialCode ?? d.phoneCountryCode }));
+            }}
+          >
+            <option value="">Select a country</option>
+            {COUNTRIES.map((c) => <option key={c.iso2} value={c.name}>{c.name}</option>)}
+          </select>
+          <label className="field-label field-label-compact" htmlFor="co-phone">Phone number <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(optional)</span></label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <select
+              className="field field-compact"
+              style={{ maxWidth: 110, flexShrink: 0 }}
+              aria-label="Phone country code"
+              value={data.phoneCountryCode}
+              onChange={(e) => setData((d) => ({ ...d, phoneCountryCode: e.target.value }))}
+            >
+              {COUNTRIES.map((c) => <option key={c.iso2} value={c.dialCode}>{c.dialCode} {c.iso2}</option>)}
+            </select>
+            <input className="field field-compact" id="co-phone" type="tel" style={{ flex: 1 }} value={data.phone} onChange={(e) => setData((d) => ({ ...d, phone: e.target.value }))} />
+          </div>
           <label className="field-label field-label-compact" htmlFor="co-address">{hasPrintItem ? "Shipping address" : "Billing address"}</label>
           <textarea className="field field-compact" id="co-address" required value={data.billingAddress} onChange={(e) => setData((d) => ({ ...d, billingAddress: e.target.value }))} />
           <div className="field-hint">

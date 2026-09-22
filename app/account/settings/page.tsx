@@ -5,6 +5,7 @@ import { getMySettings } from "@/actions/settings";
 import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { SettingsForm } from "./SettingsForm";
 import { AffiliateToggle } from "./AffiliateToggle";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -24,6 +25,9 @@ export default async function SettingsPage() {
         </div>
       </div>
       <SettingsForm initial={settings} />
+      <div style={{ marginTop: 20 }}>
+        <ChangePasswordForm />
+      </div>
       {role === "READER" && <AffiliateToggle initialEnabled={affiliateStatus?.enabled ?? false} />}
     </DashboardShell>
   );

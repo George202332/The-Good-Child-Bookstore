@@ -88,7 +88,18 @@ export interface CreateOrderResult {
  * (any role) — or, for a guest, finds-or-creates a lightweight account
  * from the checkout email/name. Never returns null: the only failure
  * mode is a missing guest email with no session at all. */
-async function resolveReaderProfileId(guestEmail?: string, guestName?: string): Promise<{ readerProfileId?: string; error?: string }> {
+/** Generates a real, readable temporary password (8 characters,
+ * unambiguous alphanumeric) — this is what actually gets emailed to a
+ * guest so they can sign in, not just a random hash nobody could ever
+ * type in. */
+function generateTempPassword(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I, avoids confusion
+  let out = "";
+  for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
+async function resolveReaderProfileId(guestEmail?: string, guestName?: string): Promise<{ readerProfileId?: string; error?: string; tempPassword?: string; isNewAccount?: boolean }> {
   const session = await auth();
 
   if (session?.user?.id) {
@@ -111,7 +122,8 @@ async function resolveReaderProfileId(guestEmail?: string, guestName?: string): 
   }
 
   const accountNumber = await generateAccountNumber("READER");
-  const passwordHash = await bcrypt.hash(`guest-${Date.now()}-${Math.random()}`, 10);
+  const tempPassword = generateTempPassword();
+  const passwordHash = await bcrypt.hash(tempPassword, 10);
   const guestUser = await prisma.user.create({
     data: {
       accountNumber,
@@ -119,11 +131,12 @@ async function resolveReaderProfileId(guestEmail?: string, guestName?: string): 
       name: guestName?.trim() || "Guest",
       passwordHash,
       role: "READER",
+      mustChangePassword: true,
       readerProfile: { create: {} },
     },
     include: { readerProfile: true },
   });
-  return { readerProfileId: guestUser.readerProfile!.id };
+  return { readerProfileId: guestUser.readerProfile!.id, tempPassword, isNewAccount: true };
 }
 
 export async function createPendingOrder(input: {
@@ -142,7 +155,7 @@ export async function createPendingOrder(input: {
   }
   input = parsed.data;
 
-  const { readerProfileId, error } = await resolveReaderProfileId(input.guestEmail, input.guestName);
+  const { readerProfileId, error, tempPassword } = await resolveReaderProfileId(input.guestEmail, input.guestName);
   if (!readerProfileId) {
     return { ok: false, error: error ?? "Couldn't start checkout." };
   }
@@ -222,6 +235,7 @@ export async function createPendingOrder(input: {
       status: "PENDING",
       totalAmount,
       isTestData: siteMode === "test",
+      guestTempPassword: tempPassword ?? null,
       country: geo.country,
       region: geo.region,
       shipName: input.shipName?.trim() || null,

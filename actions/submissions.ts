@@ -295,6 +295,91 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   return { ok: true, bookId: book.id };
 }
 
+/**
+ * Edits an existing book using the exact same full field set as
+ * submitBook — manuscript, author name/alias, ISBN/SN, keywords, SEO
+ * metadata, pricing, distribution, everything — per explicit
+ * instruction that editing should be "the same exact page" as
+ * submitting. Always resubmits for review on save, since any edit to
+ * a book should go back through moderation rather than silently
+ * updating a live listing.
+ */
+export async function updateBookFull(bookId: string, input: SubmitBookInput): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "AUTHOR") return { ok: false, error: "Only author accounts can edit books." };
+  if (!input.title.trim()) return { ok: false, error: "Title is required." };
+  if (!input.description.trim()) return { ok: false, error: "Description is required." };
+  if (input.price <= 0) return { ok: false, error: "Price must be greater than $0." };
+
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
+  if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
+
+  const existing = await prisma.book.findUnique({ where: { id: bookId } });
+  if (!existing || existing.authorId !== user.authorProfile.id) return { ok: false, error: "Book not found." };
+
+  const authorFirstName = (input.metadata as { authorFirstName?: string }).authorFirstName;
+  const authorLastName = (input.metadata as { authorLastName?: string }).authorLastName;
+  if (authorFirstName?.trim() && authorLastName?.trim()) {
+    try {
+      await prisma.authorAlias.upsert({
+        where: { authorProfileId_firstName_lastName: { authorProfileId: user.authorProfile.id, firstName: authorFirstName.trim(), lastName: authorLastName.trim() } },
+        update: {},
+        create: { authorProfileId: user.authorProfile.id, firstName: authorFirstName.trim(), lastName: authorLastName.trim() },
+      });
+    } catch {
+      // Non-critical -- a failed remember shouldn't block the actual save.
+    }
+  }
+
+  const bookFiles: { kind: string; url: string }[] = [];
+  if (input.manuscriptFileId) bookFiles.push({ kind: "MANUSCRIPT", url: `/api/files/${input.manuscriptFileId}` });
+  if (input.samplePagesFileId) bookFiles.push({ kind: "SAMPLE", url: `/api/files/${input.samplePagesFileId}` });
+  for (const url of input.promotionalImageUrls ?? []) bookFiles.push({ kind: "PROMOTIONAL", url });
+
+  const [category, genre] = await Promise.all([
+    prisma.category.upsert({ where: { name: input.category }, update: {}, create: { name: input.category } }),
+    prisma.genre.upsert({ where: { name: input.genre }, update: {}, create: { name: input.genre } }),
+  ]);
+
+  await prisma.$transaction([
+    prisma.bookFile.deleteMany({ where: { bookId, kind: { in: ["MANUSCRIPT", "SAMPLE", "PROMOTIONAL"] } } }),
+    prisma.categoryOnBook.deleteMany({ where: { bookId } }),
+    prisma.genreOnBook.deleteMany({ where: { bookId } }),
+    prisma.book.update({
+      where: { id: bookId },
+      data: {
+        title: input.title.trim(),
+        subtitle: input.subtitle?.trim() || null,
+        description: input.description.trim(),
+        isbn: input.isbn?.trim() || existing.isbn,
+        price: input.price,
+        status: "PENDING_REVIEW",
+        ageGroup: input.ageGroup,
+        language: input.language || "en",
+        coverImageUrl: input.coverImageUrl?.trim() || null,
+        coverAltText: input.coverAltText?.trim() || null,
+        hasEbook: input.formats.ebook,
+        hasPrint: input.formats.print,
+        hasAudiobook: input.formats.audiobook,
+        paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
+          ? input.metadata.paperbackRetailPrice
+          : null,
+        hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice
+          ? input.metadata.hardcoverRetailPrice
+          : null,
+        submissionMetadata: JSON.parse(JSON.stringify(input.metadata)),
+        files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
+        categories: { create: [{ categoryId: category.id }] },
+        genres: { create: [{ genreId: genre.id }] },
+      },
+    }),
+  ]);
+
+  revalidatePath("/account/books");
+  revalidatePath(`/account/books/${bookId}/edit`);
+  return { ok: true };
+}
+
 export interface UpdateBookInput {
   bookId: string;
   title: string;

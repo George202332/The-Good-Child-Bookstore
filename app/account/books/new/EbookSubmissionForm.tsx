@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { submitBook, generateUniqueSerialNumber } from "@/actions/submissions";
+import { submitBook, updateBookFull, generateUniqueSerialNumber } from "@/actions/submissions";
 import { checkManuscriptMetadata, type MetadataCheckResult } from "@/actions/metadata-check";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
@@ -28,6 +28,42 @@ function slugFromTitle(title: string): string {
   return title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
+export interface EbookSubmissionInitial {
+  bookId: string;
+  manuscriptFileId?: string;
+  coverImageUrl?: string;
+  title: string;
+  subtitle?: string;
+  edition?: string;
+  seriesName?: string;
+  seriesNumber?: string;
+  language?: string;
+  publisher?: string;
+  publicationDate?: string;
+  originalPublicationDate?: string;
+  isbn?: string;
+  copyrightYear?: string;
+  authorFirstName?: string;
+  authorLastName?: string;
+  authorBio?: string;
+  category?: string;
+  genre?: string;
+  ageGroup?: string;
+  readingLevel?: string;
+  descriptionHtml?: string;
+  keywords?: string[];
+  price?: string;
+  discountPrice?: string;
+  taxSetting?: string;
+  sellOnStore?: boolean;
+  featuredRequest?: boolean;
+  affiliateEnabled?: boolean;
+  worldwideRights?: boolean;
+  countryRestrictions?: string;
+  copyrightHolder?: string;
+  licenseType?: string;
+}
+
 /**
  * eBook submission — Files come first (manuscript + cover only），then
  * Book information, Author (a reusable name picker, not tied to the
@@ -35,62 +71,68 @@ function slugFromTitle(title: string): string {
  * description only) + Keywords, Pricing, Distribution, Rights, SEO
  * (fully derived, not author-editable), Preview, and the submission
  * checklist.
+ *
+ * When `initial` is provided, this is genuinely the same page in edit
+ * mode — every field pre-filled from the existing book, saving calls
+ * updateBookFull() instead of submitBook(), and the book is resent for
+ * review on save. Not a separate, simplified edit form — the same
+ * page, the same fields, per explicit instruction.
  */
-export function EbookSubmissionForm() {
+export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInitial } = {}) {
   const router = useRouter();
 
   // Files
-  const [manuscriptFileId, setManuscriptFileId] = useState<string | undefined>();
-  const [coverImageUrl, setCoverImageUrl] = useState("");
+  const [manuscriptFileId, setManuscriptFileId] = useState<string | undefined>(initial?.manuscriptFileId);
+  const [coverImageUrl, setCoverImageUrl] = useState(initial?.coverImageUrl ?? "");
 
   // Book information
-  const [title, setTitle] = useState("");
-  const [subtitle, setSubtitle] = useState("");
-  const [edition, setEdition] = useState("");
-  const [seriesName, setSeriesName] = useState("");
-  const [seriesNumber, setSeriesNumber] = useState("");
-  const [language, setLanguage] = useState(LANGUAGES[0]);
-  const [publisher, setPublisher] = useState("The Good Child Bookstore");
-  const [publicationDate, setPublicationDate] = useState("");
-  const [originalPublicationDate, setOriginalPublicationDate] = useState("");
-  const [isbn, setIsbn] = useState("");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [subtitle, setSubtitle] = useState(initial?.subtitle ?? "");
+  const [edition, setEdition] = useState(initial?.edition ?? "");
+  const [seriesName, setSeriesName] = useState(initial?.seriesName ?? "");
+  const [seriesNumber, setSeriesNumber] = useState(initial?.seriesNumber ?? "");
+  const [language, setLanguage] = useState(initial?.language || LANGUAGES[0]);
+  const [publisher, setPublisher] = useState(initial?.publisher ?? "The Good Child Bookstore");
+  const [publicationDate, setPublicationDate] = useState(initial?.publicationDate ?? "");
+  const [originalPublicationDate, setOriginalPublicationDate] = useState(initial?.originalPublicationDate ?? "");
+  const [isbn, setIsbn] = useState(initial?.isbn ?? "");
   const [hasOwnIsbn, setHasOwnIsbn] = useState(true);
-  const [generatedSn, setGeneratedSn] = useState<string | null>(null);
+  const [generatedSn, setGeneratedSn] = useState<string | null>(initial?.isbn ?? null);
   const [generatingSn, setGeneratingSn] = useState(false);
-  const [copyrightYear, setCopyrightYear] = useState(String(new Date().getFullYear()));
+  const [copyrightYear, setCopyrightYear] = useState(initial?.copyrightYear ?? String(new Date().getFullYear()));
 
   // Author information
-  const [authorFirstName, setAuthorFirstName] = useState("");
-  const [authorLastName, setAuthorLastName] = useState("");
-  const [authorBio, setAuthorBio] = useState("");
+  const [authorFirstName, setAuthorFirstName] = useState(initial?.authorFirstName ?? "");
+  const [authorLastName, setAuthorLastName] = useState(initial?.authorLastName ?? "");
+  const [authorBio, setAuthorBio] = useState(initial?.authorBio ?? "");
 
   // Book classification
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [genre, setGenre] = useState(GENRES[0]);
-  const [ageGroup, setAgeGroup] = useState(AGE_RANGES[0]);
-  const [readingLevel, setReadingLevel] = useState(READING_LEVELS[0]);
+  const [category, setCategory] = useState(initial?.category || CATEGORIES[0]);
+  const [genre, setGenre] = useState(initial?.genre || GENRES[0]);
+  const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || AGE_RANGES[0]);
+  const [readingLevel, setReadingLevel] = useState(initial?.readingLevel || READING_LEVELS[0]);
 
   // Book description
-  const [descriptionHtml, setDescriptionHtml] = useState("");
+  const [descriptionHtml, setDescriptionHtml] = useState(initial?.descriptionHtml ?? "");
 
   // Keywords
-  const [keywords, setKeywords] = useState<string[]>([]);
+  const [keywords, setKeywords] = useState<string[]>(initial?.keywords ?? []);
 
   // Pricing
-  const [price, setPrice] = useState("12.99");
-  const [discountPrice, setDiscountPrice] = useState("");
-  const [taxSetting, setTaxSetting] = useState(TAX_SETTINGS[0]);
+  const [price, setPrice] = useState(initial?.price ?? "12.99");
+  const [discountPrice, setDiscountPrice] = useState(initial?.discountPrice ?? "");
+  const [taxSetting, setTaxSetting] = useState(initial?.taxSetting || TAX_SETTINGS[0]);
 
   // Distribution
-  const [sellOnStore, setSellOnStore] = useState(true);
-  const [featuredRequest, setFeaturedRequest] = useState(false);
-  const [affiliateEnabled, setAffiliateEnabled] = useState(false);
+  const [sellOnStore, setSellOnStore] = useState(initial?.sellOnStore ?? true);
+  const [featuredRequest, setFeaturedRequest] = useState(initial?.featuredRequest ?? false);
+  const [affiliateEnabled, setAffiliateEnabled] = useState(initial?.affiliateEnabled ?? false);
 
   // Rights
-  const [worldwideRights, setWorldwideRights] = useState(true);
-  const [countryRestrictions, setCountryRestrictions] = useState("");
-  const [copyrightHolder, setCopyrightHolder] = useState("");
-  const [licenseType, setLicenseType] = useState(LICENSE_TYPES[0]);
+  const [worldwideRights, setWorldwideRights] = useState(initial?.worldwideRights ?? true);
+  const [countryRestrictions, setCountryRestrictions] = useState(initial?.countryRestrictions ?? "");
+  const [copyrightHolder, setCopyrightHolder] = useState(initial?.copyrightHolder ?? "");
+  const [licenseType, setLicenseType] = useState(initial?.licenseType || LICENSE_TYPES[0]);
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -136,7 +178,7 @@ export function EbookSubmissionForm() {
   async function handleSubmit(submitForReview: boolean) {
     setSubmitting(true);
     setError(null);
-    const res = await submitBook({
+    const payload = {
       title,
       subtitle,
       isbn: hasOwnIsbn ? isbn : (generatedSn ?? ""),
@@ -176,7 +218,10 @@ export function EbookSubmissionForm() {
         keywords: keywords.join(", "),
       },
       submitForReview,
-    });
+    };
+    const res = initial?.bookId
+      ? await updateBookFull(initial.bookId, payload)
+      : await submitBook(payload);
     setSubmitting(false);
     if (!res.ok) {
       setError(res.error ?? "Something went wrong.");
@@ -357,7 +402,7 @@ export function EbookSubmissionForm() {
         <label className="field-label">Description</label>
         <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={400} minHeight={250} />
         <div style={{ marginTop: 18 }}>
-          <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} title={title} />
+          <KeywordsField keywords={keywords} onChange={setKeywords} />
         </div>
       </Card>
 
@@ -519,7 +564,7 @@ export function EbookSubmissionForm() {
             Save as draft
           </button>
           <button type="button" className="btn btn-primary btn-small" disabled={submitting || !allChecksPass} onClick={() => handleSubmit(true)}>
-            {submitting ? "Publishing…" : "Publish"}
+            {submitting ? (initial?.bookId ? "Saving…" : "Publishing…") : (initial?.bookId ? "Save and resubmit for review" : "Publish")}
           </button>
         </div>
       </Card>

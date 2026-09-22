@@ -78,6 +78,14 @@ export default async function AccountPage() {
     return (
       <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
         <LiveRefresher />
+        {user?.mustChangePassword && (
+          <div className="map-card" style={{ padding: "12px 16px", marginBottom: 16, background: "#FBE6B8" }}>
+            <p style={{ fontSize: 13, color: "#8A5A0B", margin: 0 }}>
+              You&apos;re signed in with a temporary password from your order confirmation email.{" "}
+              <Link href="/account/settings" style={{ fontWeight: 700, textDecoration: "underline" }}>Set a real password →</Link>
+            </p>
+          </div>
+        )}
         <div className="section-head" style={{ marginBottom: 16 }}>
           <div>
             <h2 style={{ fontSize: 15.5 }}>Dashboard</h2>

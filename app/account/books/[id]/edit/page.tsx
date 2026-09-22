@@ -2,12 +2,14 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
-import { EditBookForm } from "./EditBookForm";
+import { EbookSubmissionForm } from "../../new/EbookSubmissionForm";
 
 /**
- * Edit an existing book — core details only (title, description,
- * pricing, category/genre, age group, language, cover, formats).
- * Saving resubmits the book for review, per explicit instruction.
+ * Edit an existing book — genuinely the same page used to submit a new
+ * title (see app/account/books/new/EbookSubmissionForm.tsx), in edit
+ * mode: every field pre-filled from the existing book, not a
+ * separate, simplified form. Saving resubmits the book for review,
+ * per explicit instruction.
  */
 export default async function EditBookPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,9 +22,13 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
 
   const book = await prisma.book.findUnique({
     where: { id },
-    include: { categories: { include: { category: true } }, genres: { include: { genre: true } } },
+    include: { categories: { include: { category: true } }, genres: { include: { genre: true } }, files: true },
   });
   if (!book || book.authorId !== user.authorProfile.id) notFound();
+
+  const manuscriptFile = book.files.find((f: { kind: string; url: string }) => f.kind === "MANUSCRIPT");
+  const manuscriptFileId = manuscriptFile?.url.split("/").pop();
+  const meta = (book.submissionMetadata as Record<string, unknown> | null) ?? {};
 
   return (
     <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
@@ -34,20 +40,41 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
           </p>
         </div>
       </div>
-      <EditBookForm
+      <EbookSubmissionForm
         initial={{
           bookId: book.id,
+          manuscriptFileId,
+          coverImageUrl: book.coverImageUrl ?? "",
           title: book.title,
           subtitle: book.subtitle ?? "",
-          description: book.description ?? "",
-          price: Number(book.price),
-          ageGroup: book.ageGroup ?? "",
+          edition: (meta.edition as string) ?? "",
+          seriesName: (meta.seriesName as string) ?? "",
+          seriesNumber: meta.seriesNumber != null ? String(meta.seriesNumber) : "",
+          language: book.language ?? "English",
+          publisher: (meta.publisher as string) ?? "The Good Child Bookstore",
+          publicationDate: (meta.publicationDate as string) ?? "",
+          originalPublicationDate: (meta.originalPublicationDate as string) ?? "",
+          isbn: book.isbn ?? "",
+          copyrightYear: meta.copyrightYear != null ? String(meta.copyrightYear) : String(new Date().getFullYear()),
+          authorFirstName: (meta.authorFirstName as string) ?? "",
+          authorLastName: (meta.authorLastName as string) ?? "",
+          authorBio: (meta.authorBio as string) ?? "",
           category: book.categories[0]?.category.name ?? "",
           genre: book.genres[0]?.genre.name ?? "",
-          language: book.language ?? "en",
-          coverImageUrl: book.coverImageUrl ?? "",
-          coverAltText: book.coverAltText ?? "",
-          formats: { ebook: book.hasEbook, print: book.hasPrint, audiobook: book.hasAudiobook },
+          ageGroup: book.ageGroup ?? "",
+          readingLevel: (meta.readingLevel as string) ?? "",
+          descriptionHtml: (meta.longDescriptionHtml as string) ?? book.description ?? "",
+          keywords: typeof meta.keywords === "string" ? (meta.keywords as string).split(",").map((k) => k.trim()).filter(Boolean) : [],
+          price: String(Number(book.price)),
+          discountPrice: meta.discountPrice != null ? String(meta.discountPrice) : "",
+          taxSetting: (meta.taxSetting as string) ?? "",
+          sellOnStore: (meta.sellOnStore as boolean) ?? true,
+          featuredRequest: (meta.featuredRequest as boolean) ?? false,
+          affiliateEnabled: (meta.affiliateEnabled as boolean) ?? false,
+          worldwideRights: (meta.worldwideRights as boolean) ?? true,
+          countryRestrictions: (meta.countryRestrictions as string) ?? "",
+          copyrightHolder: (meta.copyrightHolder as string) ?? "",
+          licenseType: (meta.licenseType as string) ?? "",
         }}
       />
     </DashboardShell>

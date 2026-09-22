@@ -104,6 +104,7 @@ model User {
    * anything until an admin explicitly chooses to. Defaults to false:
    * every new signup going forward is real/live data by default. */
   isTestData    Boolean  @default(false)
+  mustChangePassword Boolean @default(false)
   role          Role     @default(READER)
   avatarUrl     String?
   emailVerified DateTime?
@@ -553,6 +554,12 @@ model Order {
   /** Marks this order (and its financial history) as test/demo data —
    * see User.isTestData for the full explanation. */
   isTestData    Boolean     @default(false)
+  // Transient — only set when this order created a brand-new guest
+  // account, carries the real temporary password through to the
+  // confirmation email (checkout redirects to an external payment
+  // gateway and back, so this can't just live in client-side state).
+  // Nulled out immediately after that email is sent.
+  guestTempPassword String?
   couponId      String?
   coupon        Coupon?     @relation(fields: [couponId], references: [id])
   lines         SaleLine[]
