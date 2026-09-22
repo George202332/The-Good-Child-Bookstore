@@ -23,8 +23,16 @@ export async function getPagesContent(): Promise<PagesContent> {
       return {
         home: { ...DEFAULT_PAGES_CONTENT.home, ...(stored.home ?? {}) },
         shop: { ...DEFAULT_PAGES_CONTENT.shop, ...(stored.shop ?? {}) },
-        authorship: { ...DEFAULT_PAGES_CONTENT.authorship, ...(stored.authorship ?? {}) },
-        affiliateMarketing: { ...DEFAULT_PAGES_CONTENT.affiliateMarketing, ...(stored.affiliateMarketing ?? {}) },
+        authorship: {
+          ...DEFAULT_PAGES_CONTENT.authorship,
+          ...(stored.authorship ?? {}),
+          sections: stored.authorship?.sections && stored.authorship.sections.length > 0 ? stored.authorship.sections : DEFAULT_PAGES_CONTENT.authorship.sections,
+        },
+        affiliateMarketing: {
+          ...DEFAULT_PAGES_CONTENT.affiliateMarketing,
+          ...(stored.affiliateMarketing ?? {}),
+          sections: stored.affiliateMarketing?.sections && stored.affiliateMarketing.sections.length > 0 ? stored.affiliateMarketing.sections : DEFAULT_PAGES_CONTENT.affiliateMarketing.sections,
+        },
         blog: { ...DEFAULT_PAGES_CONTENT.blog, ...(stored.blog ?? {}) },
         contact: { ...DEFAULT_PAGES_CONTENT.contact, ...(stored.contact ?? {}) },
         privacy: { ...DEFAULT_PAGES_CONTENT.privacy, ...(stored.privacy ?? {}) },
