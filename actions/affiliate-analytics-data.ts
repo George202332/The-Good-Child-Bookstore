@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
 export interface AffiliateAnalytics {
   totalClicks: number;
@@ -91,7 +92,7 @@ export async function getAffiliateAnalytics(): Promise<AffiliateAnalytics> {
       const conversions = l.saleLines.length;
       return {
         book: l.book?.title ?? l.code,
-        author: l.book ? (l.book.author.penName || l.book.author.user.name) : "—",
+        author: l.book ? bookAuthorDisplayName(l.book) : "—",
         clicks,
         conversions,
         conversionRate: clicks > 0 ? +(((conversions / clicks) * 100).toFixed(1)) : 0,

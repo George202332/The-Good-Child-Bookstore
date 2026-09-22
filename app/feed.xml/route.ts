@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
+import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
 export const dynamic = "force-dynamic";
 
@@ -38,12 +39,12 @@ export async function GET() {
       pubDate: p.publishAt ?? p.createdAt,
       author: (p.authorFirstName || p.authorLastName) ? `${p.authorFirstName ?? ""} ${p.authorLastName ?? ""}`.trim() : p.author.name,
     })),
-    ...books.map((b: { title: string; id: string; slug: string; description: string | null; createdAt: Date; author: { user: { name: string } } }) => ({
+    ...books.map((b: { title: string; id: string; slug: string; description: string | null; createdAt: Date; submissionMetadata: unknown; author: { penName: string | null; user: { name: string } } }) => ({
       title: `New book: ${b.title}`,
       link: `${siteUrl}/${b.slug}`,
       description: b.description ?? "",
       pubDate: b.createdAt,
-      author: b.author.user.name,
+      author: bookAuthorDisplayName(b),
     })),
   ].sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
 

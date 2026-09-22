@@ -75,6 +75,8 @@ export async function submitReview(input: { bookId: string; content: string; sta
   revalidatePath(`/book/${input.bookId}`);
   if (reviewedBook?.slug) revalidatePath(`/${reviewedBook.slug}`);
   revalidatePath("/account/reviews");
+  revalidatePath("/bookshelf");
+  revalidatePath("/");
   return { ok: true };
 }
 

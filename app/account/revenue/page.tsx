@@ -5,6 +5,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { BookSalesTable, type BookSalesRow } from "./BookSalesTable";
 import { ReferralRevenueTable, type ReferralRawRow } from "./ReferralRevenueTable";
 import { BookPromotionTable, type PromotionRawRow } from "./BookPromotionTable";
+import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
 interface SaleLineRow {
   id: string;
@@ -172,6 +173,7 @@ export default async function RevenuePage() {
       paperbackPrice: unknown;
       hardcoverPrice: unknown;
       audiobookPrice: unknown;
+      submissionMetadata: unknown;
       author: { penName: string | null; user: { name: string } };
     };
   };
@@ -190,7 +192,7 @@ export default async function RevenuePage() {
   const promotionRawRows: PromotionRawRow[] = promotionSaleLines.map((l) => ({
     isbn: l.book.isbn,
     title: l.book.title,
-    author: l.book.author.penName || l.book.author.user.name,
+    author: bookAuthorDisplayName(l.book),
     format: formatLabelFor(l.format, l.book),
     price: listPriceFor(l.book, l.format),
     commission: Number(l.affiliateShare),

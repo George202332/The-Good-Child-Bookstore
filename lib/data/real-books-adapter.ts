@@ -74,7 +74,10 @@ function toCatalogBook(row: RealBookRow): Book {
   const seed = hashStr(row.id);
   const price = Number(row.price);
   const avgRating = row.ratings.length > 0 ? row.ratings.reduce((s, r) => s + r.stars, 0) / row.ratings.length : 0;
-  const meta = (row.submissionMetadata as { affiliateEnabled?: boolean; includeInPromotions?: boolean; paperbackEnabled?: boolean; hardcoverEnabled?: boolean; paperbackRetailPrice?: number; hardcoverRetailPrice?: number } | null) ?? null;
+  const meta = (row.submissionMetadata as { affiliateEnabled?: boolean; includeInPromotions?: boolean; paperbackEnabled?: boolean; hardcoverEnabled?: boolean; paperbackRetailPrice?: number; hardcoverRetailPrice?: number; authorFirstName?: string; authorLastName?: string } | null) ?? null;
+  const submittedAuthorName = meta?.authorFirstName || meta?.authorLastName
+    ? `${meta.authorFirstName ?? ""} ${meta.authorLastName ?? ""}`.trim()
+    : null;
   const paperbackPrice = row.paperbackPrice != null ? Number(row.paperbackPrice) : (meta?.paperbackEnabled && meta.paperbackRetailPrice ? meta.paperbackRetailPrice : null);
   const hardcoverPrice = row.hardcoverPrice != null ? Number(row.hardcoverPrice) : (meta?.hardcoverEnabled && meta.hardcoverRetailPrice ? meta.hardcoverRetailPrice : null);
 
@@ -82,7 +85,12 @@ function toCatalogBook(row: RealBookRow): Book {
     id: row.id,
     slug: row.slug,
     title: row.title,
-    author: row.author.user.name,
+    // The name actually typed into the "Author" field at submission —
+    // a pen name is fully supported and always wins when provided.
+    // Falls back to the account's real name only for older
+    // submissions (or print, which doesn't collect this field) that
+    // never had this metadata in the first place.
+    author: submittedAuthorName || row.author.user.name,
     authorId: row.authorId,
     motif: MOTIF_KINDS[seed % MOTIF_KINDS.length],
     palette: PALETTES[seed % PALETTES.length],

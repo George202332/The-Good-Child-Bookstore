@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
 /**
  * Serves a purchased book's file — checks the signed-in user actually
@@ -50,7 +51,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ book
     try {
       const { extractPdfPages, generateEpub } = await import("@/lib/epub-generator");
       const pages = await extractPdfPages(new Uint8Array(uploadedFile.data));
-      const authorName = book?.author.penName || book?.author.user.name || "";
+      const authorName = book ? bookAuthorDisplayName(book) : "";
       const epubBytes = await generateEpub(pages, book?.title ?? "book", authorName);
       return new NextResponse(Buffer.from(epubBytes), {
         headers: {
