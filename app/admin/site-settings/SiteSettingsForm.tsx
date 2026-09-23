@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateSiteSettings, testPaystackConnection } from "@/actions/site-settings";
+import Link from "next/link";
+import { updateSiteSettings } from "@/actions/site-settings";
 import type { SiteSettings } from "@/lib/site-settings";
 import { ImageUploadField } from "@/components/ImageUploadField";
 
@@ -14,23 +15,13 @@ const BADGE_FIELDS: { key: keyof SiteSettings["paymentBadges"]; label: string }[
   { key: "verve", label: "Verve" },
 ];
 
-export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSettings; apiKeysSet: Record<string, boolean> }) {
+export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
   const router = useRouter();
   const [settings, setSettings] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
-  const [testing, setTesting] = useState(false);
-
-  async function handleTestPaystack() {
-    setTesting(true);
-    setTestResult(null);
-    const res = await testPaystackConnection();
-    setTesting(false);
-    setTestResult(res);
-  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -104,211 +95,11 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
         ))}
       </div>
 
-      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>API credentials</h3>
-      <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>
-        Set these here instead of asking for help editing Vercel&apos;s environment variables. Leave any of these
-        blank to keep using whatever&apos;s already configured there.
+      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>API credentials moved</h3>
+      <p className="field-hint" style={{ margin: "0 0 12px" }}>
+        All third-party API keys and credentials (Paystack, Wise, Payoneer, Lulu, Resend, Google Workspace) now live
+        in their own dedicated page — see <Link href="/admin/api-management">Admin → API Management</Link>.
       </p>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Lulu (print-on-demand)</h4>
-      <div className="form-grid-2">
-        <div>
-          <label className="field-label" htmlFor="api-lulu-key">Client Key</label>
-          <input
-            className="field"
-            id="api-lulu-key"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.luluClientKey ? "•••• already set — leave blank to keep it" : "Not set"}
-            value={settings.apiKeys.luluClientKey ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, luluClientKey: e.target.value } }))}
-          />
-        </div>
-        <div>
-          <label className="field-label" htmlFor="api-lulu-secret">Client Secret</label>
-          <input
-            className="field"
-            id="api-lulu-secret"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.luluClientSecret ? "•••• already set — leave blank to keep it" : "Not set"}
-            value={settings.apiKeys.luluClientSecret ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, luluClientSecret: e.target.value } }))}
-          />
-        </div>
-      </div>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Order confirmation emails</h4>
-      <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>
-        Sent via Resend — set an API key here to start sending real order receipts (with download links) to buyers.
-      </p>
-      <div className="form-grid-2">
-        <div>
-          <label className="field-label" htmlFor="api-resend">Resend API key</label>
-          <input
-            className="field"
-            id="api-resend"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.resendApiKey ? "•••• already set — leave blank to keep it" : "Not set"}
-            value={settings.apiKeys.resendApiKey ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, resendApiKey: e.target.value } }))}
-          />
-        </div>
-        <div>
-          <label className="field-label" htmlFor="api-fromemail">&quot;From&quot; email address</label>
-          <input
-            className="field"
-            id="api-fromemail"
-            type="email"
-            placeholder="orders@yourdomain.com"
-            value={settings.apiKeys.fromEmail ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, fromEmail: e.target.value } }))}
-          />
-        </div>
-      </div>
-
-      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Payment Integrations</h3>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Paystack (checkout — card payments)</h4>
-      <label className="field-label" htmlFor="api-mode">Key mode</label>
-      <select
-        className="field"
-        id="api-mode"
-        value={settings.apiKeys.paymentMode}
-        onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paymentMode: e.target.value as "test" | "live" } }))}
-      >
-        <option value="test">Test — the keys below are sandbox keys, no real charges</option>
-        <option value="live">Live — the keys below are real keys, real charges</option>
-      </select>
-      <p className="field-hint" style={{ margin: "-8px 0 12px" }}>
-        Just a label for which kind of key you&apos;ve pasted below — Paystack test and live keys already look
-        different (sk_test_ vs sk_live_), there&apos;s only one pair to manage now.
-      </p>
-      <div className="form-grid-2">
-        <div>
-          <label className="field-label" htmlFor="api-paystack-secret">Secret Key</label>
-          <input
-            className="field"
-            id="api-paystack-secret"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.paystackSecretKey ? "•••• already set — leave blank to keep it" : "Not set"}
-            value={settings.apiKeys.paystackSecretKey ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackSecretKey: e.target.value } }))}
-          />
-        </div>
-        <div>
-          <label className="field-label" htmlFor="api-paystack-public">Public Key</label>
-          <input
-            className="field"
-            id="api-paystack-public"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.paystackPublicKey ? "•••• already set — leave blank to keep it" : "Not set"}
-            value={settings.apiKeys.paystackPublicKey ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, paystackPublicKey: e.target.value } }))}
-          />
-        </div>
-      </div>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Active payout provider</h4>
-      <p className="field-hint" style={{ margin: "0 0 10px" }}>
-        Only one provider is ever active at a time — switching to one automatically switches the other off.
-      </p>
-      <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-          <input
-            type="radio"
-            name="active-payout-provider"
-            checked={(settings.apiKeys.wiseEnabled ?? true) && !settings.apiKeys.payoneerEnabled}
-            onChange={() => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseEnabled: true, payoneerEnabled: false } }))}
-          />
-          Wise
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-          <input
-            type="radio"
-            name="active-payout-provider"
-            checked={!!settings.apiKeys.payoneerEnabled && !settings.apiKeys.wiseEnabled}
-            onChange={() => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseEnabled: false, payoneerEnabled: true } }))}
-          />
-          Payoneer
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-          <input
-            type="radio"
-            name="active-payout-provider"
-            checked={!settings.apiKeys.wiseEnabled && !settings.apiKeys.payoneerEnabled}
-            onChange={() => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseEnabled: false, payoneerEnabled: false } }))}
-          />
-          Neither (pause all payouts)
-        </label>
-      </div>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Wise (author/affiliate payouts)</h4>
-      <label className="field-label" htmlFor="api-wise-token">API Token</label>
-      <input
-        className="field"
-        id="api-wise-token"
-        type="password"
-        autoComplete="off"
-        placeholder={apiKeysSet.wiseApiToken ? "•••• already set — leave blank to keep it" : "Not set"}
-        value={settings.apiKeys.wiseApiToken ?? ""}
-        onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseApiToken: e.target.value } }))}
-      />
-      <p className="field-hint" style={{ margin: "4px 0 12px" }}>
-        Just the one token — Wise doesn&apos;t use a separate public/secret pair. Your Wise profile is looked up
-        automatically from this token when you save, so there&apos;s nothing else to enter.{" "}
-        {apiKeysSet.wiseProfileId && "A profile is currently connected."}
-      </p>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Payoneer (author/affiliate payouts)</h4>
-      <p className="field-hint" style={{ margin: "-6px 0 12px" }}>
-        Whichever provider is selected above is the one payouts actually go through — a recipient set up for the
-        other provider will need to switch (or wait until you switch back) before their payout can be sent.
-      </p>
-      <div className="form-grid-2">
-        <div>
-          <label className="field-label" htmlFor="api-payoneer-secret">Secret Key (Client Secret)</label>
-          <input
-            className="field"
-            id="api-payoneer-secret"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.payoneerClientSecret ? "•••• already set — leave blank to keep it" : "Not set"}
-            value={settings.apiKeys.payoneerClientSecret ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, payoneerClientSecret: e.target.value } }))}
-          />
-        </div>
-        <div>
-          <label className="field-label" htmlFor="api-payoneer-public">Public Key (Client ID)</label>
-          <input
-            className="field"
-            id="api-payoneer-public"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.payoneerClientId ? "•••• already set — leave blank to keep it" : "Not set"}
-            value={settings.apiKeys.payoneerClientId ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, payoneerClientId: e.target.value } }))}
-          />
-        </div>
-      </div>
-
-      <div style={{ marginTop: 8, marginBottom: 8 }}>
-        <p className="field-hint" style={{ margin: "0 0 8px" }}>
-          Save your changes first, then test — this checks the key that&apos;s actually saved, not whatever&apos;s
-          currently typed above, so it tells you for certain whether it stuck.
-        </p>
-        <button type="button" className="btn btn-ghost btn-small" disabled={testing} onClick={handleTestPaystack}>
-          {testing ? "Testing…" : "Test Paystack connection"}
-        </button>
-        {testResult && (
-          <div className="field-hint" style={{ color: testResult.ok ? "#1F6B48" : "var(--coral-deep)", marginTop: 8 }}>
-            {testResult.message}
-          </div>
-        )}
-      </div>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved — live on the site now.</div>}

@@ -36,6 +36,8 @@ function navItemsForRole(role: Role) {
       ...base,
       { key: "books-checklist", label: "Review Checklist", href: "/admin/books/checklist-settings" },
       { key: "site-settings", label: "Site Settings", href: "/admin/site-settings" },
+      { key: "api-management", label: "API Management", href: "/admin/api-management" },
+      { key: "email", label: "Email", href: "/admin/email" },
       { key: "library", label: "Library", href: "/admin/library" },
       { key: "commission-settings", label: "Commission Settings", href: "/admin/commission-settings" },
       { key: "users", label: "Users", href: "/admin/users" },

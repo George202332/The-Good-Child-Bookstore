@@ -7,18 +7,19 @@ import { SiteSettingsForm } from "./SiteSettingsForm";
 import { PageContentForm } from "./PageContentForm";
 
 /**
- * Site Settings — everything that used to live on a separate Homepage
- * page is merged in here, plus full control over branding (logo,
- * favicon, footer, payment badge images), API credentials, and the
- * intro content of every major page, all in one place, per explicit
- * request to "control the site from the backend."
+ * Site Settings — branding (logo, favicon, footer, payment badge
+ * images) and the intro content of every major page. API credentials
+ * and third-party integration settings moved to their own dedicated
+ * page — see Admin → API Management — per explicit instruction to
+ * consolidate all API keys/secrets there instead of mixing them in
+ * with branding/content.
  */
 export default async function SiteSettingsPage() {
   const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 
-  const [{ settings, apiKeysSet }, pagesContent] = await Promise.all([
+  const [{ settings }, pagesContent] = await Promise.all([
     getSiteSettingsForEditing(),
     getPagesContent(),
   ]);
@@ -29,12 +30,13 @@ export default async function SiteSettingsPage() {
         <div>
           <h2 style={{ fontSize: 20 }}>Site Settings</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            Branding, footer, payment badges, API credentials, and page content — everything shown across the site.
+            Branding, footer, payment badges, and page content — everything shown across the site. For API
+            credentials, see Admin → API Management.
           </p>
         </div>
       </div>
 
-      <SiteSettingsForm initial={settings} apiKeysSet={apiKeysSet} />
+      <SiteSettingsForm initial={settings} />
 
       <h2 style={{ fontSize: 18, margin: "32px 0 16px" }}>Page Content</h2>
       <PageContentForm initial={pagesContent} />

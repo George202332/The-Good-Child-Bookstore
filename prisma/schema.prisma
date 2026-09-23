@@ -105,6 +105,7 @@ model User {
    * every new signup going forward is real/live data by default. */
   isTestData    Boolean  @default(false)
   mustChangePassword Boolean @default(false)
+  googleOAuthToken GoogleOAuthToken?
   role          Role     @default(READER)
   avatarUrl     String?
   emailVerified DateTime?
@@ -918,4 +919,24 @@ model MonthlyReport {
   createdAt DateTime @default(now())
 
   @@unique([year, month, scopeType, scopeId])
+}
+
+/** One row per user who has connected their Gmail account via OAuth.
+ * accessToken and refreshToken are stored AES-256-GCM encrypted (see
+ * lib/crypto.ts) — never stored or logged in plaintext. A short-lived
+ * accessToken (expiresAt) is refreshed automatically using the
+ * long-lived refreshToken by lib/google/tokens.ts before any Gmail API
+ * call, so nothing calling into the Gmail integration ever needs to
+ * think about expiry itself. */
+model GoogleOAuthToken {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken   String   @db.Text
+  refreshToken  String   @db.Text
+  expiresAt     DateTime
+  scope         String
+  googleEmail   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
