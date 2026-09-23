@@ -118,7 +118,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
           </div>
 
           {(() => {
-            const pending = book.pendingRevisionData as { input?: { title?: string; description?: string; price?: number } } | null;
+            const pending = book.pendingRevisionData as unknown as { input?: { title?: string; description?: string; price?: number } } | null;
             if (!pending?.input) return null;
             return (
               <RevisionReviewCard

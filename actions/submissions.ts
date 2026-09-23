@@ -412,7 +412,7 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
   const book = await prisma.book.findUnique({ where: { id: bookId } });
   if (!book?.pendingRevisionData) return { ok: false, error: "No pending revision on this book." };
 
-  const { input, bookFiles } = book.pendingRevisionData as { input: SubmitBookInput; bookFiles: { kind: string; url: string }[] };
+  const { input, bookFiles } = book.pendingRevisionData as unknown as { input: SubmitBookInput; bookFiles: { kind: string; url: string }[] };
 
   const [category, genre] = await Promise.all([
     prisma.category.upsert({ where: { name: input.category }, update: {}, create: { name: input.category } }),
