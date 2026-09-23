@@ -216,9 +216,36 @@ export async function executeWisePayout(
 /** Verifies a Wise webhook's signature — Wise signs events with an
  * RSA-SHA256 signature over the raw body, verifiable with their public
  * key (delivered alongside your webhook subscription). */
+// Wise's real, published webhook signature public keys — confirmed
+// directly from https://docs.wise.com/guides/developer/webhooks/event-handling.
+// These are fixed, well-known keys (the same for every Wise API user),
+// not something specific to this account, so there's nothing for an
+// admin to find or configure here.
+const WISE_WEBHOOK_PUBLIC_KEY_PRODUCTION = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvO8vXV+JksBzZAY6GhSO
+XdoTCfhXaaiZ+qAbtaDBiu2AGkGVpmEygFmWP4Li9m5+Ni85BhVvZOodM9epgW3F
+bA5Q1SexvAF1PPjX4JpMstak/QhAgl1qMSqEevL8cmUeTgcMuVWCJmlge9h7B1CS
+D4rtlimGZozG39rUBDg6Qt2K+P4wBfLblL0k4C4YUdLnpGYEDIth+i8XsRpFlogx
+CAFyH9+knYsDbR43UJ9shtc42Ybd40Afihj8KnYKXzchyQ42aC8aZ/h5hyZ28yVy
+Oj3Vos0VdBIs/gAyJ/4yyQFCXYte64I7ssrlbGRaco4nKF3HmaNhxwyKyJafz19e
+HwIDAQAB
+-----END PUBLIC KEY-----`;
+
+const WISE_WEBHOOK_PUBLIC_KEY_SANDBOX = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwpb91cEYuyJNQepZAVfP
+ZIlPZfNUefH+n6w9SW3fykqKu938cR7WadQv87oF2VuT+fDt7kqeRziTmPSUhqPU
+ys/V2Q1rlfJuXbE+Gga37t7zwd0egQ+KyOEHQOpcTwKmtZ81ieGHynAQzsn1We3j
+wt760MsCPJ7GMT141ByQM+yW1Bx+4SG3IGjXWyqOWrcXsxAvIXkpUD/jK/L958Cg
+nZEgz0BSEh0QxYLITnW1lLokSx/dTianWPFEhMC9BgijempgNXHNfcVirg1lPSyg
+z7KqoKUN0oHqWLr2U1A+7kqrl6O2nx3CKs1bj1hToT1+p4kcMoHXA7kA+VBLUpEs
+VwIDAQAB
+-----END PUBLIC KEY-----`;
+
 export async function verifyWiseWebhookSignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
-  const publicKey = process.env.WISE_WEBHOOK_PUBLIC_KEY;
-  if (!publicKey || !signatureHeader) return false;
+  if (!signatureHeader) return false;
+  const { getPaystackCredentials } = await import("@/lib/api-keys");
+  const { mode } = await getPaystackCredentials();
+  const publicKey = mode === "test" ? WISE_WEBHOOK_PUBLIC_KEY_SANDBOX : WISE_WEBHOOK_PUBLIC_KEY_PRODUCTION;
   const { createVerify } = await import("crypto");
   try {
     const verifier = createVerify("RSA-SHA256");
