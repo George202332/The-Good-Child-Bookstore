@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addWiseRecipient, deleteWiseRecipient, setDefaultWiseRecipient, type WiseRecipientRow } from "@/actions/wise-recipients";
+import { addWiseRecipient, deleteWiseRecipient, setDefaultWiseRecipient, getRequiredFieldsForCurrency, type WiseRecipientRow } from "@/actions/wise-recipients";
+import type { WiseRequiredField } from "@/lib/payments/wise";
 
 /**
  * Payment Details — moved here from Payout Settings per explicit
@@ -40,9 +41,34 @@ export function PaymentDetailsSection({ initial }: { initial: WiseRecipientRow[]
   const [paypalName, setPaypalName] = useState(paypal?.accountHolderName ?? "");
 
   const [bankName, setBankName] = useState(bank?.accountHolderName ?? "");
-  const [bankAccount, setBankAccount] = useState((bank?.details.accountNumber as string) ?? "");
-  const [bankIban, setBankIban] = useState((bank?.details.iban as string) ?? "");
   const [bankCurrency, setBankCurrency] = useState(bank?.currency ?? "USD");
+  const [bankDynamicFields, setBankDynamicFields] = useState<WiseRequiredField[] | null>(null);
+  const [bankAccountType, setBankAccountType] = useState<string>(bank?.type ?? "");
+  const [bankFieldValues, setBankFieldValues] = useState<Record<string, string>>((bank?.details as Record<string, string>) ?? {});
+  const [loadingFields, setLoadingFields] = useState(false);
+  const [fieldsError, setFieldsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!bankCurrency.trim() || bankCurrency.length !== 3) return;
+    const timer = setTimeout(() => {
+      setLoadingFields(true);
+      setFieldsError(null);
+      getRequiredFieldsForCurrency(bankCurrency.toUpperCase()).then((res) => {
+        setLoadingFields(false);
+        if ("error" in res) {
+          setFieldsError(res.error);
+          setBankDynamicFields(null);
+          return;
+        }
+        const firstType = res[0];
+        if (firstType) {
+          setBankAccountType(firstType.type);
+          setBankDynamicFields(firstType.fields);
+        }
+      });
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [bankCurrency]);
 
   const [mpesaName, setMpesaName] = useState(mpesa?.accountHolderName ?? "");
   const [mpesaPhone, setMpesaPhone] = useState((mpesa?.details.phoneNumber as string) ?? "");
@@ -69,9 +95,9 @@ export function PaymentDetailsSection({ initial }: { initial: WiseRecipientRow[]
       setSavingType(null);
       if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
     } else if (type === "bank") {
-      if (!bankName.trim() || !bankAccount.trim()) { setError("Enter your account holder name and account number first."); return; }
+      if (!bankName.trim() || !bankAccountType) { setError("Enter your account holder name and fill in the required fields first."); return; }
       setSavingType(type);
-      const res = await addWiseRecipient({ type: "bank", currency: bankCurrency, accountHolderName: bankName, details: { accountNumber: bankAccount, iban: bankIban } });
+      const res = await addWiseRecipient({ type: bankAccountType, currency: bankCurrency, accountHolderName: bankName, details: bankFieldValues });
       setSavingType(null);
       if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
     } else {
@@ -92,7 +118,7 @@ export function PaymentDetailsSection({ initial }: { initial: WiseRecipientRow[]
     if (type === "email") {
       await addWiseRecipient({ type: "email", currency: "USD", accountHolderName: paypalName, details: { email: paypalEmail } });
     } else if (type === "bank") {
-      await addWiseRecipient({ type: "bank", currency: bankCurrency, accountHolderName: bankName, details: { accountNumber: bankAccount, iban: bankIban } });
+      await addWiseRecipient({ type: bankAccountType, currency: bankCurrency, accountHolderName: bankName, details: bankFieldValues });
     } else {
       await addWiseRecipient({ type: "mpesa", currency: "KES", accountHolderName: mpesaName, details: { phoneNumber: mpesaPhone } });
     }
@@ -153,15 +179,39 @@ export function PaymentDetailsSection({ initial }: { initial: WiseRecipientRow[]
               <label className="field-label">Currency</label>
               <input className="field" type="text" maxLength={3} value={bankCurrency} onChange={(e) => setBankCurrency(e.target.value.toUpperCase())} />
             </div>
-            <div>
-              <label className="field-label">Account number</label>
-              <input className="field" type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label">IBAN / sort code</label>
-              <input className="field" type="text" value={bankIban} onChange={(e) => setBankIban(e.target.value)} />
-            </div>
           </div>
+          {loadingFields && <p className="field-hint">Checking what Wise needs for {bankCurrency}…</p>}
+          {fieldsError && <p className="field-hint" style={{ color: "var(--coral-deep)" }}>{fieldsError}</p>}
+          {!loadingFields && bankDynamicFields && (
+            <>
+              <p className="field-hint" style={{ margin: "8px 0" }}>Fields required by Wise for a {bankCurrency} {bankAccountType} account:</p>
+              <div className="form-grid-2">
+                {bankDynamicFields.map((f) => (
+                  <div key={f.key}>
+                    <label className="field-label">{f.name}{f.required && " *"}</label>
+                    {f.type === "select" && f.options ? (
+                      <select
+                        className="field"
+                        value={bankFieldValues[f.key] ?? ""}
+                        onChange={(e) => setBankFieldValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                      >
+                        <option value="">Select…</option>
+                        {f.options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+                      </select>
+                    ) : (
+                      <input
+                        className="field"
+                        type="text"
+                        placeholder={f.example}
+                        value={bankFieldValues[f.key] ?? ""}
+                        onChange={(e) => setBankFieldValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
           {bank && (
             <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "bank"} onClick={() => updateDetails("bank")}>
               Save changes

@@ -19,6 +19,7 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
   const [settings, setSettings] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [warning, setWarning] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
@@ -36,12 +37,14 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
     setSubmitting(true);
     setError(null);
     setSaved(false);
+    setWarning(null);
     const res = await updateSiteSettings(settings);
     setSubmitting(false);
     if (!res.ok) {
       setError(res.error ?? "Something went wrong.");
       return;
     }
+    if (res.error) setWarning(res.error);
     setSaved(true);
     router.refresh();
   }
@@ -244,32 +247,21 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
       </div>
 
       <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Wise (author/affiliate payouts)</h4>
-      <div className="form-grid-2">
-        <div>
-          <label className="field-label" htmlFor="api-wise-secret">Secret Key (API Token)</label>
-          <input
-            className="field"
-            id="api-wise-secret"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.wiseApiToken ? "•••• already set — leave blank to keep it" : "Not set"}
-            value={settings.apiKeys.wiseApiToken ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseApiToken: e.target.value } }))}
-          />
-        </div>
-        <div>
-          <label className="field-label" htmlFor="api-wise-public">Public Key (Profile ID)</label>
-          <input
-            className="field"
-            id="api-wise-public"
-            type="password"
-            autoComplete="off"
-            placeholder={apiKeysSet.wiseProfileId ? "•••• already set — leave blank to keep it" : "Not set"}
-            value={settings.apiKeys.wiseProfileId ?? ""}
-            onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseProfileId: e.target.value } }))}
-          />
-        </div>
-      </div>
+      <label className="field-label" htmlFor="api-wise-token">API Token</label>
+      <input
+        className="field"
+        id="api-wise-token"
+        type="password"
+        autoComplete="off"
+        placeholder={apiKeysSet.wiseApiToken ? "•••• already set — leave blank to keep it" : "Not set"}
+        value={settings.apiKeys.wiseApiToken ?? ""}
+        onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseApiToken: e.target.value } }))}
+      />
+      <p className="field-hint" style={{ margin: "4px 0 12px" }}>
+        Just the one token — Wise doesn&apos;t use a separate public/secret pair. Your Wise profile is looked up
+        automatically from this token when you save, so there&apos;s nothing else to enter.{" "}
+        {apiKeysSet.wiseProfileId && "A profile is currently connected."}
+      </p>
 
       <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Payoneer (author/affiliate payouts)</h4>
       <p className="field-hint" style={{ margin: "-6px 0 12px" }}>
@@ -320,6 +312,7 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved — live on the site now.</div>}
+      {warning && <div className="field-hint" style={{ color: "#8A5A0B" }}>{warning}</div>}
       <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
         {submitting ? "Saving…" : "Save changes"}
       </button>

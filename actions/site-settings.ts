@@ -148,6 +148,19 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
     // than erasing a working credential just because the admin didn't
     // retype it (the form never shows the real value back, on purpose).
     const existing = await getSiteSettings();
+    const newWiseToken = settings.apiKeys.wiseApiToken?.trim();
+    let wiseProfileId = existing.apiKeys.wiseProfileId;
+    let wiseTokenError: string | undefined;
+    if (newWiseToken && newWiseToken !== existing.apiKeys.wiseApiToken) {
+      // A genuinely new token was entered — look up its real profile id
+      // from Wise directly, rather than asking the admin to find and
+      // enter it manually.
+      const { discoverWiseProfileId } = await import("@/lib/payments/wise");
+      const discovery = await discoverWiseProfileId(newWiseToken);
+      if (discovery.profileId) wiseProfileId = discovery.profileId;
+      else wiseTokenError = discovery.error;
+    }
+
     const apiKeys: ApiKeys = {
       paymentMode: settings.apiKeys.paymentMode,
       luluClientKey: settings.apiKeys.luluClientKey?.trim() || existing.apiKeys.luluClientKey,
@@ -156,8 +169,8 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
       fromEmail: settings.apiKeys.fromEmail?.trim() || existing.apiKeys.fromEmail,
       paystackSecretKey: settings.apiKeys.paystackSecretKey?.trim() || existing.apiKeys.paystackSecretKey,
       paystackPublicKey: settings.apiKeys.paystackPublicKey?.trim() || existing.apiKeys.paystackPublicKey,
-      wiseApiToken: settings.apiKeys.wiseApiToken?.trim() || existing.apiKeys.wiseApiToken,
-      wiseProfileId: settings.apiKeys.wiseProfileId?.trim() || existing.apiKeys.wiseProfileId,
+      wiseApiToken: newWiseToken || existing.apiKeys.wiseApiToken,
+      wiseProfileId,
       // Only one payout provider is ever active at once — enforced here
       // too, not just in the form, so a stale client or a direct action
       // call can't leave both switched on. Wise wins if both were
@@ -176,6 +189,9 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
     });
     revalidatePath("/");
     revalidatePath("/admin/site-settings");
+    if (wiseTokenError) {
+      return { ok: true, error: `Saved, but couldn't verify the new Wise token: ${wiseTokenError}` };
+    }
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save settings — please try again." };

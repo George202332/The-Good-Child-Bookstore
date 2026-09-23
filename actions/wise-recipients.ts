@@ -3,8 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { createWiseRecipient } from "@/lib/payments/wise";
+import { createWiseRecipient, getWiseAccountRequirements, type WiseRequiredField } from "@/lib/payments/wise";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
+
+/** Real fields Wise actually requires for a given currency, per
+ * account type (e.g. a Kenyan payout might offer both "mpesa" and
+ * "iban" as options, each with their own real field list) — queried
+ * live from Wise, not a fixed guess. */
+export async function getRequiredFieldsForCurrency(currency: string): Promise<{ type: string; fields: WiseRequiredField[] }[] | { error: string }> {
+  const session = await auth();
+  if (!session?.user) return { error: "Sign in required." };
+  return getWiseAccountRequirements(currency);
+}
 
 /**
  * Manage Wise payout destinations — every author/affiliate payout goes
@@ -52,18 +62,11 @@ export async function listMyWiseRecipients(): Promise<WiseRecipientRow[]> {
 }
 
 export interface AddRecipientInput {
-  type: "mpesa" | "bank" | "email";
+  type: string; // a real Wise account type key, from getRequiredFieldsForCurrency — e.g. "mpesa", "iban", "sort_code", "email"
   currency: string;
   accountHolderName: string;
-  // For mpesa: { phoneNumber }. For bank: { accountNumber, bankCode/iban/sortCode }. For email: { email }.
-  details: Record<string, string>;
+  details: Record<string, string>; // keyed exactly as Wise's own account-requirements response specifies
 }
-
-const WISE_TYPE_MAP: Record<AddRecipientInput["type"], string> = {
-  mpesa: "mpesa",
-  bank: "iban",
-  email: "email",
-};
 
 export async function addWiseRecipient(input: AddRecipientInput): Promise<{ ok: boolean; error?: string }> {
   let userId: string;
@@ -75,12 +78,13 @@ export async function addWiseRecipient(input: AddRecipientInput): Promise<{ ok: 
 
   if (!input.accountHolderName.trim()) return { ok: false, error: "Account holder name is required." };
   if (!input.currency.trim()) return { ok: false, error: "Currency is required." };
+  if (!input.type.trim()) return { ok: false, error: "Account type is required." };
 
   let wiseRecipientId: string | undefined;
   try {
     const result = await createWiseRecipient({
       currency: input.currency,
-      type: WISE_TYPE_MAP[input.type],
+      type: input.type,
       accountHolderName: input.accountHolderName,
       details: input.details,
     });

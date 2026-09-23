@@ -30,6 +30,83 @@ async function requireProfileId(): Promise<string> {
   return profileId;
 }
 
+/** Looks up the Wise profile(s) associated with an API token directly
+ * from Wise's own API — the admin only ever needs to provide the one
+ * token; this is what replaces needing to separately go find and
+ * manually enter a profile ID. Prefers a business profile over a
+ * personal one, since that's the normal real-world setup for a
+ * platform sending payouts on a company's behalf. */
+export async function discoverWiseProfileId(apiToken: string): Promise<{ profileId?: string; error?: string }> {
+  try {
+    const res = await fetch(`${WISE_BASE_URL}/v2/profiles`, {
+      headers: { Authorization: `Bearer ${apiToken}` },
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { error: `Wise rejected this token (${res.status}): ${body || "please double check it's correct."}` };
+    }
+    const profiles = (await res.json()) as { id: number | string; type: string }[];
+    if (!Array.isArray(profiles) || profiles.length === 0) {
+      return { error: "This token is valid, but no Wise profile is associated with it." };
+    }
+    const business = profiles.find((p) => p.type === "business");
+    return { profileId: String((business ?? profiles[0]).id) };
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Couldn't reach Wise to verify this token." };
+  }
+}
+
+/** A single field Wise says is actually required for a given currency
+ * — queried live from Wise itself, not guessed or hardcoded. */
+export interface WiseRequiredField {
+  key: string;
+  name: string;
+  type: "text" | "select";
+  required: boolean;
+  example?: string;
+  options?: { key: string; label: string }[];
+}
+
+/** Queries Wise's own account-requirements API for the real fields a
+ * recipient account needs for a given target currency — this is what
+ * makes the payment details form genuinely dynamic and Wise-compliant:
+ * a Kenyan M-Pesa payout needs a phone number, a US bank account needs
+ * a routing + account number, a Eurozone one needs an IBAN, and this
+ * asks Wise directly rather than a fixed, guessed field list. */
+export async function getWiseAccountRequirements(targetCurrency: string, sourceAmountUsd = 100): Promise<{ type: string; fields: WiseRequiredField[] }[] | { error: string }> {
+  try {
+    const token = await requireApiToken();
+    const res = await fetch(
+      `${WISE_BASE_URL}/v1/account-requirements?source=USD&target=${targetCurrency}&sourceAmount=${sourceAmountUsd}`,
+      { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } }
+    );
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { error: `Wise couldn't provide requirements for ${targetCurrency} (${res.status}): ${body}` };
+    }
+    const data = (await res.json()) as {
+      type: string;
+      fields: { name: string; group: { key: string; name: string; type: string; required: boolean; example?: string; valuesAllowed?: { key: string; name: string }[] }[] }[];
+    }[];
+
+    return data.map((accountType) => ({
+      type: accountType.type,
+      fields: accountType.fields.flatMap((f) =>
+        f.group.map((g) => ({
+          key: g.key,
+          name: g.name,
+          type: (g.valuesAllowed ? "select" : "text") as "text" | "select",
+          required: g.required,
+          example: g.example,
+          options: g.valuesAllowed?.map((v) => ({ key: v.key, label: v.name })),
+        }))
+      ),
+    }));
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Couldn't reach Wise to determine required fields." };
+  }
+}
+
 async function wiseFetch(path: string, init?: RequestInit) {
   const token = await requireApiToken();
   const res = await fetch(`${WISE_BASE_URL}${path}`, {
