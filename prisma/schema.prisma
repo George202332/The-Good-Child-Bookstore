@@ -305,6 +305,16 @@ model Book {
   /** Marks this book as test/demo data — see User.isTestData for the
    * full explanation of how this powers the admin's Live/Test toggle. */
   isTestData   Boolean       @default(false)
+  /** Proposed changes to an already-published book, submitted via
+   * edit — stored separately so the live, visible book (title,
+   * description, price, etc, and its PUBLISHED status) is completely
+   * untouched while this is under review. On approval, these values
+   * are applied to the real fields and this is cleared; on rejection,
+   * it's simply cleared and the book is unaffected. Only used when
+   * editing a book that's already PUBLISHED — editing a draft/rejected
+   * book still updates it directly, since there's no live version to
+   * protect. */
+  pendingRevisionData Json?
   price        Decimal       @db.Decimal(10, 2)
   coverImageUrl String?
   /** SEO/accessibility alt text for the cover image — falls back to

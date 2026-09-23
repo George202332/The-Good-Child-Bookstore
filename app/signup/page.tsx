@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Motif } from "@/components/Motif";
 
 /** The account-type choice, split out from /login so that page can stay
  * a plain credentials form. Anyone without an account lands here first
@@ -15,13 +14,11 @@ export default function SignupChoicePage() {
         <p>Choose the kind of account you&apos;d like to create.</p>
         <div className="role-pick">
           <Link href="/signup/reader" className="role-card">
-            <svg viewBox="0 0 100 100"><Motif kind="owl" color="#3F3350" /></svg>
-            <h4>Sign up as a reader</h4>
-            <p>Shop, save favorites, subscribe</p>
+            <h4>Reader/Affiliate</h4>
+            <p>Shop, save favorites, subscribe — and promote books for commission any time from Settings</p>
           </Link>
           <Link href="/signup/author" className="role-card">
-            <svg viewBox="0 0 100 100"><Motif kind="star" color="#3F3350" /></svg>
-            <h4>Author / Affiliate Account</h4>
+            <h4>Author/Affiliate</h4>
             <p>Submit and track your titles, refer authors, and promote books — all in one account</p>
           </Link>
         </div>

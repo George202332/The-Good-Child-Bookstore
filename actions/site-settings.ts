@@ -158,10 +158,14 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
       paystackPublicKey: settings.apiKeys.paystackPublicKey?.trim() || existing.apiKeys.paystackPublicKey,
       wiseApiToken: settings.apiKeys.wiseApiToken?.trim() || existing.apiKeys.wiseApiToken,
       wiseProfileId: settings.apiKeys.wiseProfileId?.trim() || existing.apiKeys.wiseProfileId,
+      // Only one payout provider is ever active at once — enforced here
+      // too, not just in the form, so a stale client or a direct action
+      // call can't leave both switched on. Wise wins if both were
+      // somehow sent true.
       wiseEnabled: settings.apiKeys.wiseEnabled,
       payoneerClientId: settings.apiKeys.payoneerClientId?.trim() || existing.apiKeys.payoneerClientId,
       payoneerClientSecret: settings.apiKeys.payoneerClientSecret?.trim() || existing.apiKeys.payoneerClientSecret,
-      payoneerEnabled: settings.apiKeys.payoneerEnabled,
+      payoneerEnabled: settings.apiKeys.wiseEnabled ? false : settings.apiKeys.payoneerEnabled,
     };
 
     const value = JSON.parse(JSON.stringify({ ...settings, apiKeys }));

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { canModerateContent } from "@/lib/roles";
 
 export interface AuthorAliasRow {
   id: string;
@@ -336,6 +337,23 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   if (input.samplePagesFileId) bookFiles.push({ kind: "SAMPLE", url: `/api/files/${input.samplePagesFileId}` });
   for (const url of input.promotionalImageUrls ?? []) bookFiles.push({ kind: "PROMOTIONAL", url });
 
+  if (existing.status === "PUBLISHED") {
+    // The book is currently live and visible to customers — none of
+    // that changes yet. The proposed edit is stored as a pending
+    // revision instead of touching any real field, so the book stays
+    // exactly as it is, with its current details, until an admin
+    // approves the revision (see approveBookRevision below).
+    await prisma.book.update({
+      where: { id: bookId },
+      data: {
+        pendingRevisionData: JSON.parse(JSON.stringify({ input, bookFiles })),
+      },
+    });
+    revalidatePath("/account/books");
+    revalidatePath(`/account/books/${bookId}/edit`);
+    return { ok: true };
+  }
+
   const [category, genre] = await Promise.all([
     prisma.category.upsert({ where: { name: input.category }, update: {}, create: { name: input.category } }),
     prisma.genre.upsert({ where: { name: input.genre }, update: {}, create: { name: input.genre } }),
@@ -377,6 +395,80 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
 
   revalidatePath("/account/books");
   revalidatePath(`/account/books/${bookId}/edit`);
+  return { ok: true };
+}
+
+/**
+ * Approves a pending revision to an already-published book — applies
+ * the proposed changes (title, description, price, files, category,
+ * genre, everything) to the real, live fields, and clears the pending
+ * revision. This is the one moment the visible book actually changes.
+ */
+export async function approveBookRevision(bookId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
+
+  const book = await prisma.book.findUnique({ where: { id: bookId } });
+  if (!book?.pendingRevisionData) return { ok: false, error: "No pending revision on this book." };
+
+  const { input, bookFiles } = book.pendingRevisionData as { input: SubmitBookInput; bookFiles: { kind: string; url: string }[] };
+
+  const [category, genre] = await Promise.all([
+    prisma.category.upsert({ where: { name: input.category }, update: {}, create: { name: input.category } }),
+    prisma.genre.upsert({ where: { name: input.genre }, update: {}, create: { name: input.genre } }),
+  ]);
+
+  await prisma.$transaction([
+    prisma.bookFile.deleteMany({ where: { bookId, kind: { in: ["MANUSCRIPT", "SAMPLE", "PROMOTIONAL"] } } }),
+    prisma.categoryOnBook.deleteMany({ where: { bookId } }),
+    prisma.genreOnBook.deleteMany({ where: { bookId } }),
+    prisma.book.update({
+      where: { id: bookId },
+      data: {
+        title: input.title.trim(),
+        subtitle: input.subtitle?.trim() || null,
+        description: input.description.trim(),
+        isbn: input.isbn?.trim() || book.isbn,
+        price: input.price,
+        status: "PUBLISHED",
+        ageGroup: input.ageGroup,
+        language: input.language || "en",
+        coverImageUrl: input.coverImageUrl?.trim() || null,
+        coverAltText: input.coverAltText?.trim() || null,
+        hasEbook: input.formats.ebook,
+        hasPrint: input.formats.print,
+        hasAudiobook: input.formats.audiobook,
+        paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
+          ? input.metadata.paperbackRetailPrice
+          : null,
+        hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice
+          ? input.metadata.hardcoverRetailPrice
+          : null,
+        submissionMetadata: JSON.parse(JSON.stringify(input.metadata)),
+        pendingRevisionData: null as unknown as object,
+        files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
+        categories: { create: [{ categoryId: category.id }] },
+        genres: { create: [{ genreId: genre.id }] },
+      },
+    }),
+  ]);
+
+  revalidatePath("/admin/books");
+  revalidatePath(`/admin/books/${bookId}/review`);
+  return { ok: true };
+}
+
+/** Rejects a pending revision — the live, published book is completely
+ * unaffected; only the proposed changes are discarded. */
+export async function rejectBookRevision(bookId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
+
+  await prisma.book.update({ where: { id: bookId }, data: { pendingRevisionData: null as unknown as object } });
+  revalidatePath("/admin/books");
+  revalidatePath(`/admin/books/${bookId}/review`);
   return { ok: true };
 }
 

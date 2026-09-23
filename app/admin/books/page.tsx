@@ -115,7 +115,14 @@ export default async function BookManagementPage({
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}><strong>{b.title}</strong></td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.authorName}</td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.authorAccountNumber}</td>
-                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.status}</td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
+                    {b.status}
+                    {b.hasPendingRevision && (
+                      <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "rgba(91,141,239,0.15)", color: "var(--admin-accent, #5B8DEF)" }}>
+                        Revision pending
+                      </span>
+                    )}
+                  </td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
                     <Link href={`/admin/books/${b.id}/review`} className="btn btn-primary btn-small">Open</Link>
                   </td>

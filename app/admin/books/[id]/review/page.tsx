@@ -4,6 +4,7 @@ import { authAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { ReviewActions } from "./ReviewActions";
+import { RevisionReviewCard } from "../RevisionReviewCard";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 import { getBookReviewsForModeration } from "@/actions/book-management";
 import { ReviewModerationList } from "../ReviewModerationList";
@@ -115,6 +116,21 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
               {book.description || "No description provided."}
             </p>
           </div>
+
+          {(() => {
+            const pending = book.pendingRevisionData as { input?: { title?: string; description?: string; price?: number } } | null;
+            if (!pending?.input) return null;
+            return (
+              <RevisionReviewCard
+                bookId={book.id}
+                revision={{
+                  title: pending.input.title ?? "",
+                  description: pending.input.description ?? "",
+                  price: pending.input.price ?? 0,
+                }}
+              />
+            );
+          })()}
 
           {book.revisionNotes && (
             <div className="map-card" style={{ padding: 20, background: "#FBE6B8" }}>

@@ -45,6 +45,7 @@ export interface BookManagementRow {
   createdAt: Date;
   reviewCount: number;
   averageRating: number | null;
+  hasPendingRevision: boolean;
 }
 
 export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PENDING_REVIEW" | "DRAFT" | "REJECTED"): Promise<BookManagementRow[]> {
@@ -53,7 +54,7 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
   if (!role || !canModerateContent(role)) return [];
 
   const books = await prisma.book.findMany({
-    where: status === "ALL" ? {} : { status },
+    where: status === "ALL" ? {} : status === "PENDING_REVIEW" ? { OR: [{ status }, { pendingRevisionData: { not: null as unknown as object } }] } : { status },
     include: { author: { include: { user: true } }, reviews: true, ratings: true },
     orderBy: { createdAt: "desc" },
     take: 300,
@@ -65,6 +66,7 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
     title: string;
     status: string;
     createdAt: Date;
+    pendingRevisionData: unknown;
     author: { user: { name: string; accountNumber: string } };
     reviews: unknown[];
     ratings: { stars: number }[];
@@ -78,6 +80,7 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
     createdAt: b.createdAt,
     reviewCount: b.reviews.length,
     averageRating: b.ratings.length > 0 ? b.ratings.reduce((sum, r) => sum + r.stars, 0) / b.ratings.length : null,
+    hasPendingRevision: b.pendingRevisionData != null,
   }));
 }
 

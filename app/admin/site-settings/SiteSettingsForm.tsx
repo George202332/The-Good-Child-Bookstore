@@ -209,15 +209,41 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
         </div>
       </div>
 
+      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Active payout provider</h4>
+      <p className="field-hint" style={{ margin: "0 0 10px" }}>
+        Only one provider is ever active at a time — switching to one automatically switches the other off.
+      </p>
+      <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+          <input
+            type="radio"
+            name="active-payout-provider"
+            checked={(settings.apiKeys.wiseEnabled ?? true) && !settings.apiKeys.payoneerEnabled}
+            onChange={() => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseEnabled: true, payoneerEnabled: false } }))}
+          />
+          Wise
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+          <input
+            type="radio"
+            name="active-payout-provider"
+            checked={!!settings.apiKeys.payoneerEnabled && !settings.apiKeys.wiseEnabled}
+            onChange={() => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseEnabled: false, payoneerEnabled: true } }))}
+          />
+          Payoneer
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+          <input
+            type="radio"
+            name="active-payout-provider"
+            checked={!settings.apiKeys.wiseEnabled && !settings.apiKeys.payoneerEnabled}
+            onChange={() => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseEnabled: false, payoneerEnabled: false } }))}
+          />
+          Neither (pause all payouts)
+        </label>
+      </div>
+
       <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Wise (author/affiliate payouts)</h4>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 10 }}>
-        <input
-          type="checkbox"
-          checked={settings.apiKeys.wiseEnabled ?? true}
-          onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, wiseEnabled: e.target.checked } }))}
-        />
-        Wise is active — payouts to authors/affiliates using Wise as their payout method will go through
-      </label>
       <div className="form-grid-2">
         <div>
           <label className="field-label" htmlFor="api-wise-secret">Secret Key (API Token)</label>
@@ -246,17 +272,9 @@ export function SiteSettingsForm({ initial, apiKeysSet }: { initial: SiteSetting
       </div>
 
       <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Payoneer (author/affiliate payouts)</h4>
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 10 }}>
-        <input
-          type="checkbox"
-          checked={settings.apiKeys.payoneerEnabled ?? false}
-          onChange={(e) => setSettings((s) => ({ ...s, apiKeys: { ...s.apiKeys, payoneerEnabled: e.target.checked } }))}
-        />
-        Payoneer is active — payouts to authors/affiliates using Payoneer as their payout method will go through
-      </label>
       <p className="field-hint" style={{ margin: "-6px 0 12px" }}>
-        Each payout only ever goes through the one gateway its recipient is actually set up for, so turning both
-        on at once is safe — there&apos;s no scenario where a single payout could be sent through both.
+        Whichever provider is selected above is the one payouts actually go through — a recipient set up for the
+        other provider will need to switch (or wait until you switch back) before their payout can be sent.
       </p>
       <div className="form-grid-2">
         <div>

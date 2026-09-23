@@ -60,8 +60,9 @@ export async function getPayoneerCredentials(): Promise<{ clientId: string | und
  * been saved yet. */
 export async function getPayoutGatewayStatus(): Promise<{ wiseEnabled: boolean; payoneerEnabled: boolean }> {
   const stored = await getStoredApiKeys();
+  const wiseEnabled = stored?.wiseEnabled ?? true;
   return {
-    wiseEnabled: stored?.wiseEnabled ?? true,
-    payoneerEnabled: stored?.payoneerEnabled ?? false,
+    wiseEnabled,
+    payoneerEnabled: wiseEnabled ? false : (stored?.payoneerEnabled ?? false),
   };
 }

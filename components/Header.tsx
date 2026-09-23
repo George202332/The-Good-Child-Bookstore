@@ -127,12 +127,12 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
             {user ? (
               <span
                 style={{
-                  width: 22,
-                  height: 22,
+                  width: 18,
+                  height: 18,
                   borderRadius: 6,
                   background: "var(--coral)",
                   color: "var(--ink)",
-                  fontSize: 11,
+                  fontSize: 9,
                   fontWeight: 700,
                   display: "flex",
                   alignItems: "center",

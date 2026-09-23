@@ -14,7 +14,7 @@ export function SearchIcon() {
 
 export function BagIcon() {
   return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#3F3350" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3F3350" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <path d="M7 8.5h10l-0.8 11.2a1.5 1.5 0 0 1-1.5 1.3H9.3a1.5 1.5 0 0 1-1.5-1.3L7 8.5z" />
       <path d="M9 8.5V6.8a3 3 0 0 1 6 0V8.5" />
       <path d="M8.3 11.5h7.4" strokeWidth="1.2" opacity="0.55" />
@@ -24,7 +24,7 @@ export function BagIcon() {
 
 export function UserIcon() {
   return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#3F3350" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3F3350" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="8.2" r="3.4" />
       <path d="M5.2 19.5c0.6-4 3.3-6.3 6.8-6.3s6.2 2.3 6.8 6.3" />
     </svg>
@@ -33,7 +33,7 @@ export function UserIcon() {
 
 export function HeartIcon() {
   return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#3F3350" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#3F3350" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 20C12 20 3.8 15 3.8 9.1C3.8 6.1 6.1 3.8 9 3.8C10.7 3.8 12 4.9 12 4.9C12 4.9 13.3 3.8 15 3.8C17.9 3.8 20.2 6.1 20.2 9.1C20.2 15 12 20 12 20Z" />
     </svg>
   );
