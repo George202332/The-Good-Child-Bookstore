@@ -2,10 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { submitContactForm } from "@/actions/contact";
 
 /** Converted from contactHTML() (the-good-child-bookstore_54_1.html:6156-6208). */
 export function ContactPageClient({ eyebrow, heading, introText }: { eyebrow: string; heading: string; introText: string }) {
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   return (
     <div className="wrap" style={{ padding: "56px 0 48px" }}>
@@ -47,26 +50,41 @@ export function ContactPageClient({ eyebrow, heading, introText }: { eyebrow: st
         </div>
         <form
           className="contact-form-panel"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
+            const form = e.target as HTMLFormElement;
+            const data = new FormData(form);
+            setSubmitting(true);
+            setError(null);
+            const res = await submitContactForm({
+              name: String(data.get("name") ?? ""),
+              email: String(data.get("email") ?? ""),
+              topic: String(data.get("topic") ?? ""),
+              message: String(data.get("message") ?? ""),
+            });
+            setSubmitting(false);
+            if (!res.ok) {
+              setError(res.error ?? "Something went wrong — please try again.");
+              return;
+            }
             setSubmitted(true);
-            (e.target as HTMLFormElement).reset();
+            form.reset();
           }}
         >
           <h3>Send us a message</h3>
           <div className="form-row-2">
             <div className="field-group">
               <label htmlFor="c-name">Name</label>
-              <input className="field-premium" id="c-name" type="text" placeholder="Your name" required />
+              <input className="field-premium" id="c-name" name="name" type="text" placeholder="Your name" required />
             </div>
             <div className="field-group">
               <label htmlFor="c-email">Email</label>
-              <input className="field-premium" id="c-email" type="email" placeholder="you@example.com" required />
+              <input className="field-premium" id="c-email" name="email" type="email" placeholder="you@example.com" required />
             </div>
           </div>
           <div className="field-group">
             <label htmlFor="c-topic">What&apos;s this about?</label>
-            <select className="field-premium" id="c-topic">
+            <select className="field-premium" id="c-topic" name="topic">
               <option>An order</option>
               <option>A subscription</option>
               <option>A book recommendation</option>
@@ -75,15 +93,17 @@ export function ContactPageClient({ eyebrow, heading, introText }: { eyebrow: st
           </div>
           <div className="field-group">
             <label htmlFor="c-message">Message</label>
-            <textarea className="field-premium" id="c-message" placeholder="Tell us a little about what you need" required />
+            <textarea className="field-premium" id="c-message" name="message" placeholder="Tell us a little about what you need" required />
           </div>
-          <button className="btn btn-primary btn-block" type="submit">
-            Send message
+          <button className="btn btn-primary btn-block" type="submit" disabled={submitting}>
+            {submitting ? "Sending…" : "Send message"}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: 16, height: 16 }}>
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </button>
-          {submitted ? (
+          {error ? (
+            <p className="contact-form-note" style={{ color: "var(--coral-deep)" }}>{error}</p>
+          ) : submitted ? (
             <p className="contact-form-note" style={{ color: "#1F6B48" }}>Thanks — we&apos;ll write back within a day.</p>
           ) : (
             <p className="contact-form-note">We typically reply within one business day.</p>

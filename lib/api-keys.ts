@@ -61,24 +61,6 @@ export async function getPayoneerCredentials(): Promise<{ clientId: string | und
  * logged or returned to any client. Falls back to environment
  * variables (also expected as plaintext there, since env vars are
  * already a separate, access-controlled secret store). */
-export async function getGoogleCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined; scopes: string | undefined }> {
-  const stored = await getStoredApiKeys();
-  let clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  if (stored?.googleClientSecret) {
-    try {
-      const { decryptSecret } = await import("@/lib/crypto");
-      clientSecret = decryptSecret(stored.googleClientSecret);
-    } catch {
-      clientSecret = undefined;
-    }
-  }
-  return {
-    clientId: stored?.googleClientId?.trim() || process.env.GOOGLE_CLIENT_ID,
-    clientSecret,
-    scopes: stored?.googleOAuthScopes?.trim() || process.env.GOOGLE_OAUTH_SCOPES,
-  };
-}
-
 /** Whether each payout gateway is currently switched on — defaults
  * match DEFAULT_SITE_SETTINGS (Wise on, Payoneer off) if nothing's
  * been saved yet. */

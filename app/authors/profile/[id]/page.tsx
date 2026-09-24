@@ -62,7 +62,17 @@ export default async function AuthorProfilePage({ params }: { params: Promise<{ 
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <div className="breadcrumb"><Link href="/authors">Authorship</Link> › {displayName}</div>
-      <h1 style={{ marginTop: 12 }}>{displayName}</h1>
+      <h1 style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
+        {displayName}
+        {author.user.emailVerifiedAt && (
+          <span
+            title="Verified author"
+            style={{ fontSize: 12, fontWeight: 700, padding: "2px 10px", borderRadius: 999, background: "rgba(31,107,72,0.12)", color: "#1F6B48" }}
+          >
+            ✓ Verified
+          </span>
+        )}
+      </h1>
       {author.primaryGenre && <p style={{ color: "var(--ink-faint)", fontSize: 13.5 }}>{author.primaryGenre}</p>}
       {author.bio && <p style={{ marginTop: 16, lineHeight: 1.7 }}>{author.bio}</p>}
       {author.socialLinks.length > 0 && (

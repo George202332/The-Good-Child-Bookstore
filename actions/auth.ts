@@ -95,7 +95,7 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
   const { getSiteDataMode } = await import("@/actions/test-data");
   const siteMode = await getSiteDataMode();
 
-  await prisma.user.create({
+  const newUser = await prisma.user.create({
     data: {
       accountNumber,
       email,
@@ -112,6 +112,11 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
         : {}),
     },
   });
+
+  // Fire-and-forget: signup itself must never fail or wait on the
+  // verification email actually sending.
+  const { sendVerificationEmail } = await import("@/lib/email/verification");
+  sendVerificationEmail(newUser.id, input.role === "AUTHOR" ? "AUTHOR" : "ACCOUNT").catch(() => {});
 
   return { ok: true };
 }

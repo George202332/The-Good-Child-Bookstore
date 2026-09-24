@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
-import { getMySettings } from "@/actions/settings";
+import { getMySettings, getMarketingOptIn } from "@/actions/settings";
 import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { SettingsForm } from "./SettingsForm";
 import { AffiliateToggle } from "./AffiliateToggle";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { MarketingOptInToggle } from "./MarketingOptInToggle";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -15,6 +16,7 @@ export default async function SettingsPage() {
 
   const settings = await getMySettings();
   const affiliateStatus = role === "READER" ? await getReaderAffiliateStatus() : null;
+  const marketingOptIn = role === "READER" ? await getMarketingOptIn() : false;
 
   return (
     <DashboardShell role={role} activeKey="settings" displayName={session.user.name ?? ""}>
@@ -29,6 +31,7 @@ export default async function SettingsPage() {
         <ChangePasswordForm />
       </div>
       {role === "READER" && <AffiliateToggle initialEnabled={affiliateStatus?.enabled ?? false} />}
+      {role === "READER" && <MarketingOptInToggle initialOptIn={marketingOptIn} />}
     </DashboardShell>
   );
 }

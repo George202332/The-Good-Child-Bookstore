@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { BACKEND_ROLES } from "@/lib/roles";
+import { sendEmail } from "@/lib/email";
+
+const SUPPORT_INBOX = process.env.SUPPORT_INBOX_EMAIL || "support@thegoodchildbookstore.com";
 
 /**
  * Direct messages between any two account holders — a reader asking an
@@ -181,6 +185,24 @@ export async function sendMessage(recipientId: string, body: string): Promise<{ 
   });
   const { createNotification } = await import("@/actions/notifications");
   await createNotification(recipientId, `New message from ${session.user.name}`, body.trim().slice(0, 140), "MESSAGE");
+
+  if (BACKEND_ROLES.includes(recipient.role)) {
+    // Fire-and-forget: the in-app message is already saved and is the
+    // real record either way, so this never blocks or fails the send
+    // itself if the notification errors. Reply-To is set to the
+    // sender's real email — admin and public accounts use separate
+    // sessions, so support replying by email directly is the practical
+    // path, not a link back into the (session-gated) in-app thread.
+    const senderRecord = await prisma.user.findUnique({ where: { id: session.user.id }, select: { email: true } });
+    sendEmail(
+      SUPPORT_INBOX,
+      `New message from ${session.user.name} (${session.user.role?.toLowerCase()})`,
+      `<p><strong>${session.user.name}</strong> sent a message via their account:</p><p style="white-space: pre-wrap;">${body.trim()}</p>`,
+      undefined,
+      senderRecord?.email
+    ).catch(() => {});
+  }
+
   revalidatePath("/account/messages");
   revalidatePath(`/account/messages/${recipientId}`);
   return { ok: true };
@@ -231,6 +253,18 @@ export async function sendDraft(draftId: string): Promise<{ ok: boolean; error?:
   const { createNotification } = await import("@/actions/notifications");
   const sender = await prisma.user.findUnique({ where: { id: session.user.id } });
   await createNotification(draft.recipientId, `New message from ${sender?.name ?? "someone"}`, draft.body.trim().slice(0, 140), "MESSAGE");
+
+  const recipient = await prisma.user.findUnique({ where: { id: draft.recipientId } });
+  if (recipient && BACKEND_ROLES.includes(recipient.role)) {
+    sendEmail(
+      SUPPORT_INBOX,
+      `New message from ${sender?.name ?? "someone"} (${sender?.role?.toLowerCase() ?? ""})`,
+      `<p><strong>${sender?.name ?? "Someone"}</strong> sent a message via their account:</p><p style="white-space: pre-wrap;">${draft.body.trim()}</p>`,
+      undefined,
+      sender?.email
+    ).catch(() => {});
+  }
+
   revalidatePath("/account/messages");
   revalidatePath(`/account/messages/${draft.recipientId}`);
   return { ok: true };

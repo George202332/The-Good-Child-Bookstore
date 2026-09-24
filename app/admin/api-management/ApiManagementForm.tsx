@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateSiteSettings, testPaystackConnection } from "@/actions/site-settings";
-import { disconnectGoogleAccount } from "@/actions/google-email";
 import type { SiteSettings } from "@/lib/site-settings";
 
 /**
@@ -47,24 +46,15 @@ function SecretField({
   );
 }
 
-export function ApiManagementForm({
-  initial, apiKeysSet, googleConnection, googleRedirectUri, googleErrorFromUrl,
-}: {
-  initial: SiteSettings;
-  apiKeysSet: Record<string, boolean>;
-  googleConnection: { connected: boolean; email?: string };
-  googleRedirectUri: string;
-  googleErrorFromUrl?: string;
-}) {
+export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettings; apiKeysSet: Record<string, boolean> }) {
   const router = useRouter();
   const [settings, setSettings] = useState(initial);
-  const [error, setError] = useState<string | null>(googleErrorFromUrl ?? null);
+  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
 
   async function handleTestPaystack() {
     setTesting(true);
@@ -72,13 +62,6 @@ export function ApiManagementForm({
     const res = await testPaystackConnection();
     setTesting(false);
     setTestResult(res);
-  }
-
-  async function handleDisconnectGoogle() {
-    setDisconnecting(true);
-    await disconnectGoogleAccount();
-    setDisconnecting(false);
-    router.refresh();
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -104,71 +87,14 @@ export function ApiManagementForm({
   return (
     <form onSubmit={handleSave} className="form-section">
       {/* ---------------------------------------------------------- */}
-      {/* Google Workspace Configuration                              */}
+      {/* Email                                                       */}
       {/* ---------------------------------------------------------- */}
-      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Google Workspace Configuration</h3>
-      <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 12 }}>
-        Powers the admin email client (Admin → Email). See Task 3 setup notes for creating the OAuth client in
-        Google Cloud Console — the exact redirect URI to register there is shown below.
+      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Email</h3>
+      <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 16 }}>
+        All outbound email — order receipts, password resets, contact form replies, account verification, and
+        marketing — goes through a single send-only service (Resend), configured below. No inbox access, no OAuth
+        consent flow, and no client secret is ever stored in the database for this.
       </p>
-
-      <div className="form-grid-2">
-        <SecretField
-          id="api-google-client-id"
-          label="Google Client ID"
-          type="text"
-          isSet={apiKeysSet.googleClientId}
-          value={settings.apiKeys.googleClientId ?? ""}
-          onChange={(v) => update({ googleClientId: v })}
-        />
-        <SecretField
-          id="api-google-client-secret"
-          label="Google Client Secret"
-          isSet={apiKeysSet.googleClientSecret}
-          value={settings.apiKeys.googleClientSecret ?? ""}
-          onChange={(v) => update({ googleClientSecret: v })}
-        />
-      </div>
-      <label className="field-label" htmlFor="api-google-scopes" style={{ marginTop: 10 }}>OAuth Scopes</label>
-      <input
-        className="field"
-        id="api-google-scopes"
-        type="text"
-        placeholder="https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send"
-        value={settings.apiKeys.googleOAuthScopes ?? ""}
-        onChange={(e) => update({ googleOAuthScopes: e.target.value })}
-      />
-      <p className="field-hint" style={{ margin: "4px 0 12px" }}>
-        Space-separated. Leave blank to use the default (gmail.readonly + gmail.send + userinfo.email) — widen this
-        to include gmail.modify if you also want to mark messages read/archive them from here.
-      </p>
-
-      <div style={{ background: "var(--cream)", borderRadius: 8, padding: 12, marginBottom: 8 }}>
-        <p className="field-hint" style={{ margin: "0 0 6px", fontWeight: 700 }}>Authorized redirect URI</p>
-        <code style={{ fontSize: 12, wordBreak: "break-all" }}>{googleRedirectUri}</code>
-        <p className="field-hint" style={{ margin: "6px 0 0" }}>
-          Register this exact URL in Google Cloud Console → Credentials → your OAuth client → Authorized redirect
-          URIs.
-        </p>
-      </div>
-
-      <div style={{ marginBottom: 20 }}>
-        {googleConnection.connected ? (
-          <>
-            <p className="field-hint" style={{ color: "#1F6B48", marginBottom: 8 }}>
-              Connected as {googleConnection.email}
-            </p>
-            <button type="button" className="btn btn-ghost btn-small" disabled={disconnecting} onClick={handleDisconnectGoogle}>
-              {disconnecting ? "Disconnecting…" : "Disconnect"}
-            </button>
-          </>
-        ) : (
-          // eslint-disable-next-line @next/next/no-html-link-for-pages -- real API route + external redirect to Google, not a Next.js page
-          <a href="/api/integrations/google/auth" className="btn btn-primary btn-small">
-            Connect Gmail account
-          </a>
-        )}
-      </div>
 
       {/* ---------------------------------------------------------- */}
       {/* Payment Gateways                                            */}

@@ -2,32 +2,25 @@ import { redirect } from "next/navigation";
 import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getSiteSettingsForEditing } from "@/actions/site-settings";
-import { getGoogleConnectionStatus, getGoogleRedirectUriForDisplay } from "@/actions/google-email";
 import { ApiManagementForm } from "./ApiManagementForm";
 
 /**
- * TASK 1.2 — Backend migration.
+ * API Management — every third-party API key and credential for the
+ * site, consolidated here (moved out of Site Settings). Strictly
+ * protected: same admin-only session check as every other admin page
+ * (authAdmin() + role === "ADMIN") — nothing here is reachable by
+ * Editor/Accountant/Chief_Editor or any public account.
  *
- * API Management — every third-party API key, client secret, and
- * integration setting for the site, consolidated here per explicit
- * instruction (previously split across Site Settings). Strictly
- * protected: uses the same admin-only session check as every other
- * admin page (authAdmin() + role === "ADMIN"), not a new or looser
- * check — nothing here is reachable by Editor/Accountant/Chief_Editor
- * or any public account.
+ * No Google OAuth credentials live here — email sending is handled by
+ * a send-only service configured via environment variables (see
+ * lib/email/), not a database-stored client id/secret pair.
  */
-export default async function ApiManagementPage({ searchParams }: { searchParams: Promise<{ googleError?: string; googleConnected?: string }> }) {
+export default async function ApiManagementPage() {
   const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 
-  const { googleError } = await searchParams;
-
-  const [{ settings, apiKeysSet }, googleConnection, googleRedirectUri] = await Promise.all([
-    getSiteSettingsForEditing(),
-    getGoogleConnectionStatus(),
-    getGoogleRedirectUriForDisplay(),
-  ]);
+  const { settings, apiKeysSet } = await getSiteSettingsForEditing();
 
   return (
     <AdminShell role="ADMIN" activeKey="api-management" displayName={session.user.name ?? ""}>
@@ -40,13 +33,7 @@ export default async function ApiManagementPage({ searchParams }: { searchParams
         </div>
       </div>
 
-      <ApiManagementForm
-        initial={settings}
-        apiKeysSet={apiKeysSet}
-        googleConnection={googleConnection}
-        googleRedirectUri={googleRedirectUri}
-        googleErrorFromUrl={googleError}
-      />
+      <ApiManagementForm initial={settings} apiKeysSet={apiKeysSet} />
     </AdminShell>
   );
 }

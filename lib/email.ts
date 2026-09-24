@@ -32,7 +32,8 @@ export async function sendEmail(
   to: string,
   subject: string,
   html: string,
-  attachment?: { filename: string; content: Uint8Array }
+  attachment?: { filename: string; content: Uint8Array },
+  replyTo?: string
 ): Promise<{ ok: boolean; error?: string }> {
   const { apiKey, fromEmail } = await getEmailCredentials();
   if (!apiKey) {
@@ -49,6 +50,7 @@ export async function sendEmail(
         to,
         subject,
         html,
+        ...(replyTo ? { reply_to: replyTo } : {}),
         ...(attachment ? { attachments: [{ filename: attachment.filename, content: Buffer.from(attachment.content).toString("base64") }] } : {}),
       }),
     });

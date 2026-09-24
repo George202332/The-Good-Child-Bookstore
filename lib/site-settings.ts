@@ -44,14 +44,6 @@ export interface ApiKeys {
   payoneerEnabled?: boolean;
   payoneerClientId?: string;
   payoneerClientSecret?: string;
-  /** Google Workspace / Gmail integration — see lib/google/. The client
-   * secret is stored AES-256-GCM encrypted (lib/crypto.ts), never in
-   * plaintext, since it's a standing credential that authenticates
-   * this app to Google. googleOAuthScopes is space-separated, exactly
-   * as Google's OAuth flow expects it. */
-  googleClientId?: string;
-  googleClientSecret?: string;
-  googleOAuthScopes?: string;
 }
 
 export interface PublishingFormatsEnabled {

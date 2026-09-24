@@ -105,6 +105,15 @@ model User {
    * every new signup going forward is real/live data by default. */
   isTestData    Boolean  @default(false)
   mustChangePassword Boolean @default(false)
+  /** Set once the account's email address is confirmed via the
+   * verification link sent at signup (see lib/email/verification.ts).
+   * Null means unverified — used for both readers/authors generally
+   * and, more importantly, for author identity verification. */
+  emailVerifiedAt DateTime?
+  /** Opt-in only, per explicit instruction — never defaults to true.
+   * Every marketing send includes a real unsubscribe link that flips
+   * this back to false (see lib/email/marketing.ts). */
+  marketingOptIn Boolean @default(false)
   googleOAuthToken GoogleOAuthToken?
   role          Role     @default(READER)
   avatarUrl     String?
@@ -121,6 +130,7 @@ model User {
   settings      Settings?
   sessions      Session[]
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   notifications Notification[]
   reviews       Review[]
   blogComments  BlogComment[]
@@ -147,6 +157,23 @@ model PasswordResetToken {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/** Backs both general account email verification and author identity
+ * verification — same mechanism, distinguished by `purpose` so the
+ * confirmation page can show the right message and, for authors,
+ * trigger the author-specific verified status. */
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  purpose   String   @default("ACCOUNT") // ACCOUNT | AUTHOR
   expiresAt DateTime
   usedAt    DateTime?
   createdAt DateTime @default(now())

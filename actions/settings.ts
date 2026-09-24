@@ -36,3 +36,23 @@ export async function updateMySettings(input: MySettings): Promise<{ ok: boolean
   revalidatePath("/account/settings");
   return { ok: true };
 }
+
+/** Marketing opt-in — deliberately its own action, not folded into
+ * MySettings above, since it lives on User.marketingOptIn directly
+ * (checked by lib/email/marketing.ts's send list) rather than the
+ * per-user Settings table. Defaults to false; only the reader's own
+ * explicit toggle here, or clicking unsubscribe, ever changes it. */
+export async function getMarketingOptIn(): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user) return false;
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { marketingOptIn: true } });
+  return user?.marketingOptIn ?? false;
+}
+
+export async function setMarketingOptIn(optIn: boolean): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, error: "Not authorized." };
+  await prisma.user.update({ where: { id: session.user.id }, data: { marketingOptIn: optIn } });
+  revalidatePath("/account/settings");
+  return { ok: true };
+}
