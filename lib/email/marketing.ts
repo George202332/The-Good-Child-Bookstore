@@ -1,12 +1,7 @@
 import { createHmac } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
-
-function getSiteUrl(): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
-}
+import { getPublicSiteUrl as getSiteUrl } from "@/lib/seo/site-url";
 
 /** Stateless, signed unsubscribe token — no separate token record
  * needed. HMAC-signed with a server-only secret, so it can't be forged

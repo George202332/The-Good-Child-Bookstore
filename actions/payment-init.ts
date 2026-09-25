@@ -2,6 +2,7 @@
 
 import { initializePaystackTransaction } from "@/lib/payments/paystack";
 import { getPaystackCredentials } from "@/lib/api-keys";
+import { getPublicSiteUrl } from "@/lib/seo/site-url";
 
 /**
  * Starts a real hosted Paystack checkout when credentials are
@@ -26,30 +27,13 @@ export interface InitiateGatewayResult {
   error?: string;
 }
 
-/**
- * The real site URL for payment gateway return/callback URLs. This was
- * the cause of the "localhost refused to connect" bug after a real
- * payment: it always fell back to a hardcoded localhost address unless
- * NEXT_PUBLIC_SITE_URL was manually set in Vercel, which it wasn't.
- * Vercel automatically provides VERCEL_URL on every deployment (no
- * manual setup needed), so that's used as the real fallback now —
- * NEXT_PUBLIC_SITE_URL still wins if it's explicitly set (e.g. once a
- * custom domain is attached), and localhost is only used for actual
- * local development.
- */
-function siteUrl(): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "http://localhost:3000";
-}
-
 export async function initiateGatewayCheckout(
   orderId: string,
   method: "paystack" | "mpesa",
   amountUsd: number,
   email: string
 ): Promise<InitiateGatewayResult> {
-  const base = siteUrl();
+  const base = getPublicSiteUrl();
 
   const { secretKey: paystackKey } = await getPaystackCredentials();
   if (!paystackKey) {
