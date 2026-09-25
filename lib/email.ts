@@ -72,10 +72,14 @@ export async function sendEmail(
     });
 
     if (error) {
+      console.error("[Resend send failed] full error response:", JSON.stringify(error, null, 2));
+      console.error("[Resend send failed] context:", { to, subject, from: fromEmail });
       return { ok: false, error: `Email send failed: ${error.name} — ${error.message}` };
     }
     return { ok: true };
   } catch (e) {
+    console.error("[Resend send threw] full error:", e);
+    console.error("[Resend send threw] context:", { to, subject, from: fromEmail });
     return { ok: false, error: e instanceof Error ? e.message : "Email send failed." };
   }
 }
