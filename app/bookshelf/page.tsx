@@ -13,8 +13,15 @@ export default async function ShopPage() {
   const books = [...realBooks, ...BOOKS];
 
   return (
-    <Suspense fallback={null}>
-      <ShopPageClient heading={shop.heading} books={books} />
-    </Suspense>
+    <>
+      {shop.bodyHtml && (
+        <div className="wrap" style={{ paddingTop: 24 }}>
+          <div className="page-body-content" dangerouslySetInnerHTML={{ __html: shop.bodyHtml }} />
+        </div>
+      )}
+      <Suspense fallback={null}>
+        <ShopPageClient heading={shop.heading} books={books} />
+      </Suspense>
+    </>
   );
 }

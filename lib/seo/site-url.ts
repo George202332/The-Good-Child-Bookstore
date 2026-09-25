@@ -1,27 +1,22 @@
 /**
  * The real, public site URL — used across sitemaps, robots.txt,
- * JSON-LD, RSS feeds, and canonical tags.
+ * JSON-LD, RSS feeds, canonical tags, and payment gateway callback
+ * URLs.
  *
- * This is the same class of bug that broke the post-payment redirect
- * earlier: falling back to a placeholder domain that isn't actually the
- * live site. Fixed the same way — prefer an explicitly-set
- * NEXT_PUBLIC_SITE_URL (e.g. once a real custom domain is attached),
- * then fall back to Vercel's automatically-provided VERCEL_URL (needs
- * zero manual setup, always correct for whatever the current deployment
- * actually is), and only use a placeholder domain for local dev where
- * neither is set.
+ * Always returns the real domain unless NEXT_PUBLIC_SITE_URL is
+ * explicitly set to something else. No VERCEL_URL fallback: that
+ * fallback was the actual, repeated cause of buyers being redirected
+ * to a Vercel-generated address after paying instead of the real
+ * site — it was meant only for preview/branch deployments, but ended
+ * up firing in situations where VERCEL_ENV wasn't exactly
+ * "production" for reasons that were hard to pin down and kept
+ * recurring. Removing it entirely is the reliable fix: this always
+ * resolves to the real domain in every environment except local dev
+ * (where NODE_ENV !== "production"), with nothing environment-
+ * variable-dependent left to go wrong.
  */
 export function getPublicSiteUrl(): string {
   if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  // The real custom domain is the correct default for production —
-  // referral links, promotion links, receipts, etc. should always
-  // point at thegoodchildbookstore.com, not a generic Vercel URL.
-  if (!process.env.VERCEL_ENV || process.env.VERCEL_ENV === "production") {
-    return "https://thegoodchildbookstore.com";
-  }
-  // Preview/branch deployments still get their own real URL, which is
-  // useful for actually testing a preview rather than always linking
-  // back to production.
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  if (process.env.NODE_ENV !== "production") return "http://localhost:3000";
   return "https://thegoodchildbookstore.com";
 }

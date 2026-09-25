@@ -66,7 +66,11 @@ export default async function BlogListPage() {
       <div className="section-head" style={{ marginBottom: 24 }}>
         <div>
           <h1>{blog.heading}</h1>
-          <p style={{ color: "var(--ink-soft)" }}>{blog.introText}</p>
+          {blog.bodyHtml ? (
+            <div className="page-body-content" style={{ color: "var(--ink-soft)" }} dangerouslySetInnerHTML={{ __html: blog.bodyHtml }} />
+          ) : (
+            <p style={{ color: "var(--ink-soft)" }}>{blog.introText}</p>
+          )}
         </div>
       </div>
       {posts.length === 0 ? (

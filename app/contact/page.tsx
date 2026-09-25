@@ -5,5 +5,5 @@ export const dynamic = "force-dynamic";
 
 export default async function ContactPage() {
   const { contact } = await getPagesContent();
-  return <ContactPageClient eyebrow={contact.eyebrow} heading={contact.heading} introText={contact.introText} />;
+  return <ContactPageClient eyebrow={contact.eyebrow} heading={contact.heading} introText={contact.introText} bodyHtml={contact.bodyHtml} />;
 }

@@ -20,25 +20,32 @@ export async function getPagesContent(): Promise<PagesContent> {
     const setting = await prisma.setting.findUnique({ where: { key: PAGES_CONTENT_KEY } });
     if (setting?.value && typeof setting.value === "object") {
       const stored = setting.value as Partial<PagesContent>;
+      const withBody = <T extends { bodyHtml: string }>(def: T, s: Partial<T> | undefined): T => ({
+        ...def,
+        ...(s ?? {}),
+        bodyHtml: s?.bodyHtml && s.bodyHtml.trim().length > 0 ? s.bodyHtml : def.bodyHtml,
+      });
       return {
         home: { ...DEFAULT_PAGES_CONTENT.home, ...(stored.home ?? {}) },
-        shop: { ...DEFAULT_PAGES_CONTENT.shop, ...(stored.shop ?? {}) },
+        shop: withBody(DEFAULT_PAGES_CONTENT.shop, stored.shop),
         authorship: {
           ...DEFAULT_PAGES_CONTENT.authorship,
           ...(stored.authorship ?? {}),
           sections: stored.authorship?.sections && stored.authorship.sections.length > 0 ? stored.authorship.sections : DEFAULT_PAGES_CONTENT.authorship.sections,
+          bodyHtml: stored.authorship?.bodyHtml && stored.authorship.bodyHtml.trim().length > 0 ? stored.authorship.bodyHtml : DEFAULT_PAGES_CONTENT.authorship.bodyHtml,
         },
         affiliateMarketing: {
           ...DEFAULT_PAGES_CONTENT.affiliateMarketing,
           ...(stored.affiliateMarketing ?? {}),
           sections: stored.affiliateMarketing?.sections && stored.affiliateMarketing.sections.length > 0 ? stored.affiliateMarketing.sections : DEFAULT_PAGES_CONTENT.affiliateMarketing.sections,
+          bodyHtml: stored.affiliateMarketing?.bodyHtml && stored.affiliateMarketing.bodyHtml.trim().length > 0 ? stored.affiliateMarketing.bodyHtml : DEFAULT_PAGES_CONTENT.affiliateMarketing.bodyHtml,
         },
-        blog: { ...DEFAULT_PAGES_CONTENT.blog, ...(stored.blog ?? {}) },
-        contact: { ...DEFAULT_PAGES_CONTENT.contact, ...(stored.contact ?? {}) },
-        privacy: { ...DEFAULT_PAGES_CONTENT.privacy, ...(stored.privacy ?? {}) },
-        terms: { ...DEFAULT_PAGES_CONTENT.terms, ...(stored.terms ?? {}) },
-        returns: { ...DEFAULT_PAGES_CONTENT.returns, ...(stored.returns ?? {}) },
-        faq: { ...DEFAULT_PAGES_CONTENT.faq, ...(stored.faq ?? {}) },
+        blog: withBody(DEFAULT_PAGES_CONTENT.blog, stored.blog),
+        contact: withBody(DEFAULT_PAGES_CONTENT.contact, stored.contact),
+        privacy: withBody(DEFAULT_PAGES_CONTENT.privacy, stored.privacy),
+        terms: withBody(DEFAULT_PAGES_CONTENT.terms, stored.terms),
+        returns: withBody(DEFAULT_PAGES_CONTENT.returns, stored.returns),
+        faq: withBody(DEFAULT_PAGES_CONTENT.faq, stored.faq),
       };
     }
   } catch {

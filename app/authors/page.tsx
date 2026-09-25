@@ -71,48 +71,8 @@ export default async function AuthorsPage() {
       </section>
 
       <section className="section fade-in-section" style={{ paddingTop: 0 }}>
-        <div className="wrap">
-          {authorship.sections.map((b, i) => (
-            <div key={b.id}>
-              <div className={`feature-banner${i % 2 === 0 ? " reverse" : ""}`}>
-                <div className="feature-banner-media">
-                  {b.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- real admin-uploaded section image
-                    <img src={b.imageUrl} alt={b.title} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 16 }} />
-                  ) : (
-                    <div className="feature-banner-placeholder">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                        <rect x={3} y={4} width={18} height={14} rx={2} />
-                        <path d="M8 20h8M12 18v2" />
-                      </svg>
-                      <span>{b.title}</span>
-                    </div>
-                  )}
-                </div>
-                <div className="feature-banner-copy">
-                  <div className="eyebrow">Author dashboard</div>
-                  <h3>{b.title}</h3>
-                  {b.paragraphs.map((p, pi) => <p key={pi}>{p}</p>)}
-                </div>
-              </div>
-              {i === 3 && (
-                <div className="promo-banner promo-mint" style={{ margin: "20px 0 40px" }}>
-                  <div className="promo-banner-text">
-                    <div className="promo-banner-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="#1F5E43" strokeWidth={2}>
-                        <path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3>Ready to see your book on the shelf?</h3>
-                      <p>Start your submission today; your manuscript and cover are all it takes to begin.</p>
-                    </div>
-                  </div>
-                  <Link href="/signup/author" className="btn btn-primary btn-small">Become an author</Link>
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="wrap" style={{ maxWidth: 900 }}>
+          <div className="page-body-content" dangerouslySetInnerHTML={{ __html: authorship.bodyHtml }} />
         </div>
       </section>
 

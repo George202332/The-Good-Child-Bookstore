@@ -5,7 +5,7 @@ import Link from "next/link";
 import { submitContactForm } from "@/actions/contact";
 
 /** Converted from contactHTML() (the-good-child-bookstore_54_1.html:6156-6208). */
-export function ContactPageClient({ eyebrow, heading, introText }: { eyebrow: string; heading: string; introText: string }) {
+export function ContactPageClient({ eyebrow, heading, introText, bodyHtml }: { eyebrow: string; heading: string; introText: string; bodyHtml?: string }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -19,7 +19,11 @@ export function ContactPageClient({ eyebrow, heading, introText }: { eyebrow: st
           <div className="contact-visual-inner">
             <span className="eyebrow" style={{ background: "rgba(255,255,255,0.14)", color: "var(--cream)" }}>{eyebrow}</span>
             <h2>{heading}</h2>
-            <p>{introText}</p>
+            {bodyHtml ? (
+              <div className="page-body-content" dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+            ) : (
+              <p>{introText}</p>
+            )}
             <div className="contact-visual-rows">
               <div className="contact-row">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>

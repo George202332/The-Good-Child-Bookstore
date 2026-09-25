@@ -7,12 +7,13 @@ import { SiteSettingsForm } from "./SiteSettingsForm";
 import { PageContentForm } from "./PageContentForm";
 
 /**
- * Site Settings — branding (logo, favicon, footer, payment badge
- * images) and the intro content of every major page. API credentials
- * and third-party integration settings moved to their own dedicated
- * page — see Admin → API Management — per explicit instruction to
- * consolidate all API keys/secrets there instead of mixing them in
- * with branding/content.
+ * Site Management — branding (logo, favicon, footer, payment badge
+ * images) plus the full content editor for every page on the site
+ * (Home, Bookshelf, Authorship, Affiliate, Blog, Contact Us, Privacy
+ * Policy, Terms of Service, Returns Policy, FAQs), each as its own tab
+ * with one editing pane. API credentials and third-party integration
+ * settings live on their own dedicated page — see Admin → API
+ * Management — per explicit instruction to keep those separate.
  */
 export default async function SiteSettingsPage() {
   const session = await authAdmin();
@@ -28,9 +29,9 @@ export default async function SiteSettingsPage() {
     <AdminShell role="ADMIN" activeKey="site-settings" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Site Settings</h2>
+          <h2 style={{ fontSize: 20 }}>Site Management</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            Branding, footer, payment badges, and page content — everything shown across the site. For API
+            Branding, footer, payment badges, and the content editor for every page on the site. For API
             credentials, see Admin → API Management.
           </p>
         </div>

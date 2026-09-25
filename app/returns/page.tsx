@@ -5,5 +5,5 @@ export const dynamic = "force-dynamic";
 
 export default async function ReturnsPage() {
   const { returns } = await getPagesContent();
-  return <PolicyPage title={returns.title} intro={returns.intro} sections={returns.sections} />;
+  return <PolicyPage title={returns.title} intro={returns.intro} bodyHtml={returns.bodyHtml} />;
 }
