@@ -4,11 +4,16 @@ import { useState } from "react";
 import Link from "next/link";
 import { submitContactForm } from "@/actions/contact";
 
+const TOPIC_OPTIONS = ["Order", "Subscription", "Recommendation", "Something else"];
+
 /** Converted from contactHTML() (the-good-child-bookstore_54_1.html:6156-6208). */
 export function ContactPageClient({ eyebrow, heading, introText, bodyHtml }: { eyebrow: string; heading: string; introText: string; bodyHtml?: string }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [topic, setTopic] = useState(TOPIC_OPTIONS[0]);
+
+  const isOther = topic === "Something else";
 
   return (
     <div className="wrap" style={{ padding: "56px 0 48px" }}>
@@ -60,41 +65,71 @@ export function ContactPageClient({ eyebrow, heading, introText, bodyHtml }: { e
             const data = new FormData(form);
             setSubmitting(true);
             setError(null);
+            const firstName = String(data.get("firstName") ?? "").trim();
+            const lastName = String(data.get("lastName") ?? "").trim();
+            const selectedTopic = String(data.get("topic") ?? "");
+            const otherDetails = String(data.get("otherDetails") ?? "").trim();
             const res = await submitContactForm({
-              name: String(data.get("name") ?? ""),
+              name: `${firstName} ${lastName}`.trim(),
               email: String(data.get("email") ?? ""),
-              topic: String(data.get("topic") ?? ""),
+              topic: selectedTopic === "Something else" && otherDetails ? `Something else: ${otherDetails}` : selectedTopic,
               message: String(data.get("message") ?? ""),
             });
             setSubmitting(false);
             if (!res.ok) {
+              // Validation/delivery errors are shown without touching the
+              // form's fields — nothing is cleared or reset here, so
+              // whatever the visitor typed is still exactly where they
+              // left it and they can just fix the problem and resubmit.
               setError(res.error ?? "Something went wrong — please try again.");
               return;
             }
             setSubmitted(true);
             form.reset();
+            setTopic(TOPIC_OPTIONS[0]);
           }}
         >
           <h3>Send us a message</h3>
           <div className="form-row-2">
             <div className="field-group">
-              <label htmlFor="c-name">Name</label>
-              <input className="field-premium" id="c-name" name="name" type="text" placeholder="Your name" required />
+              <label htmlFor="c-first-name">First name</label>
+              <input className="field-premium" id="c-first-name" name="firstName" type="text" placeholder="First name" required />
             </div>
             <div className="field-group">
-              <label htmlFor="c-email">Email</label>
-              <input className="field-premium" id="c-email" name="email" type="email" placeholder="you@example.com" required />
+              <label htmlFor="c-last-name">Last name</label>
+              <input className="field-premium" id="c-last-name" name="lastName" type="text" placeholder="Last name" required />
             </div>
           </div>
           <div className="field-group">
-            <label htmlFor="c-topic">What&apos;s this about?</label>
-            <select className="field-premium" id="c-topic" name="topic">
-              <option>An order</option>
-              <option>A subscription</option>
-              <option>A book recommendation</option>
-              <option>Something else</option>
+            <label htmlFor="c-email">Email</label>
+            <input className="field-premium" id="c-email" name="email" type="email" placeholder="you@example.com" required />
+          </div>
+          <div className="field-group">
+            <label htmlFor="c-topic">What is this about?</label>
+            <select
+              className="field-premium"
+              id="c-topic"
+              name="topic"
+              required
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+            >
+              {TOPIC_OPTIONS.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
             </select>
           </div>
+          {isOther && (
+            <div className="field-group">
+              <label htmlFor="c-other-details">Please specify</label>
+              <input
+                className="field-premium"
+                id="c-other-details"
+                name="otherDetails"
+                type="text"
+                placeholder="Tell us what this is about"
+                required={isOther}
+              />
+            </div>
+          )}
           <div className="field-group">
             <label htmlFor="c-message">Message</label>
             <textarea className="field-premium" id="c-message" name="message" placeholder="Tell us a little about what you need" required />
@@ -108,7 +143,7 @@ export function ContactPageClient({ eyebrow, heading, introText, bodyHtml }: { e
           {error ? (
             <p className="contact-form-note" style={{ color: "var(--coral-deep)" }}>{error}</p>
           ) : submitted ? (
-            <p className="contact-form-note" style={{ color: "#1F6B48" }}>Thanks — we&apos;ll write back within a day.</p>
+            <p className="contact-form-note" style={{ color: "#1F6B48" }}>Your message has been sent successfully.</p>
           ) : (
             <p className="contact-form-note">We typically reply within one business day.</p>
           )}

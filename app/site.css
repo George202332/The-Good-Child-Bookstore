@@ -1385,35 +1385,50 @@
   .cb2{width:180px;height:180px;background:var(--gold);bottom:-60px;left:-50px;}
   .contact-visual-inner{position:relative;z-index:1;}
   .contact-visual h2{color:var(--cream);font-size:28px;line-height:1.2;margin:18px 0 14px;}
-  .contact-visual > .contact-visual-inner > p{color:rgba(255,255,255,0.75);font-size:14px;line-height:1.7;margin-bottom:32px;}
+  .contact-visual > .contact-visual-inner > p{color:#ffffff;font-size:14px;line-height:1.7;margin-bottom:32px;}
   .contact-visual-rows .contact-row p{color:rgba(255,255,255,0.88);font-size:14px;line-height:1.6;}
   .contact-visual-rows .contact-row svg{color:var(--gold);}
   .contact-quote{
     margin-top:32px;padding-top:24px;border-top:1px solid rgba(255,255,255,0.16);
     font-size:13px;line-height:1.7;color:rgba(255,255,255,0.68);font-style:italic;
   }
-  .contact-form-panel{padding:56px 50px;}
-  @media (max-width:860px){ .contact-form-panel{padding:44px 32px;} .contact-visual{padding:44px 32px;} }
-  .contact-form-panel h3{font-size:22px;margin-bottom:26px;}
-  .form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .contact-form-panel{padding:39px 35px;}
+  @media (max-width:860px){ .contact-form-panel{padding:31px 22px;} .contact-visual{padding:31px 22px;} }
+  .contact-form-panel h3{font-size:19px;margin-bottom:18px;}
+  .form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
   @media (max-width:560px){ .form-row-2{grid-template-columns:1fr;} }
-  .field-group{margin-bottom:20px;}
+  .field-group{margin-bottom:14px;}
   .field-group label{
     font-size:11px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;
-    color:var(--ink-faint);margin-bottom:8px;display:block;
+    color:var(--ink-faint);margin-bottom:6px;display:block;
   }
   .field-premium{
-    width:100%;padding:14px 16px;border-radius:12px;border:2px solid var(--line);
-    font-family:inherit;font-size:14px;outline:none;background:var(--paper);color:var(--ink);
+    width:100%;padding:10px 12px;border-radius:10px;border:2px solid var(--line);
+    font-family:inherit;font-size:13.5px;outline:none;background:var(--paper);color:var(--ink);
     transition:border-color .15s ease, box-shadow .15s ease;
   }
   .field-premium:focus{border-color:var(--coral);box-shadow:0 0 0 4px rgba(255,140,107,0.14);}
-  textarea.field-premium{resize:vertical;min-height:130px;}
+  textarea.field-premium{resize:vertical;min-height:91px;}
   .btn-block{width:100%;justify-content:center;margin-top:6px;}
   .btn-compact{padding-top:12px;padding-bottom:12px;}
   .contact-form-note{font-size:12px;color:var(--ink-faint);text-align:center;margin-top:14px;}
   .contact-row{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;}
   .contact-row svg{width:20px;height:20px;flex-shrink:0;margin-top:2px;color:var(--coral-deep);}
+
+  /* The intro paragraph under "Let's Start a Conversation" — always
+     white, whether it's rendering as plain text (introText) or as the
+     admin-editable rich content pane (bodyHtml, which otherwise
+     defaults to a dark ink color meant for light backgrounds — wrong
+     here, since this sits on the dark purple banner). */
+  .contact-visual-inner .page-body-content,
+  .contact-visual-inner .page-body-content p,
+  .contact-visual-inner .page-body-content li,
+  .contact-visual-inner .page-body-content h1,
+  .contact-visual-inner .page-body-content h2,
+  .contact-visual-inner .page-body-content h3,
+  .contact-visual-inner .page-body-content h4{
+    color:#ffffff;
+  }
 
   /* ---------- Auth pages ---------- */
   .auth-section{padding:32px 0 60px;display:flex;justify-content:center;align-items:center;min-height:calc(100vh - 200px);}
