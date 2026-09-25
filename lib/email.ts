@@ -1,18 +1,37 @@
+import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Real transactional email sending via Resend's HTTP API (a plain
- * fetch() call — no SDK dependency needed, since the API is just a
- * single POST request). Order receipts (actions/order-emails.ts) are
- * the first real use — previously there was no email-sending
- * infrastructure at all ("Confirmation email would be sent here once
- * an email service is wired up").
+ * Centralized transactional email sending — the single place every
+ * email-sending code path in the app goes through. Uses the official
+ * Resend Node SDK (`resend` package), not a raw HTTP call and not
+ * SMTP/Nodemailer — this project has never used SMTP or Nodemailer
+ * anywhere; this file (and the raw fetch() call it replaces) has
+ * always talked to Resend, just via a manual HTTP request before this
+ * change instead of the official client library.
  *
- * Credentials are backend-editable from Site Settings (same pattern as
- * Lulu/PayPal/Paystack), falling back to RESEND_API_KEY/FROM_EMAIL env
- * vars. If nothing's configured, sends are skipped with a console log
- * rather than throwing — a missing email setup should never break order
- * confirmation itself.
+ * Authentication: the RESEND_API_KEY environment variable is the
+ * fallback credential source, read at send time. An admin can also
+ * override it from Admin → API Management → Email without touching
+ * environment variables or redeploying — the same pattern already
+ * used for every other third-party credential in this app (Paystack,
+ * Wise, Lulu). If neither the database override nor RESEND_API_KEY is
+ * set, sends are skipped with a clear, loggable reason rather than
+ * throwing — a missing email configuration should never take down an
+ * order confirmation or any other flow that calls this.
+ *
+ * From address: must be on a domain verified in the Resend dashboard
+ * (Resend rejects sends from unverified domains), configured via the
+ * FROM_EMAIL environment variable or the same Admin → API Management
+ * override, defaulting to orders@thegoodchildbookstore.com.
+ *
+ * Every caller of sendEmail() in this project:
+ *   - actions/order-emails.ts   — order confirmation/receipt (with PDF attachment)
+ *   - actions/password-reset.ts — password reset link
+ *   - actions/contact.ts        — contact form → support inbox
+ *   - actions/messages.ts       — in-app message → support inbox notification
+ *   - lib/email/verification.ts — account/author email verification link
+ *   - lib/email/marketing.ts    — opt-in marketing send with unsubscribe link
  */
 
 async function getEmailCredentials(): Promise<{ apiKey?: string; fromEmail: string }> {
@@ -38,25 +57,22 @@ export async function sendEmail(
   const { apiKey, fromEmail } = await getEmailCredentials();
   if (!apiKey) {
     console.log(`[email skipped — not configured] to=${to} subject="${subject}"`);
-    return { ok: false, error: "Email isn't configured yet." };
+    return { ok: false, error: "Email isn't configured yet — set RESEND_API_KEY or add it in Admin \u2192 API Management \u2192 Email." };
   }
 
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: fromEmail,
-        to,
-        subject,
-        html,
-        ...(replyTo ? { reply_to: replyTo } : {}),
-        ...(attachment ? { attachments: [{ filename: attachment.filename, content: Buffer.from(attachment.content).toString("base64") }] } : {}),
-      }),
+    const resend = new Resend(apiKey);
+    const { error } = await resend.emails.send({
+      from: fromEmail,
+      to,
+      subject,
+      html,
+      ...(replyTo ? { replyTo } : {}),
+      ...(attachment ? { attachments: [{ filename: attachment.filename, content: Buffer.from(attachment.content) }] } : {}),
     });
-    if (!res.ok) {
-      const body = await res.text();
-      return { ok: false, error: `Email send failed: ${res.status} ${body}` };
+
+    if (error) {
+      return { ok: false, error: `Email send failed: ${error.name} — ${error.message}` };
     }
     return { ok: true };
   } catch (e) {
