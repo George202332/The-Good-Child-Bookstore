@@ -116,6 +116,44 @@ export async function testPaystackConnection(): Promise<{ ok: boolean; message: 
   }
 }
 
+/**
+ * Sends a real, live test email through the exact same sendEmail()
+ * path the contact form, order receipts, and everything else use —
+ * not a dry-run or a key format check. This is the definitive way to
+ * diagnose "the contact form isn't reaching my inbox": whatever this
+ * button reports is exactly what's actually happening on a real send,
+ * with Resend's real, specific error surfaced directly rather than a
+ * generic failure message.
+ */
+export async function sendTestEmail(toAddress: string): Promise<{ ok: boolean; message: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, message: "Only Admins can do this." };
+
+  const to = toAddress.trim();
+  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return { ok: false, message: "Enter a valid email address to send the test to." };
+  }
+
+  const { sendEmail } = await import("@/lib/email");
+  const result = await sendEmail(
+    to,
+    "Test email from The Good Child Bookstore",
+    `<div style="font-family: Georgia, serif;"><p>This is a real test send — if you're reading this, delivery is working.</p><p>Sent ${new Date().toISOString()}.</p></div>`
+  );
+
+  if (!result.ok) {
+    const raw = result.error ?? "Send failed, but no specific error was returned.";
+    if (/own email address|testing emails|verify a domain/i.test(raw)) {
+      return {
+        ok: false,
+        message: `Resend blocked this: your account has no verified domain yet, so it only allows sending to the email address you signed up to Resend with — not to ${to}. Verify thegoodchildbookstore.com under Domains in your Resend dashboard to send to any address. (Resend's exact message: "${raw}")`,
+      };
+    }
+    return { ok: false, message: raw };
+  }
+  return { ok: true, message: `Sent successfully to ${to}. Check that inbox (and its spam folder) for it.` };
+}
+
 export async function updatePublishingFormats(formats: PublishingFormatsEnabled): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {

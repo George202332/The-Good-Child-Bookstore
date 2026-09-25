@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateSiteSettings, testPaystackConnection } from "@/actions/site-settings";
+import { updateSiteSettings, testPaystackConnection, sendTestEmail } from "@/actions/site-settings";
 import type { SiteSettings } from "@/lib/site-settings";
 
 /**
@@ -55,6 +55,9 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
   const [submitting, setSubmitting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
+  const [testEmailAddress, setTestEmailAddress] = useState("support@thegoodchildbookstore.com");
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [emailTestResult, setEmailTestResult] = useState<{ ok: boolean; message: string } | null>(null);
 
   async function handleTestPaystack() {
     setTesting(true);
@@ -62,6 +65,14 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
     const res = await testPaystackConnection();
     setTesting(false);
     setTestResult(res);
+  }
+
+  async function handleTestEmail() {
+    setTestingEmail(true);
+    setEmailTestResult(null);
+    const res = await sendTestEmail(testEmailAddress);
+    setTestingEmail(false);
+    setEmailTestResult(res);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -220,6 +231,47 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
             always fail here, since you can&apos;t verify a domain you don&apos;t own.
           </p>
         </div>
+      </div>
+
+      <div style={{ marginTop: 10, marginBottom: 8 }}>
+        <p className="field-hint" style={{ margin: "0 0 8px" }}>
+          Save your changes first, then test — this sends a real email through whatever&apos;s actually saved right
+          now (not what&apos;s typed above), so it tells you for certain whether delivery works, with Resend&apos;s
+          exact error if it doesn&apos;t.
+        </p>
+        <div style={{ background: "var(--cream)", borderRadius: 8, padding: "10px 12px", marginBottom: 10, fontSize: 12.5 }}>
+          <strong>If a test to support@ (or any address other than your own) fails:</strong> Resend restricts
+          accounts with no verified domain to sending only to the email address you signed up to Resend with —
+          this is a real Resend limit, not a bug here. First try sending the test to your own Resend account email
+          to confirm the key works, then verify <code>thegoodchildbookstore.com</code> under Domains in Resend to
+          unlock sending to any address, including support@.
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            className="field field-compact"
+            type="email"
+            placeholder="support@thegoodchildbookstore.com"
+            value={testEmailAddress}
+            onChange={(e) => setTestEmailAddress(e.target.value)}
+            style={{ maxWidth: 280 }}
+          />
+          <button type="button" className="btn btn-ghost btn-small" disabled={testingEmail} onClick={handleTestEmail}>
+            {testingEmail ? "Sending…" : "Send test email"}
+          </button>
+        </div>
+        {emailTestResult && (
+          <div
+            role="status"
+            style={{
+              marginTop: 12, padding: "14px 16px", borderRadius: 10, fontSize: 14, fontWeight: 600,
+              background: emailTestResult.ok ? "#E4F5EC" : "#FBEAEA",
+              color: emailTestResult.ok ? "#0F4B2E" : "#7A1F1F",
+              border: `2px solid ${emailTestResult.ok ? "#1F6B48" : "var(--coral-deep)"}`,
+            }}
+          >
+            {emailTestResult.ok ? "✅ " : "❌ "}{emailTestResult.message}
+          </div>
+        )}
       </div>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
