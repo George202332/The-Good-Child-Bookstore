@@ -11,7 +11,7 @@ import { ShopSidebar } from "@/components/ShopSidebar";
  * `books` is the real, published catalog (real submitted books first,
  * demo catalog filling out the rest — see lib/data/real-books-adapter.ts)
  * rather than always the static 50-book fixture. */
-export function ShopPageClient({ heading, books }: { heading: string; books: Book[] }) {
+export function ShopPageClient({ books }: { books: Book[] }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -62,11 +62,6 @@ export function ShopPageClient({ heading, books }: { heading: string; books: Boo
 
   return (
     <div className="wrap" style={{ paddingTop: "0.5in" }}>
-      <div className="section-head" style={{ marginBottom: 20 }}>
-        <div>
-          <h1>{heading}</h1>
-        </div>
-      </div>
       <div className="shop-searchbar">
         <button className="shop-filter-toggle" onClick={() => setSidebarOpen(true)} aria-label="Open filters">
           <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="currentColor" strokeWidth={2}>
