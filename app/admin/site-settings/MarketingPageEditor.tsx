@@ -1,6 +1,7 @@
 "use client";
 
 import { ImageUploadField } from "@/components/ImageUploadField";
+import { PageBodyEditor } from "@/components/PageBodyEditor";
 import type { MarketingPageContent } from "@/lib/page-content";
 
 /**
@@ -41,16 +42,7 @@ export function MarketingPageEditor({
       />
 
       <h3 style={{ fontSize: 15, margin: "22px 0 10px" }}>{label} — page content</h3>
-      <label className="field-label" htmlFor={`${label}-bodyhtml`}>Content</label>
-      <textarea
-        className="field"
-        id={`${label}-bodyhtml`}
-        rows={16}
-        style={{ maxWidth: 1280, fontFamily: "monospace", fontSize: 13 }}
-        value={value.bodyHtml}
-        onChange={(e) => onChange({ ...value, bodyHtml: e.target.value })}
-        placeholder="Write or paste everything that goes below the banner here — headings, paragraphs, anything. Basic HTML tags (<h3>, <p>, <ul>, <li>, <a>, <strong>) are supported."
-      />
+      <PageBodyEditor value={value.bodyHtml} onChange={(html) => onChange({ ...value, bodyHtml: html })} />
     </div>
   );
 }

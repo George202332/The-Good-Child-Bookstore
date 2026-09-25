@@ -1,5 +1,6 @@
 "use client";
 
+import { PageBodyEditor } from "@/components/PageBodyEditor";
 import type { LegalPageContent } from "@/lib/page-content";
 
 /** One single free-text editing pane per page, replacing the previous
@@ -22,16 +23,8 @@ export function LegalPageEditor({
       <label className="field-label">Intro text</label>
       <textarea className="field" rows={2} value={value.intro} onChange={(e) => onChange({ ...value, intro: e.target.value })} />
 
-      <label className="field-label" htmlFor={`${label}-bodyhtml`} style={{ marginTop: 10 }}>Content</label>
-      <textarea
-        className="field"
-        id={`${label}-bodyhtml`}
-        rows={16}
-        style={{ maxWidth: 1280, fontFamily: "monospace", fontSize: 13 }}
-        value={value.bodyHtml}
-        onChange={(e) => onChange({ ...value, bodyHtml: e.target.value })}
-        placeholder="Write or paste the full page content here. Basic HTML tags (<h3>, <p>, <ul>, <li>, <a>, <strong>) are supported."
-      />
+      <label className="field-label" style={{ marginTop: 10 }}>Content</label>
+      <PageBodyEditor value={value.bodyHtml} onChange={(html) => onChange({ ...value, bodyHtml: html })} />
     </div>
   );
 }

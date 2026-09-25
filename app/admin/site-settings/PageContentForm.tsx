@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updatePagesContent } from "@/actions/page-content";
 import type { PagesContent } from "@/lib/page-content";
 import { ImageUploadField } from "@/components/ImageUploadField";
+import { PageBodyEditor } from "@/components/PageBodyEditor";
 import { MarketingPageEditor } from "./MarketingPageEditor";
 import { LegalPageEditor } from "./LegalPageEditor";
 
@@ -44,14 +45,7 @@ function SimplePageEditor({
       <label className="field-label">{headingLabel}</label>
       <input className="field" type="text" value={heading} onChange={(e) => onHeadingChange(e.target.value)} />
       <label className="field-label" style={{ marginTop: 10 }}>Content</label>
-      <textarea
-        className="field"
-        rows={18}
-        style={{ maxWidth: 1280, fontFamily: "monospace", fontSize: 13 }}
-        value={bodyHtml}
-        onChange={(e) => onBodyChange(e.target.value)}
-        placeholder="Write or paste the full page content here. Basic HTML tags (<h3>, <p>, <ul>, <li>, <a>, <strong>) are supported."
-      />
+      <PageBodyEditor value={bodyHtml} onChange={onBodyChange} />
     </div>
   );
 }
