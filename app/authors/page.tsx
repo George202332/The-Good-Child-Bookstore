@@ -56,7 +56,7 @@ export default async function AuthorsPage() {
         </div>
       </div>
 
-      <section className="section fade-in-section" id="why-publish">
+      <section className="section fade-in-section visible" id="why-publish">
         <div className="wrap" style={{ maxWidth: 760 }}>
           <div className="section-head" style={{ marginBottom: 0, display: "block" }}>
             <h2>Why authors publish with us</h2>
@@ -70,13 +70,13 @@ export default async function AuthorsPage() {
         </div>
       </section>
 
-      <section className="section fade-in-section" style={{ paddingTop: 0 }}>
+      <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap" style={{ maxWidth: 900 }}>
           <div className="page-body-content" dangerouslySetInnerHTML={{ __html: authorship.bodyHtml }} />
         </div>
       </section>
 
-      <section className="section fade-in-section" style={{ paddingTop: 0 }}>
+      <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap" style={{ maxWidth: 920 }}>
           <div className="section-head" style={{ marginBottom: 22, display: "block" }}>
             <h2>Author success stories</h2>
@@ -97,7 +97,7 @@ export default async function AuthorsPage() {
         </div>
       </section>
 
-      <section className="section fade-in-section" style={{ paddingTop: 0 }}>
+      <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap" style={{ maxWidth: 820 }}>
           <div className="section-head" style={{ marginBottom: 10 }}>
             <div><h2>Frequently asked questions</h2></div>
@@ -113,7 +113,7 @@ export default async function AuthorsPage() {
         </div>
       </section>
 
-      <section className="section fade-in-section" style={{ paddingTop: 0 }}>
+      <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap">
           <div className="newsletter" style={{ justifyContent: "center", textAlign: "center", flexDirection: "column", gap: 22 }}>
             <div>

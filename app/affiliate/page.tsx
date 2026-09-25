@@ -52,7 +52,7 @@ export default async function AffiliateMarketingPage() {
         </div>
       </div>
 
-      <section className="section fade-in-section" id="why-join">
+      <section className="section fade-in-section visible" id="why-join">
         <div className="wrap" style={{ maxWidth: 760 }}>
           <div className="section-head" style={{ marginBottom: 0, display: "block" }}>
             <h2>How the affiliate program works</h2>
@@ -65,13 +65,13 @@ export default async function AffiliateMarketingPage() {
         </div>
       </section>
 
-      <section className="section fade-in-section" style={{ paddingTop: 0 }}>
+      <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap" style={{ maxWidth: 900 }}>
           <div className="page-body-content" dangerouslySetInnerHTML={{ __html: affiliateMarketing.bodyHtml }} />
         </div>
       </section>
 
-      <section className="section fade-in-section" style={{ paddingTop: 0 }}>
+      <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap" style={{ maxWidth: 820 }}>
           <div className="section-head" style={{ marginBottom: 10 }}>
             <div><h2>Frequently asked questions</h2></div>
@@ -87,7 +87,7 @@ export default async function AffiliateMarketingPage() {
         </div>
       </section>
 
-      <section className="section fade-in-section" style={{ paddingTop: 0 }}>
+      <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap">
           <div className="newsletter" style={{ justifyContent: "center", textAlign: "center", flexDirection: "column", gap: 22 }}>
             <div>
