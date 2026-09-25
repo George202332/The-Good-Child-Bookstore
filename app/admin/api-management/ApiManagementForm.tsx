@@ -198,7 +198,11 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
         <SecretField id="api-lulu-secret" label="Client Secret" isSet={apiKeysSet.luluClientSecret} value={settings.apiKeys.luluClientSecret ?? ""} onChange={(v) => update({ luluClientSecret: v })} />
       </div>
 
-      <h3 style={{ fontSize: 15, margin: "24px 0 10px" }}>Order Confirmation Emails (Resend)</h3>
+      <h3 style={{ fontSize: 15, margin: "24px 0 10px" }}>Email (Resend)</h3>
+      <p className="field-hint" style={{ margin: "0 0 10px" }}>
+        Powers every email the site sends: order receipts, password resets, the contact form, account/author
+        verification, in-app message notifications, and marketing sends.
+      </p>
       <div className="form-grid-2">
         <SecretField id="api-resend" label="Resend API key" isSet={apiKeysSet.resendApiKey} value={settings.apiKeys.resendApiKey ?? ""} onChange={(v) => update({ resendApiKey: v })} />
         <div>
@@ -211,6 +215,10 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
             value={settings.apiKeys.fromEmail ?? ""}
             onChange={(e) => update({ fromEmail: e.target.value })}
           />
+          <p className="field-hint" style={{ margin: "4px 0 0" }}>
+            Must be on a domain verified in your Resend account (Domains tab) — a Gmail/Yahoo/Outlook address will
+            always fail here, since you can&apos;t verify a domain you don&apos;t own.
+          </p>
         </div>
       </div>
 
