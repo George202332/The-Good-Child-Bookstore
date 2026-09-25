@@ -105,7 +105,7 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
       {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved — live on the site now.</div>}
       {warning && <div className="field-hint" style={{ color: "#8A5A0B" }}>{warning}</div>}
       <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
-        {submitting ? "Saving…" : "Save changes"}
+        {submitting ? "Saving…" : "Save branding & site settings"}
       </button>
     </form>
   );

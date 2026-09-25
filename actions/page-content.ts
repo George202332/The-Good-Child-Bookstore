@@ -80,6 +80,10 @@ export async function updatePagesContent(content: PagesContent): Promise<{ ok: b
   revalidatePath("/affiliate");
   revalidatePath("/blog");
   revalidatePath("/contact");
+  revalidatePath("/privacy");
+  revalidatePath("/terms");
+  revalidatePath("/returns");
+  revalidatePath("/faq");
   revalidatePath("/admin/site-settings");
   return { ok: true };
 }

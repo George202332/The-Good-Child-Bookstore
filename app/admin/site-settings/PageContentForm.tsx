@@ -86,6 +86,18 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
         and Affiliate additionally keep their own banner (image + heading + intro text) at the top, unchanged.
       </p>
 
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+        background: "var(--cream)", borderRadius: 10, padding: "10px 14px", marginBottom: 16,
+      }}>
+        <span style={{ fontSize: 12.5, fontWeight: 700 }}>
+          This button saves the page content below (all tabs) — it&apos;s separate from the branding form above.
+        </span>
+        <button type="submit" className="btn btn-primary btn-small" disabled={submitting} style={{ flexShrink: 0 }}>
+          {submitting ? "Saving…" : "Save page content"}
+        </button>
+      </div>
+
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20, borderBottom: "1px solid var(--line)", paddingBottom: 12 }}>
         {TABS.map((t) => (
           <button
@@ -201,7 +213,7 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved — live on the site now.</div>}
       <button type="submit" className="btn btn-primary btn-small" style={{ marginTop: 16 }} disabled={submitting}>
-        {submitting ? "Saving…" : "Save changes"}
+        {submitting ? "Saving…" : "Save page content"}
       </button>
     </form>
   );
