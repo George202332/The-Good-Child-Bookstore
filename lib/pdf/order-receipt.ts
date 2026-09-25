@@ -2,8 +2,8 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 const CREAM = rgb(0.980, 0.965, 0.941);
 const PLUM = rgb(0.20, 0.03, 0.26); // deep purple, matches the payout statement
-const INK = rgb(0.15, 0.13, 0.18);
-const INK_SOFT = rgb(0.4, 0.37, 0.44);
+const INK = rgb(0, 0, 0); // true black — per explicit instruction, for maximum clarity
+const INK_SOFT = rgb(0.25, 0.23, 0.27); // darker than before — still a step down from pure black for secondary text, but no longer hard to read
 
 export interface OrderReceiptData {
   orderId: string;
@@ -53,17 +53,18 @@ export async function generateOrderReceipt(data: OrderReceiptData): Promise<Uint
   page.drawLine({ start: { x: margin, y }, end: { x: margin + pageWidth, y }, thickness: 1, color: PLUM });
   y -= 24;
 
-  // Table header
-  text("TITLE", margin, y, { font: bold, size: 9.5, color: PLUM });
-  text("FORMAT", margin + 320, y, { font: bold, size: 9.5, color: PLUM });
-  rightText("PRICE", margin + pageWidth, y, { font: bold, size: 9.5, color: PLUM });
-  y -= 8;
-  page.drawLine({ start: { x: margin, y }, end: { x: margin + pageWidth, y }, thickness: 0.5, color: INK_SOFT });
-  y -= 20;
+  // Table header — a real filled deep-purple row, not just colored
+  // text, per explicit instruction.
+  const headerRowHeight = 24;
+  page.drawRectangle({ x: margin, y: y - headerRowHeight + 8, width: pageWidth, height: headerRowHeight, color: PLUM });
+  text("TITLE", margin + 10, y, { font: bold, size: 9.5, color: CREAM });
+  text("FORMAT", margin + 320, y, { font: bold, size: 9.5, color: CREAM });
+  rightText("PRICE", margin + pageWidth - 10, y, { font: bold, size: 9.5, color: CREAM });
+  y -= headerRowHeight + 4;
 
   for (const item of data.items) {
     text(item.title, margin, y, { size: 11 });
-    text(item.format.charAt(0).toUpperCase() + item.format.slice(1), margin + 320, y, { size: 11, color: INK_SOFT });
+    text(item.format.charAt(0).toUpperCase() + item.format.slice(1), margin + 320, y, { size: 11, color: INK });
     rightText(`$${item.price.toFixed(2)}`, margin + pageWidth, y, { size: 11 });
     y -= 22;
   }
@@ -78,7 +79,7 @@ export async function generateOrderReceipt(data: OrderReceiptData): Promise<Uint
   y -= 60;
   text("Thank you for shopping with The Good Child Bookstore.", margin, y, { font: italic, size: 10.5, color: INK_SOFT });
   y -= 16;
-  text("Purchased eBooks and audiobooks are available any time from your Library.", margin, y, { size: 9.5, color: INK_SOFT });
+  text("Purchased eBooks and audiobooks are available any time from your Library.", margin, y, { size: 9.5, color: INK });
 
   return doc.save();
 }

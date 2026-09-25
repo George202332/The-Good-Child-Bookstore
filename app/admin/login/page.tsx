@@ -41,11 +41,8 @@ export default function AdminLoginPage() {
 
   return (
     <div className="admin-shell" style={{ alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-      <div style={{ width: "100%", maxWidth: 360, padding: "0 20px" }}>
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>The Good Child Bookstore</div>
-        </div>
-        <form onSubmit={handleSubmit} className="form-section admin-login-form" autoComplete="off">
+      <div style={{ width: "100%", maxWidth: 468, padding: "0 20px" }}>
+        <form onSubmit={handleSubmit} className="form-section admin-login-form" autoComplete="off" style={{ marginTop: 28 }}>
           <label className="field-label" htmlFor="admin-portal-email">Email</label>
           <input
             className="field"

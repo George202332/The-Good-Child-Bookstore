@@ -19,7 +19,7 @@ export default async function LibraryPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const role = session.user.role;
-  if (role !== "READER" && role !== "AUTHOR") redirect("/account");
+  if (role !== "READER") redirect("/account");
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },

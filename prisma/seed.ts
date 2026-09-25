@@ -50,19 +50,6 @@ async function main() {
     });
   }
 
-  // Same two codes the original frontend had hardcoded (WELCOME10/READMORE),
-  // so checkout has working codes out of the box on a fresh deployment.
-  await prisma.coupon.upsert({
-    where: { code: "WELCOME10" },
-    update: {},
-    create: { code: "WELCOME10", percentOff: 10 },
-  });
-  await prisma.coupon.upsert({
-    where: { code: "READMORE" },
-    update: {},
-    create: { code: "READMORE", percentOff: 15 },
-  });
-
   const authorProfileIdByName = new Map<string, string>();
 
   for (const book of BOOKS) {

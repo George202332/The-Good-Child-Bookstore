@@ -29,7 +29,6 @@ const orderItemSchema = z.object({
 });
 const createPendingOrderSchema = z.object({
   items: z.array(orderItemSchema).min(1).max(50),
-  couponDiscountPct: z.number().min(0).max(100).optional(),
   guestEmail: z.string().email().optional(),
   guestName: z.string().min(1).max(200).optional(),
   shipName: z.string().max(200).optional(),
@@ -102,7 +101,12 @@ function generateTempPassword(): string {
 async function resolveReaderProfileId(guestEmail?: string, guestName?: string): Promise<{ readerProfileId?: string; error?: string; tempPassword?: string; isNewAccount?: boolean }> {
   const session = await auth();
 
-  if (session?.user?.id) {
+  // Author accounts (which always carry affiliate capability too) are
+  // never allowed to purchase under their own logged-in identity, per
+  // explicit instruction — falls straight through to the same guest
+  // checkout path a signed-out visitor uses, using whatever email/name
+  // was entered on the checkout form, not the author's own account.
+  if (session?.user?.id && session.user.role !== "AUTHOR") {
     const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { readerProfile: true } });
     if (!user) return { error: "Account not found." };
     if (user.readerProfile) return { readerProfileId: user.readerProfile.id };
@@ -141,7 +145,6 @@ async function resolveReaderProfileId(guestEmail?: string, guestName?: string): 
 
 export async function createPendingOrder(input: {
   items: OrderItemInput[];
-  couponDiscountPct?: number;
   guestEmail?: string;
   guestName?: string;
   shipName?: string;
@@ -181,7 +184,6 @@ export async function createPendingOrder(input: {
   }
 
   const subtotal = lines.reduce((sum, l) => sum + priceForFormat(l.book, l.format) * l.qty, 0);
-  const couponPct = input.couponDiscountPct ?? 0;
 
   // Real affiliate attribution: the "which affiliate link was this visit
   // through" cookie is set directly in middleware (proxy.ts) — reliable
@@ -207,7 +209,7 @@ export async function createPendingOrder(input: {
     // malformed/missing cookie — treat as no attribution
   }
 
-  const totalAmount = +(subtotal * (1 - couponPct)).toFixed(2);
+  const totalAmount = +subtotal.toFixed(2);
   const commissionRates = await getCommissionRates();
   const geo = await getRequestGeo();
 
@@ -244,7 +246,7 @@ export async function createPendingOrder(input: {
       shipAddress: input.shipAddress?.trim() || null,
       lines: {
         create: lines.map((l) => {
-          const lineGross = +(priceForFormat(l.book, l.format) * l.qty * (1 - couponPct)).toFixed(2);
+          const lineGross = +(priceForFormat(l.book, l.format) * l.qty).toFixed(2);
           const isAffiliateSale = affiliateBookId !== null && affiliateBookId === l.bookId;
           let split = calculateSplits(lineGross, isAffiliateSale, commissionRates.promotionPct);
           const referredById = l.book.author.referredById;

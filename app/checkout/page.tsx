@@ -9,7 +9,6 @@ import { Motif } from "@/components/Motif";
 import { useCart, type CartItem } from "@/hooks/useCart";
 import { createPendingOrder, confirmOrderPaidDirectly } from "@/actions/orders";
 import { initiateGatewayCheckout } from "@/actions/payment-init";
-import { validateCoupon } from "@/actions/coupons";
 import { resolveCartBooks } from "@/actions/cart-books";
 import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } from "@/actions/payment-methods";
 import { PaymentBadgeIcon } from "@/components/PaymentBadgeIcon";
@@ -36,8 +35,6 @@ import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-setting
  * the same behavior this checkout has always had.
  */
 
-// Real coupons come from the database now — see actions/coupons.ts.
-
 interface CheckoutData {
   fullName: string;
   email: string;
@@ -45,8 +42,6 @@ interface CheckoutData {
   phoneCountryCode: string;
   country: string;
   billingAddress: string;
-  couponCode: string;
-  couponDiscount: number;
   paymentMethod: "paystack" | "mpesa";
   cardName: string;
   cardNumber: string;
@@ -86,15 +81,12 @@ function CheckoutPageInner() {
     phoneCountryCode: "+1",
     country: "",
     billingAddress: "",
-    couponCode: "",
-    couponDiscount: 0,
     paymentMethod: "paystack",
     cardName: "",
     cardNumber: "",
     cardExpiry: "",
     cardCvv: "",
   });
-  const [couponInput, setCouponInput] = useState("");
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethodRow[]>([]);
@@ -127,26 +119,11 @@ function CheckoutPageInner() {
     .filter((l): l is { book: NonNullable<typeof l.book>; qty: number; format: typeof l.format } => !!l.book);
   const subtotal = lines.reduce((sum, l) => sum + priceFor(l.book, l.format) * l.qty, 0);
   const hasPrintItem = lines.some((l) => l.format === "paperback" || l.format === "hardcover");
-  const couponAmount = +(subtotal * data.couponDiscount).toFixed(2);
-  const grandTotal = +(subtotal - couponAmount).toFixed(2);
+  const grandTotal = subtotal;
 
   function goTo(n: number) {
     setStep(n);
     window.scrollTo({ top: 0, behavior: "instant" });
-  }
-
-  const [couponError, setCouponError] = useState<string | null>(null);
-
-  async function applyCoupon() {
-    const code = couponInput.trim().toUpperCase();
-    const result = await validateCoupon(code);
-    if (result.ok && result.discountPct !== undefined) {
-      setCouponError(null);
-      setData((d) => ({ ...d, couponCode: code, couponDiscount: result.discountPct! }));
-    } else {
-      setCouponError(result.error ?? "That coupon code is not valid.");
-      setData((d) => ({ ...d, couponCode: "", couponDiscount: 0 }));
-    }
   }
 
   async function payWithSaved(savedMethodId: string) {
@@ -155,7 +132,6 @@ function CheckoutPageInner() {
 
     const created = await createPendingOrder({
       items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
-      couponDiscountPct: data.couponDiscount || undefined,
       guestEmail: data.email,
       guestName: data.fullName,
       shipName: data.fullName,
@@ -194,7 +170,6 @@ function CheckoutPageInner() {
 
     const created = await createPendingOrder({
       items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
-      couponDiscountPct: data.couponDiscount || undefined,
       guestEmail: data.email,
       guestName: data.fullName,
       shipName: data.fullName,
@@ -284,7 +259,6 @@ function CheckoutPageInner() {
                     ) : (
                       <div className="cart-item-digital-note">Printed and shipped by Lulu Publishing</div>
                     )}
-                    {!isDirectBuy && <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>}
                   </div>
                   {isDigital || isDirectBuy ? (
                     <div />
@@ -295,7 +269,10 @@ function CheckoutPageInner() {
                       <button onClick={() => setQty(l.book.id, l.format, l.qty + 1)}>+</button>
                     </div>
                   )}
-                  <div className="price">${(priceFor(l.book, l.format) * l.qty).toFixed(2)}</div>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                    <div className="price">${(priceFor(l.book, l.format) * l.qty).toFixed(2)}</div>
+                    {!isDirectBuy && <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>}
+                  </div>
                 </div>
               );
             })}
@@ -387,24 +364,9 @@ function CheckoutPageInner() {
               </div>
             ))}
             <div className="summary-row" style={{ marginTop: 14 }}><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-            {data.couponDiscount > 0 && (
-              <div className="summary-row"><span>Coupon discount ({data.couponCode})</span><span>-${couponAmount.toFixed(2)}</span></div>
-            )}
             <div className="summary-row"><span>Taxes</span><span>Calculated at payment</span></div>
             <div className="summary-row total"><span>Grand total</span><span>${grandTotal.toFixed(2)}</span></div>
           </div>
-          <label className="field-label field-label-compact" style={{ marginTop: 18 }} htmlFor="co-coupon">Coupon code</label>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input className="field field-compact" id="co-coupon" type="text" style={{ marginBottom: 0 }} placeholder="e.g. WELCOME10" value={couponInput} onChange={(e) => setCouponInput(e.target.value)} />
-            <button type="button" className="btn btn-ghost btn-small" onClick={applyCoupon}>Apply</button>
-          </div>
-          {couponError ? (
-            <div className="field-hint" style={{ color: "var(--coral-deep)", margin: "8px 0 18px" }}>{couponError}</div>
-          ) : data.couponCode ? (
-            <div className="field-hint" style={{ color: "#1F6B48", margin: "8px 0 18px" }}>Applied {data.couponCode}: {(data.couponDiscount * 100).toFixed(0)}% off.</div>
-          ) : (
-            <div className="field-hint" style={{ margin: "8px 0 18px" }}>Have a coupon code? Enter it above.</div>
-          )}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 20 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(2)}>← Back</button>
             <button className="btn btn-primary btn-small" onClick={() => goTo(4)}>Continue to payment</button>

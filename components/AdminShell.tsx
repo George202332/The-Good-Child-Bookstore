@@ -41,7 +41,6 @@ function navItemsForRole(role: Role) {
       { key: "library", label: "Library", href: "/admin/library" },
       { key: "commission-settings", label: "Commission Settings", href: "/admin/commission-settings" },
       { key: "users", label: "Users", href: "/admin/users" },
-      { key: "coupons", label: "Coupons", href: "/admin/coupons" },
       { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },
       { key: "transactions", label: "Transactions", href: "/admin/transactions" },
       { key: "data-management", label: "Data Management", href: "/admin/data-management" },

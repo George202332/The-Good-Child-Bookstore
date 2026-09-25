@@ -38,7 +38,6 @@ export const PERMISSIONS: Record<Role, string[]> = {
     "finance:adjustRoyalties",
     "affiliate:manageSettings",
     "payments:manageGateways",
-    "coupons:manage",
     "seo:manage",
     "analytics:view",
     "dashboards:accessAll",
