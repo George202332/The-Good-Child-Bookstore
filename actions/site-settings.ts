@@ -181,6 +181,18 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
     return { ok: false, error: "Only Admins can edit site settings." };
   }
 
+  const fromEmailInput = settings.apiKeys.fromEmail?.trim();
+  if (fromEmailInput) {
+    const domain = fromEmailInput.split("@")[1]?.toLowerCase();
+    const consumerDomains = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", "aol.com", "live.com", "msn.com"];
+    if (domain && consumerDomains.includes(domain)) {
+      return {
+        ok: false,
+        error: `"${fromEmailInput}" can't be used as the "From" email — Resend requires a domain you actually own and have verified in your Resend account (Domains tab), and nobody can verify ownership of ${domain}. Use an address on thegoodchildbookstore.com instead, once that domain is verified there.`,
+      };
+    }
+  }
+
   try {
     // Any API key field left blank keeps whatever's already saved, rather
     // than erasing a working credential just because the admin didn't
