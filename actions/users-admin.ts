@@ -48,6 +48,12 @@ export async function createUserAccount(input: CreateUserInput): Promise<{ ok: b
       name,
       passwordHash,
       role: input.role,
+      // Admin-created accounts skip the signup-flow email-verification
+      // gate (app/account/layout.tsx) — no verification email is sent
+      // here, so requiring one would lock an admin-created account out
+      // of its own dashboard with no way to unlock it. An admin
+      // creating the account is itself the trust signal.
+      emailVerifiedAt: new Date(),
       ...(input.role === "READER" ? { readerProfile: { create: {} } } : {}),
       ...(input.role === "AUTHOR"
         ? { authorProfile: { create: {} }, affiliateProfile: { create: { referralCode: referralCode! } } }

@@ -45,15 +45,42 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!valid) return null;
         if (user.suspended) return null;
 
-        return { id: user.id, email: user.email, name: user.name, role: user.role };
+        // Checked once, right at password-success, so the very first
+        // JWT this session ever gets already knows whether a second
+        // factor is required — see the `jwt` callback below for how
+        // this becomes `twoFactorVerified: false` until the
+        // post-login challenge screen (app/account/layout.tsx) clears
+        // it via the client-side session update() call.
+        const twoFactorConfig = await prisma.twoFactorConfig.findUnique({ where: { userId: user.id } });
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          twoFactorEnabled: !!twoFactorConfig?.enabled,
+        };
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        token.twoFactorEnabled = user.twoFactorEnabled ?? false;
+        // Nothing to verify if 2FA isn't enabled — session starts
+        // already-satisfied so non-2FA users are never gated.
+        token.twoFactorVerified = !user.twoFactorEnabled;
+      }
+      // Fired by the client's next-auth/react `update()` call, right
+      // after a login challenge code (or a fresh setup) is verified —
+      // see components/TwoFactorChallengeScreen.tsx and
+      // app/account/settings/TwoFactorSettings.tsx.
+      if (trigger === "update" && session) {
+        const patch = session as { twoFactorEnabled?: boolean; twoFactorVerified?: boolean };
+        if (typeof patch.twoFactorEnabled === "boolean") token.twoFactorEnabled = patch.twoFactorEnabled;
+        if (typeof patch.twoFactorVerified === "boolean") token.twoFactorVerified = patch.twoFactorVerified;
       }
       return token;
     },
@@ -61,6 +88,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.role = token.role as import("@/lib/roles").Role;
         session.user.id = token.id as string;
+        session.user.twoFactorEnabled = (token.twoFactorEnabled as boolean) ?? false;
+        session.user.twoFactorVerified = (token.twoFactorVerified as boolean) ?? true;
       }
       return session;
     },

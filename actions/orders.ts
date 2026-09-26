@@ -136,6 +136,16 @@ async function resolveReaderProfileId(guestEmail?: string, guestName?: string): 
       passwordHash,
       role: "READER",
       mustChangePassword: true,
+      // Guest checkout already has its own proof of email ownership —
+      // the temporary password is only useful to whoever actually
+      // received the order-confirmation email at this address. Adding
+      // the new signup-flow email-verification gate (see
+      // app/account/layout.tsx) on top of that would lock every guest
+      // account out of the dashboard it was just created for, since
+      // no one ever sends this account a verification link. Marking
+      // it verified at creation preserves the existing guest-checkout
+      // flow exactly as it worked before that gate existed.
+      emailVerifiedAt: new Date(),
       readerProfile: { create: {} },
     },
     include: { readerProfile: true },

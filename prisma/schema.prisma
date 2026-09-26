@@ -131,6 +131,8 @@ model User {
   sessions      Session[]
   passwordResetTokens PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
+  twoFactorConfig TwoFactorConfig?
+  twoFactorChallenges TwoFactorChallenge[]
   notifications Notification[]
   reviews       Review[]
   blogComments  BlogComment[]
@@ -179,6 +181,51 @@ model EmailVerificationToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+/**
+ * Two-factor authentication configuration — one row per user, created
+ * lazily the first time they start setup. `enabled` only flips to true
+ * once a setup code has actually been verified (see
+ * actions/two-factor.ts confirmTwoFactorSetup). `pendingMethod`/
+ * `pendingPhoneNumber` hold the in-progress choice during setup so a
+ * user can start over cleanly without ever touching the live,
+ * already-enabled method until the new one is proven to work.
+ */
+model TwoFactorConfig {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled           Boolean   @default(false)
+  method            String?   // "EMAIL" | "SMS" — the active, verified method
+  phoneNumber       String?   // E.164, only set when method is "SMS"
+  pendingMethod     String?
+  pendingPhoneNumber String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+/**
+ * A single 2FA code, for either a login challenge or a setup
+ * challenge. The code itself is never stored — only its SHA-256 hash
+ * (`codeHash`) — matching the "never store secrets in plaintext"
+ * requirement. `attempts` enforces a hard cap on guesses before the
+ * challenge is invalidated outright, independent of its expiry.
+ */
+model TwoFactorChallenge {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose     String    // "LOGIN" | "SETUP"
+  method      String    // "EMAIL" | "SMS"
+  destination String    // the email address or phone number this code was actually sent to
+  codeHash    String
+  attempts    Int       @default(0)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, purpose])
 }
 
 model Session {
