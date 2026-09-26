@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { sendAdminReply, SUPPORT_CATEGORIES, type AdminMessageRow } from "@/actions/admin-messages";
+import { sendAdminReply, type AdminMessageRow } from "@/actions/admin-messages";
+import { SUPPORT_CATEGORIES } from "@/lib/support-categories";
 
 function categoryLabel(category: string | null): string | null {
   if (!category) return null;

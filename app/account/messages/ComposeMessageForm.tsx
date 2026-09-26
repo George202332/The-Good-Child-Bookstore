@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { findUserToMessage, sendMessage, saveDraft, updateDraft, getSupportRecipient, SUPPORT_CATEGORIES, type SupportCategory } from "@/actions/messages";
+import { findUserToMessage, sendMessage, saveDraft, updateDraft, getSupportRecipient } from "@/actions/messages";
+import { SUPPORT_CATEGORIES, type SupportCategory } from "@/lib/support-categories";
 
 function initialsFor(name: string): string {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();

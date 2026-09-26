@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { BACKEND_ROLES } from "@/lib/roles";
 import { sendEmail } from "@/lib/email";
+import { SUPPORT_CATEGORIES, type SupportCategory } from "@/lib/support-categories";
 
 const SUPPORT_INBOX = process.env.SUPPORT_INBOX_EMAIL || "support@thegoodchildbookstore.com";
 
@@ -170,15 +171,6 @@ export async function listMessagesWith(counterpartId: string): Promise<MessageRo
     return [];
   }
 }
-
-export const SUPPORT_CATEGORIES = [
-  { key: "ACCOUNT", label: "Account" },
-  { key: "PAYMENTS", label: "Payments" },
-  { key: "TECHNICAL", label: "Technical" },
-  { key: "CONTENT", label: "Content" },
-  { key: "OTHER", label: "Other" },
-] as const;
-export type SupportCategory = (typeof SUPPORT_CATEGORIES)[number]["key"];
 
 /** The fixed "Contact Support" target shown on the Messages tab's
  * compose form — resolves to the platform's longest-standing Admin

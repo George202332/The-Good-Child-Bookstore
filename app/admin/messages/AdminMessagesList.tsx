@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { AdminConversationRow } from "@/actions/admin-messages";
-import { SUPPORT_CATEGORIES } from "@/actions/messages";
+import { SUPPORT_CATEGORIES } from "@/lib/support-categories";
 
 function initialsFor(name: string): string {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();

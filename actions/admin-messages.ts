@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authAdmin } from "@/lib/auth-admin";
 import { sendEmail } from "@/lib/email";
 import { BACKEND_ROLES, type Role } from "@/lib/roles";
-import { SUPPORT_CATEGORIES, type SupportCategory } from "@/actions/messages";
+import type { SupportCategory } from "@/lib/support-categories";
 
 /**
  * The admin backend's Messages tab — mirrors the author-side Messages
@@ -173,5 +173,3 @@ export async function sendAdminReply(counterpartId: string, body: string): Promi
   revalidatePath("/account/messages");
   return { ok: true };
 }
-
-export { SUPPORT_CATEGORIES };
