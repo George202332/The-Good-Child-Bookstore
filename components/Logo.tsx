@@ -1,36 +1,23 @@
 import Link from "next/link";
-import { OwlMotif } from "./icons";
 
-/** Accepts an optional admin-uploaded logo image URL (see
- * /admin/site-settings). When one is set, it renders alone, larger,
- * filling the whole brand area — no circular crop, no "The Good Child
- * Bookstore" text alongside it, since the uploaded logo is meant to
- * carry the whole brand identity itself. Falls back to the original
- * small owl-mark icon + text combo only when no logo has been uploaded. */
-export function Logo({ subColor = "var(--coral-deep)", logoImageUrl }: { subColor?: string; logoImageUrl?: string }) {
-  if (logoImageUrl) {
-    return (
-      <Link href="/" className="logo logo-uploaded">
-        {/* eslint-disable-next-line @next/next/no-img-element -- admin-uploaded logo, not a static asset */}
-        <img src={logoImageUrl} alt="Logo" className="logo-mark-uploaded" />
-      </Link>
-    );
-  }
-
+/**
+ * Plain text wordmark, per explicit instruction: no icon, no uploaded
+ * image, no graphics of any kind — just "The Good Child Bookstore" set
+ * in the site's own Times New Roman, sitting on the same background as
+ * the rest of the header. Replaces the earlier owl-mark icon (dropped
+ * from icons.tsx as dead code) and the admin-uploaded-logo-image branch;
+ * the Site Settings logo upload field still exists for anyone who wants
+ * it for other branding uses, but the header/footer no longer render it.
+ * `logoImageUrl` is still accepted (existing callers pass it) but is no
+ * longer used, so it can't cause a build error while it's still wired
+ * up in SiteChrome/site-settings.
+ */
+export function Logo({ subColor, logoImageUrl }: { subColor?: string; logoImageUrl?: string }) {
+  void subColor;
+  void logoImageUrl;
   return (
-    <Link href="/" className="logo">
-      <svg className="logo-mark" viewBox="0 0 60 60">
-        <circle cx="30" cy="30" r="28" fill="#F7D8E2" />
-        <g transform="translate(6,6) scale(0.8)">
-          <OwlMotif />
-        </g>
-      </svg>
-      <span>
-        The Good Child
-        <span className="logo-sub" style={{ color: subColor }}>
-          Bookstore
-        </span>
-      </span>
+    <Link href="/" className="logo logo-wordmark">
+      The Good Child Bookstore
     </Link>
   );
 }

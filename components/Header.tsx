@@ -113,7 +113,6 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
                 {wishlistCount}
               </span>
             </span>
-            <span className="header-icon-label">wishlist</span>
           </Link>
           <Link href="/cart" className="header-icon-btn" aria-label="Cart">
             <span className="cart-btn">
@@ -122,7 +121,6 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
                 {cartCount}
               </span>
             </span>
-            <span className="header-icon-label">cart</span>
           </Link>
           <Link
             href={user ? "/account" : "/login"}
@@ -152,7 +150,6 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
               <UserIcon size={13} />
             )}
             </span>
-            <span className="header-icon-label">my account</span>
           </Link>
         </div>
       </div>
