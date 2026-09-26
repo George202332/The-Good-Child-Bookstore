@@ -95,7 +95,7 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
       </div>
 
       <p className="field-hint" style={{ marginTop: 14 }}>
-        &quot;Read sample&quot; on this book&apos;s page automatically shows the first 6 pages of your uploaded
+        &quot;Read sample&quot; on this book&apos;s page automatically shows the first 10 pages of your uploaded
         manuscript — there&apos;s nothing separate to upload for it.
       </p>
 

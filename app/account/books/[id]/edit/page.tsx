@@ -66,7 +66,6 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
           descriptionHtml: (meta.longDescriptionHtml as string) ?? book.description ?? "",
           keywords: typeof meta.keywords === "string" ? (meta.keywords as string).split(",").map((k) => k.trim()).filter(Boolean) : [],
           price: String(Number(book.price)),
-          discountPrice: meta.discountPrice != null ? String(meta.discountPrice) : "",
           taxSetting: (meta.taxSetting as string) ?? "",
           sellOnStore: (meta.sellOnStore as boolean) ?? true,
           featuredRequest: (meta.featuredRequest as boolean) ?? false,

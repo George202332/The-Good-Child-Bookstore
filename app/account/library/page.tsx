@@ -92,7 +92,10 @@ export default async function LibraryPage() {
                   <td style={TABLE_CELL_STYLE}>{it.format}</td>
                   <td style={TABLE_CELL_STYLE}>{it.copies}</td>
                   <td style={TABLE_CELL_STYLE}>
-                    <a href={`/api/downloads/${it.id}`} className="btn btn-ghost btn-small">Download</a>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <a href={`/api/downloads/${it.id}`} className="btn btn-ghost btn-small">PDF</a>
+                      <a href={`/api/downloads/${it.id}?format=epub`} className="btn btn-ghost btn-small">ePub</a>
+                    </div>
                   </td>
                   {role === "READER" && (
                     <td style={TABLE_CELL_STYLE}>

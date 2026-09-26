@@ -53,7 +53,6 @@ export interface EbookSubmissionInitial {
   descriptionHtml?: string;
   keywords?: string[];
   price?: string;
-  discountPrice?: string;
   taxSetting?: string;
   sellOnStore?: boolean;
   featuredRequest?: boolean;
@@ -118,9 +117,10 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
   // Keywords
   const [keywords, setKeywords] = useState<string[]>(initial?.keywords ?? []);
 
-  // Pricing
+  // Pricing — USD only; a promotional/discount price is not offered
+  // (currency conversion and any promotional pricing, if ever needed,
+  // happens at checkout, outside this form, per explicit instruction).
   const [price, setPrice] = useState(initial?.price ?? "12.99");
-  const [discountPrice, setDiscountPrice] = useState(initial?.discountPrice ?? "");
   const [taxSetting, setTaxSetting] = useState(initial?.taxSetting || TAX_SETTINGS[0]);
 
   // Distribution
@@ -204,7 +204,6 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
         authorBio,
         readingLevel,
         longDescriptionHtml: descriptionHtml,
-        discountPrice: discountPrice ? Number(discountPrice) : undefined,
         taxSetting,
         worldwideRights,
         countryRestrictions,
@@ -400,25 +399,17 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
       <Card>
         <SectionHeader n={5} title="Book description" sub="The copy readers, teachers, and our editorial team will see." />
         <label className="field-label">Description</label>
-        <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={400} minHeight={250} />
+        <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={400} minHeight={325} />
         <div style={{ marginTop: 18 }}>
-          <KeywordsField keywords={keywords} onChange={setKeywords} />
+          <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} title={title} />
         </div>
       </Card>
 
       {/* Section 6 — Pricing */}
       <Card>
         <SectionHeader n={6} title="Pricing" sub="What readers pay, in US dollars — any currency conversion happens at checkout, outside this site." />
-        <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="f-price">List price (USD)</label>
-            <input className="field" id="f-price" type="number" step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="f-discountprice">Discount price (USD)</label>
-            <input className="field" id="f-discountprice" type="number" step={0.01} value={discountPrice} onChange={(e) => setDiscountPrice(e.target.value)} />
-          </div>
-        </div>
+        <label className="field-label" htmlFor="f-price">List price (USD)</label>
+        <input className="field" id="f-price" type="number" step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} style={{ maxWidth: 220 }} />
         <label className="field-label" htmlFor="f-tax">Tax settings</label>
         <select className="field" id="f-tax" value={taxSetting} onChange={(e) => setTaxSetting(e.target.value)}>
           {TAX_SETTINGS.map((t) => <option key={t} value={t}>{t}</option>)}

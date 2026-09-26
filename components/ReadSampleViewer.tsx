@@ -5,7 +5,7 @@ import { ManuscriptReviewViewer } from "./ManuscriptReviewViewer";
 
 /**
  * "Read sample" — per explicit instruction, this is NOT a separate set
- * of uploaded sample images. It's the first 6 pages of the exact same
+ * of uploaded sample images. It's the first 10 pages of the exact same
  * PDF manuscript the author uploaded for the eBook itself, rendered
  * with the same page-by-page viewer used for editor/admin review.
  * There's nothing extra for an author to manage — if they've uploaded
