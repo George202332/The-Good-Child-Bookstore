@@ -106,4 +106,13 @@ export const NAV_ICONS: Record<string, ReactElement> = {
   "transaction-history": (
     <svg {...ICON_PROPS}><path d="M6 3.5h9l4 4v13H6Z" /><path d="M9.5 11h6M9.5 14.5h6M9.5 18h4" /></svg>
   ),
+  // Author's own "Transactions" (Financial section, below Revenue) —
+  // previously missing here entirely, which is why its sidebar row had
+  // no icon slot and sat visually misaligned against Revenue and
+  // Payouts right above/below it. Same receipt shape as
+  // "transaction-history" above: same kind of record, just a different
+  // route (money the account holder personally spent, not received).
+  "my-transactions": (
+    <svg {...ICON_PROPS}><path d="M6 3.5h9l4 4v13H6Z" /><path d="M9.5 11h6M9.5 14.5h6M9.5 18h4" /></svg>
+  ),
 };

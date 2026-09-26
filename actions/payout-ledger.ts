@@ -53,40 +53,69 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
     return { error: e instanceof Error ? e.message : "Not authorized." };
   }
 
-  const rows = (await prisma.payoutRequest.findMany({
-    include: { user: true, recipient: true },
-    orderBy: { requestedAt: "desc" },
-  })) as {
-    id: string;
-    amount: unknown;
-    currency: string;
-    status: string;
-    earningsType: string;
-    requestedAt: Date;
-    resolvedAt: Date | null;
-    user: { accountNumber: string; email: string; role: string };
-    recipient: { accountHolderName: string; type: string; details: unknown };
-  }[];
+  // Recipient is fetched as a SEPARATE query rather than via `include`
+  // deliberately: `include` on a required relation makes Prisma throw
+  // ("Inconsistent query result... Field recipient is required") the
+  // instant it hits even one PayoutRequest whose WiseRecipient row is
+  // gone — which is exactly what crashed this page. That could only
+  // happen if a recipient with real payout history got deleted despite
+  // the guard now added in actions/wise-recipients.ts, but a page that
+  // reads a payout's entire history (unlike the old REQUESTED-only
+  // view) has to stay readable even if an old, already-orphaned row
+  // like that exists from before that guard existed — so any payout
+  // whose recipient can no longer be found renders "Recipient deleted"
+  // instead of taking the whole ledger down with it.
+  try {
+    const payouts = (await prisma.payoutRequest.findMany({
+      include: { user: true },
+      orderBy: { requestedAt: "desc" },
+    })) as {
+      id: string;
+      amount: unknown;
+      currency: string;
+      status: string;
+      earningsType: string;
+      requestedAt: Date;
+      resolvedAt: Date | null;
+      recipientId: string;
+      user: { accountNumber: string; email: string; role: string };
+    }[];
 
-  return rows.map((p) => {
-    const amount = Number(p.amount);
-    const isAffiliate = p.earningsType === "AFFILIATE";
-    return {
-      id: p.id,
-      accountNumber: p.user.accountNumber,
-      accountHolderName: p.recipient.accountHolderName,
-      email: p.user.email,
-      role: p.user.role,
-      paymentMethod: payoutMethodLabel(p.recipient.type),
-      accountDetails: formatAccountDetails(p.recipient.details),
-      currency: p.currency,
-      bookSalesEarnings: isAffiliate ? 0 : amount,
-      affiliateEarnings: isAffiliate ? amount : 0,
-      combinedTotal: amount,
-      status: p.status,
-      paid: p.status === "PAID",
-      requestedAt: p.requestedAt.toISOString(),
-      resolvedAt: p.resolvedAt ? p.resolvedAt.toISOString() : null,
-    };
-  });
+    const recipientIds = [...new Set(payouts.map((p) => p.recipientId))];
+    const recipients = (await prisma.wiseRecipient.findMany({
+      where: { id: { in: recipientIds } },
+    })) as { id: string; accountHolderName: string; type: string; details: unknown }[];
+    const recipientById = new Map(recipients.map((r) => [r.id, r]));
+
+    return payouts.map((p) => {
+      const amount = Number(p.amount);
+      const isAffiliate = p.earningsType === "AFFILIATE";
+      const recipient = recipientById.get(p.recipientId);
+      return {
+        id: p.id,
+        accountNumber: p.user.accountNumber,
+        accountHolderName: recipient?.accountHolderName ?? "Recipient deleted",
+        email: p.user.email,
+        role: p.user.role,
+        paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
+        accountDetails: recipient ? formatAccountDetails(recipient.details) : "—",
+        currency: p.currency,
+        bookSalesEarnings: isAffiliate ? 0 : amount,
+        affiliateEarnings: isAffiliate ? amount : 0,
+        combinedTotal: amount,
+        status: p.status,
+        paid: p.status === "PAID",
+        requestedAt: p.requestedAt.toISOString(),
+        resolvedAt: p.resolvedAt ? p.resolvedAt.toISOString() : null,
+      };
+    });
+  } catch (e) {
+    // Surfaced on the page as a readable message instead of a generic
+    // Next.js crash screen — see app/admin/payouts/page.tsx. Most
+    // likely cause if this ever fires: the database hasn't picked up
+    // the `earningsType` column yet (see prisma/schema.prisma) — run
+    // `npx prisma db push` against the same DATABASE_URL the live site
+    // uses.
+    return { error: e instanceof Error ? e.message : "Couldn't load the payout ledger." };
+  }
 }

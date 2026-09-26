@@ -64,7 +64,7 @@ export function HeroBannerCarousel({
       <div
         className={`promo-banner promo-${slide.tone}`}
         style={{
-          height: 320, minHeight: 0, overflow: "hidden", boxSizing: "border-box",
+          height: 352, minHeight: 0, overflow: "hidden", boxSizing: "border-box",
           ...(slide.imageUrl ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.4), rgba(20,14,26,0.4)), url(${slide.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
         }}
       >

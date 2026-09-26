@@ -30,7 +30,7 @@ export default async function AuthorsPage() {
           <div
             className="promo-banner promo-lavender"
             style={{
-              height: 320, overflow: "hidden", boxSizing: "border-box",
+              height: 352, overflow: "hidden", boxSizing: "border-box",
               ...(authorship.heroImage ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.4), rgba(20,14,26,0.4)), url(${authorship.heroImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
             }}
           >
@@ -73,6 +73,25 @@ export default async function AuthorsPage() {
       <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap" style={{ maxWidth: 900 }}>
           <div className="page-body-content" dangerouslySetInnerHTML={{ __html: authorship.bodyHtml }} />
+        </div>
+      </section>
+
+      <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <Link
+            href="/signup/author"
+            className="promo-banner promo-pink"
+            style={{ height: 352, overflow: "hidden", boxSizing: "border-box", justifyContent: "center", textDecoration: "none" }}
+          >
+            <div className="promo-banner-text">
+              <div className="promo-banner-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="#8A3B5A" strokeWidth={2}>
+                  <circle cx={12} cy={8} r={3.6} /><path d="M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5" />
+                </svg>
+              </div>
+              <h3 style={{ fontSize: 26 }}>Sign up as an author</h3>
+            </div>
+          </Link>
         </div>
       </section>
 

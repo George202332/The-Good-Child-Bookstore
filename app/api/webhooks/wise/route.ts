@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       data: { status: "PAID", resolvedAt: new Date() },
     });
     if (claim.count > 0) {
-      await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been confirmed by Wise.`, "PAYOUT");
+      await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been confirmed by Wise.`, "PAYOUT", payout.id);
     }
   } else if (FAILURE_STATES.includes(currentState ?? "")) {
     const claim = await prisma.payoutRequest.updateMany({
@@ -75,7 +75,7 @@ export async function POST(request: Request) {
       data: { status: "REQUESTED", failureReason: `Wise reported: ${currentState}` },
     });
     if (claim.count > 0) {
-      await createNotification(payout.userId, "Payout issue", `Wise reported a problem with your $${Number(payout.amount).toFixed(2)} payout (${currentState}). It's been returned to the queue for review.`, "PAYOUT");
+      await createNotification(payout.userId, "Payout issue", `Wise reported a problem with your $${Number(payout.amount).toFixed(2)} payout (${currentState}). It's been returned to the queue for review.`, "PAYOUT", payout.id);
     }
   }
   // Any other state (e.g. "processing", an intermediate step) is

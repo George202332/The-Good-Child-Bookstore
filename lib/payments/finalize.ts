@@ -35,17 +35,18 @@ export async function finalizeOrderPayment(
 
   // Notify each author whose book was just sold — "You've got a sale"
   // on their Recent Activity (see recentActivityLine in
-  // lib/notification-types.ts). One notification per distinct book, not
-  // per SaleLine, so buying 3 copies of the same title in one order
-  // doesn't spam the author 3 times.
+  // lib/notification-types.ts). One notification per SaleLine (a
+  // format like ebook/paperback of the same title in one order is its
+  // own SaleLine, and its own real sale) — each tagged with that
+  // line's id as relatedRecordId, so deleting that specific transaction
+  // later (actions/transactions.ts's deleteTransaction) can find and
+  // remove exactly this notification, never leaving a trace behind.
   try {
-    const notifiedAuthors = new Set<string>();
     for (const line of order.lines) {
       const authorUserId = line.book.author?.user?.id;
-      if (!authorUserId || notifiedAuthors.has(`${authorUserId}:${line.bookId}`)) continue;
-      notifiedAuthors.add(`${authorUserId}:${line.bookId}`);
+      if (!authorUserId) continue;
       await prisma.notification.create({
-        data: { userId: authorUserId, title: line.book.title, body: `A copy of "${line.book.title}" just sold.`, type: "SALE" },
+        data: { userId: authorUserId, title: line.book.title, body: `A copy of "${line.book.title}" just sold.`, type: "SALE", relatedRecordId: line.id },
       });
     }
   } catch {

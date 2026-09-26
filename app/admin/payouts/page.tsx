@@ -29,7 +29,8 @@ export default async function PayoutsPage() {
   if (role !== "ADMIN" && role !== "ACCOUNTANT") redirect("/admin");
 
   const ledger = await getPayoutLedger();
-  const rows = "error" in ledger ? [] : ledger;
+  const ledgerError = "error" in ledger ? ledger.error : null;
+  const rows = ledgerError ? [] : (ledger as Exclude<typeof ledger, { error: string }>);
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -81,7 +82,11 @@ export default async function PayoutsPage() {
         </div>
       </div>
 
-      {rows.length === 0 ? (
+      {ledgerError ? (
+        <div className="map-card" style={{ padding: 16, color: "var(--coral-deep)", fontSize: 13 }}>
+          Couldn&apos;t load the payout ledger: {ledgerError}
+        </div>
+      ) : rows.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No payouts have been queued yet.</div>
       ) : (
         <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>

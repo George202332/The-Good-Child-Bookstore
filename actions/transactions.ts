@@ -100,28 +100,151 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
   }
 }
 
+export interface TransactionDetail {
+  id: string;
+  kind: "sale" | "payout";
+  type: string;
+  date: string;
+  status: string;
+  amount: number;
+  party: string;
+  partyEmail: string;
+  // Sale-only fields.
+  bookTitle?: string;
+  saleType?: string;
+  format?: string | null;
+  orderId?: string;
+  companyShare?: number;
+  authorShare?: number;
+  affiliateShare?: number;
+  authorReferralShare?: number;
+  affiliateName?: string | null;
+  // Payout-only fields.
+  currency?: string;
+  earningsType?: string;
+  gateway?: string | null;
+  wiseTransferId?: string | null;
+  failureReason?: string | null;
+  requestedAt?: string;
+  resolvedAt?: string | null;
+}
+
+/**
+ * Everything about one transaction that doesn't fit in the ledger's
+ * table row — read on demand when an admin clicks a row (same pop-up
+ * pattern as the Users table's getUserDetail), with a Cancel button up
+ * top instead of routing through a separate page.
+ */
+export async function getTransactionDetail(id: string, type: "sale" | "payout"): Promise<TransactionDetail | null> {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (!role || !BACKEND_ROLES.includes(role) || !canViewFinancials(role)) return null;
+
+  try {
+    if (type === "sale") {
+      const line = await prisma.saleLine.findUnique({
+        where: { id },
+        include: {
+          book: true,
+          order: { include: { reader: { include: { user: true } } } },
+          affiliateLink: { include: { affiliate: { include: { user: true } } } },
+        },
+      });
+      if (!line) return null;
+      return {
+        id: line.id,
+        kind: "sale",
+        type: Number(line.affiliateShare) > 0 && line.affiliateLink ? "Affiliate Sale" : "Organic Sale",
+        date: line.createdAt.toISOString(),
+        status: line.order.status,
+        amount: Number(line.grossAmount),
+        party: line.order.reader.user.name,
+        partyEmail: line.order.reader.user.email,
+        bookTitle: line.book.title,
+        saleType: line.saleType,
+        format: line.format,
+        orderId: line.orderId,
+        companyShare: Number(line.companyShare),
+        authorShare: Number(line.authorShare),
+        affiliateShare: Number(line.affiliateShare),
+        authorReferralShare: Number(line.authorReferralShare),
+        affiliateName: line.affiliateLink?.affiliate?.user?.name ?? null,
+      };
+    }
+
+    const payout = await prisma.payoutRequest.findUnique({ where: { id }, include: { user: true } });
+    if (!payout) return null;
+    return {
+      id: payout.id,
+      kind: "payout",
+      type: "Payout",
+      date: payout.requestedAt.toISOString(),
+      status: payout.status,
+      amount: Number(payout.amount),
+      party: payout.user.name,
+      partyEmail: payout.user.email,
+      currency: payout.currency,
+      earningsType: payout.earningsType,
+      wiseTransferId: payout.wiseTransferId,
+      failureReason: payout.failureReason,
+      requestedAt: payout.requestedAt.toISOString(),
+      resolvedAt: payout.resolvedAt ? payout.resolvedAt.toISOString() : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Permanently deletes a single transaction — Admin only. Works for
  * both a sale ("Organic Sale"/"Affiliate Sale", backed by SaleLine)
- * and a payout (backed by PayoutRequest), real or test. Deliberately
- * no sales-history or transaction-existence block here — this is a
- * direct, explicit per-transaction delete, not the bulk test-data
- * cleanup flow, and the whole point is that it must work on real
- * transactions too. Deleting the SaleLine row removes its royalty and
- * commission shares in the same action, since companyShare/
- * authorShare/affiliateShare/authorReferralShare are columns on that
- * same row, not separate records — there's nothing left over to clean
- * up afterward. The same row is what both the admin ledger and an
- * author's own Transactions view read from, so removing it here
- * removes it from both at once, automatically.
+ * and a payout (backed by PayoutRequest), real or test.
+ *
+ * "Completely removed everywhere, with no trace left" means more than
+ * deleting the SaleLine/PayoutRequest row itself:
+ *
+ * - Any Notification generated from this specific record (a "You've
+ *   got a sale" for a SaleLine, or a "Payout sent"/"Payout rejected"
+ *   for a PayoutRequest) is deleted too, via the loose relatedRecordId
+ *   reference set when that notification was created (see
+ *   lib/payments/finalize.ts and the createNotification call sites in
+ *   actions/admin.ts / app/api/webhooks/wise/route.ts). Without this,
+ *   the author's or reader's Recent Activity would still show a
+ *   notification about a "sale" or "payout" that no longer exists.
+ * - For a sale specifically, deleting the SaleLine can leave its
+ *   parent Order empty (if it was the only line) or with a stale
+ *   totalAmount (if other lines remain). An empty Order is deleted
+ *   outright (cascading its PaymentLog/Invoice rows); an Order with
+ *   remaining lines gets totalAmount recomputed from what's left, so
+ *   nothing about the deleted line lingers in the reader's own Orders
+ *   view either.
  */
 export async function deleteTransaction(id: string, type: "sale" | "payout"): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can delete a transaction." };
 
   try {
+    await prisma.notification.deleteMany({ where: { relatedRecordId: id } });
+
     if (type === "sale") {
+      const line = await prisma.saleLine.findUnique({ where: { id }, select: { orderId: true } });
+      if (!line) return { ok: false, error: "This transaction no longer exists." };
+
       await prisma.saleLine.delete({ where: { id } });
+
+      const remaining = await prisma.saleLine.findMany({ where: { orderId: line.orderId }, select: { grossAmount: true } });
+      if (remaining.length === 0) {
+        // No lines left on this order at all — nothing left for the
+        // reader to see, so remove the order itself rather than
+        // leaving an empty $0.00 order behind.
+        await prisma.order.delete({ where: { id: line.orderId } }).catch(() => {
+          // If the order was already gone (or something still
+          // references it), there's nothing more to clean up here.
+        });
+      } else {
+        const newTotal = remaining.reduce((sum: number, l: { grossAmount: unknown }) => sum + Number(l.grossAmount), 0);
+        await prisma.order.update({ where: { id: line.orderId }, data: { totalAmount: newTotal } });
+      }
     } else {
       await prisma.payoutRequest.delete({ where: { id } });
     }

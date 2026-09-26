@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authAdmin } from "@/lib/auth-admin";
 import { CreateUserForm } from "./CreateUserForm";
-import { UserRowActions } from "./UserRowActions";
+import { UsersTable } from "./UsersTable";
 import { AdminShell } from "@/components/AdminShell";
 import { listUsers } from "@/actions/users-admin";
 import type { Role } from "@/lib/roles";
@@ -70,33 +70,7 @@ export default async function UsersPage({
         ))}
       </div>
 
-      <div className="map-card" style={{ padding: "6px 16px" }}>
-        {users.length === 0 ? (
-          <div style={{ padding: "20px 0", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
-            No accounts of this type yet.
-          </div>
-        ) : (
-          users.map((u) => (
-            <div key={u.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
-              <Link href={`/admin/users/${u.id}`} style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 13.5 }}>
-                  {u.name} {u.suspended && <span className="age-pill" style={{ marginLeft: 6, background: "var(--admin-danger, #EF6262)", color: "#fff" }}>Suspended</span>}
-                </div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                  {u.email} · {u.role} · #{u.accountNumber}
-                  {" · joined "}{u.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  {u.location ? ` · ${u.location}` : ""}
-                </div>
-              </Link>
-              {u.id === session.user.id ? (
-                <span className="age-pill">You</span>
-              ) : (
-                <UserRowActions userId={u.id} currentRole={u.role} suspended={u.suspended} />
-              )}
-            </div>
-          ))
-        )}
-      </div>
+      <UsersTable users={users} currentUserId={session.user.id} />
     </AdminShell>
   );
 }

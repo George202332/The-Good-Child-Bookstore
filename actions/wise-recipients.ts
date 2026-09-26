@@ -120,6 +120,20 @@ export async function deleteWiseRecipient(recipientId: string): Promise<{ ok: bo
   const recipient = await prisma.wiseRecipient.findUnique({ where: { id: recipientId } });
   if (!recipient || recipient.userId !== userId) return { ok: false, error: "Not found." };
 
+  // A recipient with real payout history (any PayoutRequest, whatever
+  // its status) must never actually be deleted — this relation has no
+  // cascade, by design, since a payout row is a financial record. The
+  // admin payout ledger (actions/payout-ledger.ts) reads every payout
+  // ever queued and needs this recipient row to still exist to show
+  // where that money went/is going, so deleting it out from under a
+  // real payout would leave a dangling reference. Block it here with a
+  // clear reason, the same protective pattern used for deleting an
+  // account or a book with real financial history.
+  const referencedByPayout = await prisma.payoutRequest.findFirst({ where: { recipientId } });
+  if (referencedByPayout) {
+    return { ok: false, error: "This payout destination has payout history tied to it and can't be deleted — add a new one and set it as default instead." };
+  }
+
   await prisma.wiseRecipient.delete({ where: { id: recipientId } });
   revalidatePath("/account/payout-settings");
   revalidatePath("/account/profile");

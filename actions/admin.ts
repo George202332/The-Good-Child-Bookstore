@@ -229,7 +229,7 @@ export async function approvePayoutRequest(payoutId: string): Promise<{ ok: bool
         where: { id: payoutId },
         data: { status: "PAID", resolvedAt: new Date(), wiseTransferId: result.transferId },
       });
-      await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent via ${gateway === "PAYONEER" ? "Payoneer" : "Wise"}.`, "PAYOUT");
+      await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent via ${gateway === "PAYONEER" ? "Payoneer" : "Wise"}.`, "PAYOUT", payout.id);
     } else {
       // Release the claim — a failed transfer must go back to a
       // reviewable state, not stay stuck in PROCESSING forever. Back to
@@ -256,7 +256,7 @@ export async function rejectPayoutRequest(payoutId: string): Promise<{ ok: boole
       where: { id: payoutId },
       data: { status: "REJECTED", resolvedAt: new Date() },
     });
-    await createNotification(payout.userId, "Payout rejected", `Your $${Number(payout.amount).toFixed(2)} payout request was not approved.`, "PAYOUT");
+    await createNotification(payout.userId, "Payout rejected", `Your $${Number(payout.amount).toFixed(2)} payout request was not approved.`, "PAYOUT", payout.id);
     revalidatePath("/admin/payouts");
     return { ok: true };
   } catch (e) {

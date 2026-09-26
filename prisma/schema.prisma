@@ -870,8 +870,20 @@ model Notification {
   type      String   @default("GENERAL")
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
+  /** Loose (no FK — deliberately, matching the same reasoning as
+   * `type` above) reference to whichever record this notification was
+   * generated from: a SaleLine's id for a "SALE" notification, a
+   * PayoutRequest's id for a "PAYOUT" one. Lets
+   * actions/transactions.ts's deleteTransaction find and remove the
+   * matching notification when an admin deletes that transaction, so
+   * no trace of it (real or test) is left behind in the account it
+   * notified — see the comment there for the full explanation. Null
+   * for every notification type that isn't generated from a
+   * deletable financial record (messages, book/blog moderation, etc). */
+  relatedRecordId String?
 
   @@index([userId])
+  @@index([relatedRecordId])
 }
 
 model Message {
