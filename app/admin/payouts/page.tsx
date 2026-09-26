@@ -63,51 +63,69 @@ export default async function PayoutsPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 16 }}>
-        <div className="map-card" style={{ padding: 12 }}>
-          <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>Book sales earnings</div>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>${totals.bookSales.toFixed(2)}</div>
+      <div className="stat-grid" style={{ marginBottom: 24 }}>
+        <div className="stat-card">
+          <div className="stat-label">Book sales earnings</div>
+          <div className="stat-value">${totals.bookSales.toFixed(2)}</div>
+          <div className="stat-sub">All time</div>
         </div>
-        <div className="map-card" style={{ padding: 12 }}>
-          <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>Affiliate earnings</div>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>${totals.affiliate.toFixed(2)}</div>
+        <div className="stat-card">
+          <div className="stat-label">Affiliate earnings</div>
+          <div className="stat-value">${totals.affiliate.toFixed(2)}</div>
+          <div className="stat-sub">All time</div>
         </div>
-        <div className="map-card" style={{ padding: 12 }}>
-          <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>Combined total</div>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>${totals.combined.toFixed(2)}</div>
+        <div className="stat-card">
+          <div className="stat-label">Combined total</div>
+          <div className="stat-value">${totals.combined.toFixed(2)}</div>
+          <div className="stat-sub">Book sales + affiliate</div>
         </div>
-        <div className="map-card" style={{ padding: 12 }}>
-          <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>Paid / total</div>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>{totals.paidCount} / {rows.length}</div>
+        <div className="stat-card">
+          <div className="stat-label">Paid / total</div>
+          <div className="stat-value">{totals.paidCount} / {rows.length}</div>
+          <div className="stat-sub">Payouts settled so far</div>
         </div>
       </div>
 
-      {ledgerError ? (
-        <div className="map-card" style={{ padding: 16, color: "var(--coral-deep)", fontSize: 13 }}>
+      {ledgerError && (
+        <div className="map-card" style={{ padding: 16, marginBottom: 16, color: "var(--coral-deep)", fontSize: 13 }}>
           Couldn&apos;t load the payout ledger: {ledgerError}
         </div>
-      ) : rows.length === 0 ? (
-        <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No payouts have been queued yet.</div>
-      ) : (
-        <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
+      )}
+
+      {/* This table is the permanent payout record — account number, holder
+          name, payment method, account/payment details plus email, book
+          sales earnings, affiliate earnings, combined total, and paid/not
+          paid status for every payout ever queued. It stays on screen at
+          all times, with its full header row, even before any payout has
+          ever been queued — an empty state renders as a row inside the
+          table rather than replacing the table outright, so the account
+          details it's meant to always show are never missing. */}
+      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={TH}>Account #</th>
+              <th style={TH}>Account holder</th>
+              <th style={TH}>Email</th>
+              <th style={TH}>Method</th>
+              <th style={TH}>Account / payment details</th>
+              <th style={TH}>Book sales</th>
+              <th style={TH}>Affiliate</th>
+              <th style={TH}>Total</th>
+              <th style={TH}>Status</th>
+              <th style={TH}>Requested</th>
+              <th style={TH}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
               <tr>
-                <th style={TH}>Account #</th>
-                <th style={TH}>Account holder</th>
-                <th style={TH}>Email</th>
-                <th style={TH}>Method</th>
-                <th style={TH}>Account / payment details</th>
-                <th style={TH}>Book sales</th>
-                <th style={TH}>Affiliate</th>
-                <th style={TH}>Total</th>
-                <th style={TH}>Status</th>
-                <th style={TH}>Requested</th>
-                <th style={TH}></th>
+                <td colSpan={11} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                  No payouts have been queued yet — this table fills in as soon as one is.
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {rows.map((p) => (
+            ) : (
+              rows.map((p) => (
                 <tr key={p.id}>
                   <td style={{ ...TD, fontFamily: "monospace" }}>{p.accountNumber}</td>
                   <td style={TD}>
@@ -134,11 +152,11 @@ export default async function PayoutsPage() {
                   <td style={TD}>{new Date(p.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                   <td style={TD}>{p.status === "REQUESTED" && role === "ADMIN" ? <ModerationActions payoutId={p.id} /> : null}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
     </AdminShell>
   );
 }

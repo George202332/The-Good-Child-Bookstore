@@ -899,6 +899,14 @@ model Message {
    * the new Drafts tab. */
   isDraft    Boolean  @default(false)
   createdAt  DateTime @default(now())
+  /** Set only on a reader/author's first message to Support (see
+   * actions/messages.ts's getSupportRecipient()/sendMessage()) — one of
+   * "ACCOUNT", "PAYMENTS", "TECHNICAL", "CONTENT", "OTHER", picked from
+   * a fixed list at send time so the admin backend's Messages tab
+   * (actions/admin-messages.ts) can show what kind of issue this is
+   * without reading the whole thread first. Null for ordinary
+   * person-to-person messages, which have no such category. */
+  category   String?
 }
 
 model SupportTicket {

@@ -1,6 +1,5 @@
 import { createHmac } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { sendEmail } from "@/lib/email";
 import { getPublicSiteUrl as getSiteUrl } from "@/lib/seo/site-url";
 
 /** Stateless, signed unsubscribe token — no separate token record
@@ -29,40 +28,12 @@ export async function processUnsubscribe(userId: string, sig: string): Promise<{
   return { ok: true };
 }
 
-/**
- * Sends a marketing email to every opted-in reader — opt-in only, per
- * explicit instruction (marketingOptIn defaults to false and is never
- * flipped on by anything other than the reader's own explicit choice
- * in Settings). Every send includes a real, working unsubscribe link
- * specific to that recipient.
- *
- * Sends sequentially with a small stagger rather than Promise.all —
- * deliberately avoids bursting the email provider's rate limit on a
- * list of any real size.
- */
-export async function sendMarketingEmail(subject: string, bodyHtml: string): Promise<{ sent: number; failed: number }> {
-  const recipients = await prisma.user.findMany({
-    where: { marketingOptIn: true, role: "READER" },
-    select: { id: true, email: true, name: true },
-  });
-
-  let sent = 0;
-  let failed = 0;
-
-  for (const recipient of recipients) {
-    const unsubscribeUrl = getUnsubscribeUrl(recipient.id);
-    const html = `
-      ${bodyHtml}
-      <hr style="margin: 24px 0; border: none; border-top: 1px solid #eee;" />
-      <p style="color: #999; font-size: 11px;">
-        You're receiving this because you opted in to marketing emails from The Good Child Bookstore.
-        <a href="${unsubscribeUrl}">Unsubscribe</a>
-      </p>
-    `;
-    const result = await sendEmail(recipient.email, subject, html);
-    if (result.ok) sent++;
-    else failed++;
-  }
-
-  return { sent, failed };
-}
+// The actual mass-send logic (choosing recipients by audience —
+// opted-in readers, all authors, active affiliates, or specific
+// hand-picked people — and looping sendEmail() over them) now lives in
+// actions/marketing.ts, as part of the admin mailing-list tool. This
+// file keeps just the unsubscribe-link plumbing above, since
+// app/unsubscribe/page.tsx and actions/marketing.ts both need it and
+// neither is the right permanent home for it. The unsubscribe footer
+// line itself is added by the shared branded template
+// (lib/email/template.ts) whenever a send passes an unsubscribeUrl.

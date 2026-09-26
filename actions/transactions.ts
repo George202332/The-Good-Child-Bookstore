@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { BACKEND_ROLES, canViewFinancials } from "@/lib/roles";
@@ -23,7 +24,17 @@ export interface TransactionRow {
   party: string;
   detail: string;
   amount: number;
-  affiliateInfo: string;
+  /** The company's revenue cut on this row, or null when the column
+   * doesn't apply (a Payout row isn't a split sale — its whole amount
+   * is already shown in `amount`). */
+  companyShare: number | null;
+  /** What the author earned on this row (the "Royalty" column), or
+   * null when not applicable. */
+  authorShare: number | null;
+  /** What the affiliate earned on this row (the "Commission" column),
+   * or null when not applicable. */
+  affiliateShare: number | null;
+  affiliateName: string | null;
   status: string;
 }
 
@@ -55,6 +66,8 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       createdAt: Date;
       saleType: string;
       grossAmount: unknown;
+      companyShare: unknown;
+      authorShare: unknown;
       affiliateShare: unknown;
       book: { title: string };
       order: { status: string; reader: { user: { name: string } } };
@@ -70,9 +83,10 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
         party: s.order.reader.user.name,
         detail: s.book.title,
         amount: Number(s.grossAmount),
-        affiliateInfo: isAffiliateSale
-          ? `${s.affiliateLink!.affiliate.user.name} — $${Number(s.affiliateShare).toFixed(2)}`
-          : "—",
+        companyShare: Number(s.companyShare),
+        authorShare: Number(s.authorShare),
+        affiliateShare: Number(s.affiliateShare),
+        affiliateName: isAffiliateSale ? s.affiliateLink!.affiliate.user.name : null,
         status: s.order.status,
       };
     });
@@ -90,7 +104,10 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       party: p.user.name,
       detail: "Wise payout",
       amount: Number(p.amount),
-      affiliateInfo: "—",
+      companyShare: null,
+      authorShare: null,
+      affiliateShare: null,
+      affiliateName: null,
       status: p.status,
     }));
 
@@ -256,6 +273,25 @@ export async function deleteTransaction(id: string, type: "sale" | "payout"): Pr
         metadata: { transactionId: id, transactionType: type, deletedAt: new Date().toISOString() },
       },
     });
+
+    // The admin dashboard's "Total orders" card (and the analytics page)
+    // read live counts on every request, but Next's client-side Router
+    // Cache can still serve an already-visited page's last snapshot
+    // instead of refetching — so without this, deleting a transaction
+    // (or the order it belonged to) left "Total orders" showing its
+    // pre-deletion figure until something else happened to force a
+    // refetch. Revalidating every place that number (or the deleted
+    // transaction itself) could still be showing makes sure the very
+    // next visit to any of them is always freshly computed.
+    revalidatePath("/admin");
+    revalidatePath("/admin/analytics");
+    revalidatePath("/admin/transactions");
+    revalidatePath("/admin/payouts");
+    revalidatePath("/account/orders");
+    revalidatePath("/account/revenue");
+    revalidatePath("/account/my-transactions");
+    revalidatePath("/account/transaction-history");
+    revalidatePath("/account/payout-settings");
 
     return { ok: true };
   } catch (e) {

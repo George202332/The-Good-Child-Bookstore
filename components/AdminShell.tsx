@@ -38,13 +38,13 @@ function navItemsForRole(role: Role) {
       { key: "books-checklist", label: "Review Checklist", href: "/admin/books/checklist-settings" },
       { key: "site-settings", label: "Site Management", href: "/admin/site-settings" },
       { key: "api-management", label: "API Management", href: "/admin/api-management" },
-      { key: "marketing", label: "Marketing Email", href: "/admin/marketing" },
+      { key: "marketing", label: "Mailing List", href: "/admin/marketing" },
       { key: "library", label: "Library", href: "/admin/library" },
       { key: "commission-settings", label: "Commission Settings", href: "/admin/commission-settings" },
       { key: "users", label: "Users", href: "/admin/users" },
       { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },
       { key: "transactions", label: "Transactions", href: "/admin/transactions" },
-      { key: "data-management", label: "Data Management", href: "/admin/data-management" },
+      { key: "messages", label: "Messages", href: "/admin/messages" },
     ];
   }
   if (role === "CHIEF_EDITOR") {

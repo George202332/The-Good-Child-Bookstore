@@ -171,7 +171,30 @@ export async function listMessagesWith(counterpartId: string): Promise<MessageRo
   }
 }
 
-export async function sendMessage(recipientId: string, body: string): Promise<{ ok: boolean; error?: string }> {
+export const SUPPORT_CATEGORIES = [
+  { key: "ACCOUNT", label: "Account" },
+  { key: "PAYMENTS", label: "Payments" },
+  { key: "TECHNICAL", label: "Technical" },
+  { key: "CONTENT", label: "Content" },
+  { key: "OTHER", label: "Other" },
+] as const;
+export type SupportCategory = (typeof SUPPORT_CATEGORIES)[number]["key"];
+
+/** The fixed "Contact Support" target shown on the Messages tab's
+ * compose form — resolves to the platform's longest-standing Admin
+ * account, but the admin backend's own Messages tab (see
+ * actions/admin-messages.ts) pools every message sent to ANY backend
+ * account into one shared inbox, so which specific admin this resolves
+ * to doesn't determine who can see or answer it. Displayed as "Support
+ * Team" rather than that admin's personal name — a reader/author
+ * contacting support shouldn't need to know which staff member that is. */
+export async function getSupportRecipient(): Promise<{ id: string; name: string } | null> {
+  const admin = await prisma.user.findFirst({ where: { role: "ADMIN" }, orderBy: { createdAt: "asc" }, select: { id: true } });
+  if (!admin) return null;
+  return { id: admin.id, name: "Support Team" };
+}
+
+export async function sendMessage(recipientId: string, body: string, category?: SupportCategory): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "You need to be signed in." };
   if (!body.trim()) return { ok: false, error: "Message can't be empty." };
@@ -180,24 +203,40 @@ export async function sendMessage(recipientId: string, body: string): Promise<{ 
   const recipient = await prisma.user.findUnique({ where: { id: recipientId } });
   if (!recipient) return { ok: false, error: "Recipient not found." };
 
+  const isSupportMessage = BACKEND_ROLES.includes(recipient.role);
+  // The category picker only needs answering once per support thread —
+  // this is the very first message this sender has ever sent this
+  // recipient, so there's no earlier category to fall back on.
+  const priorMessageCount = isSupportMessage
+    ? await prisma.message.count({ where: { senderId: session.user.id, recipientId } })
+    : 0;
+  if (isSupportMessage && priorMessageCount === 0 && !category) {
+    return { ok: false, error: "Choose what this is about before sending." };
+  }
+
   await prisma.message.create({
-    data: { senderId: session.user.id, recipientId, body: body.trim() },
+    data: { senderId: session.user.id, recipientId, body: body.trim(), category: isSupportMessage ? category : null },
   });
   const { createNotification } = await import("@/actions/notifications");
   await createNotification(recipientId, `New message from ${session.user.name}`, body.trim().slice(0, 140), "MESSAGE");
 
-  if (BACKEND_ROLES.includes(recipient.role)) {
-    // Fire-and-forget: the in-app message is already saved and is the
-    // real record either way, so this never blocks or fails the send
-    // itself if the notification errors. Reply-To is set to the
-    // sender's real email — admin and public accounts use separate
-    // sessions, so support replying by email directly is the practical
-    // path, not a link back into the (session-gated) in-app thread.
+  if (isSupportMessage) {
+    // Fire-and-forget: the in-app message (and the admin backend's own
+    // Messages tab, which reads that same row) is already the real
+    // record either way, so this never blocks or fails the send itself
+    // if the notification errors. Reply-To is set to the sender's real
+    // email — admin and public accounts use separate sessions, so
+    // support replying by email directly is the practical path, not a
+    // link back into the (session-gated) in-app thread; the admin
+    // backend Messages tab is the other, in-app way to reply, and that
+    // reply goes back out to this same sender's email too (see
+    // actions/admin-messages.ts's sendAdminReply).
     const senderRecord = await prisma.user.findUnique({ where: { id: session.user.id }, select: { email: true } });
+    const categoryLabel = category ? SUPPORT_CATEGORIES.find((c) => c.key === category)?.label : undefined;
     sendEmail(
       SUPPORT_INBOX,
-      `New message from ${session.user.name} (${session.user.role?.toLowerCase()})`,
-      `<p><strong>${session.user.name}</strong> sent a message via their account:</p><p style="white-space: pre-wrap;">${body.trim()}</p>`,
+      `${categoryLabel ? `[${categoryLabel}] ` : ""}New message from ${session.user.name} (${session.user.role?.toLowerCase()})`,
+      `<p><strong>${session.user.name}</strong> (${session.user.role?.toLowerCase()}) sent a support message${categoryLabel ? ` — category: <strong>${categoryLabel}</strong>` : ""}.</p><p style="white-space: pre-wrap;">${body.trim()}</p><p>Reply from Admin → Messages in the backend to answer both in their account and by email.</p>`,
       undefined,
       senderRecord?.email
     ).catch(() => {});

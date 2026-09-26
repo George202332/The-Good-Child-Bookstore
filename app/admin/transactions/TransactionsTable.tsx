@@ -37,7 +37,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              {["Transaction ID", "Date", "Type", "Party", "Detail", "Amount", "Affiliate Commission", "Action"].map((h) => (
+              {["Transaction ID", "Date", "Type", "Party", "Details", "Amount", "Company", "Royalty", "Commission", "Action"].map((h) => (
                 <th key={h} style={TH}>{h}</th>
               ))}
             </tr>
@@ -45,7 +45,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
+                <td colSpan={10} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
                   No transactions recorded yet — this table will fill in as sales and payouts happen.
                 </td>
               </tr>
@@ -69,8 +69,10 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                     <td style={TD}>{r.party}</td>
                     <td style={TD}>{r.detail}</td>
                     <td style={{ ...TD, fontWeight: 700 }}>{r.type === "Payout" ? "-" : ""}${r.amount.toFixed(2)}</td>
-                    <td style={{ ...TD, color: r.affiliateInfo === "—" ? "var(--ink-faint)" : "#1F6B48", fontWeight: r.affiliateInfo === "—" ? 400 : 700 }}>
-                      {r.affiliateInfo}
+                    <td style={TD}>{r.companyShare !== null ? `$${r.companyShare.toFixed(2)}` : "—"}</td>
+                    <td style={TD}>{r.authorShare !== null ? `$${r.authorShare.toFixed(2)}` : "—"}</td>
+                    <td style={{ ...TD, color: r.affiliateShare ? "#1F6B48" : "var(--ink-faint)", fontWeight: r.affiliateShare ? 700 : 400 }}>
+                      {r.affiliateShare !== null ? `$${r.affiliateShare.toFixed(2)}${r.affiliateName ? ` (${r.affiliateName})` : ""}` : "—"}
                     </td>
                     <td style={TD} onClick={(e) => e.stopPropagation()}>
                       {canDelete && (

@@ -10,8 +10,8 @@
     --gold:#F4B942;
     --gold-deep:#96690A;
     --ink:#2E2440;
-    --ink-soft:#3A3050;
-    --ink-faint:#493D63;
+    --ink-soft:#403556;
+    --ink-faint:#504469;
     --coral:#FF8C6B;
     --coral-deep:#A8452B;
     --line: rgba(63,51,80,0.12);
@@ -21,8 +21,8 @@
     --cream:#1E1A26;
     --paper:#2A2433;
     --ink:#F1EAFB;
-    --ink-soft:#D8CEEA;
-    --ink-faint:#B5A8CE;
+    --ink-soft:#D2C7E5;
+    --ink-faint:#AA9CC3;
     --line: rgba(255,255,255,0.14);
     --shadow: 0 10px 30px rgba(0,0,0,0.35);
   }
@@ -1095,7 +1095,7 @@
   .aff-earning-section.promo{border-left-color:#E8956B;}
   .aff-earning-section h3{font-size:15px;margin-bottom:4px;}
   .aff-earning-section .aff-rate{font-size:22px;font-weight:700;margin-bottom:8px;}
-  .aff-earning-section .aff-rate span{font-size:13.5px;font-weight:600;color:var(--ink-soft);}
+  .aff-earning-section .aff-rate span{font-size:13.5px;font-weight:400;color:var(--ink-soft);}
   .aff-timeline{
     display:flex;flex-direction:column;gap:0;
     max-height:765px; /* roughly 15 rows visible at once */
@@ -1523,7 +1523,7 @@
   }
   .dashboard-nav-link{
     display:flex;align-items:center;gap:2mm;padding:8px 8px 8px 6mm;border-radius:8px;
-    font-size:15.5px;font-weight:600;color:var(--ink-soft);line-height:1.35;
+    font-size:15.5px;font-weight:500;color:var(--ink-soft);line-height:1.35;
     transition:background .15s ease, color .15s ease;
     margin-bottom:1px;text-align:left;
   }

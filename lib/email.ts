@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { prisma } from "@/lib/prisma";
+import { wrapEmailHtml } from "@/lib/email/template";
 
 /**
  * Centralized transactional email sending — the single place every
@@ -31,7 +32,16 @@ import { prisma } from "@/lib/prisma";
  *   - actions/contact.ts        — contact form → support inbox
  *   - actions/messages.ts       — in-app message → support inbox notification
  *   - lib/email/verification.ts — account/author email verification link
- *   - lib/email/marketing.ts    — opt-in marketing send with unsubscribe link
+ *   - actions/marketing.ts      — the admin mailing-list tool (by user type
+ *                                 or specific recipients), including the
+ *                                 opt-in-only reader marketing send
+ *
+ * Every one of those callers still only builds its own HTML fragment
+ * (the message-specific content); this function wraps that fragment in
+ * the shared branded template (lib/email/template.ts) before it's sent,
+ * so every email leaving the platform — transactional or promotional —
+ * looks like it came from the same company, with no per-caller styling
+ * work required.
  */
 
 async function getEmailCredentials(): Promise<{ apiKey?: string; fromEmail: string }> {
@@ -52,7 +62,8 @@ export async function sendEmail(
   subject: string,
   html: string,
   attachment?: { filename: string; content: Uint8Array },
-  replyTo?: string
+  replyTo?: string,
+  unsubscribeUrl?: string
 ): Promise<{ ok: boolean; error?: string }> {
   const { apiKey, fromEmail } = await getEmailCredentials();
   if (!apiKey) {
@@ -66,7 +77,7 @@ export async function sendEmail(
       from: fromEmail,
       to,
       subject,
-      html,
+      html: wrapEmailHtml(html, { unsubscribeUrl }),
       ...(replyTo ? { replyTo } : {}),
       ...(attachment ? { attachments: [{ filename: attachment.filename, content: Buffer.from(attachment.content) }] } : {}),
     });

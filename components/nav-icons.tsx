@@ -104,15 +104,19 @@ export const NAV_ICONS: Record<string, ReactElement> = {
     <svg {...ICON_PROPS}><circle cx="12" cy="12" r="9" /><path d="M12 7v10M14.8 9.3c0-1.3-1.2-2-2.8-2s-2.8.8-2.8 2 1.2 1.7 2.8 2 2.8.7 2.8 2-1.2 2-2.8 2-2.8-.7-2.8-2" /></svg>
   ),
   "transaction-history": (
-    <svg {...ICON_PROPS}><path d="M6 3.5h9l4 4v13H6Z" /><path d="M9.5 11h6M9.5 14.5h6M9.5 18h4" /></svg>
+    <svg {...ICON_PROPS}><path d="M4 4h13l3 3v13H4Z" /><path d="M9.5 11h6M9.5 14.5h6M9.5 18h4" /></svg>
   ),
   // Author's own "Transactions" (Financial section, below Revenue) —
-  // previously missing here entirely, which is why its sidebar row had
-  // no icon slot and sat visually misaligned against Revenue and
-  // Payouts right above/below it. Same receipt shape as
-  // "transaction-history" above: same kind of record, just a different
-  // route (money the account holder personally spent, not received).
+  // originally missing here entirely, which left its row with no icon
+  // slot at all (fixed previously). The receipt shape used at first was
+  // itself off-center inside its 24x24 viewBox (left edge at x=6, right
+  // edge at x=19 — its middle sat left of the box's true center), which
+  // is what still read as "drifting left" next to Revenue's circle and
+  // Payouts' house glyph, both of which are drawn symmetrically about
+  // x=12. Redrawn here with its outer edges at x=4 and x=20 — centered
+  // on x=12, exactly like the icons above and below it — so all three
+  // now sit on the same optical center line.
   "my-transactions": (
-    <svg {...ICON_PROPS}><path d="M6 3.5h9l4 4v13H6Z" /><path d="M9.5 11h6M9.5 14.5h6M9.5 18h4" /></svg>
+    <svg {...ICON_PROPS}><path d="M4 4h13l3 3v13H4Z" /><path d="M9.5 11h6M9.5 14.5h6M9.5 18h4" /></svg>
   ),
 };
