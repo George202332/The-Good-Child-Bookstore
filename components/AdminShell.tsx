@@ -18,7 +18,7 @@ function navItemsForRole(role: Role) {
   if (role === "ACCOUNTANT") {
     return [
       { key: "dashboard", label: "Dashboard", href: "/admin" },
-      { key: "analytics", label: "Analytics", href: "/admin/analytics" },
+      { key: "analytics", label: "Sales Analytics", href: "/admin/analytics" },
       { key: "transactions", label: "Transactions", href: "/admin/transactions" },
       { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },
     ];
@@ -30,7 +30,7 @@ function navItemsForRole(role: Role) {
     { key: "seo-marketing", label: "SEO & Marketing", href: "/admin/seo-marketing" },
     { key: "google-infrastructure", label: "Google Infrastructure", href: "/admin/google-infrastructure" },
     { key: "blog", label: "Blog Moderation", href: "/admin/blog" },
-    { key: "analytics", label: "Analytics", href: "/admin/analytics" },
+    { key: "analytics", label: "Sales Analytics", href: "/admin/analytics" },
   ];
   if (role === "ADMIN") {
     return [

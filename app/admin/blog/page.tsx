@@ -84,29 +84,52 @@ export default async function BlogModerationPage({
         ))}
       </div>
 
-      <div className="map-card" style={{ padding: "6px 16px" }}>
-        {posts.length === 0 ? (
-          <div style={{ padding: "20px 0", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
-            Nothing here yet.
-          </div>
-        ) : (
-          posts.map((p) => (
-            <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13.5 }}>{p.title}</div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-                  by {p.authorName} · {p.status} · submitted {p.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                  {p.commentCount > 0 && ` · ${p.commentCount} comment${p.commentCount === 1 ? "" : "s"}`}
-                </div>
-              </div>
-              {p.status === "PENDING_REVIEW" ? (
-                <ModerationActions blogId={p.id} />
-              ) : (
-                <Link href={`/admin/blog/${p.id}`} className="btn btn-ghost btn-small">View comments</Link>
-              )}
-            </div>
-          ))
-        )}
+      {/* A table, matching how Book Management is structured — but unlike
+          that page, the header row and column template always render,
+          even with zero posts: the empty state is a single row inside
+          tbody rather than something that replaces the table outright,
+          so the structure is never blank or missing. */}
+      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr>
+              <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Title</th>
+              <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Author</th>
+              <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Status</th>
+              <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Submitted</th>
+              <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Comments</th>
+              <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {posts.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ padding: "24px 14px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
+                  Nothing here yet.
+                </td>
+              </tr>
+            ) : (
+              posts.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}><strong>{p.title}</strong></td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{p.authorName}</td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{p.status}</td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", whiteSpace: "nowrap" }}>
+                    {p.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{p.commentCount}</td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
+                    {p.status === "PENDING_REVIEW" ? (
+                      <ModerationActions blogId={p.id} />
+                    ) : (
+                      <Link href={`/admin/blog/${p.id}`} className="btn btn-ghost btn-small">View comments</Link>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </AdminShell>
   );

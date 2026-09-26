@@ -46,6 +46,24 @@ function isCurrentMonth(d: Date, now: Date): boolean {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
+/** Short relative timestamp ("2h ago", "Just now") for the author
+ * dashboard's Recent activity feed — swapping in real elapsed time is
+ * part of giving that section a livelier feel instead of a bare list of
+ * lines with no sense of when anything happened. */
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
+
 /**
  * Converted from accountHTML() (the-good-child-bookstore_54_1.html:6682+).
  * The reader branch is fully ported with real Prisma data (books
@@ -408,22 +426,41 @@ export default async function AccountPage() {
             {recentActivity.length === 0 ? (
               <p style={{ fontSize: 12, color: "var(--ink-faint)" }}>Nothing new yet.</p>
             ) : (
-              <div className="scroll-fade-no-bar" style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 168, overflowY: "auto" }}>
+              <div className="scroll-fade-no-bar" style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 220, overflowY: "auto" }}>
                 {recentActivity.map((n) => {
                   const info = notificationTypeInfo(n.type);
                   const line = recentActivityLine(n.type, n.title) ?? n.title;
                   return (
-                    <div key={n.id} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={info.color} strokeWidth={1.8} style={{ flexShrink: 0, marginTop: 2 }}>
-                        <path d={info.iconPath} />
-                      </svg>
-                      <div
+                    <div
+                      key={n.id}
+                      className="activity-feed-item"
+                      style={{
+                        display: "flex", alignItems: "flex-start", gap: 10,
+                        padding: "9px 10px", borderRadius: 12,
+                        background: `${info.color}14`,
+                        borderLeft: `3px solid ${info.color}`,
+                      }}
+                    >
+                      <span
                         style={{
-                          fontSize: 12.5, lineHeight: 1.4,
-                          display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                          flexShrink: 0, width: 26, height: 26, borderRadius: "50%",
+                          background: `${info.color}26`, display: "flex", alignItems: "center", justifyContent: "center",
                         }}
                       >
-                        <span style={{ color: info.color, fontWeight: 700 }}>{line}</span>
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke={info.color} strokeWidth={2}>
+                          <path d={info.iconPath} />
+                        </svg>
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontSize: 12.5, lineHeight: 1.4, fontWeight: 700, color: info.color,
+                            display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+                          }}
+                        >
+                          {line}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 2, fontWeight: 600 }}>{timeAgo(n.createdAt)}</div>
                       </div>
                     </div>
                   );

@@ -123,18 +123,29 @@
   }
   .cart-btn{
     position:relative;display:flex;align-items:center;justify-content:center;
-    width:35px;height:35px;border-radius:10px;
+    width:30px;height:30px;border-radius:9px;
     background:var(--pink);border:1px solid rgba(63,51,80,0.08);
     box-shadow:0 1px 3px rgba(63,51,80,0.08);
     transition:transform .15s ease, background .15s ease, box-shadow .15s ease;
   }
-  .cart-btn:hover{transform:translateY(-2px);background:var(--pink-deep);box-shadow:0 6px 16px rgba(63,51,80,0.16);}
+  .header-icon-btn:hover .cart-btn{transform:translateY(-2px);background:var(--pink-deep);box-shadow:0 6px 16px rgba(63,51,80,0.16);}
   .cart-count{
     position:absolute;top:-4px;right:-4px;
-    background:var(--coral);color:var(--ink);font-size:11.5px;font-weight:700;
-    min-width:19px;height:19px;border-radius:50%;
+    background:var(--coral);color:var(--ink);font-size:10px;font-weight:700;
+    min-width:16px;height:16px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
     border:2px solid var(--cream);box-shadow:0 2px 5px rgba(255,140,107,0.4);
+  }
+  /* Header wishlist/cart/my-account controls — the icon circle
+     (.cart-btn, now slightly smaller) plus a small text label under it,
+     stacked in a column. */
+  .header-icon-btn{
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    text-decoration:none;
+  }
+  .header-icon-label{
+    font-size:9.5px;font-weight:700;color:var(--ink-soft);
+    text-transform:capitalize;letter-spacing:0.01em;line-height:1;
   }
   .burger{display:none;}
   @media (max-width:1180px){
@@ -209,6 +220,11 @@
      compact size while still surfacing everything if scrolled. */
   .scroll-fade-no-bar{scrollbar-width:none;-ms-overflow-style:none;}
   .scroll-fade-no-bar::-webkit-scrollbar{display:none;width:0;height:0;}
+
+  /* Author dashboard "Recent activity" feed items — a little lift and
+     brighten on hover so the feed feels alive rather than static. */
+  .activity-feed-item{transition:transform .15s ease,filter .15s ease;}
+  .activity-feed-item:hover{transform:translateX(2px);filter:brightness(1.04);}
   .skeleton-pulse *{background-color:var(--line) !important;color:transparent !important;}
 
   /* ---------- Section headers ---------- */
@@ -593,10 +609,23 @@
     display:flex;flex-direction:column;align-items:center;gap:8px;
     border:1px solid var(--line);
     transition:transform .15s ease,box-shadow .15s ease;
+    position:relative;overflow:hidden;
   }
   .cat-tile:hover{transform:translateY(-4px);box-shadow:var(--shadow);}
   .cat-tile span{font-weight:700;font-size:13px;}
   .cat-tile small{font-size:11.5px;color:var(--ink-soft);}
+  /* Subtle sheen overlay — a soft diagonal highlight laid over the tile,
+     just enough to give it some depth without fighting the tile's own
+     gradient color. */
+  .cat-tile::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(135deg, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.05) 45%, rgba(255,255,255,0) 65%);
+    opacity:0.85;transition:opacity .18s ease;
+  }
+  .cat-tile:hover::after{opacity:1;}
+  html.dark-mode .cat-tile::after{
+    background:linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 60%);
+  }
 
   /* ---------- Quote strip ---------- */
   .quote-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;}
@@ -663,8 +692,19 @@
   .age-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:18px;}
   @media (max-width:900px){ .age-grid{grid-template-columns:repeat(3,1fr);} }
   @media (max-width:560px){ .age-grid{grid-template-columns:repeat(2,1fr);} }
-  .age-card{border-radius:18px;padding:26px 14px;text-align:center;border:1px solid var(--line);transition:transform .18s ease,box-shadow .18s ease;}
+  .age-card{border-radius:18px;padding:26px 14px;text-align:center;border:1px solid var(--line);transition:transform .18s ease,box-shadow .18s ease;position:relative;overflow:hidden;}
   .age-card:hover{transform:translateY(-5px);box-shadow:var(--shadow);}
+  /* Same subtle sheen overlay as the Shop by Shelf tiles, for visual
+     consistency between the two category-card grids. */
+  .age-card::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(135deg, rgba(255,255,255,0.32) 0%, rgba(255,255,255,0.05) 45%, rgba(255,255,255,0) 65%);
+    opacity:0.85;transition:opacity .18s ease;
+  }
+  .age-card:hover::after{opacity:1;}
+  html.dark-mode .age-card::after{
+    background:linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 60%);
+  }
   .age-card-blue{background:linear-gradient(135deg, #EEF4FE, #C9DBF8);border-color:#C3D6F5;}
   .age-card-orange{background:linear-gradient(135deg, #FDF1E6, #F5D3B8);border-color:#F3CBA8;}
   .age-card-grey{background:linear-gradient(135deg, #F4F4F4, #DCDCDC);border-color:#D2D2D2;}

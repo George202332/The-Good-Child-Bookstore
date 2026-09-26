@@ -4,6 +4,7 @@ import { AdminShell } from "@/components/AdminShell";
 import { getTransactionLedger } from "@/actions/transactions";
 import { canViewFinancials } from "@/lib/roles";
 import { TransactionsTable } from "./TransactionsTable";
+import { ResetOrdersButton } from "./ResetOrdersButton";
 
 /** Unified transaction ledger — every sale and every payout, one table,
  * 7 columns. Financial data, so gated the same way as Analytics (Editor
@@ -29,6 +30,7 @@ export default async function TransactionsPage() {
             earned a commission on each sale. Click a row for full details.
           </p>
         </div>
+        {role === "ADMIN" && <ResetOrdersButton />}
       </div>
       <TransactionsTable rows={rows} canDelete={role === "ADMIN"} />
     </AdminShell>

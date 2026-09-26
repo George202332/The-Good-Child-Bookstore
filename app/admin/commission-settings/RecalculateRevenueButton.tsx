@@ -23,7 +23,7 @@ export function RecalculateRevenueButton() {
       <p className="field-hint" style={{ marginBottom: 14 }}>
         Changing the percentages above only affects new sales — it doesn&apos;t change numbers already stored for
         past sales. Use this to recompute every existing sale&apos;s company/author/affiliate/referral split using
-        the current percentages, so Revenue, Referrals, Analytics, and downloaded statements all reflect the current
+        the current percentages, so Revenue, Referrals, Sales Analytics, and downloaded statements all reflect the current
         rates consistently. This only updates the recorded breakdown — it does not re-send or claw back any payout
         that&apos;s already gone out.
       </p>

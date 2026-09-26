@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { BACKEND_ROLES, canViewFinancials } from "@/lib/roles";
@@ -296,5 +297,56 @@ export async function deleteTransaction(id: string, type: "sale" | "payout"): Pr
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Couldn't delete this transaction." };
+  }
+}
+
+/**
+ * Wipes every Order (and, cascading from it, every SaleLine, PaymentLog
+ * and Invoice) — a bulk version of deleteTransaction's per-row delete,
+ * for clearing out leftover test/demo orders in one action now that the
+ * old Data Management page's bulk test-data tools are gone. Admin-only,
+ * and deliberately without any "only test data" filter — like
+ * deleteTransaction, this is a direct, explicit action the admin chose
+ * to take, not an automated sweep, so it's trusted to mean what it says
+ * on rows real or test alike.
+ *
+ * Same "leave no trace" cleanup as deleteTransaction: any Notification
+ * generated from one of these SaleLines is removed too, so no stray
+ * "you've got a sale" ever outlives the sale it was about.
+ */
+export async function resetAllOrders(): Promise<{ ok: boolean; error?: string; deleted?: { orders: number; saleLines: number } }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can reset order data." };
+
+  try {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const saleLines = await tx.saleLine.findMany({ select: { id: true } });
+      if (saleLines.length > 0) {
+        await tx.notification.deleteMany({ where: { relatedRecordId: { in: saleLines.map((l: { id: string }) => l.id) } } });
+      }
+      const orders = await tx.order.deleteMany({});
+      await tx.auditLog.create({
+        data: {
+          actorId: session.user.id,
+          action: "RESET_ALL_ORDERS",
+          metadata: { orders: orders.count, saleLines: saleLines.length, resetAt: new Date().toISOString() },
+        },
+      });
+      return { orders: orders.count, saleLines: saleLines.length };
+    });
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/analytics");
+    revalidatePath("/admin/transactions");
+    revalidatePath("/admin/payouts");
+    revalidatePath("/account/orders");
+    revalidatePath("/account/revenue");
+    revalidatePath("/account/my-transactions");
+    revalidatePath("/account/transaction-history");
+    revalidatePath("/account/payout-settings");
+
+    return { ok: true, deleted: result };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't reset order data." };
   }
 }

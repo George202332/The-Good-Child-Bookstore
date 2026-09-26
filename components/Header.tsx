@@ -106,33 +106,40 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
               onChange={(e) => handleSearchChange(e.target.value)}
             />
           </label>
-          <Link href="/wishlist" className="cart-btn" aria-label="Wishlist">
-            <HeartIcon />
-            <span className="cart-count" id="wishlist-count">
-              {wishlistCount}
+          <Link href="/wishlist" className="header-icon-btn" aria-label="Wishlist">
+            <span className="cart-btn">
+              <HeartIcon size={13} />
+              <span className="cart-count" id="wishlist-count">
+                {wishlistCount}
+              </span>
             </span>
+            <span className="header-icon-label">wishlist</span>
           </Link>
-          <Link href="/cart" className="cart-btn" aria-label="Cart">
-            <BagIcon />
-            <span className="cart-count" id="cart-count">
-              {cartCount}
+          <Link href="/cart" className="header-icon-btn" aria-label="Cart">
+            <span className="cart-btn">
+              <BagIcon size={13} />
+              <span className="cart-count" id="cart-count">
+                {cartCount}
+              </span>
             </span>
+            <span className="header-icon-label">cart</span>
           </Link>
           <Link
             href={user ? "/account" : "/login"}
-            className="cart-btn"
+            className="header-icon-btn"
             aria-label="My account"
             title={user ? `My account (${user.name})` : "Sign in"}
           >
+            <span className="cart-btn">
             {user ? (
               <span
                 style={{
-                  width: 18,
-                  height: 18,
+                  width: 16,
+                  height: 16,
                   borderRadius: 6,
                   background: "var(--coral)",
                   color: "var(--ink)",
-                  fontSize: 9,
+                  fontSize: 8,
                   fontWeight: 700,
                   display: "flex",
                   alignItems: "center",
@@ -142,8 +149,10 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
                 {initials}
               </span>
             ) : (
-              <UserIcon />
+              <UserIcon size={13} />
             )}
+            </span>
+            <span className="header-icon-label">my account</span>
           </Link>
         </div>
       </div>

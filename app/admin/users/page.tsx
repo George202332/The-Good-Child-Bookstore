@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authAdmin } from "@/lib/auth-admin";
 import { CreateUserForm } from "./CreateUserForm";
-import { UsersTable } from "./UsersTable";
+import { UsersDirectory } from "./UsersDirectory";
 import { AdminShell } from "@/components/AdminShell";
 import { listUsers } from "@/actions/users-admin";
 import type { Role } from "@/lib/roles";
@@ -51,26 +51,26 @@ export default async function UsersPage({
       <h3 style={{ fontSize: 16, marginBottom: 12 }}>Create a new account</h3>
       <CreateUserForm />
 
-      <div style={{ display: "flex", gap: 6, margin: "24px 0 14px", flexWrap: "wrap" }}>
-        {ROLE_TABS.map((t) => (
-          <Link
-            key={t.key}
-            href={t.key === "ALL" ? "/admin/users" : `/admin/users?role=${t.key}`}
-            className="admin-nav-link"
-            style={{
-              display: "inline-flex",
-              padding: "6px 14px",
-              background: activeRole === t.key ? "var(--admin-accent-soft)" : "var(--admin-panel)",
-              color: activeRole === t.key ? "var(--admin-accent)" : undefined,
-              fontWeight: activeRole === t.key ? 700 : 500,
-            }}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </div>
-
-      <UsersTable users={users} currentUserId={session.user.id} />
+      <UsersDirectory users={users} currentUserId={session.user.id}>
+        <div style={{ display: "flex", gap: 6, margin: "24px 0 14px", flexWrap: "wrap" }}>
+          {ROLE_TABS.map((t) => (
+            <Link
+              key={t.key}
+              href={t.key === "ALL" ? "/admin/users" : `/admin/users?role=${t.key}`}
+              className="admin-nav-link"
+              style={{
+                display: "inline-flex",
+                padding: "6px 14px",
+                background: activeRole === t.key ? "var(--admin-accent-soft)" : "var(--admin-panel)",
+                color: activeRole === t.key ? "var(--admin-accent)" : undefined,
+                fontWeight: activeRole === t.key ? 700 : 500,
+              }}
+            >
+              {t.label}
+            </Link>
+          ))}
+        </div>
+      </UsersDirectory>
     </AdminShell>
   );
 }

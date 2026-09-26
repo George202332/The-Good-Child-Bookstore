@@ -23,7 +23,7 @@ export default async function AnalyticsPage() {
     <AdminShell role={role} activeKey="analytics" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Analytics</h2>
+          <h2 style={{ fontSize: 20 }}>Sales Analytics</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Platform-wide sales performance.</p>
         </div>
       </div>

@@ -17,6 +17,7 @@ export function PasswordField({
   minLength,
   autoComplete,
   placeholder,
+  compact,
 }: {
   id: string;
   name?: string;
@@ -26,13 +27,16 @@ export function PasswordField({
   minLength?: number;
   autoComplete?: string;
   placeholder?: string;
+  /** Smaller padding/font — used on the admin create-account form, where
+   * the default field size read as too large. */
+  compact?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
 
   return (
     <div style={{ position: "relative" }}>
       <input
-        className="field"
+        className={compact ? "field field-compact" : "field"}
         id={id}
         name={name}
         type={visible ? "text" : "password"}
@@ -51,7 +55,7 @@ export function PasswordField({
         style={{
           position: "absolute",
           right: 12,
-          top: 13,
+          top: compact ? 10 : 13,
           background: "none",
           border: "none",
           padding: 4,

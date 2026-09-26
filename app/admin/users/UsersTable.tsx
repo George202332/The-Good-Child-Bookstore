@@ -15,9 +15,9 @@ const TD: React.CSSProperties = { padding: "10px 12px", borderBottom: "1px solid
  * The admin Users list, as an actual table (previously a stacked list
  * of rows, each just a name/email/role/account-number line with the
  * inline controls floated to the right — see git history of
- * app/admin/users/page.tsx). Columns per explicit request: name,
- * email, account type, account number, date joined, country. The role
- * dropdown, suspend, and delete controls (UserRowActions, unchanged)
+ * app/admin/users/page.tsx). Columns per explicit request: account ID,
+ * name, email, date joined, country, account type, then suspend/delete
+ * actions. The role dropdown, suspend, and delete controls (UserRowActions, unchanged)
  * stay inline in the row; clicking anywhere else in the row opens a
  * pop-up with that account's full profile (fetched on demand via
  * getUserDetail, since not everything — bio, genre, referral code —
@@ -44,12 +44,12 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
+              <th style={TH}>Account ID</th>
               <th style={TH}>Name</th>
               <th style={TH}>Email</th>
-              <th style={TH}>Account type</th>
-              <th style={TH}>Account #</th>
               <th style={TH}>Date joined</th>
               <th style={TH}>Country</th>
+              <th style={TH}>Account type</th>
               <th style={TH}></th>
             </tr>
           </thead>
@@ -62,6 +62,7 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-panel-hover)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
+                <td style={{ ...TD, fontFamily: "monospace" }}>{u.accountNumber}</td>
                 <td style={TD}>
                   <span style={{ fontWeight: 700 }}>{u.name}</span>
                   {u.suspended && (
@@ -70,6 +71,8 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
                   {u.id === currentUserId && <span className="age-pill" style={{ marginLeft: 8 }}>You</span>}
                 </td>
                 <td style={TD}>{u.email}</td>
+                <td style={TD}>{u.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                <td style={TD}>{u.location ?? "—"}</td>
                 <td style={TD} onClick={(e) => e.stopPropagation()}>
                   {u.id === currentUserId ? (
                     u.role
@@ -77,9 +80,6 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
                     <RoleDropdownOnly userId={u.id} currentRole={u.role} />
                   )}
                 </td>
-                <td style={{ ...TD, fontFamily: "monospace" }}>{u.accountNumber}</td>
-                <td style={TD}>{u.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                <td style={TD}>{u.location ?? "—"}</td>
                 <td style={TD} onClick={(e) => e.stopPropagation()}>
                   {u.id !== currentUserId && <RowActionsOnly userId={u.id} currentRole={u.role} suspended={u.suspended} />}
                 </td>

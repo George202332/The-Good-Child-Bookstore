@@ -38,15 +38,15 @@ export function CreateUserForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="form-section" style={{ marginBottom: 24 }}>
+    <form onSubmit={handleSubmit} className="form-section create-user-form" style={{ marginBottom: 24 }}>
       <div className="form-grid-2">
         <div>
-          <label className="field-label" htmlFor="cu-name">Full name</label>
-          <input className="field" id="cu-name" type="text" required value={name} onChange={(e) => setName(e.target.value)} />
+          <label className="field-label field-label-compact" htmlFor="cu-name">Full name</label>
+          <input className="field field-compact" id="cu-name" type="text" required value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
-          <label className="field-label" htmlFor="cu-role">Account type</label>
-          <select className="field" id="cu-role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
+          <label className="field-label field-label-compact" htmlFor="cu-role">Account type</label>
+          <select className="field field-compact" id="cu-role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
             {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
@@ -54,12 +54,12 @@ export function CreateUserForm() {
 
       <div className="form-grid-2">
         <div>
-          <label className="field-label" htmlFor="cu-email">Email</label>
-          <input className="field" id="cu-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <label className="field-label field-label-compact" htmlFor="cu-email">Email</label>
+          <input className="field field-compact" id="cu-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div>
-          <label className="field-label" htmlFor="cu-password">Password</label>
-          <PasswordField id="cu-password" required minLength={6} value={password} onChange={setPassword} />
+          <label className="field-label field-label-compact" htmlFor="cu-password">Password</label>
+          <PasswordField compact id="cu-password" required minLength={6} value={password} onChange={setPassword} />
         </div>
       </div>
 

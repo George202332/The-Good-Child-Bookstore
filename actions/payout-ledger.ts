@@ -44,6 +44,10 @@ export interface PayoutLedgerRow {
   paid: boolean;
   requestedAt: string;
   resolvedAt: string | null;
+  /** True when this row is an affiliate-commission payout rather than a
+   * book-sales payout — powers the admin ledger's "affiliate status"
+   * filter. */
+  isAffiliate: boolean;
 }
 
 export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: string }> {
@@ -107,6 +111,7 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
         paid: p.status === "PAID",
         requestedAt: p.requestedAt.toISOString(),
         resolvedAt: p.resolvedAt ? p.resolvedAt.toISOString() : null,
+        isAffiliate,
       };
     });
   } catch (e) {

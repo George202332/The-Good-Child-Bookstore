@@ -60,7 +60,13 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
 
   try {
     const [orders, saleLines] = await Promise.all([
-      prisma.order.findMany({ where: { status: "PAID" }, select: { createdAt: true } }),
+      // Requiring at least one SaleLine keeps this in lockstep with real
+      // transactions — an order only counts once it actually sold
+      // something, and stops counting the moment its last SaleLine is
+      // deleted (deleteTransaction removes the whole order at that
+      // point), so there's never a separate "orders" number that can
+      // drift from the underlying sale records.
+      prisma.order.findMany({ where: { status: "PAID", lines: { some: {} } }, select: { createdAt: true } }),
       prisma.saleLine.findMany({ include: { book: true }, orderBy: { createdAt: "asc" } }),
     ]);
 

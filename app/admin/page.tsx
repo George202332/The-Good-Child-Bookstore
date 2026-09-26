@@ -40,7 +40,15 @@ export default async function AdminDashboardPage() {
   if (canViewFinancials(role)) {
     const [agg, orderCount] = await Promise.all([
       prisma.saleLine.aggregate({ _sum: { companyShare: true, authorShare: true, affiliateShare: true }, where: { order: { isTestData } } }),
-      prisma.order.count({ where: { status: "PAID", isTestData } }),
+      // "Total orders" means orders with a real sale behind them —
+      // requiring at least one SaleLine (lines: { some: {} }), not just
+      // a PAID status, so this can never show a stale/phantom count:
+      // it's derived straight from actual sale records, the same
+      // records deleteTransaction removes (deleting an order's last
+      // SaleLine deletes the order itself), so this number moves in
+      // lockstep with real transactions with no separate counter
+      // anywhere to fall out of sync.
+      prisma.order.count({ where: { status: "PAID", isTestData, lines: { some: {} } } }),
     ]);
     companyRevenue = Number(agg._sum.companyShare ?? 0);
     authorRevenue = Number(agg._sum.authorShare ?? 0);

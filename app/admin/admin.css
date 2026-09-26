@@ -188,6 +188,17 @@
   max-width: 720px;
 }
 
+/* Create-account form under Users — its fields read as oversized at the
+   default size, so both the grid columns and the fields themselves are
+   capped narrower here specifically, without affecting any other admin
+   form that still uses .form-grid-2/.field at normal size. */
+.admin-shell .create-user-form .form-grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 220px));
+}
+.admin-shell .create-user-form .field {
+  max-width: 220px;
+}
+
 .admin-shell .field, .admin-shell select, .admin-shell textarea, .admin-shell input {
   background: var(--admin-bg);
   border: 1px solid var(--admin-border);

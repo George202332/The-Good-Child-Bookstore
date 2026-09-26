@@ -25,13 +25,17 @@ import { CATS, BOOKS } from "@/lib/data/catalog";
  * ported) and the newsletter signup band — next unit of work.
  */
 
-const AGE_EXPLORER = [
+// Ranges/labels only here — counts are computed per-request in HomePage
+// below from the real, live catalog (real published books + the demo
+// catalog combined, the same set the Shop by Age link actually filters
+// to on /bookshelf), not from a snapshot taken once at module load.
+const AGE_EXPLORER_BASE = [
   { range: "0-2", label: "Toddlers" },
   { range: "3-5", label: "Preschool" },
   { range: "6-8", label: "Early readers" },
   { range: "9-12", label: "Middle grade" },
   { range: "12-15", label: "Young teens" },
-].map((a) => ({ ...a, count: BOOKS.filter((b) => b.age === a.range).length }));
+];
 
 const WHY_CARDS: [string, string, string][] = [
   ['<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>', "High-quality books", "Every title is reviewed for print quality, illustration, and age-appropriate storytelling before it reaches the shelf."],
@@ -78,6 +82,17 @@ export default async function HomePage() {
   const realBooks = await getRealPublishedBooks();
   const allBooksForArrivals = [...realBooks, ...BOOKS].sort((a, b) => (a.pubDate < b.pubDate ? 1 : -1));
   const newArrivals = getRotatingBatch(allBooksForArrivals, 12, 20 * 60 * 1000);
+  // Live per-category/per-age counts — the same combined real+demo set
+  // /bookshelf itself filters against, so the number on each card always
+  // matches what clicking through to it actually shows, and grows the
+  // moment a new book is published under that category.
+  const catCounts = new Map<string, number>();
+  const ageCounts = new Map<string, number>();
+  for (const b of allBooksForArrivals) {
+    catCounts.set(b.category, (catCounts.get(b.category) ?? 0) + 1);
+    ageCounts.set(b.age, (ageCounts.get(b.age) ?? 0) + 1);
+  }
+  const AGE_EXPLORER = AGE_EXPLORER_BASE.map((a) => ({ ...a, count: ageCounts.get(a.range) ?? 0 }));
   const content = await getPagesContent();
   const hero = content.home;
   let blogPosts: HomeBlogPost[] = [];
@@ -122,7 +137,7 @@ export default async function HomePage() {
               <Link key={c.id} href={`/bookshelf?cat=${c.id}`} className={`cat-tile ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
                 <span>{c.name}</span>
                 <small>{c.blurb}</small>
-                <span className="cat-count">{BOOKS.filter((b) => b.category === c.id).length} books</span>
+                <span className="cat-count">{catCounts.get(c.id) ?? 0} books</span>
               </Link>
             ))}
           </div>
