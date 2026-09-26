@@ -74,6 +74,31 @@ export interface UserListRow {
   role: Role;
   suspended: boolean;
   createdAt: Date;
+  /** The standard demographic detail already captured on the matching
+   * role profile — an Author's self-reported country (AuthorProfile),
+   * or a Reader's default shipping address (city, country). Null when
+   * nothing's been entered yet (e.g. a backend-only Editor/Admin
+   * account, or an author/reader who hasn't filled that in). */
+  location: string | null;
+}
+
+type UserListQueryRow = {
+  id: string;
+  accountNumber: string;
+  name: string;
+  email: string;
+  role: Role;
+  suspended: boolean;
+  createdAt: Date;
+  authorProfile: { country: string | null } | null;
+  readerProfile: { addresses: { city: string; country: string }[] } | null;
+};
+
+function deriveLocation(u: UserListQueryRow): string | null {
+  if (u.authorProfile?.country) return u.authorProfile.country;
+  const address = u.readerProfile?.addresses[0];
+  if (address) return `${address.city}, ${address.country}`;
+  return null;
 }
 
 /** role: "ALL" or a specific Role — the query-by-type tabs at the top of
@@ -82,12 +107,27 @@ export async function listUsers(role: Role | "ALL"): Promise<UserListRow[]> {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") return [];
 
-  return prisma.user.findMany({
+  const users = (await prisma.user.findMany({
     where: role === "ALL" ? {} : { role },
     orderBy: { createdAt: "desc" },
     take: 300,
-    select: { id: true, accountNumber: true, name: true, email: true, role: true, suspended: true, createdAt: true },
-  });
+    select: {
+      id: true, accountNumber: true, name: true, email: true, role: true, suspended: true, createdAt: true,
+      authorProfile: { select: { country: true } },
+      readerProfile: { select: { addresses: { where: { isDefault: true }, take: 1, select: { city: true, country: true } } } },
+    },
+  })) as UserListQueryRow[];
+
+  return users.map((u) => ({
+    id: u.id,
+    accountNumber: u.accountNumber,
+    name: u.name,
+    email: u.email,
+    role: u.role,
+    suspended: u.suspended,
+    createdAt: u.createdAt,
+    location: deriveLocation(u),
+  }));
 }
 
 export interface UserDetail extends UserListRow {
@@ -100,10 +140,19 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
   const session = await auth();
   if (session?.user?.role !== "ADMIN") return null;
 
-  const user = await prisma.user.findUnique({
+  const user = (await prisma.user.findUnique({
     where: { id: userId },
-    include: { authorProfile: true, affiliateProfile: true },
-  });
+    include: {
+      authorProfile: true,
+      affiliateProfile: true,
+      readerProfile: { include: { addresses: { where: { isDefault: true }, take: 1 } } },
+    },
+  })) as
+    | (UserListQueryRow & {
+        authorProfile: { bio: string | null; primaryGenre: string | null; country: string | null } | null;
+        affiliateProfile: { referralCode: string } | null;
+      })
+    | null;
   if (!user) return null;
 
   return {
@@ -114,6 +163,7 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
     role: user.role,
     suspended: user.suspended,
     createdAt: user.createdAt,
+    location: deriveLocation(user),
     authorBio: user.authorProfile?.bio ?? null,
     authorPrimaryGenre: user.authorProfile?.primaryGenre ?? null,
     affiliateReferralCode: user.affiliateProfile?.referralCode ?? null,

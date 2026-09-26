@@ -11,7 +11,10 @@ export async function finalizeOrderPayment(
   const order = await prisma.order.update({
     where: { id: orderId },
     data: { status: "PAID" },
-    include: { reader: { include: { user: true } } },
+    include: {
+      reader: { include: { user: true } },
+      lines: { include: { book: { include: { author: { include: { user: true } } } } } },
+    },
   });
   await prisma.paymentLog.create({
     data: { orderId, gateway, rawPayload: rawPayload as object, verified: true },
@@ -28,6 +31,25 @@ export async function finalizeOrderPayment(
     });
   } catch {
     // Non-critical — a failed notification shouldn't block payment confirmation.
+  }
+
+  // Notify each author whose book was just sold — "You've got a sale"
+  // on their Recent Activity (see recentActivityLine in
+  // lib/notification-types.ts). One notification per distinct book, not
+  // per SaleLine, so buying 3 copies of the same title in one order
+  // doesn't spam the author 3 times.
+  try {
+    const notifiedAuthors = new Set<string>();
+    for (const line of order.lines) {
+      const authorUserId = line.book.author?.user?.id;
+      if (!authorUserId || notifiedAuthors.has(`${authorUserId}:${line.bookId}`)) continue;
+      notifiedAuthors.add(`${authorUserId}:${line.bookId}`);
+      await prisma.notification.create({
+        data: { userId: authorUserId, title: line.book.title, body: `A copy of "${line.book.title}" just sold.`, type: "SALE" },
+      });
+    }
+  } catch {
+    // Non-critical.
   }
 
   // Any physical copies in this order get submitted to Lulu as a real

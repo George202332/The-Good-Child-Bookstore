@@ -71,7 +71,28 @@ export async function submitReview(input: { bookId: string; content: string; sta
     data: { bookId: input.bookId, userId: session.user.id, content: input.content.trim() },
   });
 
-  const reviewedBook = await prisma.book.findUnique({ where: { id: input.bookId }, select: { slug: true } });
+  const reviewedBook = await prisma.book.findUnique({
+    where: { id: input.bookId },
+    select: { slug: true, title: true, author: { select: { user: { select: { id: true } } } } },
+  });
+
+  // Notify the author — "You've got a review" on their Recent Activity
+  // (see recentActivityLine in lib/notification-types.ts).
+  if (reviewedBook?.author?.user?.id) {
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: reviewedBook.author.user.id,
+          title: reviewedBook.title,
+          body: `A reader left a review on "${reviewedBook.title}".`,
+          type: "REVIEW",
+        },
+      });
+    } catch {
+      // Non-critical.
+    }
+  }
+
   revalidatePath(`/book/${input.bookId}`);
   if (reviewedBook?.slug) revalidatePath(`/${reviewedBook.slug}`);
   revalidatePath("/account/reviews");

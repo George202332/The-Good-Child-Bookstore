@@ -56,6 +56,7 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
+      { key: "library", label: "My Library", href: "/account/library", section: "Overview" },
       { key: "mybooks", label: "My Books", href: "/account/books", section: "Publishing" },
       { key: "blog", label: "My Blogs", href: "/account/blog", section: "Publishing" },
       { key: "referrals", label: "Referrals", href: "/account/referrals", section: "Affiliate" },
@@ -64,6 +65,7 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "performance", label: "Affiliate", href: "/account/performance", section: "Analytics" },
       { key: "blog-analytics", label: "Blogs", href: "/account/blog-analytics", section: "Analytics" },
       { key: "revenue", label: "Revenue", href: "/account/revenue", section: "Financial" },
+      { key: "my-transactions", label: "Transactions", href: "/account/my-transactions", section: "Financial" },
       { key: "payout-settings", label: "Payouts", href: "/account/payout-settings", section: "Financial" },
       { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
     ];

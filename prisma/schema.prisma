@@ -804,6 +804,16 @@ model PayoutRequest {
   amount         Decimal      @db.Decimal(10, 2)
   currency       String
   status         PayoutStatus @default(REQUESTED)
+  /** "AUTHOR" or "AFFILIATE" — which wallet this specific payout was
+   * queued from (see app/api/cron/monthly-payouts/route.ts, which runs
+   * two independent loops and creates one PayoutRequest per loop per
+   * person). An author who is also an affiliate gets two separate rows
+   * in the same monthly run, one of each type — this is what lets the
+   * admin payout ledger (app/admin/payouts/page.tsx) show book-sales
+   * earnings and affiliate earnings as genuinely separate figures
+   * instead of one blended number. Defaults to "AUTHOR" so existing
+   * rows created before this field existed still read sensibly. */
+  earningsType   String       @default("AUTHOR")
   wiseQuoteId    String?
   wiseTransferId String?
   failureReason  String?

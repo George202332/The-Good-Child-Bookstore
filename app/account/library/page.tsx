@@ -19,7 +19,12 @@ export default async function LibraryPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
   const role = session.user.role;
-  if (role !== "READER") redirect("/account");
+  // Reintegrated for Author accounts too — an author who has personally
+  // bought books as a customer sees them here exactly like a Reader
+  // would, since it's the same readerProfile mechanism either way (see
+  // resolveReaderProfileId in actions/orders.ts). Any other backend
+  // role (Affiliate/Editor/etc.) has no library at all.
+  if (role !== "READER" && role !== "AUTHOR") redirect("/account");
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },

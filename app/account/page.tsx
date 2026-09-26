@@ -7,7 +7,7 @@ import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { getMyLinkPerformance } from "@/actions/affiliate-performance";
 import { listMyNotifications } from "@/actions/notifications";
-import { notificationTypeInfo } from "@/lib/notification-types";
+import { notificationTypeInfo, RECENT_ACTIVITY_TYPES, recentActivityLine } from "@/lib/notification-types";
 import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
 import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
@@ -27,6 +27,7 @@ interface AuthorBook {
   hasEbook: boolean;
   hasPrint: boolean;
   hasAudiobook: boolean;
+  createdAt: Date;
   saleLines: SaleLineShare[];
   ratings: { stars: number }[];
 }
@@ -239,8 +240,14 @@ export default async function AccountPage() {
     const lifetimePayout = Number(lifetimePayoutAgg._sum.amount ?? 0);
     const totalBooksSold = allLines.length;
     const booksPublished = books.filter((b) => b.status === "PUBLISHED").length;
+    const recentTitles = [...books].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 4);
 
-    const recentActivity = notifications.slice(0, 20);
+    // Recent activity, for the Author dashboard, is deliberately narrower
+    // than the full Notifications list — it only ever shows a sale, a
+    // review, or a newly-published book, each as one short plain-language
+    // line (see recentActivityLine in lib/notification-types.ts), never a
+    // transaction-style entry with a dollar amount (payouts, order totals).
+    const recentActivity = notifications.filter((n) => (RECENT_ACTIVITY_TYPES as readonly string[]).includes(n.type)).slice(0, 20);
 
     const allRatings = books.flatMap((b) => b.ratings);
     const ratingCounts = [0, 0, 0, 0, 0]; // index 0 = 1 star, index 4 = 5 star
@@ -325,7 +332,7 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div className="map-card" style={{ padding: 14 }}>
             <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Affiliate snapshot</h3>
             {isAffiliateToo ? (
@@ -346,6 +353,36 @@ export default async function AccountPage() {
             )}
           </div>
 
+          <div className="map-card" style={{ padding: 14 }}>
+            <h3 style={{ fontSize: 13.5, marginBottom: 4 }}>Titles on shelf</h3>
+            <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 2 }}>{booksPublished}</div>
+            <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 12 }}>Currently live in the store</div>
+            {recentTitles.length === 0 ? (
+              <p style={{ fontSize: 12, color: "var(--ink-faint)" }}>No titles submitted yet.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {recentTitles.map((b) => (
+                  <div key={b.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderTop: "1px solid var(--line)", fontSize: 12.5 }}>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginRight: 10 }}>{b.title}</span>
+                    <span
+                      className="age-pill"
+                      style={{
+                        flexShrink: 0,
+                        background: b.status === "PUBLISHED" ? "rgba(31,107,72,0.15)" : "rgba(107,115,133,0.15)",
+                        color: b.status === "PUBLISHED" ? "#1F6B48" : "#6B7385",
+                      }}
+                    >
+                      {b.status === "PUBLISHED" ? "Live" : b.status.charAt(0) + b.status.slice(1).toLowerCase()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Link href="/account/books" style={{ display: "inline-block", marginTop: 10, fontSize: 12, fontWeight: 700, color: "var(--coral-deep)" }}>Manage my books →</Link>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div className="map-card" style={{ padding: 14 }}>
             <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Average rating</h3>
             <div className="rb-card" style={{ border: "none", padding: 0 }}>
@@ -374,6 +411,7 @@ export default async function AccountPage() {
               <div className="scroll-fade-no-bar" style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: 168, overflowY: "auto" }}>
                 {recentActivity.map((n) => {
                   const info = notificationTypeInfo(n.type);
+                  const line = recentActivityLine(n.type, n.title) ?? n.title;
                   return (
                     <div key={n.id} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke={info.color} strokeWidth={1.8} style={{ flexShrink: 0, marginTop: 2 }}>
@@ -385,8 +423,7 @@ export default async function AccountPage() {
                           display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
                         }}
                       >
-                        <span style={{ color: info.color, fontWeight: 700 }}>{n.title}</span>
-                        {n.body && <span style={{ color: "var(--ink-soft)" }}>: {n.body}</span>}
+                        <span style={{ color: info.color, fontWeight: 700 }}>{line}</span>
                       </div>
                     </div>
                   );

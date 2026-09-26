@@ -47,7 +47,12 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
       data: { status: "PUBLISHED", revisionNotes: null },
       include: { author: { include: { user: true } } },
     });
-    await createNotification(book.author.user.id, `"${book.title}" is now published`, `"${book.title}" is now published on the shelf.`, "BOOK_PUBLISHED");
+    // Title is stored bare (just the book's title) so the Author
+    // dashboard's Recent Activity card can prepend its own
+    // plain-language line — see recentActivityLine in
+    // lib/notification-types.ts. The fuller sentence stays in body for
+    // the full Notifications list (app/account/notifications).
+    await createNotification(book.author.user.id, book.title, `"${book.title}" is now published on the shelf.`, "BOOK_PUBLISHED");
     submitUrlToIndexNow(`${getPublicSiteUrl()}/${book.slug}`).catch(() => {});
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);

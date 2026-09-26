@@ -1,6 +1,8 @@
 export type NotificationType =
   | "PAYMENT"
   | "PAYOUT"
+  | "SALE"
+  | "REVIEW"
   | "BOOK_PUBLISHED"
   | "REVISION"
   | "BLOG_PUBLISHED"
@@ -28,6 +30,16 @@ export const NOTIFICATION_TYPES: Record<NotificationType, NotificationTypeInfo> 
     color: "#2451B7", // blue
     iconPath: "M3 10h18M7 15h2M3 6h18a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z",
     sidebarKey: "payout-settings",
+  },
+  SALE: {
+    color: "#1F6B48", // green
+    iconPath: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+    sidebarKey: "analytics",
+  },
+  REVIEW: {
+    color: "#C68A1E", // gold
+    iconPath: "M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 6.9L12 17.3 5.7 20.8l1.7-6.9L2 9.2l7.1-.6L12 2z",
+    sidebarKey: "mybooks",
   },
   BOOK_PUBLISHED: {
     color: "#6B3FA0", // purple
@@ -63,4 +75,28 @@ export const NOTIFICATION_TYPES: Record<NotificationType, NotificationTypeInfo> 
 
 export function notificationTypeInfo(type: string): NotificationTypeInfo {
   return NOTIFICATION_TYPES[type as NotificationType] ?? NOTIFICATION_TYPES.GENERAL;
+}
+
+/**
+ * The Author dashboard's "Recent activity" card (app/account/page.tsx)
+ * shows only these three event types, each as one short plain-language
+ * line — never the underlying dollar amount or transaction-style
+ * phrasing that the full Notifications page (app/account/notifications)
+ * still shows in detail. `title` is expected to be the bare book title
+ * for all three (see the createNotification call sites in
+ * lib/payments/finalize.ts, actions/reviews.ts, and actions/admin.ts).
+ */
+export const RECENT_ACTIVITY_TYPES = ["SALE", "REVIEW", "BOOK_PUBLISHED"] as const;
+
+export function recentActivityLine(type: string, title: string): string | null {
+  switch (type) {
+    case "SALE":
+      return `You've got a sale: ${title}`;
+    case "REVIEW":
+      return `You've got a review: ${title}`;
+    case "BOOK_PUBLISHED":
+      return `Your book has been published: ${title}`;
+    default:
+      return null;
+  }
 }

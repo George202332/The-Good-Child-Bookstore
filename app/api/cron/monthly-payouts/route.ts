@@ -44,7 +44,7 @@ export async function GET(req: NextRequest) {
       const recipient = await prisma.wiseRecipient.findFirst({ where: { userId: u.id }, orderBy: { isDefault: "desc" } });
       if (!recipient) continue;
       await prisma.payoutRequest.create({
-        data: { userId: u.id, recipientId: recipient.id, amount: wallet.available, currency: "USD" },
+        data: { userId: u.id, recipientId: recipient.id, amount: wallet.available, currency: "USD", earningsType: "AUTHOR" },
       });
       results.push({ userId: u.id, role: "AUTHOR", amount: wallet.available });
     }
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       const recipient = await prisma.wiseRecipient.findFirst({ where: { userId: a.userId }, orderBy: { isDefault: "desc" } });
       if (!recipient) continue;
       await prisma.payoutRequest.create({
-        data: { userId: a.userId, recipientId: recipient.id, amount: wallet.available, currency: "USD" },
+        data: { userId: a.userId, recipientId: recipient.id, amount: wallet.available, currency: "USD", earningsType: "AFFILIATE" },
       });
       results.push({ userId: a.userId, role: "AFFILIATE", amount: wallet.available });
     }
