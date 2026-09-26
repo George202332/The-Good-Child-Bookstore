@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getAnalyticsSummary } from "@/actions/analytics";
+import { ColHelp } from "@/components/ColHelp";
 
 /**
  * Analytics — the brief's Revenue/Orders/Books Sold/Top Books/Monthly
@@ -89,9 +90,17 @@ export default async function AnalyticsPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>
-              {["Month", "Orders", "Books Sold", "Gross Revenue", "Company Share", "Author Share", "Affiliate Share"].map((h) => (
-                <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
-                  {h}
+              {[
+                { label: "Month", help: "The calendar month this row summarizes." },
+                { label: "Orders", help: "Paid orders placed that month." },
+                { label: "Books Sold", help: "Total copies sold that month, across all books." },
+                { label: "Gross Revenue", help: "Total money taken in that month, before splitting between company, authors, and affiliates." },
+                { label: "Company Share", help: "The company's 30% cut of that month's gross revenue." },
+                { label: "Author Share", help: "The combined royalties paid to authors from that month's sales." },
+                { label: "Affiliate Share", help: "The combined commission paid to affiliates from that month's sales." },
+              ].map((c) => (
+                <th key={c.label} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
+                  {c.label}<ColHelp text={c.help} />
                 </th>
               ))}
             </tr>

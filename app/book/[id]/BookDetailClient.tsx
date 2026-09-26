@@ -3,7 +3,8 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BOOKS, CATS, bookSlug, type Book } from "@/lib/data/catalog";
+import { CATS, bookSlug, type Book } from "@/lib/data/catalog";
+import { getRotatingBatch } from "@/lib/rotating-batch";
 import { reviewStats, reviewsForBook } from "@/lib/data/reviews";
 import { BookCard } from "@/components/BookCard";
 import { AffiliateClickTracker } from "@/components/AffiliateClickTracker";
@@ -39,7 +40,7 @@ const FORMAT_LABELS: Record<FormatKey, string> = {
  * reviews come from LiveReviewSection, which is actually wired to a
  * working "Write a review" button and persists to the database.
  */
-export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook: boolean }) {
+export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; isRealBook: boolean; allBooks: Book[] }) {
   const b = book;
   const [format, setFormat] = useState<FormatKey>("print");
   const { addItem } = useCart();
@@ -57,15 +58,24 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
     );
   }
 
-  const featuredBooks = BOOKS.filter((x) => x.featured && x.id !== b.id).slice(0, 10);
-  let alsoSearchedBooks = BOOKS.filter((x) => x.id !== b.id && (x.category === b.category || x.genre === b.genre));
-  if (alsoSearchedBooks.length < 10) {
-    const usedIds = new Set([b.id, ...alsoSearchedBooks.map((x) => x.id)]);
-    const fillers = BOOKS.filter((x) => !usedIds.has(x.id)).slice(0, 10 - alsoSearchedBooks.length);
-    alsoSearchedBooks = alsoSearchedBooks.concat(fillers);
-  } else {
-    alsoSearchedBooks = alsoSearchedBooks.slice(0, 10);
-  }
+  // "Featured books" — a placeholder for now, per explicit instruction:
+  // the 6 most recently published books (real + demo catalog combined),
+  // rotating in the same way the homepage's "New Arrivals" does as the
+  // catalog grows, rather than a fixed static list. This is meant to be
+  // swapped for a highest-rated ranking once the premium system exists.
+  const featuredPool = allBooks
+    .filter((x) => x.id !== b.id)
+    .sort((x, y) => (x.pubDate < y.pubDate ? 1 : -1));
+  const featuredBooks = getRotatingBatch(featuredPool, 6, 20 * 60 * 1000);
+
+  // "People who read this book also searched for" — genuine matches
+  // only (same category or genre), real + demo combined, capped at a
+  // row of 6. No filler backfill: when there's nothing that actually
+  // matches, the section renders nothing (see the `.length > 0` guard
+  // below) rather than padding the row with unrelated books.
+  const alsoSearchedBooks = allBooks
+    .filter((x) => x.id !== b.id && (x.category === b.category || x.genre === b.genre))
+    .slice(0, 6);
 
   const availableFormats = b.formatAvailable ?? { ebook: true, paperback: true, hardcover: true, audiobook: true };
   const isFormatAvailable: Record<FormatKey, boolean> = {
@@ -140,7 +150,7 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
             )}
           </div>
           <div className="az-author-card">
-            <div className="az-author-card-label">About the author</div>
+            <div className="az-author-card-label">About the Author</div>
             <div className="az-author-row">
               <div className="quote-avatar" style={{ background: b.palette[1] }}>{initials}</div>
               <div className="az-author-name">{b.author}</div>
@@ -238,28 +248,24 @@ export function BookDetailClient({ book, isRealBook }: { book: Book; isRealBook:
               <button type="button" className={`buybox-tile ${format === "ebook" ? "active" : ""}`} onClick={() => setFormat("ebook")}>
                 <div className="bt-name">eBook</div>
                 <div className="bt-price">${b.formats.ebook.toFixed(2)}</div>
-                <div className="bt-sub">{b.sizeMB} MB · instant download</div>
               </button>
             )}
             {(b.formatAvailable?.audiobook ?? true) && (
               <button type="button" className={`buybox-tile ${format === "audiobook" ? "active" : ""}`} onClick={() => setFormat("audiobook")}>
                 <div className="bt-name">Audiobook</div>
                 <div className="bt-price">${b.formats.audiobook.toFixed(2)}</div>
-                <div className="bt-sub">Read-aloud narration</div>
               </button>
             )}
             {(b.formatAvailable?.paperback ?? true) && (
               <button type="button" className={`buybox-tile ${format === "paperback" ? "active" : ""}`} onClick={() => setFormat("paperback")}>
                 <div className="bt-name">Print: Paperback</div>
                 <div className="bt-price">${b.formats.paperback.toFixed(2)}</div>
-                <div className="bt-sub">Softcover · via Lulu</div>
               </button>
             )}
             {(b.formatAvailable?.hardcover ?? true) && (
               <button type="button" className={`buybox-tile ${format === "print" ? "active" : ""}`} onClick={() => setFormat("print")}>
                 <div className="bt-name">Print: Hardcover</div>
                 <div className="bt-price">${b.formats.print.toFixed(2)}</div>
-                <div className="bt-sub">Hardcover · via Lulu</div>
               </button>
             )}
           </div>

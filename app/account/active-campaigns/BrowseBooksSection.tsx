@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { GetLinkButton } from "./GetLinkButton";
+import { ColHelp } from "@/components/ColHelp";
 
 export interface BrowsableBook {
   id: string;
@@ -76,14 +77,14 @@ export function BrowseBooksSection({ books }: { books: BrowsableBook[] }) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead style={{ position: "sticky", top: 0, background: "var(--paper)", zIndex: 1 }}>
               <tr>
-                <th style={TABLE_HEAD_STYLE}>SN</th>
-                <th style={TABLE_HEAD_STYLE}>Title</th>
-                <th style={TABLE_HEAD_STYLE}>Author</th>
-                <th style={TABLE_HEAD_STYLE}>Category</th>
-                <th style={TABLE_HEAD_STYLE}>Genre</th>
-                <th style={TABLE_HEAD_STYLE}>Price</th>
-                <th style={TABLE_HEAD_STYLE}>View</th>
-                <th style={TABLE_HEAD_STYLE}>Get Link</th>
+                <th style={TABLE_HEAD_STYLE}>SN<ColHelp text="This book's serial number / ISBN." /></th>
+                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title." /></th>
+                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="Who wrote this book." /></th>
+                <th style={TABLE_HEAD_STYLE}>Category<ColHelp text="Which shelf this book is filed under." /></th>
+                <th style={TABLE_HEAD_STYLE}>Genre<ColHelp text="This book's genre." /></th>
+                <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="This book's listed price." /></th>
+                <th style={TABLE_HEAD_STYLE}>View<ColHelp text="Open this book's public page." /></th>
+                <th style={TABLE_HEAD_STYLE}>Get Link<ColHelp text="Generate your unique affiliate link for this book." /></th>
               </tr>
             </thead>
             <tbody>

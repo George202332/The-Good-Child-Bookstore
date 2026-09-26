@@ -116,8 +116,8 @@ export default async function PerformancePage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              <th style={TABLE_HEAD_STYLE}>Book</th>
-              <th style={TABLE_HEAD_STYLE}>Author</th>
+              <th style={TABLE_HEAD_STYLE}>Book<ColHelp text="The book being promoted." /></th>
+              <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="Who wrote this book." /></th>
               <th style={TABLE_HEAD_STYLE}>Clicks<ColHelp text="How many times this book's promotional link has been clicked, all time." /></th>
               <th style={TABLE_HEAD_STYLE}>Conversions<ColHelp text="How many of those clicks turned into an actual sale." /></th>
               <th style={TABLE_HEAD_STYLE}>Conversion Rate<ColHelp text="Conversions divided by clicks — how effectively this link turns visits into sales." /></th>

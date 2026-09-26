@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getIndexingReport } from "@/actions/seo-marketing";
+import { ColHelp } from "@/components/ColHelp";
 
 export const dynamic = "force-dynamic";
 
@@ -51,11 +52,11 @@ export default async function IndexingPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              <th style={TABLE_HEAD_STYLE}>Type</th>
-              <th style={TABLE_HEAD_STYLE}>Title</th>
-              <th style={TABLE_HEAD_STYLE}>URL</th>
-              <th style={TABLE_HEAD_STYLE}>Status</th>
-              <th style={TABLE_HEAD_STYLE}>Last submitted</th>
+              <th style={TABLE_HEAD_STYLE}>Type<ColHelp text="What kind of page this is (book, blog post, author profile, or static page)." /></th>
+              <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The page's title." /></th>
+              <th style={TABLE_HEAD_STYLE}>URL<ColHelp text="The page's live URL." /></th>
+              <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Submitted means IndexNow accepted the ping. Failed means it was rejected or errored. Not yet submitted means no ping has been sent for this page." /></th>
+              <th style={TABLE_HEAD_STYLE}>Last submitted<ColHelp text="When this page was last pinged to IndexNow." /></th>
             </tr>
           </thead>
           <tbody>

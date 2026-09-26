@@ -1,5 +1,11 @@
   :root{
     --cream:#FFF8EF;
+    /* The actual page-canvas color (body, header, hero) — kept as its own
+       token rather than just redefining --cream, since --cream itself is
+       reused everywhere else as a light accent fill and a light text
+       color against dark --ink backgrounds (chips, badges, hover rows);
+       deepening --cream directly would have muddied all of those too. */
+    --bg-cream:#F2E4C9;
     --paper:#FFFDF8;
     --pink:#F7D8E2;
     --pink-deep:#EFA9C1;
@@ -19,6 +25,7 @@
   }
   html.dark-mode{
     --cream:#1E1A26;
+    --bg-cream:var(--cream);
     --paper:#2A2433;
     --ink:#F1EAFB;
     --ink-soft:#D2C7E5;
@@ -26,7 +33,7 @@
     --line: rgba(255,255,255,0.14);
     --shadow: 0 10px 30px rgba(0,0,0,0.35);
   }
-  html.dark-mode body{background:var(--cream);}
+  html.dark-mode body{background:var(--bg-cream);}
   /* Colored cards/tiles neutralized in dark mode so nothing keeps a bright
      light-mode pastel background that clashes with the dark theme; every
      one of these gets the same conspicuous --ink text/icon color so
@@ -48,7 +55,7 @@
   body{
     font-family:'Times New Roman', Times, serif;
     color:var(--ink);
-    background:var(--cream);
+    background:var(--bg-cream);
     -webkit-font-smoothing:antialiased;
   }
   h1,h2,h3,h4,.display{
@@ -67,7 +74,7 @@
   /* ---------- Header ---------- */
   .site-header{
     position:sticky;top:0;z-index:100;
-    background:var(--cream);
+    background:var(--bg-cream);
     backdrop-filter:blur(8px);
   }
   .header-inner{
@@ -108,7 +115,7 @@
     content:'';position:absolute;left:0;right:0;bottom:-4px;height:3px;
     background:var(--coral);border-radius:3px;
   }
-  .header-actions{display:flex;align-items:center;gap:18px;}
+  .header-actions{display:flex;align-items:center;gap:26px;}
   .search-pill{
     display:flex;align-items:center;gap:8px;
     background:var(--paper);border:2px solid var(--line);
@@ -140,8 +147,8 @@
      (.cart-btn, now slightly smaller) plus a small text label under it,
      stacked in a column. */
   .header-icon-btn{
-    display:flex;flex-direction:column;align-items:center;gap:3px;
-    text-decoration:none;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:4px 8px;text-decoration:none;
   }
   .header-icon-label{
     font-size:9.5px;font-weight:700;color:var(--ink-soft);
@@ -157,7 +164,7 @@
 
   /* ---------- Hero ---------- */
   .hero{
-    background:var(--cream);
+    background:var(--bg-cream);
     padding:48px 0 0;
     position:relative;overflow:hidden;
   }
@@ -320,7 +327,7 @@
   @media (max-width:900px){ .hero-float-cluster{display:none;} }
   @media (prefers-reduced-motion:reduce){ .hero-float-icon{animation:none;} }
 
-  .recruit-hero{background:linear-gradient(180deg,var(--cream),var(--paper));padding:64px 0;border-radius:0 0 32px 32px;}
+  .recruit-hero{background:linear-gradient(180deg,var(--bg-cream),var(--paper));padding:64px 0;border-radius:0 0 32px 32px;}
 
   .feature-banner{display:flex;align-items:center;gap:52px;padding:60px 0;}
   .feature-banner.reverse{flex-direction:row-reverse;}
@@ -598,6 +605,14 @@
   .age-pill{
     font-size:11.5px;font-weight:700;color:#4B3B75;background:var(--lavender);
     padding:3px 9px;border-radius:6px;display:inline-block;
+  }
+
+  /* ---------- Table column-header tooltip (ColHelp) ---------- */
+  .col-help{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:13px;height:13px;border-radius:50%;margin-left:5px;
+    border:1px solid var(--ink-faint);color:var(--ink-faint);
+    font-size:9px;font-weight:700;cursor:help;flex-shrink:0;
   }
 
   /* ---------- Category tiles ---------- */
@@ -989,7 +1004,7 @@
   .detail-info{min-width:0;display:flex;flex-direction:column;}
   .detail-cat-tag{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--coral-deep);margin-bottom:12px;}
   .az-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
-  .detail-info h1{font-size:30px;line-height:1.2;margin-bottom:10px;}
+  .detail-info h1{font-size:25.5px;font-weight:700;line-height:1.2;margin-bottom:10px;}
   .az-share-btn{
     flex-shrink:0;width:38px;height:38px;border-radius:50%;border:2px solid var(--line);
     display:flex;align-items:center;justify-content:center;transition:border-color .15s ease;
@@ -1032,8 +1047,11 @@
     scrollbar-width:none;-ms-overflow-style:none;
   }
   .az-details-row::-webkit-scrollbar{display:none;}
-  .az-detail-item{text-align:center;flex:0 0 92px;min-width:92px;padding:0 2px;}
-  .az-detail-item svg{width:19px;height:19px;color:var(--ink-soft);margin-bottom:5px;}
+  /* Explicit column flex (rather than relying on inline default display +
+     inherited text-align) so the icon reliably stacks centered above its
+     label instead of sitting beside it. */
+  .az-detail-item{display:flex;flex-direction:column;align-items:center;text-align:center;flex:0 0 92px;min-width:92px;padding:0 2px;}
+  .az-detail-item svg{display:block;width:19px;height:19px;color:var(--ink-soft);margin-bottom:5px;flex-shrink:0;}
   .az-detail-item strong{display:block;font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .az-detail-item span{font-size:11px;color:var(--ink-faint);white-space:nowrap;}
 
@@ -1043,12 +1061,15 @@
   .buybox-tile{
     border:2px solid var(--line);border-radius:10px;padding:12px;text-align:left;height:94px;box-sizing:border-box;
     transition:border-color .15s ease, box-shadow .15s ease;background:var(--paper);
+    display:flex;flex-direction:column;justify-content:center;gap:6px;
   }
   .buybox-tile:hover{border-color:var(--ink-faint);}
   .buybox-tile.active{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink);}
-  .buybox-tile .bt-name{font-size:12.5px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:5px;color:var(--ink-soft);}
-  .buybox-tile .bt-price{font-size:15px;font-weight:700;color:var(--ink);}
-  .buybox-tile .bt-sub{font-size:11.5px;color:var(--ink-faint);margin-top:3px;}
+  /* Name + price now fill the whole card, sized up, since the secondary
+     "12 MB · instant download"-style line was dropped — that detail is
+     already shown elsewhere on the page. */
+  .buybox-tile .bt-name{font-size:15px;font-weight:700;display:flex;align-items:center;gap:5px;color:var(--ink-soft);}
+  .buybox-tile .bt-price{font-size:20px;font-weight:700;color:var(--ink);}
 
   .buybox-price-row{display:flex;align-items:baseline;gap:8px;margin-bottom:2px;flex-wrap:wrap;}
   .buybox-discount{color:#C0392B;font-weight:700;font-size:15px;}
@@ -1574,7 +1595,11 @@
   }
   @keyframes navBlink{0%,100%{opacity:1;transform:scale(1);}50%{opacity:0.35;transform:scale(0.75);}}
   .dashboard-nav-link:hover{background:var(--cream);color:var(--ink);}
-  .dashboard-nav-link.active{background:none;color:var(--coral-deep);font-weight:700;}
+  /* No font-weight change here on purpose — switching to bold shifted the
+     label's rendered width, which is what made the active tab (e.g.
+     Transactions) visibly nudge left when clicked. The color change
+     alone is enough of an active indicator without moving anything. */
+  .dashboard-nav-link.active{background:none;color:var(--coral-deep);}
   .dashboard-nav-link:focus-visible{outline:2px solid var(--coral-deep);outline-offset:2px;}
   .dashboard-nav-link span{text-align:left;flex:1;}
   .dashboard-nav-link .nav-badge{

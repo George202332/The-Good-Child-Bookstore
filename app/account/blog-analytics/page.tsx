@@ -4,6 +4,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { getBlogAnalytics } from "@/actions/blog-analytics";
 import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
+import { ColHelp } from "@/components/ColHelp";
 
 const REGION_COLORS = ["#2451B7", "#B7472A", "#1F6B48", "#8A5A0B", "#7A5FB5", "#C6437E", "#3F8F8A", "#9A93A8"];
 
@@ -75,8 +76,12 @@ export default async function BlogAnalyticsPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>
-              {["Post", "Reads", "Comments"].map((h) => (
-                <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase" }}>{h}</th>
+              {[
+                { label: "Post", help: "The blog post's title." },
+                { label: "Reads", help: "How many times this post has been read." },
+                { label: "Comments", help: "How many comments this post has received." },
+              ].map((c) => (
+                <th key={c.label} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase" }}>{c.label}<ColHelp text={c.help} /></th>
               ))}
             </tr>
           </thead>

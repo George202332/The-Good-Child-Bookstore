@@ -7,20 +7,26 @@ import { useEffect, useRef, useState } from "react";
  * <iframe>/<embed>, which would show the browser's own native PDF
  * toolbar (download, print, open in new tab). Used two ways: the full
  * manuscript for editor/admin review (spread mode — two pages side by
- * side, no download option anywhere in the UI), and the public "Read
- * sample" (single page, capped to the first `maxPages` pages of that
- * same manuscript file — no separate sample images to manage, it's
- * literally the real manuscript). Right-click is also disabled on the
- * canvas as a further deterrent (not a hard security boundary —
- * someone determined could still get the file via browser devtools —
- * but there's no download/print/save control anywhere in the viewer's
- * own UI).
+ * side, paginated, since a whole manuscript can run far too long to
+ * render all at once), and the public "Read sample" (`maxPages` set,
+ * `spread` not) — which renders every one of those first `maxPages`
+ * pages at once, stacked in a scrollable column, so opening the sample
+ * actually shows all of it rather than landing on page 1 with a
+ * pagination control the reader has to notice and use. No separate
+ * sample images to manage either way — it's literally the real
+ * manuscript. Right-click is also disabled on the canvas as a further
+ * deterrent (not a hard security boundary — someone determined could
+ * still get the file via browser devtools — but there's no
+ * download/print/save control anywhere in the viewer's own UI).
  */
 export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme, scale }: { url: string; title: string; maxPages?: number; spread?: boolean; theme?: "admin" | "light"; scale?: number }) {
   const resolvedTheme = theme ?? (spread ? "admin" : "light");
   const isAdminTheme = resolvedTheme === "admin";
+  const sampleMode = !!maxPages && !spread;
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRef2 = useRef<HTMLCanvasElement>(null);
+  const sampleCanvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const [pageNum, setPageNum] = useState(1);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +60,48 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme, sc
     };
   }, [url, maxPages]);
 
+  async function renderPage(doc: import("pdfjs-dist").PDFDocumentProxy, canvasEl: HTMLCanvasElement, targetPage: number, pageScale: number) {
+    const page = await doc.getPage(targetPage);
+    const viewport = page.getViewport({ scale: pageScale });
+    canvasEl.width = viewport.width;
+    canvasEl.height = viewport.height;
+    const ctx = canvasEl.getContext("2d");
+    if (!ctx) return;
+    await page.render({ canvasContext: ctx, viewport, canvas: canvasEl }).promise;
+  }
+
+  // Sample mode: render every page from 1 to numPages at once, stacked —
+  // the whole point is that opening "Read sample" shows all of the first
+  // maxPages pages, not just the first one behind a page-turner.
   useEffect(() => {
+    if (!sampleMode) return;
+    const doc = pdfDocRef.current;
+    if (!doc || numPages === null) return;
+
+    let cancelled = false;
+    (async () => {
+      for (let p = 1; p <= numPages; p++) {
+        if (cancelled) return;
+        const canvasEl = sampleCanvasRefs.current[p - 1];
+        if (!canvasEl) continue;
+        try {
+          await renderPage(doc, canvasEl, p, scale ?? 1.3);
+        } catch {
+          // Skip a page that fails to render rather than aborting the
+          // whole sample.
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sampleMode, numPages, scale]);
+
+  // Full-manuscript review mode (unchanged): one page — or a spread of
+  // two — at a time, paginated, since these files can run far longer
+  // than 10 pages.
+  useEffect(() => {
+    if (sampleMode) return;
     const doc = pdfDocRef.current;
     if (!doc || numPages === null) return;
 
@@ -67,14 +114,8 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme, sc
         }
         return;
       }
-      const page = await doc.getPage(targetPage);
       if (cancelled) return;
-      const viewport = page.getViewport({ scale: scale ?? 1.3 });
-      canvasEl.width = viewport.width;
-      canvasEl.height = viewport.height;
-      const ctx = canvasEl.getContext("2d");
-      if (!ctx) return;
-      await page.render({ canvasContext: ctx, viewport, canvas: canvasEl }).promise;
+      await renderPage(doc, canvasEl, targetPage, scale ?? 1.3);
     }
     (async () => {
       await renderInto(canvasRef.current, pageNum);
@@ -83,13 +124,35 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme, sc
     return () => {
       cancelled = true;
     };
-  }, [pageNum, numPages, spread, scale]);
+  }, [sampleMode, pageNum, numPages, spread, scale]);
 
   return (
     <div>
       {loading && <p style={{ fontSize: 13, color: isAdminTheme ? "var(--admin-text-faint)" : "var(--ink-faint)" }}>Loading manuscript…</p>}
       {error && <p style={{ fontSize: 13, color: "var(--coral-deep)" }}>{error}</p>}
-      {!loading && !error && (
+      {!loading && !error && sampleMode && (
+        <div
+          style={{
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
+            background: "var(--cream)", borderRadius: 10, padding: 16,
+            maxHeight: "70vh", overflowY: "auto",
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {Array.from({ length: numPages ?? 0 }, (_, i) => i + 1).map((p) => (
+            <canvas
+              key={p}
+              ref={(el) => { sampleCanvasRefs.current[p - 1] = el; }}
+              aria-label={`${title} — page ${p}`}
+              style={{ maxWidth: "100%", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }}
+            />
+          ))}
+          <p style={{ fontSize: 12, color: "var(--ink-faint)", margin: 0 }}>
+            Showing the first {numPages} page{numPages === 1 ? "" : "s"} of this book.
+          </p>
+        </div>
+      )}
+      {!loading && !error && !sampleMode && (
         <>
           <div
             style={{ display: "flex", justifyContent: "center", alignItems: "flex-start", gap: spread ? "2mm" : 0, background: isAdminTheme ? "var(--admin-panel)" : "var(--cream)", borderRadius: 10, padding: 16, overflow: "visible" }}

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getMyCommissions } from "@/actions/affiliate-commissions";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
+import { ColHelp } from "@/components/ColHelp";
 
 export default async function CommissionsPage() {
   const session = await auth();
@@ -24,8 +25,14 @@ export default async function CommissionsPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>
-              {["Date", "Type", "Book", "Sale amount", "Your commission"].map((h) => (
-                <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase" }}>{h}</th>
+              {[
+                { label: "Date", help: "When this sale happened." },
+                { label: "Type", help: "Whether this commission came from an organic sale or a promotion you ran." },
+                { label: "Book", help: "Which book sold." },
+                { label: "Sale amount", help: "The total sale amount this commission is based on." },
+                { label: "Your commission", help: "How much you earned from this sale." },
+              ].map((c) => (
+                <th key={c.label} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase" }}>{c.label}<ColHelp text={c.help} /></th>
               ))}
             </tr>
           </thead>

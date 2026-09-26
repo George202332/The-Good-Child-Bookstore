@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { GoogleIndexingRow } from "@/actions/google-infrastructure";
+import { ColHelp } from "@/components/ColHelp";
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--admin-border, #2A3244)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap", cursor: "pointer", userSelect: "none" as const };
 const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--admin-border, #2A3244)", fontSize: 12.5, verticalAlign: "top" };
@@ -103,14 +104,14 @@ export function GoogleIndexingTable({ rows }: { rows: GoogleIndexingRow[] }) {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              <th style={TABLE_HEAD_STYLE} onClick={() => toggleSort("pageType")}>Type {sortKey === "pageType" ? (sortDir === 1 ? "↑" : "↓") : ""}</th>
-              <th style={TABLE_HEAD_STYLE} onClick={() => toggleSort("title")}>Page {sortKey === "title" ? (sortDir === 1 ? "↑" : "↓") : ""}</th>
-              <th style={TABLE_HEAD_STYLE}>Indexable</th>
-              <th style={TABLE_HEAD_STYLE}>Sitemap</th>
-              <th style={TABLE_HEAD_STYLE}>Robots</th>
-              <th style={TABLE_HEAD_STYLE}>Canonical</th>
-              <th style={TABLE_HEAD_STYLE} onClick={() => toggleSort("health")}>Health {sortKey === "health" ? (sortDir === 1 ? "↑" : "↓") : ""}</th>
-              <th style={TABLE_HEAD_STYLE}>Actions</th>
+              <th style={TABLE_HEAD_STYLE} onClick={() => toggleSort("pageType")}>Type {sortKey === "pageType" ? (sortDir === 1 ? "↑" : "↓") : ""}<ColHelp text="What kind of page this is (book, blog post, static page, etc.)." /></th>
+              <th style={TABLE_HEAD_STYLE} onClick={() => toggleSort("title")}>Page {sortKey === "title" ? (sortDir === 1 ? "↑" : "↓") : ""}<ColHelp text="The page's title and URL path." /></th>
+              <th style={TABLE_HEAD_STYLE}>Indexable<ColHelp text="Whether search engines are allowed to index this page at all." /></th>
+              <th style={TABLE_HEAD_STYLE}>Sitemap<ColHelp text="Whether this page is listed in the site's XML sitemap, which helps Google discover it." /></th>
+              <th style={TABLE_HEAD_STYLE}>Robots<ColHelp text="Whether robots.txt allows or disallows crawlers from this page." /></th>
+              <th style={TABLE_HEAD_STYLE}>Canonical<ColHelp text="Whether this page declares itself as its own canonical URL, avoiding duplicate-content issues." /></th>
+              <th style={TABLE_HEAD_STYLE} onClick={() => toggleSort("health")}>Health {sortKey === "health" ? (sortDir === 1 ? "↑" : "↓") : ""}<ColHelp text="Overall SEO health: Healthy (no issues), Needs attention (something failed), or Intentionally excluded (private/auth page, expected not to be indexed)." /></th>
+              <th style={TABLE_HEAD_STYLE}>Actions<ColHelp text="Open the live page, or inspect it in Google Search Console." /></th>
             </tr>
           </thead>
           <tbody>

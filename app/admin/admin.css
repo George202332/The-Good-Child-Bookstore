@@ -220,6 +220,10 @@
   background: var(--admin-accent-soft);
   color: var(--admin-accent);
 }
+.admin-shell .col-help {
+  border-color: var(--admin-text-faint);
+  color: var(--admin-text-faint);
+}
 
 .admin-shell [style*="border-bottom"] { border-color: var(--admin-border) !important; }
 .admin-shell [style*="color: var(--ink-faint)"],

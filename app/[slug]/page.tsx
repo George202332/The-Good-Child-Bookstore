@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BOOKS, bookSlug } from "@/lib/data/catalog";
-import { getRealPublishedBookBySlug } from "@/lib/data/real-books-adapter";
+import { getRealPublishedBookBySlug, getRealPublishedBooks } from "@/lib/data/real-books-adapter";
 import { BookDetailClient } from "../book/[id]/BookDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +46,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function BookBySlugPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const resolved = await resolveBookBySlug(slug);
+  const [resolved, realBooks] = await Promise.all([resolveBookBySlug(slug), getRealPublishedBooks()]);
   if (!resolved) notFound();
-  return <BookDetailClient book={resolved.book} isRealBook={resolved.isRealBook} />;
+  return (
+    <BookDetailClient
+      book={resolved.book}
+      isRealBook={resolved.isRealBook}
+      allBooks={[...realBooks, ...BOOKS]}
+    />
+  );
 }

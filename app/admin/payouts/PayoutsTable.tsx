@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ModerationActions } from "./ModerationActions";
+import { ColHelp } from "@/components/ColHelp";
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
 
 const TH: React.CSSProperties = { padding: "9px 10px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.02em", textAlign: "left", whiteSpace: "nowrap" };
@@ -116,16 +117,16 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={TH}>Account #</th>
-              <th style={TH}>Account holder</th>
-              <th style={TH}>Email</th>
-              <th style={TH}>Method</th>
-              <th style={TH}>Account / payment details</th>
-              <th style={TH}>Book sales</th>
-              <th style={TH}>Affiliate</th>
-              <th style={TH}>Total</th>
-              <th style={TH}>Status</th>
-              <th style={TH}>Requested</th>
+              <th style={TH}>Account #<ColHelp text="This recipient's account number on the platform." /></th>
+              <th style={TH}>Account holder<ColHelp text="The name on file with Wise for this payout — who the money is actually sent to." /></th>
+              <th style={TH}>Email<ColHelp text="The recipient's account email." /></th>
+              <th style={TH}>Method<ColHelp text="How this payout is sent (bank transfer, mobile money, etc.), as set up with Wise." /></th>
+              <th style={TH}>Account / payment details<ColHelp text="The specific bank or mobile-money details this payout is sent to." /></th>
+              <th style={TH}>Book sales<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
+              <th style={TH}>Affiliate<ColHelp text="This payout's share that comes from affiliate commission on sales the recipient referred." /></th>
+              <th style={TH}>Total<ColHelp text="Book sales plus affiliate earnings combined — the full amount of this payout." /></th>
+              <th style={TH}>Status<ColHelp text="Paid means the transfer has gone out. Not paid means it's still queued or awaiting approval. Rejected means it was declined." /></th>
+              <th style={TH}>Requested<ColHelp text="The date this payout was queued." /></th>
               <th style={TH}></th>
             </tr>
           </thead>

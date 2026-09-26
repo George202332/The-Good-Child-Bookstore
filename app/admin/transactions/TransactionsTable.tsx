@@ -3,12 +3,26 @@
 import { useState } from "react";
 import { getTransactionDetail, type TransactionDetail, type TransactionRow } from "@/actions/transactions";
 import { DeleteTransactionButton } from "./DeleteTransactionButton";
+import { ColHelp } from "@/components/ColHelp";
 
 const TH: React.CSSProperties = {
   padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)",
   fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap", textAlign: "left",
 };
 const TD: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid var(--line)" };
+
+const COLUMNS: { label: string; help: string }[] = [
+  { label: "Transaction ID", help: "A short reference for this row — the full ID appears in the detail pop-up." },
+  { label: "Date", help: "When this sale or payout happened." },
+  { label: "Type", help: "Whether this row is a book Sale or a Payout." },
+  { label: "Party", help: "For a sale, the buyer. For a payout, who received it." },
+  { label: "Details", help: "The book and format sold, or the payout's earnings type." },
+  { label: "Amount", help: "The total amount of this sale, or the amount sent out for a payout." },
+  { label: "Company", help: "The company's share of this sale." },
+  { label: "Royalty", help: "The author's share (royalty) of this sale." },
+  { label: "Commission", help: "The affiliate's commission on this sale, and which affiliate earned it, if any." },
+  { label: "Action", help: "Permanently delete this record." },
+];
 
 /**
  * The admin Transactions ledger — same row-click-opens-a-pop-up pattern
@@ -37,8 +51,8 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
-              {["Transaction ID", "Date", "Type", "Party", "Details", "Amount", "Company", "Royalty", "Commission", "Action"].map((h) => (
-                <th key={h} style={TH}>{h}</th>
+              {COLUMNS.map((c) => (
+                <th key={c.label} style={TH}>{c.label}<ColHelp text={c.help} /></th>
               ))}
             </tr>
           </thead>

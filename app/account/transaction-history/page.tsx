@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getAuthorTransactions } from "@/actions/author-transactions";
 import { getMyPurchases } from "@/actions/my-purchases";
+import { ColHelp } from "@/components/ColHelp";
 
 /**
  * This route is reached from two different nav items pointing at the
@@ -35,9 +36,16 @@ export default async function AuthorTransactionHistoryPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ textAlign: "left" }}>
-                {["Order", "Date", "Detail", "Method", "Amount", "Status"].map((h) => (
-                  <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
-                    {h}
+                {[
+                  { label: "Order", help: "A short reference for this order." },
+                  { label: "Date", help: "When you placed this order." },
+                  { label: "Detail", help: "What you bought." },
+                  { label: "Method", help: "How you paid." },
+                  { label: "Amount", help: "The total you paid for this order." },
+                  { label: "Status", help: "This order's current status." },
+                ].map((c) => (
+                  <th key={c.label} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
+                    {c.label}<ColHelp text={c.help} />
                   </th>
                 ))}
               </tr>
@@ -84,9 +92,17 @@ export default async function AuthorTransactionHistoryPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>
-              {["Transaction ID", "Date", "Type", "Book / Detail", "Method", "Amount", "Status"].map((h) => (
-                <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
-                  {h}
+              {[
+                { label: "Transaction ID", help: "A short reference for this row." },
+                { label: "Date", help: "When this sale or payout happened." },
+                { label: "Type", help: "Whether this row is a book Sale or a Payout." },
+                { label: "Book / Detail", help: "For a sale, the buyer. For a payout, who received it." },
+                { label: "Method", help: "How the payment or payout was made." },
+                { label: "Amount", help: "The total amount, or the amount sent out for a payout." },
+                { label: "Status", help: "This transaction's current status." },
+              ].map((c) => (
+                <th key={c.label} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
+                  {c.label}<ColHelp text={c.help} />
                 </th>
               ))}
             </tr>

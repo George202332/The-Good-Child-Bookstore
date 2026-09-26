@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
 import { LibraryReviewButton } from "@/components/LibraryReviewButton";
+import { ColHelp } from "@/components/ColHelp";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" };
@@ -79,13 +80,13 @@ export default async function LibraryPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={TABLE_HEAD_STYLE}>SN / ISBN</th>
-                <th style={TABLE_HEAD_STYLE}>Title</th>
-                <th style={TABLE_HEAD_STYLE}>Author</th>
-                <th style={TABLE_HEAD_STYLE}>Format</th>
-                <th style={TABLE_HEAD_STYLE}>Copies</th>
-                <th style={TABLE_HEAD_STYLE}>Download</th>
-                {role === "READER" && <th style={TABLE_HEAD_STYLE}>Review</th>}
+                <th style={TABLE_HEAD_STYLE}>SN / ISBN<ColHelp text="This book's ISBN, if it has one." /></th>
+                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title." /></th>
+                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="Who wrote this book." /></th>
+                <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="Which format you bought — eBook, audiobook, paperback, or hardcover." /></th>
+                <th style={TABLE_HEAD_STYLE}>Copies<ColHelp text="How many copies of this book (in this format) you've purchased." /></th>
+                <th style={TABLE_HEAD_STYLE}>Download<ColHelp text="Download your copy as a PDF or ePub." /></th>
+                {role === "READER" && <th style={TABLE_HEAD_STYLE}>Review<ColHelp text="Write or edit your review for this book." /></th>}
               </tr>
             </thead>
             <tbody>

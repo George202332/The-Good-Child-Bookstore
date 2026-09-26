@@ -101,26 +101,34 @@ export default async function PayoutSettingsPage() {
 
       <h3 style={{ fontSize: 16, margin: "28px 0 14px" }}>Monthly payout history</h3>
       <div className="map-card" style={{ padding: 20 }}>
-        {monthlyRows.length === 0 ? (
-          <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No earnings yet.</div>
-        ) : (
-          <div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
+        {/* Table/headers always render, even with no history yet — the
+            empty state is a single full-width row inside <tbody>, not a
+            replacement for the whole table (same pattern used for the
+            admin Payouts ledger and Blog Moderation tables). */}
+        <div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th style={TABLE_HEAD_STYLE}>Month<ColHelp text="The calendar month this row's earnings were made in." /></th>
+                <th style={TABLE_HEAD_STYLE}>Amount<ColHelp text="Your total earnings for the month: organic book sales plus referral and promotion commissions combined." /></th>
+                <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many copies of your own books were sold this month." /></th>
+                <th style={TABLE_HEAD_STYLE}>Organic<ColHelp text="Your share of book sales this month, whether the reader found the book directly or arrived via an affiliate link." /></th>
+                <th style={TABLE_HEAD_STYLE}>Referral<ColHelp text="A percentage of company revenue from authors you personally referred onto the platform, earned this month." /></th>
+                <th style={TABLE_HEAD_STYLE}>Promotion<ColHelp text="Commission earned this month from copies sold through your own affiliate promotional links." /></th>
+                <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="This month's earnings become payable on the 15th of the following month, as long as the total due has reached the $30 minimum." /></th>
+                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Pending payout means the 15th hasn't been processed yet. Paid means the transfer for this month has gone out." /></th>
+                <th style={TABLE_HEAD_STYLE}>Report<ColHelp text="Download this month's full payout statement as a PDF, itemized the same way as your account's statements are always formatted." /></th>
+              </tr>
+            </thead>
+            <tbody>
+              {monthlyRows.length === 0 ? (
                 <tr>
-                  <th style={TABLE_HEAD_STYLE}>Month<ColHelp text="The calendar month this row's earnings were made in." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Amount<ColHelp text="Your total earnings for the month: organic book sales plus referral and promotion commissions combined." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many copies of your own books were sold this month." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Organic<ColHelp text="Your share of book sales this month, whether the reader found the book directly or arrived via an affiliate link." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Referral<ColHelp text="A percentage of company revenue from authors you personally referred onto the platform, earned this month." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Promotion<ColHelp text="Commission earned this month from copies sold through your own affiliate promotional links." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="This month's earnings become payable on the 15th of the following month, as long as the total due has reached the $30 minimum." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Pending payout means the 15th hasn't been processed yet. Paid means the transfer for this month has gone out." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Report<ColHelp text="Download this month's full payout statement as a PDF, itemized the same way as your account's statements are always formatted." /></th>
+                  <td colSpan={9} style={{ padding: "24px 16px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                    No earnings yet.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {monthlyRows.map((r) => (
+              ) : (
+                monthlyRows.map((r) => (
                   <tr key={r.monthKey}>
                     <td style={TABLE_CELL_STYLE}>{r.monthLabel}</td>
                     <td style={TABLE_CELL_STYLE}>${r.amount.toFixed(2)}</td>
@@ -144,11 +152,11 @@ export default async function PayoutSettingsPage() {
                       </a>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </DashboardShell>
   );

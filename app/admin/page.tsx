@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { AdminShell } from "@/components/AdminShell";
 import { canViewFinancials } from "@/lib/roles";
 import { getTransactionLedger } from "@/actions/transactions";
+import { ColHelp } from "@/components/ColHelp";
 
 /**
  * Admin/Editor dashboard overview — a real summary of the platform's
@@ -142,9 +143,19 @@ export default async function AdminDashboardPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ textAlign: "left" }}>
-                  {["Transaction ID", "Date", "Type", "Party", "Details", "Amount", "Company", "Royalty", "Commission"].map((h) => (
-                    <th key={h} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
-                      {h}
+                  {[
+                    { label: "Transaction ID", help: "A short reference for this row." },
+                    { label: "Date", help: "When this sale or payout happened." },
+                    { label: "Type", help: "Whether this row is a book Sale or a Payout." },
+                    { label: "Party", help: "For a sale, the buyer. For a payout, who received it." },
+                    { label: "Details", help: "The book and format sold, or the payout's earnings type." },
+                    { label: "Amount", help: "The total amount of this sale, or the amount sent out for a payout." },
+                    { label: "Company", help: "The company's share of this sale." },
+                    { label: "Royalty", help: "The author's share (royalty) of this sale." },
+                    { label: "Commission", help: "The affiliate's commission on this sale, if any." },
+                  ].map((c) => (
+                    <th key={c.label} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
+                      {c.label}<ColHelp text={c.help} />
                     </th>
                   ))}
                 </tr>

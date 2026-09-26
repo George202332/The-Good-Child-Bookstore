@@ -8,6 +8,7 @@ import { BOOKS, bookSlug } from "@/lib/data/catalog";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { CopyLinkButton } from "./CopyLinkButton";
 import { BrowseBooksSection } from "./BrowseBooksSection";
+import { ColHelp } from "@/components/ColHelp";
 
 /**
  * Promotions — redesigned as a single page: 4 stat cards, then Browse
@@ -87,11 +88,11 @@ export default async function ActiveCampaignsPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr>
-                  <th style={TABLE_HEAD_STYLE}>Book</th>
-                  <th style={TABLE_HEAD_STYLE}>Link</th>
-                  <th style={TABLE_HEAD_STYLE}>Clicks</th>
-                  <th style={TABLE_HEAD_STYLE}>Sales</th>
-                  <th style={TABLE_HEAD_STYLE}>Earned</th>
+                  <th style={TABLE_HEAD_STYLE}>Book<ColHelp text="The book you're promoting." /></th>
+                  <th style={TABLE_HEAD_STYLE}>Link<ColHelp text="Your unique affiliate link for this book — share it to earn commission on sales through it." /></th>
+                  <th style={TABLE_HEAD_STYLE}>Clicks<ColHelp text="How many times your link has been clicked." /></th>
+                  <th style={TABLE_HEAD_STYLE}>Sales<ColHelp text="How many purchases came through your link." /></th>
+                  <th style={TABLE_HEAD_STYLE}>Earned<ColHelp text="Total commission you've earned from this link." /></th>
                   <th style={TABLE_HEAD_STYLE}></th>
                 </tr>
               </thead>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { UserRowActions } from "./UserRowActions";
+import { ColHelp } from "@/components/ColHelp";
 import { getUserDetail, type UserDetail, type UserListRow } from "@/actions/users-admin";
 import type { Role } from "@/lib/roles";
 
@@ -44,12 +45,12 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={TH}>Account ID</th>
-              <th style={TH}>Name</th>
-              <th style={TH}>Email</th>
-              <th style={TH}>Date joined</th>
-              <th style={TH}>Country</th>
-              <th style={TH}>Account type</th>
+              <th style={TH}>Account ID<ColHelp text="This user's unique account number on the platform." /></th>
+              <th style={TH}>Name<ColHelp text="The name on the account." /></th>
+              <th style={TH}>Email<ColHelp text="The email address this account signs in and receives notifications with." /></th>
+              <th style={TH}>Date joined<ColHelp text="When this account was created." /></th>
+              <th style={TH}>Country<ColHelp text="The country on file for this account, from their profile or default shipping address." /></th>
+              <th style={TH}>Account type<ColHelp text="This account's role — Reader, Author, Editor, Chief Editor, Admin, or Accountant. Change it from the dropdown in this column." /></th>
               <th style={TH}></th>
             </tr>
           </thead>
