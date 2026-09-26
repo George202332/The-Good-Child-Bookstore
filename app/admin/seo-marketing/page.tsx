@@ -41,7 +41,9 @@ export default async function SeoMarketingPage() {
         <div>
           <h2 style={{ fontSize: 20 }}>SEO &amp; Marketing</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            Indexable content health, generated feeds, and per-page metadata overrides.
+            Indexable content health, generated feeds, and per-page metadata overrides. For Google Analytics,
+            Search Console, and Google-specific indexing diagnostics, see{" "}
+            <Link href="/admin/google-infrastructure">Google Infrastructure</Link>.
           </p>
         </div>
       </div>

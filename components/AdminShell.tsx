@@ -28,6 +28,7 @@ function navItemsForRole(role: Role) {
     { key: "dashboard", label: "Dashboard", href: "/admin" },
     { key: "books", label: "Book Management", href: "/admin/books" },
     { key: "seo-marketing", label: "SEO & Marketing", href: "/admin/seo-marketing" },
+    { key: "google-infrastructure", label: "Google Infrastructure", href: "/admin/google-infrastructure" },
     { key: "blog", label: "Blog Moderation", href: "/admin/blog" },
     { key: "analytics", label: "Analytics", href: "/admin/analytics" },
   ];
