@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { authAdmin } from "@/lib/auth-admin";
 import type { Role } from "@/lib/roles";
 import { payoutMethodLabel, formatAccountDetails } from "@/lib/payout-method-label";
+import { fetchEarningsBreakdown, sumLines } from "@/lib/earnings-lines";
 
 /**
  * The full admin payout ledger — every payout ever queued, whatever its
@@ -35,7 +36,8 @@ function earningsMonthKeyFor(requestedAt: Date): string {
  * the platform) and "Commission" (their own affiliate-link promotion
  * earnings) — the same two real, separately-tracked figures the
  * author-facing Monthly Payout History table shows, just recomputed
- * here for a specific already-queued payout's month. */
+ * here for a specific already-queued payout's month. Uses the same
+ * shared fetch as everywhere else (see lib/earnings-lines.ts). */
 async function referralAndCommissionFor(userId: string, monthKey: string): Promise<{ referral: number; commission: number }> {
   const [yearStr, monthStr] = monthKey.split("-");
   const year = Number(yearStr), month = Number(monthStr) - 1;
@@ -43,23 +45,8 @@ async function referralAndCommissionFor(userId: string, monthKey: string): Promi
   const start = new Date(year, month, 1);
   const end = new Date(year, month + 1, 1);
 
-  const affiliateProfile = await prisma.affiliateProfile.findUnique({
-    where: { userId },
-    include: {
-      affiliateLinks: { include: { saleLines: { where: { createdAt: { gte: start, lt: end } } } } },
-      authorReferralEarnings: { where: { createdAt: { gte: start, lt: end } } },
-    },
-  });
-  if (!affiliateProfile) return { referral: 0, commission: 0 };
-  const commission = affiliateProfile.affiliateLinks.reduce(
-    (sum: number, l: { saleLines: { affiliateShare: unknown }[] }) => sum + l.saleLines.reduce((s: number, sl: { affiliateShare: unknown }) => s + Number(sl.affiliateShare), 0),
-    0
-  );
-  const referral = affiliateProfile.authorReferralEarnings.reduce(
-    (sum: number, r: { authorReferralShare: unknown }) => sum + Number(r.authorReferralShare),
-    0
-  );
-  return { referral, commission };
+  const { referral, commission } = await fetchEarningsBreakdown(userId, { start, end });
+  return { referral: sumLines(referral), commission: sumLines(commission) };
 }
 
 async function requireAdminOrAccountant() {
@@ -125,6 +112,14 @@ export interface PayoutLedgerRow {
  * pattern with no stored per-row state to keep in sync. Users with zero
  * activity so far this month are left out, so the ledger isn't flooded
  * with $0.00 rows for every account that's never sold anything.
+ *
+ * This queries every author/affiliate in bulk in two groupBy-style
+ * passes rather than calling fetchEarningsBreakdown() per user (see
+ * lib/earnings-lines.ts) — that helper is scoped to one user at a
+ * time, and looping it here would turn one bulk query into one query
+ * per account. The categorization logic (organic/referral/commission)
+ * is intentionally kept identical to fetchEarningsBreakdown's, just
+ * inlined for this bulk shape.
  */
 async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
   const now = new Date();

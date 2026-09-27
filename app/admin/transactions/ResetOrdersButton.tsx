@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { resetAllOrders } from "@/actions/transactions";
+import { Modal } from "@/components/Modal";
 
 /**
  * A bulk "clear every order" button — the direct replacement for what
@@ -44,13 +45,7 @@ export function ResetOrdersButton() {
         </p>
       )}
       {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(15,20,32,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-          onClick={() => !isPending && setOpen(false)}
-        >
-          <div className="map-card" style={{ padding: 24, maxWidth: 440, width: "100%" }} onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => !isPending && setOpen(false)} maxWidth={440}>
             <h3 style={{ fontSize: 16, marginBottom: 8 }}>Permanently delete every order?</h3>
             <p style={{ fontSize: 13.5, color: "var(--admin-text-faint, #6B7385)", marginBottom: 16 }}>
               This deletes <strong>every order</strong> on the platform — real or test — along with every sale line,
@@ -65,8 +60,7 @@ export function ResetOrdersButton() {
                 {isPending ? "Deleting…" : "Yes, delete every order"}
               </button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

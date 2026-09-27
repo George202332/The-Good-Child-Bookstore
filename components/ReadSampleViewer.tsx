@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ManuscriptReviewViewer } from "./ManuscriptReviewViewer";
+import { Modal } from "./Modal";
 
 /**
  * "Read sample" — per explicit instruction, this is NOT a separate set
@@ -28,23 +29,13 @@ export function ReadSampleViewer({ manuscriptUrl, title }: { manuscriptUrl: stri
         Read Sample
       </button>
       {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{ position: "fixed", inset: 0, background: "rgba(20,14,26,0.85)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            style={{ background: "var(--paper)", borderRadius: 16, padding: 20, maxWidth: 640, width: "100%", maxHeight: "90vh", overflowY: "auto", position: "relative" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <Modal onClose={() => setOpen(false)} maxWidth={640}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <h3 style={{ fontSize: 15, margin: 0 }}>{title} — Sample (first pages)</h3>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--ink-faint)", lineHeight: 1 }}>×</button>
             </div>
             <ManuscriptReviewViewer url={manuscriptUrl} title={title} maxPages={10} />
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

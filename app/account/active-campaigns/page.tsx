@@ -9,6 +9,7 @@ import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { CopyLinkButton } from "./CopyLinkButton";
 import { BrowseBooksSection } from "./BrowseBooksSection";
 import { ColHelp } from "@/components/ColHelp";
+import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
 /**
  * Promotions — redesigned as a single page: 4 stat cards, then Browse
@@ -130,5 +131,5 @@ export default async function ActiveCampaignsPage() {
   );
 }
 
-const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
-const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid var(--line)" };
+const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
+const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };

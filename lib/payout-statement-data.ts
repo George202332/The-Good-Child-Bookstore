@@ -1,5 +1,18 @@
 import { prisma } from "@/lib/prisma";
 
+/**
+ * Deliberately does NOT use lib/earnings-lines.ts's shared
+ * fetchEarningsBreakdown(): every other caller (actions/wallet.ts,
+ * lib/compute-wallet-for-user.ts, lib/payout-monthly.ts,
+ * actions/payout-ledger.ts) only needs a flat {createdAt, amount} per
+ * sale, but the PDF statement below needs a full per-title, per-format
+ * breakdown (book title, list price, gross amount, company share,
+ * affiliate-link presence) that shape doesn't carry. Forcing this
+ * query through the narrower shared shape would mean re-fetching the
+ * same rows a second time just to get the extra fields, so this keeps
+ * its own richer query instead.
+ */
+
 export interface PayoutStatementFormatRow {
   title: string;
   format: string;

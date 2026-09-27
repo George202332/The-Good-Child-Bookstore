@@ -114,7 +114,6 @@ model User {
    * Every marketing send includes a real unsubscribe link that flips
    * this back to false (see lib/email/marketing.ts). */
   marketingOptIn Boolean @default(false)
-  googleOAuthToken GoogleOAuthToken?
   role          Role     @default(READER)
   /** Detected automatically from the request's IP at the moment this
    * account was created (see lib/geo.ts) — there is no manual country
@@ -133,7 +132,6 @@ model User {
   readerProfile    ReaderProfile?
 
   settings      Settings?
-  sessions      Session[]
   passwordResetTokens PasswordResetToken[]
   emailVerificationTokens EmailVerificationToken[]
   twoFactorConfig TwoFactorConfig?
@@ -143,9 +141,6 @@ model User {
   blogComments  BlogComment[]
   blogs         Blog[]
   ratings       Rating[]
-  wishlists     Wishlist[]
-  bookmarks     Bookmark[]
-  supportTickets SupportTicket[]
   auditLogs     AuditLog[]        @relation("AuditActor")
   messagesSent  Message[]         @relation("MessageSender")
   messagesReceived Message[]      @relation("MessageRecipient")
@@ -233,16 +228,6 @@ model TwoFactorChallenge {
   @@index([userId, purpose])
 }
 
-model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-}
-
 model Settings {
   id                String  @id @default(cuid())
   userId            String  @unique
@@ -322,8 +307,6 @@ model ReaderProfile {
   shoppingForAgeRanges  String[] @default([])
   affiliateAccess       Boolean  @default(false)
   orders                Order[]
-  subscriptions         Subscription[]
-  downloads             Download[]
   addresses             Address[]
   authorNameFollows     AuthorNameFollow[]
   savedPaymentMethods   SavedPaymentMethod[]
@@ -419,7 +402,6 @@ model Book {
   author       AuthorProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
   categories   CategoryOnBook[]
   genres       GenreOnBook[]
-  tags         TagOnBook[]
   ageGroup     String?
   language     String        @default("en")
   // Which formats this title is published in — an author can enable
@@ -470,8 +452,6 @@ model Book {
   reviews      Review[]
   ratings      Rating[]
   saleLines    SaleLine[]
-  wishlists    Wishlist[]
-  bookmarks    Bookmark[]
   affiliateLinks AffiliateLink[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -513,25 +493,6 @@ model GenreOnBook {
   book    Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
   genre   Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
   @@id([bookId, genreId])
-}
-
-model Tag {
-  id    String @id @default(cuid())
-  name  String @unique
-  books TagOnBook[]
-}
-model TagOnBook {
-  bookId String
-  tagId  String
-  book   Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
-  @@id([bookId, tagId])
-}
-
-model Country {
-  id   String @id @default(cuid())
-  code String @unique // ISO 3166-1 alpha-2
-  name String
 }
 
 // ---------- Blog / editorial workflow ----------
@@ -628,24 +589,6 @@ model Rating {
   @@unique([bookId, userId])
 }
 
-model Wishlist {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bookId String
-  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  @@unique([userId, bookId])
-}
-
-model Bookmark {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  bookId String
-  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  @@unique([userId, bookId])
-}
-
 // ---------- Orders / sales / the financial engine ----------
 
 model Order {
@@ -663,10 +606,7 @@ model Order {
   // gateway and back, so this can't just live in client-side state).
   // Nulled out immediately after that email is sent.
   guestTempPassword String?
-  couponId      String?
-  coupon        Coupon?     @relation(fields: [couponId], references: [id])
   lines         SaleLine[]
-  invoice       Invoice?
   paymentLogs   PaymentLog[]
   // Real IP-based geotagging (see lib/geo.ts) captured at the moment of
   // purchase — works for every order, including eBook-only orders that
@@ -730,23 +670,6 @@ model SaleLine {
   @@index([authorReferralAffiliateId])
 }
 
-model Invoice {
-  id        String   @id @default(cuid())
-  orderId   String   @unique
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  number    String   @unique
-  pdfUrl    String?
-  createdAt DateTime @default(now())
-}
-
-model Coupon {
-  id         String   @id @default(cuid())
-  code       String   @unique
-  percentOff Decimal  @db.Decimal(5, 2)
-  expiresAt  DateTime?
-  orders     Order[]
-}
-
 model PaymentLog {
   id         String         @id @default(cuid())
   orderId    String
@@ -755,24 +678,6 @@ model PaymentLog {
   rawPayload Json
   verified   Boolean        @default(false)
   createdAt  DateTime       @default(now())
-}
-
-model Subscription {
-  id            String   @id @default(cuid())
-  readerId      String
-  reader        ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
-  planName      String
-  active        Boolean  @default(true)
-  startedAt     DateTime @default(now())
-  cancelledAt   DateTime?
-}
-
-model Download {
-  id        String   @id @default(cuid())
-  readerId  String
-  reader    ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
-  bookId    String
-  downloadedAt DateTime @default(now())
 }
 
 // ---------- Affiliate system ----------
@@ -927,16 +832,6 @@ model Message {
   category   String?
 }
 
-model SupportTicket {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subject   String
-  body      String
-  status    String   @default("OPEN")
-  createdAt DateTime @default(now())
-}
-
 model AuditLog {
   id        String   @id @default(cuid())
   actorId   String
@@ -1031,34 +926,3 @@ model AnalyticsEvent {
   createdAt DateTime @default(now())
 }
 
-model MonthlyReport {
-  id        String   @id @default(cuid())
-  year      Int
-  month     Int
-  scopeType String   // AUTHOR | AFFILIATE | COMPANY
-  scopeId   String?
-  data      Json
-  createdAt DateTime @default(now())
-
-  @@unique([year, month, scopeType, scopeId])
-}
-
-/** One row per user who has connected their Gmail account via OAuth.
- * accessToken and refreshToken are stored AES-256-GCM encrypted (see
- * lib/crypto.ts) — never stored or logged in plaintext. A short-lived
- * accessToken (expiresAt) is refreshed automatically using the
- * long-lived refreshToken by lib/google/tokens.ts before any Gmail API
- * call, so nothing calling into the Gmail integration ever needs to
- * think about expiry itself. */
-model GoogleOAuthToken {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken   String   @db.Text
-  refreshToken  String   @db.Text
-  expiresAt     DateTime
-  scope         String
-  googleEmail   String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-}

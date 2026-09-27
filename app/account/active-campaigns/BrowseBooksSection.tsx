@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { GetLinkButton } from "./GetLinkButton";
 import { ColHelp } from "@/components/ColHelp";
+import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
 export interface BrowsableBook {
   id: string;
@@ -21,8 +22,8 @@ type SortMode = "latest" | "category" | "genre";
 
 const ROW_HEIGHT = 52;
 const VISIBLE_ROWS = 10;
-const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
-const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--line)" };
+const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "10px 14px", fontSize: 11, letterSpacing: undefined };
+const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 14px", fontSize: undefined, verticalAlign: undefined };
 
 /** Only books not already on promotion are ever passed in here — once
  * an affiliate generates a link for one (see GetLinkButton), the parent

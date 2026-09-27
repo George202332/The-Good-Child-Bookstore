@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteTransaction } from "@/actions/transactions";
+import { Modal } from "@/components/Modal";
 
 export function DeleteTransactionButton({ id, type, detail }: { id: string; type: "sale" | "payout"; detail: string }) {
   const router = useRouter();
@@ -27,8 +28,7 @@ export function DeleteTransactionButton({ id, type, detail }: { id: string; type
         Delete
       </button>
       {open && (
-        <div role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(15,20,32,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => !isPending && setOpen(false)}>
-          <div className="map-card" style={{ padding: 24, maxWidth: 420, width: "100%" }} onClick={(e) => e.stopPropagation()}>
+        <Modal onClose={() => !isPending && setOpen(false)} maxWidth={420}>
             <h3 style={{ fontSize: 16, marginBottom: 8 }}>Delete this transaction?</h3>
             <p style={{ fontSize: 13.5, color: "var(--admin-text-faint, #6B7385)", marginBottom: 16 }}>
               &quot;{detail}&quot; — this permanently removes the transaction, including any royalty or affiliate
@@ -40,8 +40,7 @@ export function DeleteTransactionButton({ id, type, detail }: { id: string; type
               <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => setOpen(false)}>Cancel</button>
               <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={handleConfirm}>{isPending ? "Deleting…" : "Confirm delete"}</button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

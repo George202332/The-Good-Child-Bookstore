@@ -6,6 +6,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { ColHelp } from "@/components/ColHelp";
 import { SuspendButton } from "./SuspendButton";
 import { WithdrawButton } from "./WithdrawButton";
+import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
 interface SaleLineShare {
   authorShare: unknown;
@@ -29,8 +30,8 @@ const STATUS_PILL: Record<string, { label: string; className: string }> = {
   WITHDRAWN: { label: "Withdrawn", className: "status-suspended" },
 };
 
-const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
-const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid var(--line)" };
+const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
+const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
 
 /**
  * "My Books" — a real table: status (color-coded tab matching where the

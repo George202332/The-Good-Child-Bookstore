@@ -5,9 +5,10 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { LibraryReviewButton } from "@/components/LibraryReviewButton";
 import { ColHelp } from "@/components/ColHelp";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
-const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" };
-const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--line)" };
+const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "10px 14px", fontSize: 11, letterSpacing: undefined, whiteSpace: undefined };
+const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 14px", fontSize: undefined, verticalAlign: undefined };
 
 /**
  * My Library — every book a signed-in account has bought, whether that

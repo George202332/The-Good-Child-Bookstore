@@ -6,10 +6,11 @@ import { getAffiliateAnalytics } from "@/actions/affiliate-analytics-data";
 import { PieChart } from "@/components/charts/PieChart";
 import { WorldMap } from "@/components/charts/WorldMap";
 import { ColHelp } from "@/components/ColHelp";
+import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
 const REGION_COLORS = ["#2451B7", "#B7472A", "#1F6B48", "#8A5A0B", "#7A5FB5", "#C6437E", "#3F8F8A", "#9A93A8"];
-const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", textAlign: "left" };
-const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid var(--line)" };
+const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11.5, letterSpacing: undefined, whiteSpace: undefined };
+const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
 
 /**
  * Affiliate — pure-numbers analytics (clicks, conversions, regions),

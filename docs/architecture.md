@@ -198,11 +198,14 @@ earlier payout behavior:
    queues up who's owed what. Requested-but-unpaid payouts are carved
    out of Available so the same money isn't queued twice.
    `actions/wallet.ts` `getMyWallet()` is role-aware (author sales vs.
-   affiliate sales) and used by both `/account/revenue` (author) and
-   `/account/earnings` (affiliate), which both now show On Hold /
-   Available / Total Earned instead of a single balance number. Authors
-   previously had NO payout mechanism at all (only affiliates did) —
-   this gives them one for the first time, via the same Wise flow.
+   affiliate sales) and used by `/account/payout-settings`, which shows
+   On Hold / Available / Total Earned plus the full Monthly Payout
+   History table (Live/Pending/Paid rows — see lib/payout-monthly.ts).
+   `/account/earnings` and `/account/payments` were earlier, now-removed
+   pages that showed a subset of the same data; Payout Settings is the
+   one current surface for this. Authors previously had NO payout
+   mechanism at all (only affiliates did) — this gives them one, via the
+   same Wise flow.
 
 **M-Pesa is a Paystack channel, not a separate integration** — initially
 built as a standalone Safaricom Daraja (STK Push) integration, then

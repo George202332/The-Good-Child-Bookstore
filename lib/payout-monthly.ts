@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { fetchEarningsBreakdown } from "@/lib/earnings-lines";
 
 /**
  * The real monthly payout ledger — one row per calendar month that has
@@ -9,12 +10,6 @@ import { prisma } from "@/lib/prisma";
  * format, but with "Affiliate revenue" split into its two real,
  * separately-tracked components instead of one combined column.
  */
-
-interface RawLine {
-  createdAt: Date;
-  amount: number;
-  isBookSale?: boolean;
-}
 
 export interface MonthlyPayoutRow {
   monthLabel: string;
@@ -55,34 +50,10 @@ function currentMonthRange(now: Date): { start: Date; end: Date } {
   return { start, end };
 }
 
-async function fetchRawLines(userId: string): Promise<{ organic: RawLine[]; referral: RawLine[]; promotion: RawLine[] }> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      authorProfile: { include: { books: { include: { saleLines: true } } } },
-      affiliateProfile: { include: { affiliateLinks: { include: { saleLines: true } }, authorReferralEarnings: true } },
-    },
-  });
-
-  const books = user?.authorProfile?.books ?? [];
-  const organic: RawLine[] = books.flatMap((b: { saleLines: { createdAt: Date; authorShare: unknown }[] }) =>
-    b.saleLines.map((l) => ({ createdAt: l.createdAt, amount: Number(l.authorShare), isBookSale: true }))
-  );
-
-  const links = user?.affiliateProfile?.affiliateLinks ?? [];
-  const promotion: RawLine[] = links.flatMap((l: { saleLines: { createdAt: Date; affiliateShare: unknown }[] }) =>
-    l.saleLines.map((s) => ({ createdAt: s.createdAt, amount: Number(s.affiliateShare) }))
-  );
-
-  const referral: RawLine[] = (user?.affiliateProfile?.authorReferralEarnings ?? []).map(
-    (s: { createdAt: Date; authorReferralShare: unknown }) => ({ createdAt: s.createdAt, amount: Number(s.authorReferralShare) })
-  );
-
-  return { organic, referral, promotion };
-}
-
 export async function computeMonthlyPayoutRows(userId: string): Promise<MonthlyPayoutRow[]> {
-  const { organic, referral, promotion } = await fetchRawLines(userId);
+  // Same shared fetch used by actions/wallet.ts, lib/compute-wallet-for-user.ts,
+  // and actions/payout-ledger.ts — see lib/earnings-lines.ts.
+  const { organic, referral, commission: promotion } = await fetchEarningsBreakdown(userId);
   const now = new Date();
   const currentKey = monthKeyOf(now);
 
@@ -143,8 +114,8 @@ export interface PayoutStatCards {
 }
 
 export async function computePayoutStatCards(userId: string): Promise<PayoutStatCards> {
-  const { organic, referral, promotion } = await fetchRawLines(userId);
-  const all = [...organic, ...referral, ...promotion];
+  const { organic, referral, commission } = await fetchEarningsBreakdown(userId);
+  const all = [...organic, ...referral, ...commission];
   const now = new Date();
 
   const payoutRequests = await prisma.payoutRequest.findMany({ where: { userId } });

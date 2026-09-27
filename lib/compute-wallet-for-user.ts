@@ -1,48 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { computeWallet } from "@/lib/wallet";
+import { fetchEarningsBreakdown, linesForView } from "@/lib/earnings-lines";
 
 /**
- * Same wallet math as actions/wallet.ts getMyWallet(), but for an
- * arbitrary userId rather than the current signed-in session — used by
- * the monthly payout cron job (app/api/cron/monthly-payouts/route.ts),
- * which needs to compute every user's wallet in a system context, not a
- * per-request session context.
+ * Same wallet math as actions/wallet.ts getMyWallet() — both now share
+ * the exact same earnings fetch (see lib/earnings-lines.ts) — but for
+ * an arbitrary userId rather than the current signed-in session, used
+ * by the monthly payout cron job
+ * (app/api/cron/monthly-payouts/route.ts), which needs to compute
+ * every user's wallet in a system context, not a per-request session
+ * context.
  */
 export async function computeWalletForUserId(userId: string, view: "author" | "affiliate"): Promise<{ available: number }> {
   try {
-    let lines: { createdAt: Date; amount: number }[] = [];
-
-    if (view === "author") {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { authorProfile: { include: { books: { include: { saleLines: true } } } } },
-      });
-      const books = user?.authorProfile?.books ?? [];
-      lines = books.flatMap((b: { saleLines: { createdAt: Date; authorShare: unknown }[] }) =>
-        b.saleLines.map((l) => ({ createdAt: l.createdAt, amount: Number(l.authorShare) }))
-      );
-    } else {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          affiliateProfile: {
-            include: {
-              affiliateLinks: { include: { saleLines: true } },
-              authorReferralEarnings: true,
-            },
-          },
-        },
-      });
-      const links = user?.affiliateProfile?.affiliateLinks ?? [];
-      const directLines = links.flatMap((l: { saleLines: { createdAt: Date; affiliateShare: unknown }[] }) =>
-        l.saleLines.map((s) => ({ createdAt: s.createdAt, amount: Number(s.affiliateShare) }))
-      );
-      const referralLines = (user?.affiliateProfile?.authorReferralEarnings ?? []).map((s: { createdAt: Date; authorReferralShare: unknown }) => ({
-        createdAt: s.createdAt,
-        amount: Number(s.authorReferralShare),
-      }));
-      lines = [...directLines, ...referralLines];
-    }
+    const breakdown = await fetchEarningsBreakdown(userId);
+    const lines = linesForView(breakdown, view);
 
     const payouts = await prisma.payoutRequest.findMany({ where: { userId } });
     const paidOut = payouts

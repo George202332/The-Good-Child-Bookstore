@@ -8,6 +8,7 @@ import { RevisionReviewCard } from "../RevisionReviewCard";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 import { getBookReviewsForModeration } from "@/actions/book-management";
 import { ReviewModerationList } from "../ReviewModerationList";
+import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft", PENDING_REVIEW: "Under Review", PUBLISHED: "Approved", REJECTED: "Under Revision",
@@ -43,7 +44,12 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
   if (!book) notFound();
 
   const manuscript = (book.files as { kind: string; url: string }[]).find((f) => f.kind === "MANUSCRIPT");
-  const authorDisplayName = book.author.penName || book.author.user.name;
+  // Same submission-time-name → pen name → real name priority order used
+  // everywhere else a book's author name is shown (see
+  // lib/book-author-name.ts) — an admin reviewing a submission should
+  // see whichever name the author actually typed into the Author field
+  // for THIS book, not just their standing pen name or real name.
+  const authorDisplayName = bookAuthorDisplayName(book);
   const reviews = await getBookReviewsForModeration(book.id);
 
   return (

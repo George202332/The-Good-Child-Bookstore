@@ -9,9 +9,10 @@ import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { getReferredAuthorsDetail } from "@/actions/referred-authors";
 import { ColHelp } from "@/components/ColHelp";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
-const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
-const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 16px", borderBottom: "1px solid var(--line)" };
+const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
+const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
 
 const TIER_ACCENT: Record<string, string> = {
   Hawk: "#2451B7",

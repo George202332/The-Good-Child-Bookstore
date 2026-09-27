@@ -55,12 +55,6 @@ export async function getPayoneerCredentials(): Promise<{ clientId: string | und
   };
 }
 
-/** Google Workspace / Gmail OAuth app credentials. The client secret is
- * stored AES-256-GCM encrypted (see lib/crypto.ts) — this is the one
- * place it's decrypted back to plaintext, right before use, never
- * logged or returned to any client. Falls back to environment
- * variables (also expected as plaintext there, since env vars are
- * already a separate, access-controlled secret store). */
 /** Whether each payout gateway is currently switched on — defaults
  * match DEFAULT_SITE_SETTINGS (Wise on, Payoneer off) if nothing's
  * been saved yet. */

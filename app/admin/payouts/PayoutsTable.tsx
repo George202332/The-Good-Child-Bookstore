@@ -3,10 +3,9 @@
 import { useMemo, useState } from "react";
 import { ModerationActions } from "./ModerationActions";
 import { ColHelp } from "@/components/ColHelp";
+import { Modal } from "@/components/Modal";
+import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
-
-const TH: React.CSSProperties = { padding: "9px 10px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.02em", textAlign: "left", whiteSpace: "nowrap" };
-const TD: React.CSSProperties = { padding: "9px 10px", borderBottom: "1px solid var(--line)", fontSize: 12.5, verticalAlign: "top" };
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -158,16 +157,16 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={TH}>Account #<ColHelp text="This recipient's account number on the platform." /></th>
-                <th style={TH}>Account holder<ColHelp text="The name on file with Wise for this payout — who the money is actually sent to." /></th>
-                <th style={TH}>Email<ColHelp text="The recipient's account email." /></th>
-                <th style={TH}>Book sales<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
-                <th style={TH}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>
-                <th style={TH}>Commission<ColHelp text="Commission from copies sold through this person's own affiliate promotional links." /></th>
-                <th style={TH}>Total<ColHelp text="Book sales plus referral plus commission — the full amount of this payout." /></th>
-                <th style={TH}>Status<ColHelp text="Live means the current month is still in progress and this total keeps growing as sales happen — it's not a real payout request yet. Pending means it's queued or awaiting approval. Paid means the transfer has gone out. Rejected means it was declined." /></th>
-                <th style={TH}>Requested<ColHelp text="The date this payout was queued. For a Live row, this is simply today — nothing has actually been requested yet." /></th>
-                <th style={TH}>Report<ColHelp text="Download this payout's month as a full PDF statement — the same report available to that account holder on their own Payouts page." /></th>
+                <th style={TH_STYLE}>Account #<ColHelp text="This recipient's account number on the platform." /></th>
+                <th style={TH_STYLE}>Account holder<ColHelp text="The name on file with Wise for this payout — who the money is actually sent to." /></th>
+                <th style={TH_STYLE}>Email<ColHelp text="The recipient's account email." /></th>
+                <th style={TH_STYLE}>Book sales<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
+                <th style={TH_STYLE}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>
+                <th style={TH_STYLE}>Commission<ColHelp text="Commission from copies sold through this person's own affiliate promotional links." /></th>
+                <th style={TH_STYLE}>Total<ColHelp text="Book sales plus referral plus commission — the full amount of this payout." /></th>
+                <th style={TH_STYLE}>Status<ColHelp text="Live means the current month is still in progress and this total keeps growing as sales happen — it's not a real payout request yet. Pending means it's queued or awaiting approval. Paid means the transfer has gone out. Rejected means it was declined." /></th>
+                <th style={TH_STYLE}>Requested<ColHelp text="The date this payout was queued. For a Live row, this is simply today — nothing has actually been requested yet." /></th>
+                <th style={TH_STYLE}>Report<ColHelp text="Download this payout's month as a full PDF statement — the same report available to that account holder on their own Payouts page." /></th>
               </tr>
             </thead>
             <tbody>
@@ -186,27 +185,27 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
               ) : (
                 filtered.map((p) => (
                   <tr key={p.id} onClick={() => setDetailRow(p)} style={{ cursor: "pointer" }}>
-                    <td style={{ ...TD, fontFamily: "monospace" }}>{p.accountNumber}</td>
-                    <td style={TD}>
+                    <td style={{ ...TD_STYLE, fontFamily: "monospace" }}>{p.accountNumber}</td>
+                    <td style={TD_STYLE}>
                       {p.accountHolderName}
                       <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{p.role}</div>
                     </td>
-                    <td style={TD}>{p.email}</td>
-                    <td style={TD}>{p.bookSalesEarnings > 0 ? `$${p.bookSalesEarnings.toFixed(2)}` : "—"}</td>
-                    <td style={TD}>{p.referralEarnings > 0 ? `$${p.referralEarnings.toFixed(2)}` : "—"}</td>
-                    <td style={TD}>{p.commissionEarnings > 0 ? `$${p.commissionEarnings.toFixed(2)}` : "—"}</td>
-                    <td style={{ ...TD, fontWeight: 700 }}>${p.combinedTotal.toFixed(2)}</td>
-                    <td style={TD}>
+                    <td style={TD_STYLE}>{p.email}</td>
+                    <td style={TD_STYLE}>{p.bookSalesEarnings > 0 ? `$${p.bookSalesEarnings.toFixed(2)}` : "—"}</td>
+                    <td style={TD_STYLE}>{p.referralEarnings > 0 ? `$${p.referralEarnings.toFixed(2)}` : "—"}</td>
+                    <td style={TD_STYLE}>{p.commissionEarnings > 0 ? `$${p.commissionEarnings.toFixed(2)}` : "—"}</td>
+                    <td style={{ ...TD_STYLE, fontWeight: 700 }}>${p.combinedTotal.toFixed(2)}</td>
+                    <td style={TD_STYLE}>
                       <span className="age-pill" style={statusPillStyle(p)}>
                         {p.status === "LIVE" ? "Live" : p.paid ? "Paid" : p.status === "REJECTED" ? "Rejected" : "Pending"}
                       </span>
                     </td>
-                    <td style={TD}>
+                    <td style={TD_STYLE}>
                       {p.status === "LIVE"
                         ? "This month (in progress)"
                         : new Date(p.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </td>
-                    <td style={TD}>
+                    <td style={TD_STYLE}>
                       <a
                         className="btn btn-ghost btn-small"
                         href={`/api/payout-report?month=${p.reportMonthKey}&userId=${p.userId}`}
@@ -230,28 +229,18 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
         <table style={{ width: "100%", borderCollapse: "collapse", borderTop: "2px solid var(--line)" }}>
           <tbody>
             <tr style={{ background: "var(--admin-panel, #F7F8FB)" }}>
-              <td style={{ ...TD, borderBottom: "none", fontWeight: 700 }} colSpan={3}>Totals — all accounts</td>
-              <td style={{ ...TD, borderBottom: "none", fontWeight: 700 }}>${totals.bookSales.toFixed(2)}</td>
-              <td style={{ ...TD, borderBottom: "none", fontWeight: 700 }} colSpan={2}>${totals.affiliate.toFixed(2)}</td>
-              <td style={{ ...TD, borderBottom: "none", fontWeight: 700 }}>${totals.combined.toFixed(2)}</td>
-              <td style={{ ...TD, borderBottom: "none" }} colSpan={3} />
+              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }} colSpan={3}>Totals — all accounts</td>
+              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.bookSales.toFixed(2)}</td>
+              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }} colSpan={2}>${totals.affiliate.toFixed(2)}</td>
+              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.combined.toFixed(2)}</td>
+              <td style={{ ...TD_STYLE, borderBottom: "none" }} colSpan={3} />
             </tr>
           </tbody>
         </table>
       </div>
 
       {detailRow && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setDetailRow(null)}
-          style={{ position: "fixed", inset: 0, background: "rgba(20,22,30,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 200 }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="map-card"
-            style={{ maxWidth: 480, width: "100%", padding: 24, maxHeight: "85vh", overflowY: "auto" }}
-          >
+        <Modal onClose={() => setDetailRow(null)}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
               <h3 style={{ fontSize: 16, margin: 0 }}>{detailRow.accountHolderName}</h3>
               <button type="button" className="btn btn-ghost btn-small" onClick={() => setDetailRow(null)}>Close</button>
@@ -298,8 +287,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 {detailRow.status === "REQUESTED" && canModerate && <ModerationActions payoutId={detailRow.id} />}
               </div>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

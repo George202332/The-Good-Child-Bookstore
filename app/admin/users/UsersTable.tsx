@@ -3,14 +3,13 @@
 import { useState } from "react";
 import { UserRowActions } from "./UserRowActions";
 import { ColHelp } from "@/components/ColHelp";
+import { Modal } from "@/components/Modal";
+import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import { getUserDetail, type UserDetail, type UserListRow } from "@/actions/users-admin";
 import type { Role } from "@/lib/roles";
 
-const TH: React.CSSProperties = {
-  padding: "10px 12px", borderBottom: "1px solid var(--admin-border)", color: "var(--admin-text-faint)",
-  fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.03em", textAlign: "left", whiteSpace: "nowrap",
-};
-const TD: React.CSSProperties = { padding: "10px 12px", borderBottom: "1px solid var(--admin-border)", fontSize: 13, verticalAlign: "middle" };
+const TH: React.CSSProperties = { ...TH_STYLE, padding: "10px 12px", borderBottom: "1px solid var(--admin-border)", color: "var(--admin-text-faint)", fontSize: 11, letterSpacing: "0.03em" };
+const TD: React.CSSProperties = { ...TD_STYLE, padding: "10px 12px", borderBottom: "1px solid var(--admin-border)", fontSize: 13, verticalAlign: "middle" };
 
 /**
  * The admin Users list, as an actual table (previously a stacked list
@@ -91,16 +90,7 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
       </div>
 
       {(detail || loadingId) && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-          onClick={() => setDetail(null)}
-        >
-          <div
-            style={{ background: "var(--admin-panel)", border: "1px solid var(--admin-border)", borderRadius: 14, padding: 22, maxWidth: 520, width: "100%", position: "relative" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <Modal onClose={() => setDetail(null)} maxWidth={520}>
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: detail ? 4 : 0 }}>
               <button
                 type="button"
@@ -128,8 +118,7 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
                 {detail.affiliateReferralCode && <DetailRow label="Affiliate referral code" value={detail.affiliateReferralCode} />}
               </div>
             ) : null}
-          </div>
-        </div>
+        </Modal>
       )}
     </>
   );

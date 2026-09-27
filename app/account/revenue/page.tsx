@@ -84,6 +84,10 @@ export default async function RevenuePage() {
                 },
               },
             },
+            // submissionMetadata isn't listed above only because `book`
+            // above already pulls every scalar field via `include`
+            // (Prisma includes all scalars by default) — it's read via
+            // bookAuthorDisplayName() below, same as the Promotion table.
             orderBy: { createdAt: "desc" },
           },
           affiliateLinks: {
@@ -137,7 +141,10 @@ export default async function RevenuePage() {
     createdAt: Date;
     companyShare: unknown;
     authorReferralShare: unknown;
-    book: { author: { id: string; penName: string | null; user: { name: string; accountNumber: string; createdAt: Date } } };
+    book: {
+      submissionMetadata: unknown;
+      author: { id: string; penName: string | null; user: { name: string; accountNumber: string; createdAt: Date } };
+    };
   };
   const referralSaleLines = (user?.affiliateProfile?.authorReferralEarnings ?? []) as ReferralSaleLine[];
   const referralMonthly = referralSaleLines.filter((l) => isCurrentMonth(l.createdAt, now)).reduce((s, l) => s + Number(l.authorReferralShare), 0);
@@ -149,7 +156,12 @@ export default async function RevenuePage() {
   // that can't be filtered meaningfully.
   const referralRawRows: ReferralRawRow[] = referralSaleLines.map((l) => ({
     accountId: l.book.author.user.accountNumber,
-    name: l.book.author.penName || l.book.author.user.name,
+    // Same submission-time-name → pen name → real name priority order
+    // used everywhere else a book's author name is shown (see
+    // lib/book-author-name.ts) — previously skipped the submission-time
+    // override, so a referred author could show their real name here
+    // even on a book submitted under a pen name.
+    name: bookAuthorDisplayName(l.book),
     dateJoined: l.book.author.user.createdAt.toISOString(),
     saleDate: l.createdAt.toISOString(),
     revenue: Number(l.companyShare),

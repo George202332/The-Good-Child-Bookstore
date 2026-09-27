@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
 export interface AuthorBookTableRow {
   title: string;
@@ -36,10 +37,10 @@ export async function getAuthorBooksTable(): Promise<AuthorBookTableRow[]> {
     },
   });
 
-  const penName = user?.authorProfile?.penName;
-  const authorDisplayName = penName || user?.name || "";
+  const author = { penName: user?.authorProfile?.penName ?? null, user: { name: user?.name ?? "" } };
   const books = (user?.authorProfile?.books ?? []) as {
     title: string;
+    submissionMetadata: unknown;
     categories: { category: { name: string } }[];
     saleLines: { saleType: string; format: string | null }[];
   }[];
@@ -57,7 +58,12 @@ export async function getAuthorBooksTable(): Promise<AuthorBookTableRow[]> {
     }
     return {
       title: b.title,
-      authorDisplayName,
+      // Same submission-time-name → pen name → real name priority order
+      // used everywhere else a book's author name is shown (see
+      // lib/book-author-name.ts) — computed PER BOOK, since this same
+      // author account can submit different books under different pen
+      // names, rather than one name reused for every row.
+      authorDisplayName: bookAuthorDisplayName({ submissionMetadata: b.submissionMetadata, author }),
       category: b.categories[0]?.category.name ?? "—",
       ebook,
       audiobook,

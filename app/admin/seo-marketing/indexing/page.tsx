@@ -3,11 +3,12 @@ import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getIndexingReport } from "@/actions/seo-marketing";
 import { ColHelp } from "@/components/ColHelp";
+import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
 export const dynamic = "force-dynamic";
 
-const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--admin-border, #2A3244)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" };
-const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--admin-border, #2A3244)" };
+const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "10px 14px", borderBottom: "1px solid var(--admin-border, #2A3244)", color: "var(--admin-text-faint, #6B7385)", fontSize: 11, letterSpacing: undefined, whiteSpace: undefined };
+const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 14px", borderBottom: "1px solid var(--admin-border, #2A3244)", fontSize: undefined, verticalAlign: undefined };
 
 /**
  * Indexing — every book, blog post, author profile, and static page

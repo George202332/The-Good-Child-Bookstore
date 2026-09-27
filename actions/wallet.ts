@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { computeWallet, nextReleaseDate, type Wallet } from "@/lib/wallet";
+import { fetchEarningsBreakdown, linesForView } from "@/lib/earnings-lines";
 
 /**
  * Real wallet balance (On Hold / Available) for the signed-in author or
@@ -38,39 +39,8 @@ export async function getMyWallet(perspective?: "author" | "affiliate"): Promise
   const view = perspective ?? (role === "AUTHOR" ? "author" : "affiliate");
 
   try {
-    let lines: { createdAt: Date; amount: number }[] = [];
-
-    if (view === "author") {
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        include: { authorProfile: { include: { books: { include: { saleLines: true } } } } },
-      });
-      const books = user?.authorProfile?.books ?? [];
-      lines = books.flatMap((b: { saleLines: { createdAt: Date; authorShare: unknown }[] }) =>
-        b.saleLines.map((l) => ({ createdAt: l.createdAt, amount: Number(l.authorShare) }))
-      );
-    } else {
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
-        include: {
-          affiliateProfile: {
-            include: {
-              affiliateLinks: { include: { saleLines: true } },
-              authorReferralEarnings: true,
-            },
-          },
-        },
-      });
-      const links = user?.affiliateProfile?.affiliateLinks ?? [];
-      const directLines = links.flatMap((l: { saleLines: { createdAt: Date; affiliateShare: unknown }[] }) =>
-        l.saleLines.map((s) => ({ createdAt: s.createdAt, amount: Number(s.affiliateShare) }))
-      );
-      const referralLines = (user?.affiliateProfile?.authorReferralEarnings ?? []).map((s: { createdAt: Date; authorReferralShare: unknown }) => ({
-        createdAt: s.createdAt,
-        amount: Number(s.authorReferralShare),
-      }));
-      lines = [...directLines, ...referralLines];
-    }
+    const breakdown = await fetchEarningsBreakdown(session.user.id);
+    const lines = linesForView(breakdown, view);
 
     const payouts = await prisma.payoutRequest.findMany({ where: { userId: session.user.id } });
     const paidOut = payouts

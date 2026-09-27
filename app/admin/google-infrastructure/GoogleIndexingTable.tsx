@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import type { GoogleIndexingRow } from "@/actions/google-infrastructure";
 import { ColHelp } from "@/components/ColHelp";
+import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
-const TABLE_HEAD_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--admin-border, #2A3244)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap", cursor: "pointer", userSelect: "none" as const };
-const TABLE_CELL_STYLE: React.CSSProperties = { padding: "10px 14px", borderBottom: "1px solid var(--admin-border, #2A3244)", fontSize: 12.5, verticalAlign: "top" };
+const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "10px 14px", borderBottom: "1px solid var(--admin-border, #2A3244)", color: "var(--admin-text-faint, #6B7385)", fontSize: 11, letterSpacing: undefined, cursor: "pointer", userSelect: "none" as const };
+const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 14px", borderBottom: "1px solid var(--admin-border, #2A3244)" };
 
 type SortKey = "pageType" | "title" | "health";
 
