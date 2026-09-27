@@ -85,13 +85,13 @@ export default async function AccountPage() {
       where: { id: session.user.id },
       include: {
         readerProfile: { include: { orders: { include: { lines: { include: { book: true } } }, orderBy: { createdAt: "desc" } } } },
-        _count: { select: { wishlists: true } },
       },
     });
     const orders = (user?.readerProfile?.orders ?? []) as OrderWithLines[];
     const booksPurchased = orders.reduce((sum: number, o: OrderWithLines) => sum + o.lines.length, 0);
     const recentOrders = orders.slice(0, 3);
-    const wishlistCount = user?._count.wishlists ?? 0;
+    // Wishlist is tracked client-side (localStorage, see useWishlist) rather
+    // than in the database, so there's no server-side count to show here.
     const affiliateStatus = await getReaderAffiliateStatus();
 
     return (
@@ -126,8 +126,8 @@ export default async function AccountPage() {
           </div>
           <div className="stat-card">
             <div className="stat-label">Wishlist</div>
-            <div className="stat-value">{wishlistCount}</div>
-            <div className="stat-sub">Saved titles</div>
+            <div className="stat-value">—</div>
+            <div className="stat-sub">Saved on this device</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Affiliate earnings</div>
