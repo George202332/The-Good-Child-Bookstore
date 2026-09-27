@@ -305,11 +305,9 @@ settings pages, live third-party credentials, full deployment docs).
   `AggregateRating`/`Offer`), and conditional GA4/GTM/Search-Console/Bing
   verification wiring in the root layout — all gated on env vars, so
   nothing renders until real IDs are set in `.env`.
-- Real, database-backed coupons (`actions/coupons.ts`) replace the
-  checkout page's hardcoded `VALID_COUPONS` object. Admin can create/
-  delete coupons at `/admin/coupons`; `prisma/seed.ts` still seeds the
-  original's two codes (WELCOME10 10%, READMORE 15%) so a fresh
-  deployment has working codes out of the box.
+- Coupons were removed as a feature. There is no `Coupon` model, no
+  `actions/coupons.ts`, and no `/admin/coupons` page — checkout has no
+  discount-code field.
 - A homepage CMS (`actions/cms.ts`, `/admin/homepage`) lets Admin edit
   the hero eyebrow/heading/description without touching code — "Allow
   Admins to edit Hero... without changing code" from the brief. Built on
