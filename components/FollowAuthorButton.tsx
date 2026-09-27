@@ -2,28 +2,34 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { getBookAuthorId } from "@/actions/books";
-import { isFollowingAuthor, toggleFollowAuthor } from "@/actions/following";
+import { getBookAuthorName } from "@/actions/books";
+import { isFollowingAuthorName, toggleFollowAuthorName } from "@/actions/following";
 
 /**
  * Converted from the az-follow-btn in detailHTML()
  * (the-good-child-bookstore_54_1.html:4272), which only ever showed a
  * toast ("Following X") — nothing was persisted. This is a real follow,
- * backed by the AuthorFollow table.
+ * backed by the AuthorNameFollow table.
+ *
+ * Follows the exact author NAME shown on this book's card, not the
+ * underlying account — per explicit instruction, the same account can
+ * publish under a different pen name on a different book, and
+ * following "J. Okoro" should only ever notify about new books under
+ * that same name, pen name included.
  */
 export function FollowAuthorButton({ bookId }: { bookId: string }) {
   const { data: session } = useSession();
-  const [authorId, setAuthorId] = useState<string | null>(null);
+  const [authorName, setAuthorName] = useState<string | null>(null);
   const [following, setFollowing] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getBookAuthorId(bookId).then(async (id) => {
+    getBookAuthorName(bookId).then(async (name) => {
       if (cancelled) return;
-      setAuthorId(id);
-      if (id && session?.user?.role === "READER") {
-        const isFollowing = await isFollowingAuthor(id);
+      setAuthorName(name);
+      if (name && session?.user?.role === "READER") {
+        const isFollowing = await isFollowingAuthorName(name);
         if (!cancelled) setFollowing(isFollowing);
       }
       if (!cancelled) setReady(true);
@@ -34,8 +40,8 @@ export function FollowAuthorButton({ bookId }: { bookId: string }) {
   }, [bookId, session?.user?.role]);
 
   async function handleClick() {
-    if (!authorId) return;
-    const res = await toggleFollowAuthor(authorId);
+    if (!authorName) return;
+    const res = await toggleFollowAuthorName(authorName);
     if (res.ok && typeof res.following === "boolean") setFollowing(res.following);
   }
 
@@ -48,7 +54,7 @@ export function FollowAuthorButton({ bookId }: { bookId: string }) {
   }
 
   return (
-    <button type="button" className="az-follow-btn" onClick={handleClick} disabled={!ready || !authorId}>
+    <button type="button" className="az-follow-btn" onClick={handleClick} disabled={!ready || !authorName}>
       {following ? "Following" : "Follow"}
     </button>
   );

@@ -7,6 +7,7 @@ import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { createNotification } from "@/actions/notifications";
 import { submitUrlToIndexNow } from "@/lib/indexnow";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
+import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
 /**
  * Converted from the editorial workflow described in the brief (Draft →
@@ -53,13 +54,49 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
     // lib/notification-types.ts. The fuller sentence stays in body for
     // the full Notifications list (app/account/notifications).
     await createNotification(book.author.user.id, book.title, `"${book.title}" is now published on the shelf.`, "BOOK_PUBLISHED");
+    await notifyFollowersOfNewBook(book);
     submitUrlToIndexNow(`${getPublicSiteUrl()}/${book.slug}`).catch(() => {});
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);
+    revalidatePath("/account/authors");
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
   }
+}
+
+/**
+ * The moment a book actually goes live (this is only ever called from
+ * approveBook, right after the status flips to PUBLISHED), every reader
+ * following the exact author name this book is published under — pen
+ * name included, resolved the same way the book's own author card
+ * resolves it (see lib/book-author-name.ts) — gets a real notification.
+ * Per explicit instruction, this is keyed to the NAME, not the account:
+ * following "J. Okoro" never notifies about a book the same account
+ * published under a different name.
+ */
+async function notifyFollowersOfNewBook(book: {
+  id: string;
+  title: string;
+  submissionMetadata: unknown;
+  author: { penName: string | null; user: { name: string } };
+}): Promise<void> {
+  const authorName = bookAuthorDisplayName(book);
+  const followers = await prisma.authorNameFollow.findMany({
+    where: { authorName },
+    include: { reader: { select: { userId: true } } },
+  });
+  await Promise.all(
+    followers.map((f: { reader: { userId: string } }) =>
+      createNotification(
+        f.reader.userId,
+        book.title,
+        `${authorName} just published a new book: "${book.title}".`,
+        "NEW_BOOK_BY_FOLLOWED_AUTHOR",
+        book.id
+      )
+    )
+  );
 }
 
 export async function rejectBook(bookId: string, comments?: string): Promise<{ ok: boolean; error?: string }> {

@@ -26,7 +26,14 @@
   color: var(--admin-text);
   font-family: "Times New Roman", Times, serif;
   display: flex;
-  align-items: flex-start;
+  /* Sidebar and content are plain flex-row siblings in normal document
+     flow now — no sticky pinning, no independent scroll region on
+     either side, so the whole thing scrolls as one page (see
+     .admin-sidebar below for the matching fix). align-items:stretch
+     (the flex default, set explicitly here since it was previously
+     overridden) makes the sidebar's background fill the full row
+     height, matching whichever side is taller. */
+  align-items: stretch;
 }
 
 .admin-shell h1, .admin-shell h2, .admin-shell h3, .admin-shell h4 {
@@ -38,12 +45,15 @@
 
 .admin-sidebar {
   width: 240px;
-  min-height: 100vh;
+  flex-shrink: 0;
+  /* No position:sticky and no fixed min-height:100vh — those pinned the
+     sidebar in place while the content scrolled past it underneath,
+     which is exactly the "independent" scrolling that was reported.
+     Now it's a normal in-flow column: it scrolls up the page together
+     with the content beside it, as one unified page. */
   background: var(--admin-panel);
   border-right: 1px solid var(--admin-border);
   padding: 24px 16px;
-  position: sticky;
-  top: 0;
   display: flex;
   flex-direction: column;
   gap: 4px;

@@ -21,7 +21,7 @@ export interface PayoutStatementData {
   authorName: string;
   monthLabel: string;
   payoutDate: Date;
-  status: "Paid" | "Pending payout";
+  status: "Live" | "Paid" | "Pending payout";
   organicRevenue: number;
   affiliateChannelRevenue: number;
   referralCommission: number;
@@ -55,6 +55,12 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
   if (Number.isNaN(year) || Number.isNaN(month)) return null;
   const start = new Date(year, month, 1);
   const end = new Date(year, month + 1, 1);
+  // The statement can be generated for the current, still-open month too
+  // (per explicit instruction — the report isn't gated behind the month
+  // closing), in which case it's a live, in-progress snapshot rather
+  // than a final one.
+  const now = new Date();
+  const isCurrentMonth = now.getFullYear() === year && now.getMonth() === month;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -159,7 +165,7 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
     const k = `${p.requestedAt.getFullYear()}-${String(p.requestedAt.getMonth() + 1).padStart(2, "0")}`;
     return k === payoutMonthKey;
   });
-  const status: PayoutStatementData["status"] = matching?.status === "PAID" ? "Paid" : "Pending payout";
+  const status: PayoutStatementData["status"] = isCurrentMonth ? "Live" : matching?.status === "PAID" ? "Paid" : "Pending payout";
 
   return {
     authorName: user.name,

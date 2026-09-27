@@ -1978,6 +1978,23 @@
   .no-scrollbar{scrollbar-width:none;-ms-overflow-style:none;}
   .no-scrollbar::-webkit-scrollbar{display:none;}
 
+  /* ---------- Read Sample preview panel ---------- */
+  /* The panel's viewport shows exactly one page at a time (scroll-snap
+     locks each page into place, so there's never a partial peek of the
+     next one) and the scrollbar itself is hidden while normal scroll
+     (wheel/trackpad/keyboard/touch) still works fully — this class only
+     ever hides the bar, it never disables scrolling. */
+  .sample-viewer-viewport{
+    scrollbar-width:none;-ms-overflow-style:none;
+    scroll-snap-type:y mandatory;
+  }
+  .sample-viewer-viewport::-webkit-scrollbar{display:none;}
+  .sample-viewer-page{
+    scroll-snap-align:start;scroll-snap-stop:always;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+
   /* ---------- Author: profile page ---------- */
   .profile-avatar-row{display:flex;align-items:center;gap:20px;margin-bottom:28px;}
   .avatar-preview{

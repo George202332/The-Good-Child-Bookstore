@@ -131,24 +131,33 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme, sc
       {loading && <p style={{ fontSize: 13, color: isAdminTheme ? "var(--admin-text-faint)" : "var(--ink-faint)" }}>Loading manuscript…</p>}
       {error && <p style={{ fontSize: 13, color: "var(--coral-deep)" }}>{error}</p>}
       {!loading && !error && sampleMode && (
-        <div
-          style={{
-            display: "flex", flexDirection: "column", alignItems: "center", gap: 16,
-            background: "var(--cream)", borderRadius: 10, padding: 16,
-            maxHeight: "70vh", overflowY: "auto",
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          {Array.from({ length: numPages ?? 0 }, (_, i) => i + 1).map((p) => (
-            <canvas
-              key={p}
-              ref={(el) => { sampleCanvasRefs.current[p - 1] = el; }}
-              aria-label={`${title} — page ${p}`}
-              style={{ maxWidth: "100%", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }}
-            />
-          ))}
-          <p style={{ fontSize: 12, color: "var(--ink-faint)", margin: 0 }}>
-            Showing the first {numPages} page{numPages === 1 ? "" : "s"} of this book.
+        <div>
+          {/* Fixed-height viewport: scroll-snap (see .sample-viewer-viewport
+              in site.css) locks the scroll position to exactly one page at a
+              time, and each page slot below is sized to that same height, so
+              only one full page is ever visible — never a partial peek of
+              the next one. The scrollbar is hidden but scrolling itself
+              (wheel, trackpad, touch, keyboard) works completely normally. */}
+          <div
+            className="sample-viewer-viewport no-scrollbar"
+            style={{
+              height: "70vh", overflowY: "auto",
+              background: "var(--cream)", borderRadius: 10,
+            }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            {Array.from({ length: numPages ?? 0 }, (_, i) => i + 1).map((p) => (
+              <div key={p} className="sample-viewer-page" style={{ height: "70vh", width: "100%", padding: 16, boxSizing: "border-box" }}>
+                <canvas
+                  ref={(el) => { sampleCanvasRefs.current[p - 1] = el; }}
+                  aria-label={`${title} — page ${p}`}
+                  style={{ maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }}
+                />
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: "var(--ink-faint)", margin: "10px 0 0", textAlign: "center" }}>
+            Showing the first {numPages} page{numPages === 1 ? "" : "s"} of this book — scroll for the next page.
           </p>
         </div>
       )}

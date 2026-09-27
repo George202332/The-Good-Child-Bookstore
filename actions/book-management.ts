@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent } from "@/lib/roles";
+import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { getAuthorNameFollowerCounts } from "@/actions/authors-directory";
 
 /**
  * Book Management — a real summary (how many Approved/Under Review/
@@ -46,6 +48,10 @@ export interface BookManagementRow {
   reviewCount: number;
   averageRating: number | null;
   hasPendingRevision: boolean;
+  /** How many readers follow this exact author name (see
+   * AuthorNameFollow) — 0 for a book whose author name nobody follows
+   * yet, never blank, so the column always reads as a real number. */
+  followerCount: number;
 }
 
 export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PENDING_REVIEW" | "DRAFT" | "REJECTED"): Promise<BookManagementRow[]> {
@@ -53,12 +59,15 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return [];
 
-  const books = await prisma.book.findMany({
-    where: status === "ALL" ? {} : status === "PENDING_REVIEW" ? { OR: [{ status }, { pendingRevisionData: { not: null as unknown as object } }] } : { status },
-    include: { author: { include: { user: true } }, reviews: true, ratings: true },
-    orderBy: { createdAt: "desc" },
-    take: 300,
-  });
+  const [books, followerCounts] = await Promise.all([
+    prisma.book.findMany({
+      where: status === "ALL" ? {} : status === "PENDING_REVIEW" ? { OR: [{ status }, { pendingRevisionData: { not: null as unknown as object } }] } : { status },
+      include: { author: { include: { user: true } }, reviews: true, ratings: true },
+      orderBy: { createdAt: "desc" },
+      take: 300,
+    }),
+    getAuthorNameFollowerCounts(),
+  ]);
 
   return books.map((b: {
     id: string;
@@ -67,21 +76,31 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
     status: string;
     createdAt: Date;
     pendingRevisionData: unknown;
-    author: { user: { name: string; accountNumber: string } };
+    submissionMetadata: unknown;
+    author: { penName: string | null; user: { name: string; accountNumber: string } };
     reviews: unknown[];
     ratings: { stars: number }[];
-  }) => ({
-    id: b.id,
-    isbn: b.isbn,
-    title: b.title,
-    status: b.status,
-    authorName: b.author.user.name,
-    authorAccountNumber: b.author.user.accountNumber,
-    createdAt: b.createdAt,
-    reviewCount: b.reviews.length,
-    averageRating: b.ratings.length > 0 ? b.ratings.reduce((sum, r) => sum + r.stars, 0) / b.ratings.length : null,
-    hasPendingRevision: b.pendingRevisionData != null,
-  }));
+  }) => {
+    // The name a reader actually follows/sees on this book's own author
+    // card — a pen name typed at submission, then the account's standing
+    // pen name, then its real name as a last resort (see
+    // lib/book-author-name.ts) — not necessarily the account's real
+    // name, which this column previously always showed regardless.
+    const authorName = bookAuthorDisplayName(b);
+    return {
+      id: b.id,
+      isbn: b.isbn,
+      title: b.title,
+      status: b.status,
+      authorName,
+      authorAccountNumber: b.author.user.accountNumber,
+      createdAt: b.createdAt,
+      reviewCount: b.reviews.length,
+      averageRating: b.ratings.length > 0 ? b.ratings.reduce((sum, r) => sum + r.stars, 0) / b.ratings.length : null,
+      hasPendingRevision: b.pendingRevisionData != null,
+      followerCount: followerCounts[authorName] ?? 0,
+    };
+  });
 }
 
 export interface BookReviewRow {

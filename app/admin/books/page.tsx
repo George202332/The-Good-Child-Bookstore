@@ -103,6 +103,7 @@ export default async function BookManagementPage({
                 <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>SN / ISBN<ColHelp text="This book's ISBN, if it has one." /></th>
                 <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Title<ColHelp text="The book's title." /></th>
                 <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Author<ColHelp text="The author's display name on this book." /></th>
+                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Followers<ColHelp text="How many readers follow this exact author name and get notified when it publishes something new." /></th>
                 <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Account<ColHelp text="The author's account number." /></th>
                 <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Status<ColHelp text="Where this book is in the review pipeline: Draft, Pending Review, Published (live on the shelf), or Rejected. A blue tag means a revision is pending review." /></th>
                 <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Open<ColHelp text="Open this book's full submission for review." /></th>
@@ -115,6 +116,7 @@ export default async function BookManagementPage({
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.isbn || "N/A"}</td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}><strong>{b.title}</strong></td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.authorName}</td>
+                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.followerCount}</td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.authorAccountNumber}</td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
                     {b.status}

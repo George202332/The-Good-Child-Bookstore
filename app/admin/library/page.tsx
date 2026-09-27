@@ -23,7 +23,7 @@ export default async function LibraryPage() {
     <AdminShell role="ADMIN" activeKey="library" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Library</h2>
+          <h2 style={{ fontSize: 20 }}>My Library</h2>
           <p style={{ color: "var(--admin-text-faint, #6B7385)", fontSize: 13.5, marginTop: 2 }}>
             Every image and file uploaded anywhere on the site — book files, covers, and admin uploads, all in one place.
           </p>

@@ -273,7 +273,6 @@ model AuthorProfile {
   referredById       String?
   referredBy         AffiliateProfile? @relation("AffiliateReferrals", fields: [referredById], references: [id], onDelete: SetNull)
   books              Book[]
-  followers          AuthorFollow[]
   aliases            AuthorAlias[]
 }
 
@@ -318,7 +317,7 @@ model ReaderProfile {
   subscriptions         Subscription[]
   downloads             Download[]
   addresses             Address[]
-  following             AuthorFollow[]
+  authorNameFollows     AuthorNameFollow[]
   savedPaymentMethods   SavedPaymentMethod[]
 }
 
@@ -357,15 +356,26 @@ model Address {
   createdAt       DateTime      @default(now())
 }
 
-model AuthorFollow {
+/**
+ * Following an author NAME rather than an author account — per explicit
+ * instruction: the same account can publish under different pen names
+ * for different books (see lib/book-author-name.ts), and a reader
+ * following "J. Okoro" should keep being notified about new books under
+ * that name specifically, not lumped in with everything else that
+ * account ever publishes under a different name. `authorName` is
+ * whatever string actually showed on the book's author card when the
+ * reader followed it — the exact same resolved display name computed by
+ * bookAuthorDisplayName(). Replaces the old account-keyed AuthorFollow.
+ */
+model AuthorNameFollow {
   id         String        @id @default(cuid())
   readerId   String
   reader     ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
-  authorId   String
-  author     AuthorProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorName String
   createdAt  DateTime      @default(now())
 
-  @@unique([readerId, authorId])
+  @@unique([readerId, authorName])
+  @@index([authorName])
 }
 
 // ---------- Catalog ----------

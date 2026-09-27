@@ -17,7 +17,7 @@ export function ReadSampleViewer({ manuscriptUrl, title }: { manuscriptUrl: stri
   if (!manuscriptUrl) {
     return (
       <button type="button" className="btn btn-ghost btn-small btn-block" disabled title="No sample available for this book yet">
-        Read sample
+        Read Sample
       </button>
     );
   }
@@ -25,7 +25,7 @@ export function ReadSampleViewer({ manuscriptUrl, title }: { manuscriptUrl: stri
   return (
     <>
       <button type="button" className="btn btn-ghost btn-small btn-block" onClick={() => setOpen(true)}>
-        Read sample
+        Read Sample
       </button>
       {open && (
         <div
@@ -35,7 +35,7 @@ export function ReadSampleViewer({ manuscriptUrl, title }: { manuscriptUrl: stri
           onClick={() => setOpen(false)}
         >
           <div
-            style={{ background: "var(--paper)", borderRadius: 16, padding: 20, maxWidth: 640, width: "100%", position: "relative" }}
+            style={{ background: "var(--paper)", borderRadius: 16, padding: 20, maxWidth: 640, width: "100%", maxHeight: "90vh", overflowY: "auto", position: "relative" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>

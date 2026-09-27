@@ -25,7 +25,14 @@ export interface MonthlyPayoutRow {
   referralRevenue: number;
   promotionRevenue: number;
   payoutDate: Date;
-  status: "Paid" | "Pending payout";
+  // "Live" — the current, still-open calendar month: the row is always
+  // present and its totals keep growing as sales land, rather than only
+  // appearing once the month closes. The moment the calendar rolls over,
+  // this same row (recomputed fresh from real sale data every time the
+  // page loads, so there's nothing to migrate) becomes "Pending payout"
+  // for the now-closed month, and a brand new "Live" row appears for the
+  // new current month — a rolling pattern with no stored per-row state.
+  status: "Live" | "Paid" | "Pending payout";
 }
 
 function monthKeyOf(d: Date): string {
@@ -89,18 +96,25 @@ export async function computeMonthlyPayoutRows(userId: string): Promise<MonthlyP
   referral.forEach((l) => { bucket(l.createdAt).referral += l.amount; });
   promotion.forEach((l) => { bucket(l.createdAt).promotion += l.amount; });
 
-  // Only fully-closed months are listed as payout rows — the still-open
-  // current month is what the "Next Month" stat card tracks instead.
-  months.delete(currentKey);
+  // The current, still-open month always gets a row — even with zero
+  // sales so far today — so it's visible and "Live" from day one of the
+  // month, then keeps growing in place as sales land, rather than only
+  // showing up once the month closes.
+  bucket(now);
 
   const payoutRequests = await prisma.payoutRequest.findMany({ where: { userId } });
 
   const rows: MonthlyPayoutRow[] = Array.from(months.entries())
     .map(([key, b]) => {
       const payoutDate = new Date(b.year, b.month + 1, 15);
-      const payoutMonthKey = monthKeyOf(payoutDate);
-      const matchingPayout = payoutRequests.find((p: { requestedAt: Date; status: string }) => monthKeyOf(p.requestedAt) === payoutMonthKey);
-      const status: MonthlyPayoutRow["status"] = matchingPayout?.status === "PAID" ? "Paid" : "Pending payout";
+      let status: MonthlyPayoutRow["status"];
+      if (key === currentKey) {
+        status = "Live";
+      } else {
+        const payoutMonthKey = monthKeyOf(payoutDate);
+        const matchingPayout = payoutRequests.find((p: { requestedAt: Date; status: string }) => monthKeyOf(p.requestedAt) === payoutMonthKey);
+        status = matchingPayout?.status === "PAID" ? "Paid" : "Pending payout";
+      }
       return {
         monthLabel: monthLabelOf(b.year, b.month),
         monthKey: key,
@@ -113,7 +127,9 @@ export async function computeMonthlyPayoutRows(userId: string): Promise<MonthlyP
         status,
       };
     })
-    .sort((a, b) => (a.monthKey < b.monthKey ? -1 : 1));
+    // Most recent month first — the live, still-accruing row is the one
+    // that matters most day to day, so it leads the table.
+    .sort((a, b) => (a.monthKey < b.monthKey ? 1 : -1));
 
   return rows;
 }

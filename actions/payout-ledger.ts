@@ -40,6 +40,11 @@ export interface PayoutLedgerRow {
   bookSalesEarnings: number;
   affiliateEarnings: number;
   combinedTotal: number;
+  // "LIVE" is a synthetic status this file adds on top of the real
+  // PayoutStatus enum (REQUESTED/APPROVED/PROCESSING/PAID/REJECTED) — it
+  // represents the current, still-open month's accruing total for a
+  // user, before the monthly cron has ever turned it into a real
+  // PayoutRequest. See getLiveMonthRows below.
   status: string;
   paid: boolean;
   requestedAt: string;
@@ -48,6 +53,111 @@ export interface PayoutLedgerRow {
    * book-sales payout — powers the admin ledger's "affiliate status"
    * filter. */
   isAffiliate: boolean;
+}
+
+/**
+ * One synthetic "Live" row per author/affiliate with a nonzero current-
+ * month accrual — the admin-side mirror of the rolling live → pending →
+ * paid pattern on the author's own Payout Settings page (see
+ * lib/payout-monthly.ts). These aren't real PayoutRequest rows (nothing
+ * is written to the database for them): they're computed fresh from
+ * real sale data on every load, so as soon as the calendar rolls over,
+ * this same row disappears and is replaced by the real "Pending"
+ * PayoutRequest the cron creates for the now-closed month — a rolling
+ * pattern with no stored per-row state to keep in sync. Users with zero
+ * activity so far this month are left out, so the ledger isn't flooded
+ * with $0.00 rows for every account that's never sold anything.
+ */
+async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const rows: PayoutLedgerRow[] = [];
+
+  async function recipientFieldsFor(userId: string) {
+    const recipient = await prisma.wiseRecipient.findFirst({ where: { userId }, orderBy: { isDefault: "desc" } });
+    return {
+      accountHolderName: recipient ? recipient.accountHolderName : "Not set yet",
+      paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
+      accountDetails: recipient ? formatAccountDetails(recipient.details) : "—",
+    };
+  }
+
+  const authors = (await prisma.user.findMany({
+    where: { role: "AUTHOR", authorProfile: { isNot: null } },
+    include: {
+      authorProfile: {
+        include: { books: { include: { saleLines: { where: { createdAt: { gte: start, lt: end } } } } } },
+      },
+    },
+  })) as {
+    id: string; accountNumber: string; email: string; role: string;
+    authorProfile: { books: { saleLines: { authorShare: unknown }[] }[] } | null;
+  }[];
+  for (const u of authors) {
+    const books = u.authorProfile?.books ?? [];
+    const amount = books.reduce((sum, b) => sum + b.saleLines.reduce((s, l) => s + Number(l.authorShare), 0), 0);
+    if (amount <= 0) continue;
+    const fields = await recipientFieldsFor(u.id);
+    rows.push({
+      id: `live-author-${u.id}`,
+      accountNumber: u.accountNumber,
+      accountHolderName: fields.accountHolderName,
+      email: u.email,
+      role: u.role,
+      paymentMethod: fields.paymentMethod,
+      accountDetails: fields.accountDetails,
+      currency: "USD",
+      bookSalesEarnings: amount,
+      affiliateEarnings: 0,
+      combinedTotal: amount,
+      status: "LIVE",
+      paid: false,
+      requestedAt: now.toISOString(),
+      resolvedAt: null,
+      isAffiliate: false,
+    });
+  }
+
+  const affiliateProfiles = (await prisma.affiliateProfile.findMany({
+    include: {
+      user: true,
+      affiliateLinks: { include: { saleLines: { where: { createdAt: { gte: start, lt: end } } } } },
+      authorReferralEarnings: { where: { createdAt: { gte: start, lt: end } } },
+    },
+  })) as {
+    userId: string;
+    user: { accountNumber: string; email: string; role: string };
+    affiliateLinks: { saleLines: { affiliateShare: unknown }[] }[];
+    authorReferralEarnings: { authorReferralShare: unknown }[];
+  }[];
+  for (const a of affiliateProfiles) {
+    const direct = a.affiliateLinks.reduce((sum, l) => sum + l.saleLines.reduce((s, sl) => s + Number(sl.affiliateShare), 0), 0);
+    const referral = a.authorReferralEarnings.reduce((sum, r) => sum + Number(r.authorReferralShare), 0);
+    const amount = direct + referral;
+    if (amount <= 0) continue;
+    const fields = await recipientFieldsFor(a.userId);
+    rows.push({
+      id: `live-affiliate-${a.userId}`,
+      accountNumber: a.user.accountNumber,
+      accountHolderName: fields.accountHolderName,
+      email: a.user.email,
+      role: a.user.role,
+      paymentMethod: fields.paymentMethod,
+      accountDetails: fields.accountDetails,
+      currency: "USD",
+      bookSalesEarnings: 0,
+      affiliateEarnings: amount,
+      combinedTotal: amount,
+      status: "LIVE",
+      paid: false,
+      requestedAt: now.toISOString(),
+      resolvedAt: null,
+      isAffiliate: true,
+    });
+  }
+
+  return rows;
 }
 
 export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: string }> {
@@ -91,7 +201,7 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
     })) as { id: string; accountHolderName: string; type: string; details: unknown }[];
     const recipientById = new Map(recipients.map((r) => [r.id, r]));
 
-    return payouts.map((p) => {
+    const historicalRows: PayoutLedgerRow[] = payouts.map((p) => {
       const amount = Number(p.amount);
       const isAffiliate = p.earningsType === "AFFILIATE";
       const recipient = recipientById.get(p.recipientId);
@@ -114,6 +224,13 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
         isAffiliate,
       };
     });
+
+    // Live rows (current, still-open month) lead the ledger, followed by
+    // every real payout ever queued, most recent first — the same
+    // rolling live → pending → paid pattern as the author-facing Payout
+    // Settings page, just across every account instead of just one.
+    const liveRows = await getLiveMonthRows();
+    return [...liveRows, ...historicalRows];
   } catch (e) {
     // Surfaced on the page as a readable message instead of a generic
     // Next.js crash screen — see app/admin/payouts/page.tsx. Most

@@ -275,12 +275,22 @@ settings pages, live third-party credentials, full deployment docs).
   a payout for their exact available balance; Admin approves/rejects at
   `/admin/payouts`. Replaces the original's simulated earnings timeline
   (`buildAffEarningsTimeline()` — hashStr-seeded fake monthly numbers).
-- Real reader Addresses (`/account/addresses`) and author Following
+- Real reader Addresses (`/account/addresses`) and author-name Following
   (`/account/following`, `FollowAuthorButton` on book pages) are wired up
   — both are genuine upgrades over the original: addresses lived inside
   the localStorage user blob before, and the "Follow" button only ever
   showed a toast without persisting anything. Added `Address` and
-  `AuthorFollow` models to the schema for these.
+  `AuthorNameFollow` models to the schema for these. Following is keyed
+  to the exact author display NAME on a book's card (pen name included,
+  resolved via `lib/book-author-name.ts`), not the underlying account,
+  so a reader following one pen name isn't notified about a different
+  pen name the same account might also publish under — see
+  `notifyFollowersOfNewBook` in `actions/admin.ts`, which fires the
+  moment a book's status flips to PUBLISHED. `/account/authors`
+  (Author dashboard, "Authors" tab) lists every author name with a
+  published book right now, each linking to that account's public
+  profile; the admin Book Management table shows each book's follower
+  count per author name (see `actions/authors-directory.ts`).
 - SEO infrastructure from the brief is wired up: `app/robots.ts` and
   `app/sitemap.ts` (Next's native metadata-route convention — the sitemap
   reads live published books/blog posts from the database, falling back

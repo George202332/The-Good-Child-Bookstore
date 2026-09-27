@@ -8,6 +8,7 @@ export type NotificationType =
   | "BLOG_PUBLISHED"
   | "BLOG_REVISION"
   | "MESSAGE"
+  | "NEW_BOOK_BY_FOLLOWED_AUTHOR"
   | "GENERAL";
 
 export interface NotificationTypeInfo {
@@ -65,6 +66,11 @@ export const NOTIFICATION_TYPES: Record<NotificationType, NotificationTypeInfo> 
     color: "#2451B7", // blue
     iconPath: "M4 6h16v12H4zM4 7l8 6 8-6",
     sidebarKey: "messages",
+  },
+  NEW_BOOK_BY_FOLLOWED_AUTHOR: {
+    color: "#C68A1E", // gold — a new release, same family as REVIEW
+    iconPath: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z",
+    sidebarKey: null,
   },
   GENERAL: {
     color: "#6F6386",

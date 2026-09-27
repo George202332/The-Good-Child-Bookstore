@@ -59,6 +59,7 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "library", label: "Purchases", href: "/account/library", section: "Overview" },
       { key: "mybooks", label: "My Books", href: "/account/books", section: "Publishing" },
       { key: "blog", label: "My Blogs", href: "/account/blog", section: "Publishing" },
+      { key: "authors", label: "Authors", href: "/account/authors", section: "Publishing" },
       { key: "referrals", label: "Referrals", href: "/account/referrals", section: "Affiliate" },
       { key: "active-campaigns", label: "Promotions", href: "/account/active-campaigns", section: "Affiliate" },
       { key: "analytics", label: "Sales", href: "/account/analytics", section: "Analytics" },

@@ -125,8 +125,8 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
               <th style={TH}>Book sales<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
               <th style={TH}>Affiliate<ColHelp text="This payout's share that comes from affiliate commission on sales the recipient referred." /></th>
               <th style={TH}>Total<ColHelp text="Book sales plus affiliate earnings combined — the full amount of this payout." /></th>
-              <th style={TH}>Status<ColHelp text="Paid means the transfer has gone out. Not paid means it's still queued or awaiting approval. Rejected means it was declined." /></th>
-              <th style={TH}>Requested<ColHelp text="The date this payout was queued." /></th>
+              <th style={TH}>Status<ColHelp text="Live means the current month is still in progress and this total keeps growing as sales happen — it's not a real payout request yet. Pending means it's queued or awaiting approval. Paid means the transfer has gone out. Rejected means it was declined." /></th>
+              <th style={TH}>Requested<ColHelp text="The date this payout was queued. For a Live row, this is simply today — nothing has actually been requested yet." /></th>
               <th style={TH}></th>
             </tr>
           </thead>
@@ -161,14 +161,18 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                     <span
                       className="age-pill"
                       style={{
-                        background: p.paid ? "rgba(31,107,72,0.15)" : p.status === "REJECTED" ? "rgba(107,115,133,0.15)" : "rgba(196,120,20,0.15)",
-                        color: p.paid ? "#1F6B48" : p.status === "REJECTED" ? "#6B7385" : "#8A5A0F",
+                        background: p.status === "LIVE" ? "rgba(36,81,183,0.14)" : p.paid ? "rgba(31,107,72,0.15)" : p.status === "REJECTED" ? "rgba(107,115,133,0.15)" : "rgba(196,120,20,0.15)",
+                        color: p.status === "LIVE" ? "#2451B7" : p.paid ? "#1F6B48" : p.status === "REJECTED" ? "#6B7385" : "#8A5A0F",
                       }}
                     >
-                      {p.paid ? "Paid" : p.status === "REJECTED" ? "Rejected" : "Not paid"}
+                      {p.status === "LIVE" ? "Live" : p.paid ? "Paid" : p.status === "REJECTED" ? "Rejected" : "Pending"}
                     </span>
                   </td>
-                  <td style={TD}>{new Date(p.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                  <td style={TD}>
+                    {p.status === "LIVE"
+                      ? "This month (in progress)"
+                      : new Date(p.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </td>
                   <td style={TD}>{p.status === "REQUESTED" && canModerate ? <ModerationActions payoutId={p.id} /> : null}</td>
                 </tr>
               ))

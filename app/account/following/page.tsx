@@ -25,8 +25,8 @@ export default async function FollowingPage() {
       ) : (
         <div className="map-card" style={{ padding: "6px 16px" }}>
           {following.map((f) => (
-            <div key={f.authorId} style={{ padding: "12px 0", borderBottom: "1px solid var(--line)", fontWeight: 700, fontSize: 13.5 }}>
-              {f.name}
+            <div key={f.authorName} style={{ padding: "12px 0", borderBottom: "1px solid var(--line)", fontWeight: 700, fontSize: 13.5 }}>
+              {f.authorName}
             </div>
           ))}
         </div>

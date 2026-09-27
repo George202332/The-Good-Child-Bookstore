@@ -349,24 +349,39 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
         <h2>Reviews</h2>
         <div className="az-reviews-layout">
           <div className="az-reviews-col">
-            <div className="az-reviews-head">
-              <span className="az-reviews-count-label">{stats.total} ratings</span>
-            </div>
-            <div className="review-list">
-              {reviews.map((r, i) => (
-                <div className="review-card" key={i}>
-                  <div className="review-header">
-                    <div className="review-avatar" style={{ background: b.palette[1] }}>
-                      {r.name.split(" ").map((w) => w[0]).join("")}
-                    </div>
-                    <div className="review-name">{r.name}</div>
-                    <span className="review-stars">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
-                    <div className="review-date">{r.date}</div>
-                  </div>
-                  <p className="review-text">{r.text}</p>
+            {isRealBook ? (
+              // Real books have no seeded/demo reviews to fall back on, so
+              // there's nothing to show here except the actual reviews
+              // readers have written — LiveReviewSection itself renders
+              // nothing at all once there are zero reviews and no one's
+              // signed in to write the first one (see that component),
+              // so the very first real review lands in exactly this spot,
+              // directly under the "Reviews" heading, with each one after
+              // it flowing downward in order — never a placeholder "0
+              // ratings" line sitting here first.
+              <LiveReviewSection bookId={b.id} />
+            ) : (
+              <>
+                <div className="az-reviews-head">
+                  <span className="az-reviews-count-label">{stats.total} ratings</span>
                 </div>
-              ))}
-            </div>
+                <div className="review-list">
+                  {reviews.map((r, i) => (
+                    <div className="review-card" key={i}>
+                      <div className="review-header">
+                        <div className="review-avatar" style={{ background: b.palette[1] }}>
+                          {r.name.split(" ").map((w) => w[0]).join("")}
+                        </div>
+                        <div className="review-name">{r.name}</div>
+                        <span className="review-stars">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</span>
+                        <div className="review-date">{r.date}</div>
+                      </div>
+                      <p className="review-text">{r.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
           <div className="rb-card">
             <div className="rb-score">
@@ -385,7 +400,11 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
             </div>
           </div>
         </div>
-        <LiveReviewSection bookId={b.id} />
+        {/* Demo catalog books keep their original placement — a standalone
+            write-a-review CTA below the whole two-column layout. Real
+            books instead render LiveReviewSection up in the left column
+            above (see isRealBook branch), so it isn't duplicated here. */}
+        {!isRealBook && <LiveReviewSection bookId={b.id} />}
       </div>
     </div>
   );

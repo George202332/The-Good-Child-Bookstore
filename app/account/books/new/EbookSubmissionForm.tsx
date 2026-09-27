@@ -246,7 +246,7 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
           <ImageUploadField label="Cover image" recommendedSize="Any image format — Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} fillWidth />
         </div>
         <p className="field-hint" style={{ marginTop: 10 }}>
-          Readers get a free preview of the first 10 pages from the &quot;Read sample&quot; button on the book&apos;s
+          Readers get a free preview of the first 10 pages from the &quot;Read Sample&quot; button on the book&apos;s
           page — there&apos;s nothing separate to upload for that.
         </p>
       </Card>

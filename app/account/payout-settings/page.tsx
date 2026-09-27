@@ -99,7 +99,7 @@ export default async function PayoutSettingsPage() {
       <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Your payout schedule</h3>
       <AutoPayoutInfo available={available} onHold={onHold} nextReleaseDate={nextReleaseDate} hasRecipient={true} />
 
-      <h3 style={{ fontSize: 16, margin: "28px 0 14px" }}>Monthly payout history</h3>
+      <h3 style={{ fontSize: 16, margin: "28px 0 14px" }}>Monthly Payout History</h3>
       <div className="map-card" style={{ padding: 20 }}>
         {/* Table/headers always render, even with no history yet — the
             empty state is a single full-width row inside <tbody>, not a
@@ -116,7 +116,7 @@ export default async function PayoutSettingsPage() {
                 <th style={TABLE_HEAD_STYLE}>Referral<ColHelp text="A percentage of company revenue from authors you personally referred onto the platform, earned this month." /></th>
                 <th style={TABLE_HEAD_STYLE}>Promotion<ColHelp text="Commission earned this month from copies sold through your own affiliate promotional links." /></th>
                 <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="This month's earnings become payable on the 15th of the following month, as long as the total due has reached the $30 minimum." /></th>
-                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Pending payout means the 15th hasn't been processed yet. Paid means the transfer for this month has gone out." /></th>
+                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Live means the month is still in progress and this row keeps growing as sales happen. Pending payout means the month closed and the 15th hasn't been processed yet. Paid means the transfer for this month has gone out." /></th>
                 <th style={TABLE_HEAD_STYLE}>Report<ColHelp text="Download this month's full payout statement as a PDF, itemized the same way as your account's statements are always formatted." /></th>
               </tr>
             </thead>
@@ -138,8 +138,17 @@ export default async function PayoutSettingsPage() {
                     <td style={TABLE_CELL_STYLE}>${r.promotionRevenue.toFixed(2)}</td>
                     <td style={TABLE_CELL_STYLE}>{r.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                     <td style={TABLE_CELL_STYLE}>
-                      <span className="age-pill">
-                        {r.status === "Paid" ? "Paid" : "Pending"}
+                      <span
+                        className="age-pill"
+                        style={
+                          r.status === "Live"
+                            ? { background: "rgba(36,81,183,0.14)", color: "#2451B7" }
+                            : r.status === "Paid"
+                              ? { background: "rgba(31,107,72,0.15)", color: "#1F6B48" }
+                              : undefined
+                        }
+                      >
+                        {r.status === "Live" ? "Live" : r.status === "Paid" ? "Paid" : "Pending"}
                       </span>
                     </td>
                     <td style={TABLE_CELL_STYLE}>

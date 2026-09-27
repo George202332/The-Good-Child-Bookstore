@@ -4,9 +4,19 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
-/** Real "follow an author" — the original's az-follow-btn on the book
+/**
+ * Real "follow an author" — the original's az-follow-btn on the book
  * detail page (the-good-child-bookstore_54_1.html:4272) only ever showed
- * a toast ("Following X"); nothing was persisted. This actually is. */
+ * a toast ("Following X"); nothing was persisted. This actually is.
+ *
+ * Per explicit instruction, following is keyed by the author NAME shown
+ * on the book's own author card — not the underlying AuthorProfile/
+ * account — since the same account can publish under a different pen
+ * name for a different book (see lib/book-author-name.ts). Following
+ * "J. Okoro" only ever notifies about new books published under that
+ * exact name, pen name included, never about a different name the same
+ * account might also publish under.
+ */
 
 async function getReaderProfileId(): Promise<string | null> {
   const session = await auth();
@@ -15,43 +25,39 @@ async function getReaderProfileId(): Promise<string | null> {
   return user?.readerProfile?.id ?? null;
 }
 
-export async function isFollowingAuthor(authorId: string): Promise<boolean> {
+export async function isFollowingAuthorName(authorName: string): Promise<boolean> {
   const readerId = await getReaderProfileId();
   if (!readerId) return false;
-  const existing = await prisma.authorFollow.findUnique({ where: { readerId_authorId: { readerId, authorId } } });
+  const existing = await prisma.authorNameFollow.findUnique({ where: { readerId_authorName: { readerId, authorName } } });
   return !!existing;
 }
 
-export async function toggleFollowAuthor(authorId: string): Promise<{ ok: boolean; following?: boolean; error?: string }> {
+export async function toggleFollowAuthorName(authorName: string): Promise<{ ok: boolean; following?: boolean; error?: string }> {
   const readerId = await getReaderProfileId();
   if (!readerId) return { ok: false, error: "Only reader accounts can follow authors." };
+  if (!authorName.trim()) return { ok: false, error: "No author name to follow." };
 
-  const existing = await prisma.authorFollow.findUnique({ where: { readerId_authorId: { readerId, authorId } } });
+  const existing = await prisma.authorNameFollow.findUnique({ where: { readerId_authorName: { readerId, authorName } } });
   if (existing) {
-    await prisma.authorFollow.delete({ where: { id: existing.id } });
+    await prisma.authorNameFollow.delete({ where: { id: existing.id } });
     revalidatePath("/account/following");
     return { ok: true, following: false };
   }
-  await prisma.authorFollow.create({ data: { readerId, authorId } });
+  await prisma.authorNameFollow.create({ data: { readerId, authorName } });
   revalidatePath("/account/following");
   return { ok: true, following: true };
 }
 
-export interface FollowedAuthor {
-  authorId: string;
-  name: string;
+export interface FollowedAuthorName {
+  authorName: string;
 }
 
-export async function listMyFollowing(): Promise<FollowedAuthor[]> {
+export async function listMyFollowing(): Promise<FollowedAuthorName[]> {
   const readerId = await getReaderProfileId();
   if (!readerId) return [];
-  const follows = await prisma.authorFollow.findMany({
+  const follows = await prisma.authorNameFollow.findMany({
     where: { readerId },
-    include: { author: { include: { user: true } } },
     orderBy: { createdAt: "desc" },
   });
-  return follows.map((f: { authorId: string; author: { user: { name: string } } }) => ({
-    authorId: f.authorId,
-    name: f.author.user.name,
-  }));
+  return follows.map((f: { authorName: string }) => ({ authorName: f.authorName }));
 }
