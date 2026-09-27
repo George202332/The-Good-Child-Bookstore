@@ -117,6 +117,16 @@ export interface SubmissionMetadata {
   publicationDate?: string;
   originalPublicationDate?: string;
   copyrightYear?: number;
+  /** Page count — auto-detected from the uploaded manuscript when it's
+   * a PDF (or converts to one), editable in case detection can't run
+   * (EPUB/MOBI) or comes out wrong. Drives the product page's detail
+   * card "Pages" figure (see lib/data/real-books-adapter.ts). */
+  pages?: number;
+  /** Trim size, e.g. "5.5 x 8.5 in" — shown on the product page's detail
+   * card. */
+  dimensions?: string;
+  /** In pounds — shown on the product page's detail card. */
+  weightLb?: number;
   coAuthors?: string;
   illustrator?: string;
   editor?: string;

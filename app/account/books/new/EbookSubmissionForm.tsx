@@ -50,6 +50,9 @@ export interface EbookSubmissionInitial {
   genre?: string;
   ageGroup?: string;
   readingLevel?: string;
+  pages?: number;
+  dimensions?: string;
+  weightLb?: number;
   descriptionHtml?: string;
   keywords?: string[];
   price?: string;
@@ -110,6 +113,13 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
   const [genre, setGenre] = useState(initial?.genre || GENRES[0]);
   const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || AGE_RANGES[0]);
   const [readingLevel, setReadingLevel] = useState(initial?.readingLevel || READING_LEVELS[0]);
+  // Pages auto-fills from the uploaded manuscript (see the Files
+  // section's onFileMeta below) but stays editable — detection doesn't
+  // run for EPUB/MOBI, and an author can still correct it either way.
+  const [pages, setPages] = useState(initial?.pages ? String(initial.pages) : "");
+  const [pagesAutoDetected, setPagesAutoDetected] = useState(false);
+  const [dimensions, setDimensions] = useState(initial?.dimensions ?? "5.5 x 8.5 in");
+  const [weightLb, setWeightLb] = useState(initial?.weightLb ? String(initial.weightLb) : "");
 
   // Book description
   const [descriptionHtml, setDescriptionHtml] = useState(initial?.descriptionHtml ?? "");
@@ -203,6 +213,9 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
         copyrightYear: copyrightYear ? Number(copyrightYear) : undefined,
         authorBio,
         readingLevel,
+        pages: pages ? Number(pages) : undefined,
+        dimensions: dimensions.trim() || undefined,
+        weightLb: weightLb ? Number(weightLb) : undefined,
         longDescriptionHtml: descriptionHtml,
         taxSetting,
         worldwideRights,
@@ -241,6 +254,15 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
             allowedTypes={["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
             accept=".pdf,.docx"
             onUploaded={(ids) => setManuscriptFileId(ids[0])}
+            onFileMeta={(results) => {
+              const detected = results[0]?.pageCount;
+              if (detected) {
+                setPages(String(detected));
+                setPagesAutoDetected(true);
+              } else {
+                setPagesAutoDetected(false);
+              }
+            }}
             fillWidth
           />
           <ImageUploadField label="Cover image" recommendedSize="Any image format — Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} fillWidth />
@@ -391,6 +413,33 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
             <select className="field" id="f-readinglevel" value={readingLevel} onChange={(e) => setReadingLevel(e.target.value)}>
               {READING_LEVELS.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
+          </div>
+        </div>
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="f-pages">Pages</label>
+            <input
+              className="field"
+              id="f-pages"
+              type="number"
+              min={1}
+              placeholder="Upload a manuscript to auto-fill"
+              value={pages}
+              onChange={(e) => { setPages(e.target.value); setPagesAutoDetected(false); }}
+            />
+            <div className="field-hint">
+              {pagesAutoDetected ? "Auto-detected from your uploaded manuscript — edit if it's not quite right." : "Auto-fills once you upload a PDF/DOCX manuscript above; enter it yourself for EPUB/MOBI."}
+            </div>
+          </div>
+          <div>
+            <label className="field-label" htmlFor="f-dimensions">Dimensions</label>
+            <input className="field" id="f-dimensions" type="text" placeholder="5.5 x 8.5 in" value={dimensions} onChange={(e) => setDimensions(e.target.value)} />
+          </div>
+        </div>
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="f-weight">Weight (lb)</label>
+            <input className="field" id="f-weight" type="number" step={0.01} min={0} placeholder="0.25" value={weightLb} onChange={(e) => setWeightLb(e.target.value)} />
           </div>
         </div>
       </Card>

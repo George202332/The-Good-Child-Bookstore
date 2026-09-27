@@ -39,7 +39,27 @@ export interface UploadFileResult {
   ok: boolean;
   fileId?: string;
   fileName?: string;
+  /** Page count, auto-detected from the actual uploaded file when it's
+   * (or converts to) a PDF — see countPdfPages below. Undefined for
+   * EPUB/MOBI, where page count isn't a well-defined property of the
+   * file itself; the submission form falls back to manual entry then. */
+  pageCount?: number;
   error?: string;
+}
+
+/** Best-effort PDF page count via pdf-lib (already a dependency for the
+ * print-fulfillment PDF work — see lib/payments/lulu.ts) — returns
+ * undefined rather than throwing if the bytes can't be parsed, so a
+ * slightly malformed upload still succeeds without a page count rather
+ * than failing the whole upload over it. */
+async function countPdfPages(bytes: Uint8Array): Promise<number | undefined> {
+  try {
+    const { PDFDocument } = await import("pdf-lib");
+    const doc = await PDFDocument.load(bytes);
+    return doc.getPageCount();
+  } catch {
+    return undefined;
+  }
 }
 
 export async function uploadGenericFile(formData: FormData, allowedTypes: string[]): Promise<UploadFileResult> {
@@ -76,21 +96,23 @@ export async function uploadGenericFile(formData: FormData, allowedTypes: string
           originalName: file.name.replace(/\.docx$/i, ".pdf"),
         },
       });
-      return { ok: true, fileId: record.id, fileName: record.originalName };
+      return { ok: true, fileId: record.id, fileName: record.originalName, pageCount: await countPdfPages(pdfBytes) };
     }
 
     // Trust the file's real extension for the stored MIME type when the
     // browser didn't report one (or reported something generic) — keeps
     // the served-back file's Content-Type accurate.
     const inferredMime = file.type || (extOk ? Object.entries(MIME_TO_EXTENSIONS).find(([, exts]) => exts.some((e) => file.name.toLowerCase().endsWith(e)))?.[0] : undefined);
+    const bytes = new Uint8Array(arrayBuffer);
     const record = await prisma.uploadedFile.create({
       data: {
-        data: new Uint8Array(arrayBuffer),
+        data: bytes,
         mimeType: inferredMime || "application/octet-stream",
         originalName: file.name,
       },
     });
-    return { ok: true, fileId: record.id, fileName: file.name };
+    const pageCount = inferredMime === "application/pdf" ? await countPdfPages(bytes) : undefined;
+    return { ok: true, fileId: record.id, fileName: file.name, pageCount };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to store file." };
   }

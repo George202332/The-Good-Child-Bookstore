@@ -153,7 +153,13 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
             <div className="az-author-card-label">About the Author</div>
             <div className="az-author-row">
               <div className="quote-avatar" style={{ background: b.palette[1] }}>{initials}</div>
-              <div className="az-author-name">{b.author}</div>
+              {b.authorId ? (
+                <Link href={`/authors/profile/${b.authorId}?name=${encodeURIComponent(b.author)}`} className="az-author-name">
+                  {b.author}
+                </Link>
+              ) : (
+                <div className="az-author-name">{b.author}</div>
+              )}
               <FollowAuthorButton bookId={b.id} />
             </div>
           </div>
@@ -208,7 +214,7 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
                 </div>
                 <div className="az-detail-item">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={12} r={9} /><path d="M3 12h18M12 3c2.2 2.4 3.5 5.5 3.5 9s-1.3 6.6-3.5 9c-2.2-2.4-3.5-5.5-3.5-9s1.3-6.6 3.5-9z" /></svg>
-                  <strong>English</strong><span>Language</span>
+                  <strong>{b.language || "English"}</strong><span>Language</span>
                 </div>
                 <div className="az-detail-item">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M20 12l-8 8-9-9V4h7l9 9z" /><circle cx={7.5} cy={7.5} r={1.3} fill="currentColor" /></svg>
@@ -224,15 +230,15 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
                 </div>
                 <div className="az-detail-item">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={7} width={18} height={14} rx={2} /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                  <strong>Good Child Press</strong><span>Publisher</span>
+                  <strong>{b.publisher || "Good Child Press"}</strong><span>Publisher</span>
                 </div>
                 <div className="az-detail-item">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={4} y={3} width={16} height={18} rx={1} /><path d="M8 3v18M16 3v18" /></svg>
-                  <strong>5.5 × 8.5 in</strong><span>Dimensions</span>
+                  <strong>{b.dimensions || "5.5 × 8.5 in"}</strong><span>Dimensions</span>
                 </div>
                 <div className="az-detail-item">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={8} r={5} /><path d="M8 13l-2 8h12l-2-8" /></svg>
-                  <strong>{(0.15 + b.pages * 0.01).toFixed(2)} lb</strong><span>Weight</span>
+                  <strong>{(b.weightLb ?? (0.15 + b.pages * 0.01)).toFixed(2)} lb</strong><span>Weight</span>
                 </div>
               </div>
               <button type="button" className="carousel-arrow carousel-right" aria-label="Scroll details right" onClick={() => scrollTrack(`details-track-${b.id}`, 1)}>
@@ -248,12 +254,14 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
               <button type="button" className={`buybox-tile ${format === "ebook" ? "active" : ""}`} onClick={() => setFormat("ebook")}>
                 <div className="bt-name">eBook</div>
                 <div className="bt-price">${b.formats.ebook.toFixed(2)}</div>
+                <div className="bt-sub">Instant Download</div>
               </button>
             )}
             {(b.formatAvailable?.audiobook ?? true) && (
               <button type="button" className={`buybox-tile ${format === "audiobook" ? "active" : ""}`} onClick={() => setFormat("audiobook")}>
                 <div className="bt-name">Audiobook</div>
                 <div className="bt-price">${b.formats.audiobook.toFixed(2)}</div>
+                <div className="bt-sub">Instant Download</div>
               </button>
             )}
             {(b.formatAvailable?.paperback ?? true) && (

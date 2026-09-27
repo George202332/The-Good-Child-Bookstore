@@ -121,7 +121,6 @@ model User {
    * couldn't determine a country for that signup request. */
   country       String?
   avatarUrl     String?
-  emailVerified DateTime?
   suspended     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -181,6 +180,22 @@ model EmailVerificationToken {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+/**
+ * One row per signup attempt (successful or rejected), keyed by
+ * requesting IP — the basis for actions/auth.ts registerUser()'s
+ * per-IP rate limit. Deliberately not tied to a User row (most of what
+ * this catches never becomes one): a script hammering the signup form
+ * from one IP is throttled here before it can create real accounts,
+ * separately from anything email-verification-related.
+ */
+model SignupAttempt {
+  id        String   @id @default(cuid())
+  ip        String
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
 }
 
 /**

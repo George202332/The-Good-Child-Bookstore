@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { uploadGenericFile } from "@/actions/files";
+import { uploadGenericFile, type UploadFileResult } from "@/actions/files";
 
 /**
  * A file-upload card matching the exact 4-across "Files" section design
@@ -23,6 +23,7 @@ export function FileUploadField({
   accept,
   multiple = false,
   onUploaded,
+  onFileMeta,
   fillWidth,
 }: {
   label: string;
@@ -31,6 +32,10 @@ export function FileUploadField({
   accept: string;
   multiple?: boolean;
   onUploaded: (fileIds: string[]) => void;
+  /** Optional — the full upload result(s), including any auto-detected
+   * pageCount (see actions/files.ts), for a caller that needs more than
+   * just the file id (e.g. EbookSubmissionForm auto-filling Pages). */
+  onFileMeta?: (results: UploadFileResult[]) => void;
   /** When true, this card becomes an equal flex-distributed member of
    * its parent's .upload-cards-row (grows/shrinks with its siblings,
    * min-width 160px) instead of growing unpredictably on its own. */
@@ -49,6 +54,7 @@ export function FileUploadField({
     setError(null);
     const ids: string[] = [];
     const names: string[] = [];
+    const results: UploadFileResult[] = [];
     for (const file of files) {
       const formData = new FormData();
       formData.append("file", file);
@@ -60,10 +66,12 @@ export function FileUploadField({
       }
       ids.push(res.fileId);
       names.push(res.fileName ?? file.name);
+      results.push(res);
     }
     setUploading(false);
     setFileNames(names);
     onUploaded(ids);
+    onFileMeta?.(results);
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {

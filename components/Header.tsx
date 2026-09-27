@@ -108,7 +108,7 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
           </label>
           <Link href="/wishlist" className="header-icon-btn" aria-label="Wishlist">
             <span className="cart-btn">
-              <HeartIcon size={13} />
+              <HeartIcon size={16} />
               <span className="cart-count" id="wishlist-count">
                 {wishlistCount}
               </span>
@@ -116,7 +116,7 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
           </Link>
           <Link href="/cart" className="header-icon-btn" aria-label="Cart">
             <span className="cart-btn">
-              <BagIcon size={13} />
+              <BagIcon size={16} />
               <span className="cart-count" id="cart-count">
                 {cartCount}
               </span>
@@ -132,12 +132,12 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
             {user ? (
               <span
                 style={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: 6,
+                  width: 20,
+                  height: 20,
+                  borderRadius: 7,
                   background: "var(--coral)",
                   color: "var(--ink)",
-                  fontSize: 8,
+                  fontSize: 10,
                   fontWeight: 700,
                   display: "flex",
                   alignItems: "center",
@@ -147,7 +147,7 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
                 {initials}
               </span>
             ) : (
-              <UserIcon size={13} />
+              <UserIcon size={16} />
             )}
             </span>
           </Link>

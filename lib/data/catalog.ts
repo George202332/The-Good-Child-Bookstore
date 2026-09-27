@@ -144,6 +144,19 @@ export interface Book {
   rating: string;
   reviews: number;
   pages: number;
+  /** Real submitted books only — from the submission form's Language
+   * field (see actions/submissions.ts); the static demo catalog has no
+   * equivalent, so the product page falls back to "English" for those. */
+  language?: string;
+  /** Real submitted books only — from the submission form's Dimensions
+   * field. */
+  dimensions?: string;
+  /** In pounds — real submitted books only, from the submission form's
+   * Weight field. */
+  weightLb?: number;
+  /** The publisher name — real submitted books only, from the
+   * submission form's Publisher field. */
+  publisher?: string;
   format: string;
   blurb: string;
   featured: boolean;

@@ -54,7 +54,12 @@ export function FollowAuthorButton({ bookId }: { bookId: string }) {
   }
 
   return (
-    <button type="button" className="az-follow-btn" onClick={handleClick} disabled={!ready || !authorName}>
+    <button
+      type="button"
+      className={`az-follow-btn${following ? " is-following" : ""}`}
+      onClick={handleClick}
+      disabled={!ready || !authorName}
+    >
       {following ? "Following" : "Follow"}
     </button>
   );

@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
-import { listPublishedAuthorNames } from "@/actions/authors-directory";
+import { listAuthorsDirectoryRows } from "@/actions/authors-directory";
+import { AuthorsTable } from "./AuthorsTable";
 
 /**
  * Authors — a directory of every author name (pen names included) with
@@ -20,7 +20,7 @@ export default async function AuthorsDirectoryPage() {
   if (!session?.user) redirect("/login");
   if (session.user.role !== "AUTHOR") redirect("/account");
 
-  const authors = await listPublishedAuthorNames();
+  const authors = await listAuthorsDirectoryRows();
 
   return (
     <DashboardShell role="AUTHOR" activeKey="authors" displayName={session.user.name ?? ""}>
@@ -38,24 +38,7 @@ export default async function AuthorsDirectoryPage() {
           No published authors yet.
         </div>
       ) : (
-        <div className="map-card" style={{ padding: "6px 16px" }}>
-          {authors.map((a) => (
-            <Link
-              key={`${a.authorId}-${a.name}`}
-              href={`/authors/profile/${a.authorId}?name=${encodeURIComponent(a.name)}`}
-              style={{
-                display: "block",
-                padding: "12px 0",
-                borderBottom: "1px solid var(--line)",
-                fontWeight: 700,
-                fontSize: 13.5,
-                color: "var(--ink)",
-              }}
-            >
-              {a.name}
-            </Link>
-          ))}
-        </div>
+        <AuthorsTable authors={authors} />
       )}
     </DashboardShell>
   );

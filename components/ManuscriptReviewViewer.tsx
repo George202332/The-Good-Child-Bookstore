@@ -142,16 +142,17 @@ export function ManuscriptReviewViewer({ url, title, maxPages, spread, theme, sc
             className="sample-viewer-viewport no-scrollbar"
             style={{
               height: "70vh", overflowY: "auto",
-              background: "var(--cream)", borderRadius: 10,
+              background: "#171320", borderRadius: 10,
+              maxWidth: 440, margin: "0 auto",
             }}
             onContextMenu={(e) => e.preventDefault()}
           >
             {Array.from({ length: numPages ?? 0 }, (_, i) => i + 1).map((p) => (
-              <div key={p} className="sample-viewer-page" style={{ height: "70vh", width: "100%", padding: 16, boxSizing: "border-box" }}>
+              <div key={p} className="sample-viewer-page" style={{ height: "70vh", width: "100%", padding: "10px 0", boxSizing: "border-box" }}>
                 <canvas
                   ref={(el) => { sampleCanvasRefs.current[p - 1] = el; }}
                   aria-label={`${title} — page ${p}`}
-                  style={{ maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }}
+                  style={{ maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", display: "block" }}
                 />
               </div>
             ))}

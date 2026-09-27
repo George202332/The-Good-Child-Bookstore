@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { PasswordField } from "@/components/PasswordField";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
 import { registerUser } from "@/actions/auth";
 
 /** Converted from signupReaderHTML()/handleReaderSignup() (the-good-child-bookstore_54_1.html:6342-6372). */
@@ -14,6 +15,8 @@ export default function SignupReaderPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -25,7 +28,7 @@ export default function SignupReaderPage() {
     }
     setSubmitting(true);
     setError(null);
-    const result = await registerUser({ role: "READER", name, email, password });
+    const result = await registerUser({ role: "READER", name, email, password, honeypot, turnstileToken });
     if (!result.ok) {
       setSubmitting(false);
       setError(result.error ?? "Something went wrong. Please try again.");
@@ -49,6 +52,19 @@ export default function SignupReaderPage() {
           <PasswordField id="r-password" placeholder="At least 6 characters" minLength={6} required value={password} onChange={setPassword} />
           <label className="field-label" htmlFor="r-confirm">Confirm password</label>
           <PasswordField id="r-confirm" placeholder="Type it again" minLength={6} required value={confirm} onChange={setConfirm} />
+          {/* Honeypot — invisible and unreachable by keyboard tab order for a real
+              visitor, but a plain input a bot's form-filler will still find. */}
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+            style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+            aria-hidden="true"
+          />
+          <TurnstileWidget onToken={setTurnstileToken} />
           {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
           <button className="btn btn-primary" type="submit" disabled={submitting}>
             {submitting ? "Creating…" : "Create reader account"}

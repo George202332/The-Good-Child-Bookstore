@@ -19,22 +19,56 @@ export interface PublishedAuthorNameRow {
 }
 
 export async function listPublishedAuthorNames(): Promise<PublishedAuthorNameRow[]> {
-  const books = await prisma.book.findMany({
-    where: { status: "PUBLISHED" },
-    select: {
-      authorId: true,
-      submissionMetadata: true,
-      author: { select: { penName: true, user: { select: { name: true } } } },
-    },
-  });
+  const rows = await listAuthorsDirectoryRows();
+  return rows.map((r) => ({ authorId: r.authorId, name: r.name }));
+}
 
-  const seen = new Map<string, PublishedAuthorNameRow>();
-  for (const b of books as { authorId: string; submissionMetadata: unknown; author: { penName: string | null; user: { name: string } } }[]) {
+/** The richer per-row shape behind the author-facing Authors table (see
+ * app/account/authors/page.tsx) — same one-row-per-(accountId, name)
+ * dedup as listPublishedAuthorNames, plus the extra columns that table
+ * shows: how many published books carry this name, this name's primary
+ * genre, and how many readers follow it. */
+export interface AuthorsDirectoryRow extends PublishedAuthorNameRow {
+  bookCount: number;
+  primaryGenre: string | null;
+  followerCount: number;
+}
+
+export async function listAuthorsDirectoryRows(): Promise<AuthorsDirectoryRow[]> {
+  const [books, followerCounts] = await Promise.all([
+    prisma.book.findMany({
+      where: { status: "PUBLISHED" },
+      select: {
+        authorId: true,
+        submissionMetadata: true,
+        author: { select: { penName: true, primaryGenre: true, user: { select: { name: true } } } },
+      },
+    }),
+    getAuthorNameFollowerCounts(),
+  ]);
+
+  const byKey = new Map<string, AuthorsDirectoryRow>();
+  for (const b of books as {
+    authorId: string;
+    submissionMetadata: unknown;
+    author: { penName: string | null; primaryGenre: string | null; user: { name: string } };
+  }[]) {
     const name = bookAuthorDisplayName(b);
     const key = `${b.authorId}::${name}`;
-    if (!seen.has(key)) seen.set(key, { authorId: b.authorId, name });
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.bookCount += 1;
+    } else {
+      byKey.set(key, {
+        authorId: b.authorId,
+        name,
+        bookCount: 1,
+        primaryGenre: b.author.primaryGenre,
+        followerCount: followerCounts[name] ?? 0,
+      });
+    }
   }
-  return Array.from(seen.values()).sort((a, b) => a.name.localeCompare(b.name));
+  return Array.from(byKey.values()).sort((a, b) => b.followerCount - a.followerCount || a.name.localeCompare(b.name));
 }
 
 /** Follower counts grouped by the exact author NAME readers followed —

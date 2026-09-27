@@ -68,13 +68,28 @@ interface RealBookRow {
   reviews: unknown[];
   ratings: { stars: number }[];
   submissionMetadata: unknown;
+  language: string;
 }
 
 function toCatalogBook(row: RealBookRow): Book {
   const seed = hashStr(row.id);
   const price = Number(row.price);
   const avgRating = row.ratings.length > 0 ? row.ratings.reduce((s, r) => s + r.stars, 0) / row.ratings.length : 0;
-  const meta = (row.submissionMetadata as { affiliateEnabled?: boolean; includeInPromotions?: boolean; paperbackEnabled?: boolean; hardcoverEnabled?: boolean; paperbackRetailPrice?: number; hardcoverRetailPrice?: number; authorFirstName?: string; authorLastName?: string } | null) ?? null;
+  const meta = (row.submissionMetadata as {
+    affiliateEnabled?: boolean;
+    includeInPromotions?: boolean;
+    paperbackEnabled?: boolean;
+    hardcoverEnabled?: boolean;
+    paperbackRetailPrice?: number;
+    hardcoverRetailPrice?: number;
+    authorFirstName?: string;
+    authorLastName?: string;
+    pages?: number;
+    dimensions?: string;
+    weightLb?: number;
+    publisher?: string;
+    publicationDate?: string;
+  } | null) ?? null;
   const submittedAuthorName = meta?.authorFirstName || meta?.authorLastName
     ? `${meta.authorFirstName ?? ""} ${meta.authorLastName ?? ""}`.trim()
     : null;
@@ -112,11 +127,21 @@ function toCatalogBook(row: RealBookRow): Book {
     },
     manuscriptUrl: row.files.find((f) => f.kind === "MANUSCRIPT")?.url,
     isbn: row.isbn ?? "",
-    pubDate: row.createdAt.toISOString().slice(0, 10),
+    // The date the author actually entered at submission, when they set
+    // one — falls back to when the row was created for older
+    // submissions or books whose author left it blank.
+    pubDate: meta?.publicationDate || row.createdAt.toISOString().slice(0, 10),
     sizeMB: (2 + (seed % 8)).toFixed(1),
     rating: avgRating.toFixed(1),
     reviews: row.reviews.length,
-    pages: 24 + (seed % 40),
+    // Real page count when the manuscript's was auto-detected (or the
+    // author entered one) at submission — the seed-based placeholder
+    // only covers older books submitted before this was captured.
+    pages: meta?.pages ?? 24 + (seed % 40),
+    language: row.language,
+    dimensions: meta?.dimensions,
+    weightLb: meta?.weightLb,
+    publisher: meta?.publisher,
     format: [row.hasEbook && "eBook", row.hasPrint && "Print", row.hasAudiobook && "Audiobook"].filter(Boolean).join(", ") || "eBook",
     blurb: row.description ?? "",
     featured: meta?.includeInPromotions ?? false,

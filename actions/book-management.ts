@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent } from "@/lib/roles";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
-import { getAuthorNameFollowerCounts } from "@/actions/authors-directory";
 
 /**
  * Book Management — a real summary (how many Approved/Under Review/
@@ -48,10 +47,6 @@ export interface BookManagementRow {
   reviewCount: number;
   averageRating: number | null;
   hasPendingRevision: boolean;
-  /** How many readers follow this exact author name (see
-   * AuthorNameFollow) — 0 for a book whose author name nobody follows
-   * yet, never blank, so the column always reads as a real number. */
-  followerCount: number;
 }
 
 export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PENDING_REVIEW" | "DRAFT" | "REJECTED"): Promise<BookManagementRow[]> {
@@ -59,15 +54,12 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return [];
 
-  const [books, followerCounts] = await Promise.all([
-    prisma.book.findMany({
-      where: status === "ALL" ? {} : status === "PENDING_REVIEW" ? { OR: [{ status }, { pendingRevisionData: { not: null as unknown as object } }] } : { status },
-      include: { author: { include: { user: true } }, reviews: true, ratings: true },
-      orderBy: { createdAt: "desc" },
-      take: 300,
-    }),
-    getAuthorNameFollowerCounts(),
-  ]);
+  const books = await prisma.book.findMany({
+    where: status === "ALL" ? {} : status === "PENDING_REVIEW" ? { OR: [{ status }, { pendingRevisionData: { not: null as unknown as object } }] } : { status },
+    include: { author: { include: { user: true } }, reviews: true, ratings: true },
+    orderBy: { createdAt: "desc" },
+    take: 300,
+  });
 
   return books.map((b: {
     id: string;
@@ -98,7 +90,6 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
       reviewCount: b.reviews.length,
       averageRating: b.ratings.length > 0 ? b.ratings.reduce((sum, r) => sum + r.stars, 0) / b.ratings.length : null,
       hasPendingRevision: b.pendingRevisionData != null,
-      followerCount: followerCounts[authorName] ?? 0,
     };
   });
 }
