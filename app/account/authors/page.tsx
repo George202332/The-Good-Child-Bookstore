@@ -42,7 +42,7 @@ export default async function AuthorsDirectoryPage() {
           {authors.map((a) => (
             <Link
               key={`${a.authorId}-${a.name}`}
-              href={`/authors/profile/${a.authorId}`}
+              href={`/authors/profile/${a.authorId}?name=${encodeURIComponent(a.name)}`}
               style={{
                 display: "block",
                 padding: "12px 0",

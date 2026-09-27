@@ -11,13 +11,18 @@ import Link from "next/link";
  * `logoImageUrl` is still accepted (existing callers pass it) but is no
  * longer used, so it can't cause a build error while it's still wired
  * up in SiteChrome/site-settings.
+ *
+ * Set on two lines — "The Good Child" then "Bookstore" — at a smaller
+ * size than the old single-line mark, which ran too large next to the
+ * rest of the header (see .logo-wordmark in app/site.css).
  */
 export function Logo({ subColor, logoImageUrl }: { subColor?: string; logoImageUrl?: string }) {
   void subColor;
   void logoImageUrl;
   return (
     <Link href="/" className="logo logo-wordmark">
-      The Good Child Bookstore
+      <span className="logo-wordmark-line">The Good Child</span>
+      <span className="logo-wordmark-line">Bookstore</span>
     </Link>
   );
 }

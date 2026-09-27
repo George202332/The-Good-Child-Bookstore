@@ -10,18 +10,40 @@ const TD: React.CSSProperties = { padding: "9px 10px", borderBottom: "1px solid 
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+/** How many rows are visible at once before the table itself starts
+ * scrolling internally — the totals row below stays fixed in view the
+ * whole time, since it lives outside this scrolling area entirely. */
+const VISIBLE_ROWS = 15;
+const ROW_HEIGHT_PX = 42;
+
+function statusPillStyle(p: PayoutLedgerRow) {
+  return {
+    background: p.status === "LIVE" ? "rgba(36,81,183,0.14)" : p.paid ? "rgba(31,107,72,0.15)" : p.status === "REJECTED" ? "rgba(107,115,133,0.15)" : "rgba(196,120,20,0.15)",
+    color: p.status === "LIVE" ? "#2451B7" : p.paid ? "#1F6B48" : p.status === "REJECTED" ? "#6B7385" : "#8A5A0F",
+  };
+}
+
 /**
  * The payout ledger table plus, directly above it, a search bar and
  * filters for affiliate status and for month/year — all client-side
  * over the full ledger the server already sent down, so filtering is
  * instant and never touches the moderation totals shown further up
  * the page.
+ *
+ * The row list scrolls internally after 15 entries; a totals row
+ * (book sales / affiliate / combined, across every account regardless
+ * of the current search or filters) sits below that scrolling area, so
+ * it's always in view no matter how far the list is scrolled. Payment
+ * method and account/payment details are no longer shown inline —
+ * clicking a row opens a popup with those plus every other detail for
+ * that account.
  */
 export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; canModerate: boolean }) {
   const [query, setQuery] = useState("");
   const [affiliateFilter, setAffiliateFilter] = useState<"ALL" | "AFFILIATE" | "BOOK_SALES">("ALL");
   const [month, setMonth] = useState<string>("ALL");
   const [year, setYear] = useState<string>("ALL");
+  const [detailRow, setDetailRow] = useState<PayoutLedgerRow | null>(null);
 
   const years = useMemo(() => {
     const set = new Set(rows.map((r) => new Date(r.requestedAt).getFullYear()));
@@ -46,6 +68,22 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
       return true;
     });
   }, [rows, query, affiliateFilter, month, year]);
+
+  // Totals always reflect EVERY account, regardless of the current
+  // search/filter selection — a search narrowing the visible rows
+  // should never make the always-on totals look wrong.
+  const totals = useMemo(
+    () =>
+      rows.reduce(
+        (acc, r) => ({
+          bookSales: acc.bookSales + r.bookSalesEarnings,
+          affiliate: acc.affiliate + r.referralEarnings + r.commissionEarnings,
+          combined: acc.combined + r.combinedTotal,
+        }),
+        { bookSales: 0, affiliate: 0, combined: 0 }
+      ),
+    [rows]
+  );
 
   return (
     <>
@@ -105,81 +143,164 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
         )}
       </div>
 
-      {/* This table is the permanent payout record — account number, holder
-          name, payment method, account/payment details plus email, book
-          sales earnings, affiliate earnings, combined total, and paid/not
-          paid status for every payout ever queued. It stays on screen at
-          all times, with its full header row, even before any payout has
-          ever been queued — an empty state renders as a row inside the
-          table rather than replacing the table outright, so the account
-          details it's meant to always show are never missing. */}
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={TH}>Account #<ColHelp text="This recipient's account number on the platform." /></th>
-              <th style={TH}>Account holder<ColHelp text="The name on file with Wise for this payout — who the money is actually sent to." /></th>
-              <th style={TH}>Email<ColHelp text="The recipient's account email." /></th>
-              <th style={TH}>Method<ColHelp text="How this payout is sent (bank transfer, mobile money, etc.), as set up with Wise." /></th>
-              <th style={TH}>Account / payment details<ColHelp text="The specific bank or mobile-money details this payout is sent to." /></th>
-              <th style={TH}>Book sales<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
-              <th style={TH}>Affiliate<ColHelp text="This payout's share that comes from affiliate commission on sales the recipient referred." /></th>
-              <th style={TH}>Total<ColHelp text="Book sales plus affiliate earnings combined — the full amount of this payout." /></th>
-              <th style={TH}>Status<ColHelp text="Live means the current month is still in progress and this total keeps growing as sales happen — it's not a real payout request yet. Pending means it's queued or awaiting approval. Paid means the transfer has gone out. Rejected means it was declined." /></th>
-              <th style={TH}>Requested<ColHelp text="The date this payout was queued. For a Live row, this is simply today — nothing has actually been requested yet." /></th>
-              <th style={TH}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
+      {/* This table is the permanent payout record — account number,
+          holder name, email, book sales earnings, referral earnings,
+          commission earnings, combined total, status, requested date
+          and a report download for every payout ever queued. Payment
+          method and full account/payment details live in the popup
+          (click any row), along with every other detail for that
+          account, rather than inline. It stays on screen at all times,
+          with its full header row, even before any payout has ever
+          been queued — an empty state renders as a row inside the
+          table rather than replacing the table outright. */}
+      <div className="map-card" style={{ padding: 0 }}>
+        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: rows.length > VISIBLE_ROWS ? VISIBLE_ROWS * ROW_HEIGHT_PX + 34 : undefined }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
               <tr>
-                <td colSpan={11} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
-                  No payouts have been queued yet — this table fills in as soon as one is.
-                </td>
+                <th style={TH}>Account #<ColHelp text="This recipient's account number on the platform." /></th>
+                <th style={TH}>Account holder<ColHelp text="The name on file with Wise for this payout — who the money is actually sent to." /></th>
+                <th style={TH}>Email<ColHelp text="The recipient's account email." /></th>
+                <th style={TH}>Book sales<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
+                <th style={TH}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>
+                <th style={TH}>Commission<ColHelp text="Commission from copies sold through this person's own affiliate promotional links." /></th>
+                <th style={TH}>Total<ColHelp text="Book sales plus referral plus commission — the full amount of this payout." /></th>
+                <th style={TH}>Status<ColHelp text="Live means the current month is still in progress and this total keeps growing as sales happen — it's not a real payout request yet. Pending means it's queued or awaiting approval. Paid means the transfer has gone out. Rejected means it was declined." /></th>
+                <th style={TH}>Requested<ColHelp text="The date this payout was queued. For a Live row, this is simply today — nothing has actually been requested yet." /></th>
+                <th style={TH}>Report<ColHelp text="Download this payout's month as a full PDF statement — the same report available to that account holder on their own Payouts page." /></th>
               </tr>
-            ) : filtered.length === 0 ? (
-              <tr>
-                <td colSpan={11} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
-                  No payouts match your search or filters.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ ...TD, fontFamily: "monospace" }}>{p.accountNumber}</td>
-                  <td style={TD}>
-                    {p.accountHolderName}
-                    <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{p.role}</div>
+            </thead>
+            <tbody>
+              {rows.length === 0 ? (
+                <tr>
+                  <td colSpan={10} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                    No payouts have been queued yet — this table fills in as soon as one is.
                   </td>
-                  <td style={TD}>{p.email}</td>
-                  <td style={TD}>{p.paymentMethod}</td>
-                  <td style={{ ...TD, maxWidth: 220, whiteSpace: "normal", wordBreak: "break-word", color: "var(--ink-soft)", fontSize: 11.5 }}>{p.accountDetails}</td>
-                  <td style={TD}>{p.bookSalesEarnings > 0 ? `$${p.bookSalesEarnings.toFixed(2)}` : "—"}</td>
-                  <td style={TD}>{p.affiliateEarnings > 0 ? `$${p.affiliateEarnings.toFixed(2)}` : "—"}</td>
-                  <td style={{ ...TD, fontWeight: 700 }}>${p.combinedTotal.toFixed(2)}</td>
-                  <td style={TD}>
-                    <span
-                      className="age-pill"
-                      style={{
-                        background: p.status === "LIVE" ? "rgba(36,81,183,0.14)" : p.paid ? "rgba(31,107,72,0.15)" : p.status === "REJECTED" ? "rgba(107,115,133,0.15)" : "rgba(196,120,20,0.15)",
-                        color: p.status === "LIVE" ? "#2451B7" : p.paid ? "#1F6B48" : p.status === "REJECTED" ? "#6B7385" : "#8A5A0F",
-                      }}
-                    >
-                      {p.status === "LIVE" ? "Live" : p.paid ? "Paid" : p.status === "REJECTED" ? "Rejected" : "Pending"}
-                    </span>
-                  </td>
-                  <td style={TD}>
-                    {p.status === "LIVE"
-                      ? "This month (in progress)"
-                      : new Date(p.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                  </td>
-                  <td style={TD}>{p.status === "REQUESTED" && canModerate ? <ModerationActions payoutId={p.id} /> : null}</td>
                 </tr>
-              ))
-            )}
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={10} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                    No payouts match your search or filters.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((p) => (
+                  <tr key={p.id} onClick={() => setDetailRow(p)} style={{ cursor: "pointer" }}>
+                    <td style={{ ...TD, fontFamily: "monospace" }}>{p.accountNumber}</td>
+                    <td style={TD}>
+                      {p.accountHolderName}
+                      <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{p.role}</div>
+                    </td>
+                    <td style={TD}>{p.email}</td>
+                    <td style={TD}>{p.bookSalesEarnings > 0 ? `$${p.bookSalesEarnings.toFixed(2)}` : "—"}</td>
+                    <td style={TD}>{p.referralEarnings > 0 ? `$${p.referralEarnings.toFixed(2)}` : "—"}</td>
+                    <td style={TD}>{p.commissionEarnings > 0 ? `$${p.commissionEarnings.toFixed(2)}` : "—"}</td>
+                    <td style={{ ...TD, fontWeight: 700 }}>${p.combinedTotal.toFixed(2)}</td>
+                    <td style={TD}>
+                      <span className="age-pill" style={statusPillStyle(p)}>
+                        {p.status === "LIVE" ? "Live" : p.paid ? "Paid" : p.status === "REJECTED" ? "Rejected" : "Pending"}
+                      </span>
+                    </td>
+                    <td style={TD}>
+                      {p.status === "LIVE"
+                        ? "This month (in progress)"
+                        : new Date(p.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </td>
+                    <td style={TD}>
+                      <a
+                        className="btn btn-ghost btn-small"
+                        href={`/api/payout-report?month=${p.reportMonthKey}&userId=${p.userId}`}
+                        title={`Download the ${p.reportMonthKey} statement as a PDF`}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        ↓
+                      </a>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Static totals row — outside the scrolling area above, so it
+            stays visible no matter how far the list above is scrolled.
+            Always sums every account, not just the filtered/visible
+            rows (see `totals`, computed from the full `rows` prop). */}
+        <table style={{ width: "100%", borderCollapse: "collapse", borderTop: "2px solid var(--line)" }}>
+          <tbody>
+            <tr style={{ background: "var(--admin-panel, #F7F8FB)" }}>
+              <td style={{ ...TD, borderBottom: "none", fontWeight: 700 }} colSpan={3}>Totals — all accounts</td>
+              <td style={{ ...TD, borderBottom: "none", fontWeight: 700 }}>${totals.bookSales.toFixed(2)}</td>
+              <td style={{ ...TD, borderBottom: "none", fontWeight: 700 }} colSpan={2}>${totals.affiliate.toFixed(2)}</td>
+              <td style={{ ...TD, borderBottom: "none", fontWeight: 700 }}>${totals.combined.toFixed(2)}</td>
+              <td style={{ ...TD, borderBottom: "none" }} colSpan={3} />
+            </tr>
           </tbody>
         </table>
       </div>
+
+      {detailRow && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setDetailRow(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(20,22,30,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 200 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="map-card"
+            style={{ maxWidth: 480, width: "100%", padding: 24, maxHeight: "85vh", overflowY: "auto" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+              <h3 style={{ fontSize: 16, margin: 0 }}>{detailRow.accountHolderName}</h3>
+              <button type="button" className="btn btn-ghost btn-small" onClick={() => setDetailRow(null)}>Close</button>
+            </div>
+            <p style={{ color: "var(--ink-faint)", fontSize: 12.5, marginTop: 2, marginBottom: 18 }}>{detailRow.role}</p>
+
+            {[
+              { label: "Account #", value: detailRow.accountNumber },
+              { label: "Email", value: detailRow.email },
+              { label: "Payment method", value: detailRow.paymentMethod },
+              { label: "Account / payment details", value: detailRow.accountDetails },
+              { label: "Book sales earnings", value: `$${detailRow.bookSalesEarnings.toFixed(2)}` },
+              { label: "Referral earnings", value: `$${detailRow.referralEarnings.toFixed(2)}` },
+              { label: "Commission earnings", value: `$${detailRow.commissionEarnings.toFixed(2)}` },
+              { label: "Combined total", value: `$${detailRow.combinedTotal.toFixed(2)}` },
+              { label: "Currency", value: detailRow.currency },
+              {
+                label: "Requested",
+                value: detailRow.status === "LIVE" ? "This month (in progress)" : new Date(detailRow.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+              },
+              {
+                label: "Resolved",
+                value: detailRow.resolvedAt ? new Date(detailRow.resolvedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—",
+              },
+            ].map((row) => (
+              <div key={row.label} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "9px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}>
+                <span style={{ color: "var(--ink-faint)" }}>{row.label}</span>
+                <span style={{ fontWeight: 600, textAlign: "right", wordBreak: "break-word" }}>{row.value}</span>
+              </div>
+            ))}
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 18, gap: 10, flexWrap: "wrap" }}>
+              <span className="age-pill" style={statusPillStyle(detailRow)}>
+                {detailRow.status === "LIVE" ? "Live" : detailRow.paid ? "Paid" : detailRow.status === "REJECTED" ? "Rejected" : "Pending"}
+              </span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <a
+                  className="btn btn-ghost btn-small"
+                  href={`/api/payout-report?month=${detailRow.reportMonthKey}&userId=${detailRow.userId}`}
+                  title={`Download the ${detailRow.reportMonthKey} statement as a PDF`}
+                >
+                  Download report
+                </a>
+                {detailRow.status === "REQUESTED" && canModerate && <ModerationActions payoutId={detailRow.id} />}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

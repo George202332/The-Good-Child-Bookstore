@@ -114,8 +114,9 @@ export async function buildPayoutLedgerPdf(rows: PayoutLedgerRow[]): Promise<Uin
     text(clip(`${r.accountHolderName} / ${r.email}`, 1), colX[1] + 4, y - 13, { size: 7.5 });
     text(clip(r.paymentMethod, 2), colX[2] + 4, y - 13, { size: 7.5 });
     text(clip(r.accountDetails, 3), colX[3] + 4, y - 13, { size: 7.5 });
+    const affiliateTotal = r.referralEarnings + r.commissionEarnings;
     rightText(r.bookSalesEarnings > 0 ? money(r.bookSalesEarnings) : "—", colX[4] + colWidths[4] - 4, y - 13, { size: 7.5 });
-    rightText(r.affiliateEarnings > 0 ? money(r.affiliateEarnings) : "—", colX[5] + colWidths[5] - 4, y - 13, { size: 7.5 });
+    rightText(affiliateTotal > 0 ? money(affiliateTotal) : "—", colX[5] + colWidths[5] - 4, y - 13, { size: 7.5 });
     rightText(money(r.combinedTotal), colX[6] + colWidths[6] - 4, y - 13, { font: bold, size: 7.5 });
     text(r.paid ? "Paid" : r.status === "REJECTED" ? "Rejected" : "Not paid", colX[7] + 4, y - 13, {
       size: 7.5, font: bold, color: r.paid ? PAID_GREEN : r.status === "REJECTED" ? INK_SOFT : PENDING_AMBER,
@@ -123,7 +124,7 @@ export async function buildPayoutLedgerPdf(rows: PayoutLedgerRow[]): Promise<Uin
     text(new Date(r.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }), colX[8] + 4, y - 13, { size: 7.5 });
 
     totalBookSales += r.bookSalesEarnings;
-    totalAffiliate += r.affiliateEarnings;
+    totalAffiliate += affiliateTotal;
     totalCombined += r.combinedTotal;
     y -= 22;
   }

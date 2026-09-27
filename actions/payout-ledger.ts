@@ -19,6 +19,49 @@ import { payoutMethodLabel, formatAccountDetails } from "@/lib/payout-method-lab
  * ever combines both into a single transfer.
  */
 
+function monthKeyOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** The earnings month a payout covers is always the calendar month
+ * BEFORE the one it was queued/paid in (payouts go out on the 15th of
+ * the month following the earnings month — see lib/payout-monthly.ts). */
+function earningsMonthKeyFor(requestedAt: Date): string {
+  return monthKeyOf(new Date(requestedAt.getFullYear(), requestedAt.getMonth() - 1, 1));
+}
+
+/** Splits one user's affiliate earnings for a given calendar month into
+ * "Referral" (a cut of company revenue from authors they referred onto
+ * the platform) and "Commission" (their own affiliate-link promotion
+ * earnings) — the same two real, separately-tracked figures the
+ * author-facing Monthly Payout History table shows, just recomputed
+ * here for a specific already-queued payout's month. */
+async function referralAndCommissionFor(userId: string, monthKey: string): Promise<{ referral: number; commission: number }> {
+  const [yearStr, monthStr] = monthKey.split("-");
+  const year = Number(yearStr), month = Number(monthStr) - 1;
+  if (Number.isNaN(year) || Number.isNaN(month)) return { referral: 0, commission: 0 };
+  const start = new Date(year, month, 1);
+  const end = new Date(year, month + 1, 1);
+
+  const affiliateProfile = await prisma.affiliateProfile.findUnique({
+    where: { userId },
+    include: {
+      affiliateLinks: { include: { saleLines: { where: { createdAt: { gte: start, lt: end } } } } },
+      authorReferralEarnings: { where: { createdAt: { gte: start, lt: end } } },
+    },
+  });
+  if (!affiliateProfile) return { referral: 0, commission: 0 };
+  const commission = affiliateProfile.affiliateLinks.reduce(
+    (sum: number, l: { saleLines: { affiliateShare: unknown }[] }) => sum + l.saleLines.reduce((s: number, sl: { affiliateShare: unknown }) => s + Number(sl.affiliateShare), 0),
+    0
+  );
+  const referral = affiliateProfile.authorReferralEarnings.reduce(
+    (sum: number, r: { authorReferralShare: unknown }) => sum + Number(r.authorReferralShare),
+    0
+  );
+  return { referral, commission };
+}
+
 async function requireAdminOrAccountant() {
   const session = await authAdmin();
   const role = session?.user?.role as Role | undefined;
@@ -30,6 +73,10 @@ async function requireAdminOrAccountant() {
 
 export interface PayoutLedgerRow {
   id: string;
+  /** The user this payout belongs to — needed so an Admin/Accountant can
+   * download that SPECIFIC author's/affiliate's own payout report from
+   * this ledger (see reportMonthKey below and app/api/payout-report). */
+  userId: string;
   accountNumber: string;
   accountHolderName: string;
   email: string;
@@ -38,8 +85,19 @@ export interface PayoutLedgerRow {
   accountDetails: string;
   currency: string;
   bookSalesEarnings: number;
-  affiliateEarnings: number;
+  /** A percentage of company revenue from authors this person referred
+   * onto the platform. */
+  referralEarnings: number;
+  /** Commission from copies sold through this person's own affiliate
+   * promotional links. */
+  commissionEarnings: number;
   combinedTotal: number;
+  /** The earnings month (YYYY-MM) this row's report download should
+   * pull — the calendar month the money was actually earned in, not the
+   * date the payout itself was queued (which is the 15th of the
+   * FOLLOWING month) — matches the same monthKey used by the author's
+   * own Monthly Payout History download link. */
+  reportMonthKey: string;
   // "LIVE" is a synthetic status this file adds on top of the real
   // PayoutStatus enum (REQUESTED/APPROVED/PROCESSING/PAID/REJECTED) — it
   // represents the current, still-open month's accruing total for a
@@ -101,6 +159,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
     const fields = await recipientFieldsFor(u.id);
     rows.push({
       id: `live-author-${u.id}`,
+      userId: u.id,
       accountNumber: u.accountNumber,
       accountHolderName: fields.accountHolderName,
       email: u.email,
@@ -109,8 +168,10 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
       accountDetails: fields.accountDetails,
       currency: "USD",
       bookSalesEarnings: amount,
-      affiliateEarnings: 0,
+      referralEarnings: 0,
+      commissionEarnings: 0,
       combinedTotal: amount,
+      reportMonthKey: monthKeyOf(now),
       status: "LIVE",
       paid: false,
       requestedAt: now.toISOString(),
@@ -139,6 +200,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
     const fields = await recipientFieldsFor(a.userId);
     rows.push({
       id: `live-affiliate-${a.userId}`,
+      userId: a.userId,
       accountNumber: a.user.accountNumber,
       accountHolderName: fields.accountHolderName,
       email: a.user.email,
@@ -147,8 +209,10 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
       accountDetails: fields.accountDetails,
       currency: "USD",
       bookSalesEarnings: 0,
-      affiliateEarnings: amount,
+      referralEarnings: referral,
+      commissionEarnings: direct,
       combinedTotal: amount,
+      reportMonthKey: monthKeyOf(now),
       status: "LIVE",
       paid: false,
       requestedAt: now.toISOString(),
@@ -185,6 +249,7 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
       orderBy: { requestedAt: "desc" },
     })) as {
       id: string;
+      userId: string;
       amount: unknown;
       currency: string;
       status: string;
@@ -201,29 +266,36 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
     })) as { id: string; accountHolderName: string; type: string; details: unknown }[];
     const recipientById = new Map(recipients.map((r) => [r.id, r]));
 
-    const historicalRows: PayoutLedgerRow[] = payouts.map((p) => {
-      const amount = Number(p.amount);
-      const isAffiliate = p.earningsType === "AFFILIATE";
-      const recipient = recipientById.get(p.recipientId);
-      return {
-        id: p.id,
-        accountNumber: p.user.accountNumber,
-        accountHolderName: recipient?.accountHolderName ?? "Recipient deleted",
-        email: p.user.email,
-        role: p.user.role,
-        paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
-        accountDetails: recipient ? formatAccountDetails(recipient.details) : "—",
-        currency: p.currency,
-        bookSalesEarnings: isAffiliate ? 0 : amount,
-        affiliateEarnings: isAffiliate ? amount : 0,
-        combinedTotal: amount,
-        status: p.status,
-        paid: p.status === "PAID",
-        requestedAt: p.requestedAt.toISOString(),
-        resolvedAt: p.resolvedAt ? p.resolvedAt.toISOString() : null,
-        isAffiliate,
-      };
-    });
+    const historicalRows: PayoutLedgerRow[] = await Promise.all(
+      payouts.map(async (p) => {
+        const amount = Number(p.amount);
+        const isAffiliate = p.earningsType === "AFFILIATE";
+        const recipient = recipientById.get(p.recipientId);
+        const reportMonthKey = earningsMonthKeyFor(p.requestedAt);
+        const split = isAffiliate ? await referralAndCommissionFor(p.userId, reportMonthKey) : { referral: 0, commission: 0 };
+        return {
+          id: p.id,
+          userId: p.userId,
+          accountNumber: p.user.accountNumber,
+          accountHolderName: recipient?.accountHolderName ?? "Recipient deleted",
+          email: p.user.email,
+          role: p.user.role,
+          paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
+          accountDetails: recipient ? formatAccountDetails(recipient.details) : "—",
+          currency: p.currency,
+          bookSalesEarnings: isAffiliate ? 0 : amount,
+          referralEarnings: split.referral,
+          commissionEarnings: split.commission,
+          combinedTotal: amount,
+          reportMonthKey,
+          status: p.status,
+          paid: p.status === "PAID",
+          requestedAt: p.requestedAt.toISOString(),
+          resolvedAt: p.resolvedAt ? p.resolvedAt.toISOString() : null,
+          isAffiliate,
+        };
+      })
+    );
 
     // Live rows (current, still-open month) lead the ledger, followed by
     // every real payout ever queued, most recent first — the same

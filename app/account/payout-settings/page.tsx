@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { AutoPayoutInfo } from "@/components/AutoPayoutInfo";
+import { LiveRefresher } from "@/components/LiveRefresher";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { computeMonthlyPayoutRows, computePayoutStatCards } from "@/lib/payout-monthly";
 import { getMyWallet } from "@/actions/wallet";
@@ -104,26 +105,32 @@ export default async function PayoutSettingsPage() {
         {/* Table/headers always render, even with no history yet — the
             empty state is a single full-width row inside <tbody>, not a
             replacement for the whole table (same pattern used for the
-            admin Payouts ledger and Blog Moderation tables). */}
+            admin Payouts ledger and Blog Moderation tables). The current
+            month's row is "Live" and its figures are computed fresh from
+            real sale data on every load (see lib/payout-monthly.ts) — the
+            LiveRefresher below re-runs that fetch on an interval so the
+            Amount/Referral/Promotion figures for the Live row keep
+            climbing in place while the page is left open, not just on a
+            manual reload. */}
+        <LiveRefresher intervalMs={15000} />
         <div>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
                 <th style={TABLE_HEAD_STYLE}>Month<ColHelp text="The calendar month this row's earnings were made in." /></th>
-                <th style={TABLE_HEAD_STYLE}>Amount<ColHelp text="Your total earnings for the month: organic book sales plus referral and promotion commissions combined." /></th>
                 <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many copies of your own books were sold this month." /></th>
-                <th style={TABLE_HEAD_STYLE}>Organic<ColHelp text="Your share of book sales this month, whether the reader found the book directly or arrived via an affiliate link." /></th>
                 <th style={TABLE_HEAD_STYLE}>Referral<ColHelp text="A percentage of company revenue from authors you personally referred onto the platform, earned this month." /></th>
                 <th style={TABLE_HEAD_STYLE}>Promotion<ColHelp text="Commission earned this month from copies sold through your own affiliate promotional links." /></th>
                 <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="This month's earnings become payable on the 15th of the following month, as long as the total due has reached the $30 minimum." /></th>
                 <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Live means the month is still in progress and this row keeps growing as sales happen. Pending payout means the month closed and the 15th hasn't been processed yet. Paid means the transfer for this month has gone out." /></th>
+                <th style={TABLE_HEAD_STYLE}>Amount<ColHelp text="Your total earnings for the month: book sales plus referral and promotion commissions combined." /></th>
                 <th style={TABLE_HEAD_STYLE}>Report<ColHelp text="Download this month's full payout statement as a PDF, itemized the same way as your account's statements are always formatted." /></th>
               </tr>
             </thead>
             <tbody>
               {monthlyRows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ padding: "24px 16px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                  <td colSpan={8} style={{ padding: "24px 16px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
                     No earnings yet.
                   </td>
                 </tr>
@@ -131,9 +138,7 @@ export default async function PayoutSettingsPage() {
                 monthlyRows.map((r) => (
                   <tr key={r.monthKey}>
                     <td style={TABLE_CELL_STYLE}>{r.monthLabel}</td>
-                    <td style={TABLE_CELL_STYLE}>${r.amount.toFixed(2)}</td>
                     <td style={TABLE_CELL_STYLE}>{r.unitsSold}</td>
-                    <td style={TABLE_CELL_STYLE}>${r.organicRevenue.toFixed(2)}</td>
                     <td style={TABLE_CELL_STYLE}>${r.referralRevenue.toFixed(2)}</td>
                     <td style={TABLE_CELL_STYLE}>${r.promotionRevenue.toFixed(2)}</td>
                     <td style={TABLE_CELL_STYLE}>{r.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
@@ -151,6 +156,7 @@ export default async function PayoutSettingsPage() {
                         {r.status === "Live" ? "Live" : r.status === "Paid" ? "Paid" : "Pending"}
                       </span>
                     </td>
+                    <td style={TABLE_CELL_STYLE}>${r.amount.toFixed(2)}</td>
                     <td style={TABLE_CELL_STYLE}>
                       <a
                         className="btn btn-ghost btn-small"

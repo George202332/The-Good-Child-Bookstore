@@ -32,7 +32,7 @@ export default async function PayoutsPage() {
   const totals = rows.reduce(
     (acc, r) => ({
       bookSales: acc.bookSales + r.bookSalesEarnings,
-      affiliate: acc.affiliate + r.affiliateEarnings,
+      affiliate: acc.affiliate + r.referralEarnings + r.commissionEarnings,
       combined: acc.combined + r.combinedTotal,
       paidCount: acc.paidCount + (r.paid ? 1 : 0),
     }),

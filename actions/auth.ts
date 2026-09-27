@@ -101,6 +101,9 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
       name,
       passwordHash,
       role,
+      // Detected automatically from the signup request's IP — no manual
+      // country field on any signup form, for any role (see lib/geo.ts).
+      country: signupGeo.country,
       isTestData: siteMode === "test",
       ...(input.role === "READER" ? { readerProfile: { create: {} } } : {}),
       ...(input.role === "AUTHOR"

@@ -91,6 +91,14 @@ export const NAV_ICONS: Record<string, ReactElement> = {
   blog: (
     <svg {...ICON_PROPS}><path d="M4 20l1-4.5L15.5 5 19 8.5 8.5 19 4 20Z" /><path d="M13.5 6.5L17 10" /></svg>
   ),
+  // "Authors" (Publishing section, next to My Books/My Blogs) previously
+  // had no entry here at all, which meant its row rendered with no icon
+  // span — no icon-shaped gap to match, so its label sat flush left
+  // while My Books/My Blogs both have an icon + label pair. This icon
+  // slots in the same way theirs do, closing that gap.
+  authors: (
+    <svg {...ICON_PROPS}><circle cx="8.5" cy="7.5" r="3" /><path d="M2.5 19c.5-3.5 3-5.5 6-5.5s5.5 2 6 5.5" /><circle cx="17" cy="8.3" r="2.3" /><path d="M15.2 13.2c2.3.4 3.8 2 4.3 4.6" /></svg>
+  ),
   analytics: (
     <svg {...ICON_PROPS}><path d="M4 19V5M4 19h16" /><path d="M8 15l3.5-4 3 2.5L19 9" /></svg>
   ),

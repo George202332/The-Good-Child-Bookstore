@@ -116,6 +116,11 @@ model User {
   marketingOptIn Boolean @default(false)
   googleOAuthToken GoogleOAuthToken?
   role          Role     @default(READER)
+  /** Detected automatically from the request's IP at the moment this
+   * account was created (see lib/geo.ts) — there is no manual country
+   * field on any signup form, for any role. Null only if geolocation
+   * couldn't determine a country for that signup request. */
+  country       String?
   avatarUrl     String?
   emailVerified DateTime?
   suspended     Boolean  @default(false)
@@ -262,9 +267,12 @@ model AuthorProfile {
   primaryGenre       String?
   penName            String?
   socialLinks        String[] @default([])
-  /** Self-reported by the author in their own profile; optional, shown
-   * in aggregate to whichever affiliate referred them (see Referrals
-   * page) — never required, never inferred. */
+  /** Auto-detected from the author's IP at signup (see lib/geo.ts,
+   * actions/auth.ts) — no manual selection field; shown in aggregate to
+   * whichever affiliate referred them (see Referrals page) and on the
+   * author's public profile page. Kept alongside the newer, role-generic
+   * User.country (set the same way for every account) for backward
+   * compatibility with existing reads of this field. */
   country            String?
   gender             String?
   // If this author was referred onto the platform by an affiliate, that

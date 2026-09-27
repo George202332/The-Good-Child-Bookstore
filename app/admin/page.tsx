@@ -119,6 +119,11 @@ export default async function AdminDashboardPage() {
               <div className="stat-value">${affiliateRevenue.toFixed(2)}</div>
               <div className="stat-sub">All time</div>
             </div>
+            <div className="stat-card">
+              <div className="stat-label">Total</div>
+              <div className="stat-value">${(companyRevenue + authorRevenue + affiliateRevenue).toFixed(2)}</div>
+              <div className="stat-sub">Company + author + affiliate</div>
+            </div>
           </div>
         </>
       )}
