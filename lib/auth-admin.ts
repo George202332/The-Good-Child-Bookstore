@@ -3,6 +3,8 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { BACKEND_ROLES, type Role } from "@/lib/roles";
+import { logAuditEvent } from "@/lib/audit-log";
+import { getRequestIp, getRequestUserAgent } from "@/lib/geo";
 
 /**
  * A second, fully independent Auth.js (NextAuth v5) instance for the
@@ -40,8 +42,11 @@ export const { handlers: adminHandlers, auth: authAdmin, signIn: signInAdmin, si
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        // See lib/auth.ts's authorize() for why this trims, not just
+        // lowercases — a stray whitespace character was making real
+        // accounts fail lookup and get reported as "wrong password".
         const user = await prisma.user.findUnique({
-          where: { email: String(credentials.email).toLowerCase() },
+          where: { email: String(credentials.email).trim().toLowerCase() },
         });
         if (!user) return null;
         // Only backend roles can ever authenticate through this
@@ -50,8 +55,19 @@ export const { handlers: adminHandlers, auth: authAdmin, signIn: signInAdmin, si
         if (!BACKEND_ROLES.includes(user.role as Role)) return null;
 
         const valid = await bcrypt.compare(String(credentials.password), user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          const ip = await getRequestIp();
+          const userAgent = await getRequestUserAgent();
+          await logAuditEvent(user.id, "LOGIN_FAILED", { ip, userAgent });
+          return null;
+        }
         if (user.suspended) return null;
+
+        {
+          const ip = await getRequestIp();
+          const userAgent = await getRequestUserAgent();
+          await logAuditEvent(user.id, "LOGIN", { ip, userAgent });
+        }
 
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       },

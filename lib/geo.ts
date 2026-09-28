@@ -22,6 +22,19 @@ export async function getRequestGeo(): Promise<RequestGeo> {
   }
 }
 
+/** The requesting client's browser/device string, straight from the
+ * User-Agent header — used alongside getRequestIp() for the admin
+ * per-user activity log (see lib/audit-log.ts). Null when unavailable
+ * rather than a guess. */
+export async function getRequestUserAgent(): Promise<string | null> {
+  try {
+    const h = await headers();
+    return h.get("user-agent");
+  } catch {
+    return null;
+  }
+}
+
 /** The requesting client's real IP — Vercel sets `x-forwarded-for`
  * (client IP first in the comma-separated list) on every request in
  * production; `x-real-ip` is a fallback for other hosts. Used for

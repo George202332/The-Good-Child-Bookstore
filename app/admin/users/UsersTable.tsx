@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { UserRowActions } from "./UserRowActions";
+import { UserActivityLog } from "./UserActivityLog";
 import { ColHelp } from "@/components/ColHelp";
-import { Modal } from "@/components/Modal";
+import { FullScreenPanel } from "@/components/FullScreenPanel";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
-import { getUserDetail, type UserDetail, type UserListRow } from "@/actions/users-admin";
+import { getUserDetail, getUserActivityLog, type UserDetail, type UserActivityLogEntry, type UserListRow } from "@/actions/users-admin";
 import type { Role } from "@/lib/roles";
 
 const TH: React.CSSProperties = { ...TH_STYLE, padding: "10px 12px", borderBottom: "1px solid var(--admin-border)", color: "var(--admin-text-faint)", fontSize: 11, letterSpacing: "0.03em" };
@@ -25,13 +26,22 @@ const TD: React.CSSProperties = { ...TD_STYLE, padding: "10px 12px", borderBotto
  */
 export function UsersTable({ users, currentUserId }: { users: UserListRow[]; currentUserId: string }) {
   const [detail, setDetail] = useState<UserDetail | null>(null);
+  const [activity, setActivity] = useState<UserActivityLogEntry[] | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  function closeDetail() {
+    setDetail(null);
+    setActivity(null);
+  }
 
   async function openDetail(userId: string) {
     setLoadingId(userId);
-    const result = await getUserDetail(userId);
+    const [result, log] = await Promise.all([getUserDetail(userId), getUserActivityLog(userId)]);
     setLoadingId(null);
-    if (result) setDetail(result);
+    if (result) {
+      setDetail(result);
+      setActivity(log);
+    }
   }
 
   if (users.length === 0) {
@@ -90,22 +100,13 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
       </div>
 
       {(detail || loadingId) && (
-        <Modal onClose={() => setDetail(null)} maxWidth={520}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: detail ? 4 : 0 }}>
-              <button
-                type="button"
-                className="btn btn-ghost btn-small"
-                onClick={() => setDetail(null)}
-              >
-                Cancel
-              </button>
-            </div>
+        <FullScreenPanel onClose={closeDetail}>
             {loadingId && !detail ? (
               <div style={{ padding: "20px 0", textAlign: "center", color: "var(--admin-text-faint)", fontSize: 13 }}>Loading…</div>
             ) : detail ? (
               <div>
-                <h3 style={{ fontSize: 17, marginBottom: 4 }}>{detail.name}</h3>
-                <p style={{ fontSize: 12.5, color: "var(--admin-text-faint)", marginBottom: 16 }}>#{detail.accountNumber} · {detail.role}{detail.suspended ? " · Suspended" : ""}</p>
+                <h3 style={{ fontSize: 20, marginBottom: 4 }}>{detail.name}</h3>
+                <p style={{ fontSize: 12.5, color: "var(--admin-text-faint)", marginBottom: 20 }}>#{detail.accountNumber} · {detail.role}{detail.suspended ? " · Suspended" : ""}</p>
                 <DetailRow label="Email" value={detail.email} />
                 <DetailRow label="Date joined" value={detail.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} />
                 <DetailRow label="Country" value={detail.location ?? "—"} />
@@ -116,9 +117,15 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
                   </>
                 )}
                 {detail.affiliateReferralCode && <DetailRow label="Affiliate referral code" value={detail.affiliateReferralCode} />}
+
+                <h4 style={{ fontSize: 14, marginTop: 32, marginBottom: 8 }}>Activity log</h4>
+                <p style={{ fontSize: 12, color: "var(--admin-text-faint)", marginBottom: 12 }}>
+                  Login timestamps, IP/device info, password reset events, and role changes for this account.
+                </p>
+                <UserActivityLog entries={activity ?? []} />
               </div>
             ) : null}
-        </Modal>
+        </FullScreenPanel>
       )}
     </>
   );

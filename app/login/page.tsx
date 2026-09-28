@@ -30,7 +30,10 @@ export default function LoginPage() {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const result = await signIn("credentials", { email, password, redirect: false });
+    // Trimmed here too (not just server-side in authorize()) so a space
+    // accidentally included by autofill or a pasted email never even
+    // makes it into the request.
+    const result = await signIn("credentials", { email: email.trim(), password, redirect: false });
     if (result?.error) {
       setSubmitting(false);
       setError("That email or password isn't right. Please try again.");

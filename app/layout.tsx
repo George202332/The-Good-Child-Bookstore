@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import "./globals.css";
 import { SiteChrome } from "@/components/SiteChrome";
-import { auth } from "@/lib/auth";
 import { getSiteSettings } from "@/actions/site-settings";
 import { getMySettings } from "@/actions/settings";
 import { Providers } from "@/components/Providers";
@@ -101,9 +100,6 @@ export const dynamic = "force-dynamic";
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const settings = await getSiteSettings();
-  const session = await auth();
-  const userRole = session?.user?.role;
-  const userName = session?.user?.name ?? "";
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 
@@ -158,7 +154,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           </noscript>
         )}
         <Providers>
-          <SiteChrome settings={settings} userRole={userRole} userName={userName}>{children}</SiteChrome>
+          <SiteChrome settings={settings}>{children}</SiteChrome>
         </Providers>
       </body>
     </html>

@@ -3,6 +3,8 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { BACKEND_ROLES, type Role } from "@/lib/roles";
+import { logAuditEvent } from "@/lib/audit-log";
+import { getRequestIp, getRequestUserAgent } from "@/lib/geo";
 
 /**
  * Auth.js (NextAuth v5) configuration — the public instance, for
@@ -31,8 +33,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        // Trimmed the same way registerUser() and requestPasswordReset()
+        // already trim it when creating/looking up an account — this was
+        // previously only lowercased here, not trimmed, so a stray
+        // leading/trailing space (autofill, or pasted from an email
+        // invite) made a real account's email fail to match and get
+        // reported as a "wrong password" (the login form shows the same
+        // generic error for "no such user" and "bad password" alike).
         const user = await prisma.user.findUnique({
-          where: { email: String(credentials.email).toLowerCase() },
+          where: { email: String(credentials.email).trim().toLowerCase() },
         });
         if (!user) return null;
         // Backend accounts can only ever authenticate through the
@@ -42,8 +51,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (BACKEND_ROLES.includes(user.role as Role)) return null;
 
         const valid = await bcrypt.compare(String(credentials.password), user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          const ip = await getRequestIp();
+          const userAgent = await getRequestUserAgent();
+          await logAuditEvent(user.id, "LOGIN_FAILED", { ip, userAgent });
+          return null;
+        }
         if (user.suspended) return null;
+
+        {
+          const ip = await getRequestIp();
+          const userAgent = await getRequestUserAgent();
+          await logAuditEvent(user.id, "LOGIN", { ip, userAgent });
+        }
 
         // Checked once, right at password-success, so the very first
         // JWT this session ever gets already knows whether a second

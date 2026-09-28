@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { getPublicSiteUrl as getSiteUrl } from "@/lib/seo/site-url";
+import { logAuditEvent } from "@/lib/audit-log";
+import { getRequestIp, getRequestUserAgent } from "@/lib/geo";
 
 /**
  * Real password reset, for every account type including backend roles
@@ -27,6 +29,10 @@ export async function requestPasswordReset(email: string): Promise<{ ok: boolean
     await prisma.passwordResetToken.create({
       data: { userId: user.id, token, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
     });
+
+    const ip = await getRequestIp();
+    const userAgent = await getRequestUserAgent();
+    await logAuditEvent(user.id, "PASSWORD_RESET_REQUESTED", { ip, userAgent });
 
     const resetUrl = `${getSiteUrl()}/reset-password?token=${token}`;
     await sendEmail(
@@ -60,6 +66,10 @@ export async function resetPassword(token: string, newPassword: string): Promise
       prisma.user.update({ where: { id: resetToken.userId }, data: { passwordHash } }),
       prisma.passwordResetToken.update({ where: { id: resetToken.id }, data: { usedAt: new Date() } }),
     ]);
+
+    const ip = await getRequestIp();
+    const userAgent = await getRequestUserAgent();
+    await logAuditEvent(resetToken.userId, "PASSWORD_RESET_COMPLETED", { ip, userAgent });
 
     return { ok: true };
   } catch {

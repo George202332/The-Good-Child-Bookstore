@@ -101,12 +101,14 @@ function generateTempPassword(): string {
 async function resolveReaderProfileId(guestEmail?: string, guestName?: string): Promise<{ readerProfileId?: string; error?: string; tempPassword?: string; isNewAccount?: boolean }> {
   const session = await auth();
 
-  // Author accounts (which always carry affiliate capability too) are
-  // never allowed to purchase under their own logged-in identity, per
-  // explicit instruction — falls straight through to the same guest
-  // checkout path a signed-out visitor uses, using whatever email/name
-  // was entered on the checkout form, not the author's own account.
-  if (session?.user?.id && session.user.role !== "AUTHOR") {
+  // Any signed-in account — Reader or Author — checks out under its own
+  // identity, so the order lands in that same account's order history.
+  // Authors now get the full storefront nav inside their own account
+  // (see components/SiteChrome.tsx) specifically so they can shop
+  // without switching accounts; an Author's User row has no
+  // ReaderProfile yet the first time this runs, so one is created
+  // lazily right here, the same way a first-time guest checkout gets one.
+  if (session?.user?.id) {
     const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { readerProfile: true } });
     if (!user) return { error: "Account not found." };
     if (user.readerProfile) return { readerProfileId: user.readerProfile.id };

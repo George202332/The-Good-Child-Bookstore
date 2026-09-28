@@ -7,6 +7,7 @@ import { authEither as auth } from "@/lib/auth-either";
 import type { Role } from "@/lib/roles";
 import { generateAccountNumber } from "@/lib/account-number";
 import { generateUniqueReferralCode } from "@/lib/referral-code";
+import { logAuditEvent, type AuditAction } from "@/lib/audit-log";
 
 /**
  * Admin-side account creation and management — "Admin can manage all
@@ -217,6 +218,8 @@ export async function toggleUserSuspension(userId: string): Promise<{ ok: boolea
   if (!user) return { ok: false, error: "Account not found." };
 
   const updated = await prisma.user.update({ where: { id: userId }, data: { suspended: !user.suspended } });
+  const action: AuditAction = updated.suspended ? "ACCOUNT_SUSPENDED" : "ACCOUNT_REACTIVATED";
+  await logAuditEvent(userId, action, { performedBy: session.user.id });
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
   return { ok: true, suspended: updated.suspended };
@@ -227,10 +230,48 @@ export async function updateUserRole(userId: string, newRole: Role): Promise<{ o
   if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can change roles." };
   if (userId === session.user.id) return { ok: false, error: "You can't change your own role." };
 
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!user) return { ok: false, error: "Account not found." };
+
   await prisma.user.update({ where: { id: userId }, data: { role: newRole } });
+  await logAuditEvent(userId, "ROLE_CHANGED", { fromRole: user.role, toRole: newRole, performedBy: session.user.id });
   revalidatePath("/admin/users");
   revalidatePath(`/admin/users/${userId}`);
   return { ok: true };
+}
+
+export interface UserActivityLogEntry {
+  id: string;
+  action: string;
+  createdAt: Date;
+  metadata: Record<string, unknown> | null;
+}
+
+/**
+ * Everything logAuditEvent() has ever recorded for one user — logins
+ * (successful and failed, with IP/device), password resets, role
+ * changes, suspensions/reactivations — for the admin Users full-screen
+ * activity log popup (see app/admin/users/UserActivityLog.tsx). Newest
+ * first, capped at 200 so one very old test account can't make the
+ * popup unusably long.
+ */
+export async function getUserActivityLog(userId: string): Promise<UserActivityLogEntry[]> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return [];
+
+  const rows = (await prisma.auditLog.findMany({
+    where: { actorId: userId },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+    select: { id: true, action: true, createdAt: true, metadata: true },
+  })) as { id: string; action: string; createdAt: Date; metadata: unknown }[];
+
+  return rows.map((r) => ({
+    id: r.id,
+    action: r.action,
+    createdAt: r.createdAt,
+    metadata: (r.metadata as Record<string, unknown> | null) ?? null,
+  }));
 }
 
 export async function deleteUserAccount(userId: string): Promise<{ ok: boolean; error?: string }> {
