@@ -105,6 +105,17 @@ function slugify(s: string): string {
   );
 }
 
+// Server-side backstop for the submission form's 200-word description
+// cap (see EbookSubmissionForm.tsx) — the form already blocks submission
+// over this limit, but a direct action call (or a future second form)
+// shouldn't be able to bypass it and land a description long enough to
+// overflow the product page again.
+const DESCRIPTION_WORD_LIMIT = 200;
+function countWords(text: string): number {
+  const trimmed = text.trim();
+  return trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
+}
+
 /** Everything from the form that doesn't have its own Book column —
  * stored as JSON (Book.submissionMetadata). */
 export interface SubmissionMetadata {
@@ -125,8 +136,11 @@ export interface SubmissionMetadata {
   /** Trim size, e.g. "5.5 x 8.5 in" — shown on the product page's detail
    * card. */
   dimensions?: string;
-  /** In pounds — shown on the product page's detail card. */
-  weightLb?: number;
+  /** The manuscript file's size in KB, auto-detected at upload time (see
+   * actions/files.ts) and shown on the product page's detail card as
+   * "File Size" — replaces an earlier "Weight (lb)" field, which never
+   * reflected anything real for a digital book. */
+  fileSizeKB?: number;
   /** The author's own statement of how (or whether) they used AI in
    * creating this book — shown on the product page's detail card in
    * place of the old "handpicked by our shelf team" line, since the
@@ -237,6 +251,9 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   }
   if (!input.title.trim()) return { ok: false, error: "Title is required." };
   if (!input.description.trim()) return { ok: false, error: "Short description is required." };
+  if (countWords(input.description) > DESCRIPTION_WORD_LIMIT) {
+    return { ok: false, error: `The description is over the ${DESCRIPTION_WORD_LIMIT}-word limit — please shorten it.` };
+  }
   if (input.price <= 0) return { ok: false, error: "Price must be greater than $0." };
   if (!input.formats.ebook && !input.formats.print && !input.formats.audiobook) {
     return { ok: false, error: "Select at least one format (eBook, print, or audiobook)." };
@@ -326,6 +343,9 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   if (session?.user?.role !== "AUTHOR") return { ok: false, error: "Only author accounts can edit books." };
   if (!input.title.trim()) return { ok: false, error: "Title is required." };
   if (!input.description.trim()) return { ok: false, error: "Description is required." };
+  if (countWords(input.description) > DESCRIPTION_WORD_LIMIT) {
+    return { ok: false, error: `The description is over the ${DESCRIPTION_WORD_LIMIT}-word limit — please shorten it.` };
+  }
   if (input.price <= 0) return { ok: false, error: "Price must be greater than $0." };
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
@@ -517,6 +537,9 @@ export async function updateBook(input: UpdateBookInput): Promise<{ ok: boolean;
   if (session?.user?.role !== "AUTHOR") return { ok: false, error: "Only author accounts can edit books." };
   if (!input.title.trim()) return { ok: false, error: "Title is required." };
   if (!input.description.trim()) return { ok: false, error: "Short description is required." };
+  if (countWords(input.description) > DESCRIPTION_WORD_LIMIT) {
+    return { ok: false, error: `The description is over the ${DESCRIPTION_WORD_LIMIT}-word limit — please shorten it.` };
+  }
   if (input.price <= 0) return { ok: false, error: "Price must be greater than $0." };
   if (!input.formats.ebook && !input.formats.print && !input.formats.audiobook) {
     return { ok: false, error: "Select at least one format (eBook, print, or audiobook)." };

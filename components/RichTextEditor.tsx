@@ -93,7 +93,9 @@ export function RichTextEditor({
         suppressContentEditableWarning
         style={minHeight ? { minHeight } : undefined}
       />
-      <div className="editor-word-count">{maxWords ? `${wordCount} / ${maxWords} words` : `${wordCount} words`}</div>
+      <div className="editor-word-count" style={maxWords && wordCount > maxWords ? { color: "var(--coral-deep)", fontWeight: 700 } : undefined}>
+        {maxWords ? `${wordCount} / ${maxWords} words${wordCount > maxWords ? " — over the limit" : ""}` : `${wordCount} words`}
+      </div>
     </div>
   );
 }

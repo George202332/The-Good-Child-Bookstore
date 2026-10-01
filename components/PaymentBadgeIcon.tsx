@@ -16,10 +16,11 @@ const BADGE_STYLES: Record<keyof PaymentBadgeUrls, { bg: string; fg: string; lab
   paypal: { bg: "#ffffff", fg: "#003087", label: "PayPal" },
 };
 
-// 40% larger than the original 52x33 default, per explicit request —
-// every caller (Footer.tsx) relies on this default rather than passing
-// its own size, so bumping it here is the one place that needs it.
-export function PaymentBadgeIcon({ type, width = 73, height = 46 }: { type: keyof PaymentBadgeUrls; width?: number; height?: number }) {
+// Matches the current .payment-badge-slot footprint in app/site.css —
+// sized up 40% from the original 52x33, then back down ~20% in a later
+// round. Every caller (Footer.tsx) relies on this default rather than
+// passing its own size, so this is the one place that needs it.
+export function PaymentBadgeIcon({ type, width = 58, height = 37 }: { type: keyof PaymentBadgeUrls; width?: number; height?: number }) {
   const style = BADGE_STYLES[type];
   return (
     <svg viewBox="0 0 60 38" width={width} height={height} role="img" aria-label={style.label}>

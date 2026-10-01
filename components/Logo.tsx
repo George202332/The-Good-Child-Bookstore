@@ -19,6 +19,15 @@ import Link from "next/link";
  * only blends between two colors). Plain fill, no outline — a grey
  * text-stroke was tried in an earlier round and explicitly removed.
  *
+ * Each hue's lightness was dropped from 45% to 28% in a later round —
+ * once the outline was gone, the lighter version of this same rainbow
+ * (especially the yellow/green/cyan part of the sweep) didn't read as
+ * clearly against the cream header background. The sweep itself (every
+ * letter still gets its own hue) is unchanged, just deeper/darker
+ * throughout; bold was already set on .logo-wordmark (font-weight:700,
+ * see app/site.css), and is also set directly on each letter span here
+ * so it can't be lost if that rule ever changes.
+ *
  * `logoImageUrl`/`subColor` are still accepted (existing callers pass
  * them — SiteChrome, admin site-settings) but unused; the Site Settings
  * logo upload field still exists for other branding uses, it just isn't
@@ -35,7 +44,7 @@ const TOTAL_LETTERS = LOGO_LINES.join("").replace(/\s/g, "").length;
 
 function letterColor(letterIndex: number): string {
   const hue = TOTAL_LETTERS <= 1 ? 0 : (letterIndex * 300) / (TOTAL_LETTERS - 1);
-  return `hsl(${hue.toFixed(0)}, 85%, 45%)`;
+  return `hsl(${hue.toFixed(0)}, 85%, 28%)`;
 }
 
 function RainbowLine({ text, startIndex }: { text: string; startIndex: number }) {
@@ -53,7 +62,7 @@ function RainbowLine({ text, startIndex }: { text: string; startIndex: number })
         const color = letterColor(letterIndex);
         letterIndex += 1;
         return (
-          <span key={i} style={{ color }}>
+          <span key={i} style={{ color, fontWeight: 700 }}>
             {ch}
           </span>
         );

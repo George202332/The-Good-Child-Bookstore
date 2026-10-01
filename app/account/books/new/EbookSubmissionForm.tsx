@@ -52,7 +52,7 @@ export interface EbookSubmissionInitial {
   readingLevel?: string;
   pages?: number;
   dimensions?: string;
-  weightLb?: number;
+  fileSizeKB?: number;
   descriptionHtml?: string;
   aiDeclaration?: string;
   keywords?: string[];
@@ -114,13 +114,20 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
   const [genre, setGenre] = useState(initial?.genre || GENRES[0]);
   const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || AGE_RANGES[0]);
   const [readingLevel, setReadingLevel] = useState(initial?.readingLevel || READING_LEVELS[0]);
-  // Pages auto-fills from the uploaded manuscript (see the Files
-  // section's onFileMeta below) but stays editable — detection doesn't
-  // run for EPUB/MOBI, and an author can still correct it either way.
+  // Pages, Dimensions, and File size all auto-fill from the uploaded
+  // manuscript itself (see the Files section's onFileMeta below) but
+  // stay editable — detection doesn't run for EPUB/MOBI (dimensions
+  // aren't a well-defined property of those formats the way they are
+  // for a PDF's page size), and an author can always review and correct
+  // whatever was detected before submitting; whatever is in these
+  // fields at submission time is what gets saved and shown on the
+  // product page's detail card.
   const [pages, setPages] = useState(initial?.pages ? String(initial.pages) : "");
   const [pagesAutoDetected, setPagesAutoDetected] = useState(false);
   const [dimensions, setDimensions] = useState(initial?.dimensions ?? "5.5 x 8.5 in");
-  const [weightLb, setWeightLb] = useState(initial?.weightLb ? String(initial.weightLb) : "");
+  const [dimensionsAutoDetected, setDimensionsAutoDetected] = useState(false);
+  const [fileSizeKB, setFileSizeKB] = useState(initial?.fileSizeKB ? String(initial.fileSizeKB) : "");
+  const [fileSizeAutoDetected, setFileSizeAutoDetected] = useState(false);
 
   // Book description
   const [descriptionHtml, setDescriptionHtml] = useState(initial?.descriptionHtml ?? "");
@@ -166,6 +173,15 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
     return plain.length > 160 ? `${plain.slice(0, 157)}…` : plain;
   }, [descriptionHtml]);
   const seoSlug = title ? slugFromTitle(title) : "…";
+  // Word count enforced at submission time (see checklist/allChecksPass
+  // below) rather than blocked live while typing — contentEditable
+  // doesn't handle having its content truncated mid-keystroke cleanly,
+  // and the limit only needs to hold by the time the author submits.
+  const descriptionWordCount = useMemo(() => {
+    const plain = plainTextFromHtml(descriptionHtml);
+    return plain ? plain.split(/\s+/).filter(Boolean).length : 0;
+  }, [descriptionHtml]);
+  const DESCRIPTION_WORD_LIMIT = 200;
 
   const [metadataCheck, setMetadataCheck] = useState<MetadataCheckResult>({ titleFound: true, authorFound: true, checked: false });
   useEffect(() => {
@@ -185,6 +201,7 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
     { label: "Category selected", ok: !!category },
     { label: "Age group selected", ok: !!ageGroup },
     { label: "Book description", ok: !!plainTextFromHtml(descriptionHtml) },
+    { label: `Description within ${DESCRIPTION_WORD_LIMIT}-word limit`, ok: descriptionWordCount <= DESCRIPTION_WORD_LIMIT },
     { label: "List price set", ok: Number(price) > 0 },
     { label: "Copyright holder named", ok: !!copyrightHolder.trim() },
   ];
@@ -198,7 +215,11 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
       title,
       subtitle,
       isbn: hasOwnIsbn ? isbn : (generatedSn ?? ""),
-      description: plainTextFromHtml(descriptionHtml).slice(0, 500),
+      // No character slice here — that was silently cutting the stored
+      // description (and the product page's visible text with it) off
+      // mid-sentence at 500 characters, well short of a real description.
+      // The 200-word submission limit above is what keeps this bounded now.
+      description: plainTextFromHtml(descriptionHtml),
       price: Number(price) || 0,
       ageGroup,
       category,
@@ -221,7 +242,7 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
         readingLevel,
         pages: pages ? Number(pages) : undefined,
         dimensions: dimensions.trim() || undefined,
-        weightLb: weightLb ? Number(weightLb) : undefined,
+        fileSizeKB: fileSizeKB ? Number(fileSizeKB) : undefined,
         longDescriptionHtml: descriptionHtml,
         aiDeclaration: aiDeclaration.trim() || undefined,
         taxSetting,
@@ -262,12 +283,30 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
             accept=".pdf,.docx"
             onUploaded={(ids) => setManuscriptFileId(ids[0])}
             onFileMeta={(results) => {
-              const detected = results[0]?.pageCount;
-              if (detected) {
-                setPages(String(detected));
+              const result = results[0];
+              const detectedPages = result?.pageCount;
+              // typeof check (not just truthiness) so a genuine 0 — an
+              // edge case, but possible for an odd/empty PDF — doesn't
+              // get silently treated as "nothing detected."
+              if (typeof detectedPages === "number") {
+                setPages(String(detectedPages));
                 setPagesAutoDetected(true);
               } else {
                 setPagesAutoDetected(false);
+              }
+
+              if (result?.dimensions) {
+                setDimensions(result.dimensions);
+                setDimensionsAutoDetected(true);
+              } else {
+                setDimensionsAutoDetected(false);
+              }
+
+              if (typeof result?.fileSizeBytes === "number") {
+                setFileSizeKB(String(Math.max(1, Math.round(result.fileSizeBytes / 1024))));
+                setFileSizeAutoDetected(true);
+              } else {
+                setFileSizeAutoDetected(false);
               }
             }}
             fillWidth
@@ -440,13 +479,34 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
           </div>
           <div>
             <label className="field-label" htmlFor="f-dimensions">Dimensions</label>
-            <input className="field" id="f-dimensions" type="text" placeholder="5.5 x 8.5 in" value={dimensions} onChange={(e) => setDimensions(e.target.value)} />
+            <input
+              className="field"
+              id="f-dimensions"
+              type="text"
+              placeholder="5.5 x 8.5 in"
+              value={dimensions}
+              onChange={(e) => { setDimensions(e.target.value); setDimensionsAutoDetected(false); }}
+            />
+            <div className="field-hint">
+              {dimensionsAutoDetected ? "Auto-detected from your uploaded manuscript — edit if it's not quite right." : "Auto-fills once you upload a PDF/DOCX manuscript above; enter it yourself for EPUB/MOBI."}
+            </div>
           </div>
         </div>
         <div className="form-grid-2">
           <div>
-            <label className="field-label" htmlFor="f-weight">Weight (lb)</label>
-            <input className="field" id="f-weight" type="number" step={0.01} min={0} placeholder="0.25" value={weightLb} onChange={(e) => setWeightLb(e.target.value)} />
+            <label className="field-label" htmlFor="f-filesize">File size (KB)</label>
+            <input
+              className="field"
+              id="f-filesize"
+              type="number"
+              min={1}
+              placeholder="Upload a manuscript to auto-fill"
+              value={fileSizeKB}
+              onChange={(e) => { setFileSizeKB(e.target.value); setFileSizeAutoDetected(false); }}
+            />
+            <div className="field-hint">
+              {fileSizeAutoDetected ? "Auto-detected from your uploaded manuscript — edit if it's not quite right." : "Auto-fills once you upload a manuscript above; enter it yourself if needed."}
+            </div>
           </div>
         </div>
       </Card>
@@ -455,7 +515,7 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
       <Card>
         <SectionHeader n={5} title="Book description" sub="The copy readers, teachers, and our editorial team will see." />
         <label className="field-label">Description</label>
-        <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={400} minHeight={325} />
+        <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={DESCRIPTION_WORD_LIMIT} minHeight={325} />
         <div style={{ marginTop: 18 }}>
           <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} title={title} />
         </div>

@@ -86,7 +86,7 @@ function toCatalogBook(row: RealBookRow): Book {
     authorLastName?: string;
     pages?: number;
     dimensions?: string;
-    weightLb?: number;
+    fileSizeKB?: number;
     publisher?: string;
     publicationDate?: string;
     aiDeclaration?: string;
@@ -141,9 +141,9 @@ function toCatalogBook(row: RealBookRow): Book {
     pages: meta?.pages ?? 24 + (seed % 40),
     language: row.language,
     dimensions: meta?.dimensions,
-    weightLb: meta?.weightLb,
     publisher: meta?.publisher,
     aiDeclaration: meta?.aiDeclaration,
+    fileSizeKB: meta?.fileSizeKB,
     format: [row.hasEbook && "eBook", row.hasPrint && "Print", row.hasAudiobook && "Audiobook"].filter(Boolean).join(", ") || "eBook",
     blurb: row.description ?? "",
     featured: meta?.includeInPromotions ?? false,

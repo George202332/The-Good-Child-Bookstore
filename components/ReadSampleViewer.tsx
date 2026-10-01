@@ -29,7 +29,7 @@ export function ReadSampleViewer({ manuscriptUrl, title }: { manuscriptUrl: stri
         Read Sample
       </button>
       {open && (
-        <Modal onClose={() => setOpen(false)} maxWidth={640}>
+        <Modal onClose={() => setOpen(false)} maxWidth={640} hideScrollbar>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <h3 style={{ fontSize: 15, margin: 0 }}>{title} — Sample (first pages)</h3>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--ink-faint)", lineHeight: 1 }}>×</button>

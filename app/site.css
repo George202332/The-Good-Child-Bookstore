@@ -812,15 +812,16 @@
   }
   /* Polished per explicit request: each badge sits in a fixed-size white
      "slot" card (rather than floating bare against the dark footer, or
-     being sized by its own content), ~30% wider than the previous round,
-     with the gap between slots tightened back down. Logo.tsx/Footer.tsx
-     has the full history (M-Pesa removed, PayPal added, sized up once
-     already, now widened again and re-spaced). */
+     being sized by its own content). Logo.tsx/Footer.tsx has the full
+     history (M-Pesa removed, PayPal added, sized up, widened and
+     re-spaced, and now sized back down ~20% — each round's width/height
+     is a plain multiple of the previous, so this is the one place that
+     needs to change when it's adjusted again). */
   .footer-payment-badges{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
   .payment-badge-slot{
     display:flex;align-items:center;justify-content:center;
-    width:95px;height:56px;box-sizing:border-box;
-    background:#ffffff;border-radius:8px;padding:8px 10px;
+    width:76px;height:45px;box-sizing:border-box;
+    background:#ffffff;border-radius:7px;padding:6px 8px;
     border:1px solid rgba(255,255,255,0.14);box-shadow:0 1px 2px rgba(0,0,0,0.12);
     transition:transform 0.15s ease, box-shadow 0.15s ease;
   }
@@ -1064,6 +1065,12 @@
      inherited text-align) so the icon reliably stacks centered above its
      label instead of sitting beside it. */
   .az-detail-item{display:flex;flex-direction:column;align-items:center;text-align:center;flex:0 0 92px;min-width:92px;padding:0 2px;}
+  /* Published and Publisher get noticeably more room than the other
+     detail items — a date is short, but "The Good Child Bookstore" (the
+     default publisher name) was overrunning/crowding the standard 92px
+     slot next to it. Shorter publisher names still center fine in the
+     extra space. */
+  .az-detail-item-wide{flex-basis:132px;min-width:132px;}
   .az-detail-item svg{display:block;width:19px;height:19px;color:var(--ink-soft);margin-bottom:5px;flex-shrink:0;}
   .az-detail-item strong{display:block;font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .az-detail-item span{font-size:11px;color:var(--ink-faint);white-space:nowrap;}

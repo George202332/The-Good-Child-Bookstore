@@ -40,25 +40,42 @@ export interface UploadFileResult {
   fileId?: string;
   fileName?: string;
   /** Page count, auto-detected from the actual uploaded file when it's
-   * (or converts to) a PDF — see countPdfPages below. Undefined for
+   * (or converts to) a PDF — see readPdfMetadata below. Undefined for
    * EPUB/MOBI, where page count isn't a well-defined property of the
    * file itself; the submission form falls back to manual entry then. */
   pageCount?: number;
+  /** Trim size of the PDF's first page, e.g. "5.5 x 8.5 in" — auto-
+   * detected the same way as pageCount, same EPUB/MOBI caveat. */
+  dimensions?: string;
+  /** The stored file's actual size in bytes — the real uploaded (or, for
+   * a DOCX, converted-to-PDF) file, not an estimate. */
+  fileSizeBytes?: number;
   error?: string;
 }
 
-/** Best-effort PDF page count via pdf-lib (already a dependency for the
- * print-fulfillment PDF work — see lib/payments/lulu.ts) — returns
- * undefined rather than throwing if the bytes can't be parsed, so a
- * slightly malformed upload still succeeds without a page count rather
- * than failing the whole upload over it. */
-async function countPdfPages(bytes: Uint8Array): Promise<number | undefined> {
+/** Best-effort PDF page count + first-page trim size via pdf-lib
+ * (already a dependency for the print-fulfillment PDF work — see
+ * lib/payments/lulu.ts) — returns an empty object rather than throwing
+ * if the bytes can't be parsed, so a slightly malformed upload still
+ * succeeds without this metadata rather than failing the whole upload
+ * over it. Page size comes back from pdf-lib in PDF points (1/72 inch),
+ * converted here to inches to match what the submission form and
+ * product page's detail card both expect. */
+async function readPdfMetadata(bytes: Uint8Array): Promise<{ pageCount?: number; dimensions?: string }> {
   try {
     const { PDFDocument } = await import("pdf-lib");
     const doc = await PDFDocument.load(bytes);
-    return doc.getPageCount();
+    const pageCount = doc.getPageCount();
+    let dimensions: string | undefined;
+    if (pageCount > 0) {
+      const { width, height } = doc.getPage(0).getSize();
+      const widthIn = width / 72;
+      const heightIn = height / 72;
+      dimensions = `${widthIn.toFixed(1)} x ${heightIn.toFixed(1)} in`;
+    }
+    return { pageCount, dimensions };
   } catch {
-    return undefined;
+    return {};
   }
 }
 
@@ -96,7 +113,8 @@ export async function uploadGenericFile(formData: FormData, allowedTypes: string
           originalName: file.name.replace(/\.docx$/i, ".pdf"),
         },
       });
-      return { ok: true, fileId: record.id, fileName: record.originalName, pageCount: await countPdfPages(pdfBytes) };
+      const docxMeta = await readPdfMetadata(pdfBytes);
+      return { ok: true, fileId: record.id, fileName: record.originalName, fileSizeBytes: pdfBytes.byteLength, ...docxMeta };
     }
 
     // Trust the file's real extension for the stored MIME type when the
@@ -111,8 +129,8 @@ export async function uploadGenericFile(formData: FormData, allowedTypes: string
         originalName: file.name,
       },
     });
-    const pageCount = inferredMime === "application/pdf" ? await countPdfPages(bytes) : undefined;
-    return { ok: true, fileId: record.id, fileName: file.name, pageCount };
+    const pdfMeta = inferredMime === "application/pdf" ? await readPdfMetadata(bytes) : {};
+    return { ok: true, fileId: record.id, fileName: file.name, fileSizeBytes: bytes.byteLength, ...pdfMeta };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Failed to store file." };
   }

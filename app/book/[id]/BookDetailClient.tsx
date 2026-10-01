@@ -20,6 +20,18 @@ function catName(id: string): string {
   return CATS.find((c) => c.id === id)?.name ?? id;
 }
 
+/** Renamed from "Weight" (which showed a made-up pounds figure that was
+ * never a real property of a digital book) to "File Size" — the actual
+ * size of the uploaded manuscript file, auto-detected at upload time
+ * (see actions/files.ts / EbookSubmissionForm.tsx). Falls back to a
+ * rough estimate from page count only for older books submitted before
+ * this was captured. */
+function formatFileSize(fileSizeKB: number | undefined, pages: number): string {
+  const kb = fileSizeKB ?? 120 + pages * 18;
+  if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
+  return `${Math.round(kb)} KB`;
+}
+
 type FormatKey = "ebook" | "print" | "paperback" | "audiobook";
 const FORMAT_LABELS: Record<FormatKey, string> = {
   ebook: "eBook",
@@ -196,6 +208,21 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
             <p>{b.blurb}</p>
           </div>
 
+          {/* Only rendered when the author actually provided one — no
+             "no statement provided" fallback — and sits above the
+             details card now (it used to be below), per explicit
+             request. Keeping it inline here, ahead of the
+             margin-top:auto details card, is also what keeps that card
+             (and the author card / buybox it lines up with) pinned to
+             the bottom of this column again — seeing this paragraph
+             land *after* the card in the previous round is what pushed
+             everything out of alignment. */}
+          {b.aiDeclaration?.trim() && (
+            <p className="az-ai-declaration">
+              <strong>AI use declaration:</strong> {b.aiDeclaration.trim()}
+            </p>
+          )}
+
           <div className="az-details-card">
             <div className="carousel-outer">
               <button type="button" className="carousel-arrow carousel-left" aria-label="Scroll details left" onClick={() => scrollTrack(`details-track-${b.id}`, -1)}>
@@ -218,11 +245,11 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 3h12v18l-6-4-6 4V3z" /></svg>
                   <strong>{catName(b.category)}</strong><span>Category</span>
                 </div>
-                <div className="az-detail-item">
+                <div className="az-detail-item az-detail-item-wide">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={4} width={18} height={18} rx={2} /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
                   <strong>{b.pubDate}</strong><span>Published</span>
                 </div>
-                <div className="az-detail-item">
+                <div className="az-detail-item az-detail-item-wide">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={7} width={18} height={14} rx={2} /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                   <strong>{b.publisher || "Good Child Press"}</strong><span>Publisher</span>
                 </div>
@@ -231,8 +258,8 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
                   <strong>{b.dimensions || "5.5 × 8.5 in"}</strong><span>Dimensions</span>
                 </div>
                 <div className="az-detail-item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={8} r={5} /><path d="M8 13l-2 8h12l-2-8" /></svg>
-                  <strong>{(b.weightLb ?? (0.15 + b.pages * 0.01)).toFixed(2)} lb</strong><span>Weight</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+                  <strong>{formatFileSize(b.fileSizeKB, b.pages)}</strong><span>File Size</span>
                 </div>
               </div>
               <button type="button" className="carousel-arrow carousel-right" aria-label="Scroll details right" onClick={() => scrollTrack(`details-track-${b.id}`, 1)}>
@@ -240,11 +267,6 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
               </button>
             </div>
           </div>
-
-          <p className="az-ai-declaration">
-            <strong>AI use declaration:</strong>{" "}
-            {b.aiDeclaration?.trim() || "This author has not provided a statement on AI use for this title."}
-          </p>
         </div>
 
         <div className="buybox">

@@ -151,9 +151,10 @@ export interface Book {
   /** Real submitted books only — from the submission form's Dimensions
    * field. */
   dimensions?: string;
-  /** In pounds — real submitted books only, from the submission form's
-   * Weight field. */
-  weightLb?: number;
+  /** The manuscript file's size in KB — real submitted books only,
+   * auto-detected at upload (see actions/files.ts) and editable in the
+   * submission form's File Size field. */
+  fileSizeKB?: number;
   /** The publisher name — real submitted books only, from the
    * submission form's Publisher field. */
   publisher?: string;
