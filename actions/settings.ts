@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
@@ -16,6 +17,13 @@ export interface MySettings {
 }
 
 const DEFAULT_SETTINGS: MySettings = { darkMode: false, reduceMotion: false, notifyPayouts: true, notifyReviews: true, notifyBlogComments: true };
+
+// Readable client-side (not httpOnly) so the root layout's tiny inline
+// script (see app/layout.tsx) can apply dark mode before first paint
+// without the whole site having to be server-rendered dynamically just
+// to look up one logged-in user's preference — see the comment on
+// RootLayout for the full story of why that used to be the case.
+const DARK_MODE_COOKIE = "gcb-dark-mode";
 
 export async function getMySettings(): Promise<MySettings> {
   const session = await auth();
@@ -33,6 +41,19 @@ export async function updateMySettings(input: MySettings): Promise<{ ok: boolean
     update: input,
     create: { userId: session.user.id, ...input },
   });
+
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(DARK_MODE_COOKIE, input.darkMode ? "1" : "0", {
+      maxAge: 60 * 60 * 24 * 365,
+      path: "/",
+      sameSite: "lax",
+    });
+  } catch {
+    // Non-critical — worst case, the next visit's first paint briefly
+    // shows the old theme until hydration/settings reload corrects it.
+  }
+
   revalidatePath("/account/settings");
   return { ok: true };
 }

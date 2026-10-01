@@ -73,11 +73,11 @@ export async function listLibrary(): Promise<LibraryItem[]> {
     [
       settings.logoImageUrl,
       settings.faviconImageUrl,
-      settings.paymentBadges.mpesa,
       settings.paymentBadges.mastercard,
       settings.paymentBadges.visa,
       settings.paymentBadges.amex,
       settings.paymentBadges.verve,
+      settings.paymentBadges.paypal,
       pagesContent.home.heroWelcomeImage,
       pagesContent.home.heroBrowseImage,
       pagesContent.home.heroAuthorImage,

@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
 import { SignOutButton } from "./SignOutButton";
-import { SessionInactivityTimer } from "./SessionInactivityTimer";
 
 /**
  * The backend shell for ADMIN/EDITOR — a new surface with no equivalent in
@@ -69,7 +68,8 @@ export function AdminShell({
 
   return (
     <div className="admin-shell">
-      <SessionInactivityTimer isAdmin />
+      {/* The inactivity timer now mounts once from app/admin/layout.tsx,
+          not here — see SessionInactivityTimer.tsx for why. */}
       <aside className="admin-sidebar">
         <div className="admin-brand">
           <div className="admin-brand-mark">GC</div>

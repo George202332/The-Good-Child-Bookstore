@@ -8,11 +8,14 @@ import type { SiteSettings } from "@/lib/site-settings";
 import { ImageUploadField } from "@/components/ImageUploadField";
 
 const BADGE_FIELDS: { key: keyof SiteSettings["paymentBadges"]; label: string }[] = [
-  { key: "mpesa", label: "M-Pesa" },
   { key: "mastercard", label: "Mastercard" },
   { key: "visa", label: "Visa" },
   { key: "amex", label: "American Express" },
-  { key: "verve", label: "Verve" },
+  { key: "paypal", label: "PayPal" },
+  // Not shown in the footer (M-Pesa was removed from there and PayPal
+  // took its place among the four footer badges), but still used on the
+  // checkout page's accepted-card-brands row, so still manageable here.
+  { key: "verve", label: "Verve (checkout only)" },
 ];
 
 export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {

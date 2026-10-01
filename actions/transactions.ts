@@ -290,7 +290,7 @@ export async function deleteTransaction(id: string, type: "sale" | "payout"): Pr
     revalidatePath("/admin/payouts");
     revalidatePath("/account/orders");
     revalidatePath("/account/revenue");
-    revalidatePath("/account/my-transactions");
+    revalidatePath("/account/transactions");
     revalidatePath("/account/transaction-history");
     revalidatePath("/account/payout-settings");
 
@@ -341,7 +341,7 @@ export async function resetAllOrders(): Promise<{ ok: boolean; error?: string; d
     revalidatePath("/admin/payouts");
     revalidatePath("/account/orders");
     revalidatePath("/account/revenue");
-    revalidatePath("/account/my-transactions");
+    revalidatePath("/account/transactions");
     revalidatePath("/account/transaction-history");
     revalidatePath("/account/payout-settings");
 

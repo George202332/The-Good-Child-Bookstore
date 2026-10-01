@@ -2,21 +2,23 @@ import Link from "next/link";
 
 /**
  * Plain text wordmark, per explicit instruction: no icon, no uploaded
- * image, no graphics of any kind. Two lines, "Good Child" and
- * "Bookstore", each individually letter-spread (flexbox
+ * image, no graphics of any kind. Two lines, "GoodChild" (one word,
+ * capital C) and "Bookstore", each individually letter-spread (flexbox
  * justify-content: space-between, both lines locked to the exact same
  * width) so the very first letter of each line lines up flush-left and
- * the very last letter lines up flush-right — the G of "Good" sits
- * directly above the B of "Bookstore", and the final d of "Child"
+ * the very last letter lines up flush-right — the G of "GoodChild" sits
+ * directly above the B of "Bookstore", and the final d of "GoodChild"
  * directly above the final e of "Bookstore" — rather than the two
  * lines merely being centered on each other, which only lines up their
  * midpoints, not their edges.
  *
  * Every letter gets its own color, swept as one continuous rainbow
- * (red through violet) across all 18 letters from the G that opens
- * line one to the e that closes line two — a real per-letter gradient,
- * not a two-stop CSS background-image gradient clipped to the text
- * (which only blends between two colors).
+ * (red through violet) across every letter from the G that opens line
+ * one to the e that closes line two — a real per-letter gradient, not
+ * a two-stop CSS background-image gradient clipped to the text (which
+ * only blends between two colors) — plus a thin grey outline
+ * (text-stroke) on every letter so the rainbow fill reads as
+ * deliberately bold lettering rather than plain colored text.
  *
  * `logoImageUrl`/`subColor` are still accepted (existing callers pass
  * them — SiteChrome, admin site-settings) but unused; the Site Settings
@@ -24,7 +26,7 @@ import Link from "next/link";
  * rendered in the header/footer wordmark.
  */
 
-const LOGO_LINES = ["Good Child", "Bookstore"];
+const LOGO_LINES = ["GoodChild", "Bookstore"];
 
 // One continuous red→violet sweep across every actual letter in the
 // lockup (spaces excluded — they're invisible, coloring them would be
@@ -52,7 +54,14 @@ function RainbowLine({ text, startIndex }: { text: string; startIndex: number })
         const color = letterColor(letterIndex);
         letterIndex += 1;
         return (
-          <span key={i} style={{ color }}>
+          <span
+            key={i}
+            style={{
+              color,
+              WebkitTextStroke: "0.6px var(--ink-soft, #6b6b6b)",
+              textShadow: "0 0 0.5px var(--ink-soft, #6b6b6b)",
+            }}
+          >
             {ch}
           </span>
         );

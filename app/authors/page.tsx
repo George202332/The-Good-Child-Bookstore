@@ -57,7 +57,7 @@ export default async function AuthorsPage() {
       </div>
 
       <section className="section fade-in-section visible" id="why-publish">
-        <div className="wrap" style={{ maxWidth: 760 }}>
+        <div className="wrap">
           <div className="section-head" style={{ marginBottom: 0, display: "block" }}>
             <h2>Why authors publish with us</h2>
             <p style={{ marginTop: 14, fontSize: 15.5, lineHeight: 1.75 }}>
@@ -71,7 +71,7 @@ export default async function AuthorsPage() {
       </section>
 
       <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
-        <div className="wrap" style={{ maxWidth: 900 }}>
+        <div className="wrap">
           <div className="page-body-content" dangerouslySetInnerHTML={{ __html: authorship.bodyHtml }} />
         </div>
       </section>
@@ -96,7 +96,7 @@ export default async function AuthorsPage() {
       </section>
 
       <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
-        <div className="wrap" style={{ maxWidth: 920 }}>
+        <div className="wrap">
           <div className="section-head" style={{ marginBottom: 22, display: "block" }}>
             <h2>Author success stories</h2>
             <p style={{ marginTop: 10 }}>Real stories from authors publishing with us are on their way.</p>
@@ -117,11 +117,11 @@ export default async function AuthorsPage() {
       </section>
 
       <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
-        <div className="wrap" style={{ maxWidth: 820 }}>
+        <div className="wrap">
           <div className="section-head" style={{ marginBottom: 10 }}>
             <div><h2>Frequently asked questions</h2></div>
           </div>
-          <div className="faq-list" style={{ margin: 0 }}>
+          <div className="faq-list" style={{ margin: 0, maxWidth: "none" }}>
             {AUTHORSHIP_FAQ.map(([q, a]) => (
               <details className="faq-item" key={q}>
                 <summary>{q}</summary>

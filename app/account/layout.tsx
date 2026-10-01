@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { EmailVerificationRequired } from "@/components/EmailVerificationRequired";
 import { TwoFactorChallengeScreen } from "@/components/TwoFactorChallengeScreen";
+import { SessionInactivityTimer } from "@/components/SessionInactivityTimer";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,13 @@ export const dynamic = "force-dynamic";
  * /login before this layout ever runs, so `session` below is only
  * ever missing in the small window a session cookie expires between
  * requests — handled defensively rather than assumed away.
+ *
+ * SessionInactivityTimer is mounted once, right here, rather than
+ * inside each page's DashboardShell — a layout.tsx wraps every current
+ * and future page under /account/**, for every role that lands here
+ * (Reader, Author, and anyone with affiliate capability attached to
+ * either), so the 30-minute auto-logout can never be silently skipped
+ * by a page that doesn't render DashboardShell.
  */
 export default async function AccountLayout({ children }: { children: ReactNode }) {
   const session = await auth();
@@ -38,12 +46,27 @@ export default async function AccountLayout({ children }: { children: ReactNode 
   if (!user) redirect("/login");
 
   if (!user.emailVerifiedAt) {
-    return <EmailVerificationRequired email={user.email} />;
+    return (
+      <>
+        <SessionInactivityTimer />
+        <EmailVerificationRequired email={user.email} />
+      </>
+    );
   }
 
   if (session.user.twoFactorEnabled && !session.user.twoFactorVerified) {
-    return <TwoFactorChallengeScreen />;
+    return (
+      <>
+        <SessionInactivityTimer />
+        <TwoFactorChallengeScreen />
+      </>
+    );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <SessionInactivityTimer />
+      {children}
+    </>
+  );
 }

@@ -3,12 +3,17 @@ import { Logo } from "./Logo";
 import { PaymentBadgeIcon } from "./PaymentBadgeIcon";
 import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-settings";
 
+// M-Pesa removed entirely per explicit request (this is the footer's
+// visual trust-badge row only — the real M-Pesa payment integration
+// elsewhere, e.g. checkout/Paystack, is untouched). The four remaining
+// badges are sized 40% larger than before (was 22px tall) and the row
+// itself got a cleaner card treatment — see .footer-payment-badges in
+// app/site.css.
 const PAYMENT_BADGE_LABELS: { key: keyof PaymentBadgeUrls; label: string }[] = [
-  { key: "mpesa", label: "M-Pesa" },
   { key: "mastercard", label: "Mastercard" },
   { key: "visa", label: "Visa" },
   { key: "amex", label: "American Express" },
-  { key: "verve", label: "Verve" },
+  { key: "paypal", label: "PayPal" },
 ];
 
 /** Renders each payment badge as an admin-uploaded image if one is set
@@ -20,7 +25,7 @@ function PaymentBadges({ badges }: { badges: PaymentBadgeUrls }) {
       {PAYMENT_BADGE_LABELS.map(({ key, label }) =>
         badges[key] ? (
           // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded badge image, not a static asset
-          <img key={key} src={badges[key]} alt={label} className="payment-badge-img" style={{ height: 22 }} />
+          <img key={key} src={badges[key]} alt={label} className="payment-badge-img" style={{ height: 31 }} />
         ) : (
           <PaymentBadgeIcon key={key} type={key} />
         )

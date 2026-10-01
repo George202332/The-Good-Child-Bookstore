@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
 import { SignOutButton } from "./SignOutButton";
-import { SessionInactivityTimer } from "./SessionInactivityTimer";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { NAV_ICONS } from "./nav-icons";
 
@@ -56,7 +55,7 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "dashboard", label: "Dashboard", href: "/account", section: "Overview" },
       { key: "profile", label: "Profile", href: "/account/profile", section: "Overview" },
       { key: "messages", label: "Messages", href: "/account/messages", section: "Overview" },
-      { key: "library", label: "Purchases", href: "/account/library", section: "Overview" },
+      { key: "library", label: "Library", href: "/account/library", section: "Overview" },
       { key: "mybooks", label: "My Books", href: "/account/books", section: "Publishing" },
       { key: "blog", label: "My Blogs", href: "/account/blog", section: "Publishing" },
       { key: "authors", label: "Authors", href: "/account/authors", section: "Publishing" },
@@ -67,7 +66,7 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "blog-analytics", label: "Blogs", href: "/account/blog-analytics", section: "Analytics" },
       { key: "revenue", label: "Revenue", href: "/account/revenue", section: "Financial" },
       { key: "payout-settings", label: "Payouts", href: "/account/payout-settings", section: "Financial" },
-      { key: "my-transactions", label: "Transactions", href: "/account/my-transactions", section: "Financial" },
+      { key: "transactions", label: "Transactions", href: "/account/transactions", section: "Financial" },
       { key: "settings", label: "Settings", href: "/account/settings", section: "Account" },
     ];
   }
@@ -109,7 +108,8 @@ export async function DashboardShell({
   });
   return (
     <div className="wrap" style={{ padding: "26px 0 80px" }}>
-      <SessionInactivityTimer />
+      {/* The inactivity timer now mounts once from app/account/layout.tsx,
+          not here — see SessionInactivityTimer.tsx for why. */}
       <div className="dashboard-layout">
         <aside className="dashboard-sidebar" id="dashboard-sidebar-nav" aria-label={`Account menu for ${displayName}`}>
           <nav aria-label="Account navigation">

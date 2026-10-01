@@ -1,5 +1,6 @@
 "use server";
 
+import { cache } from "react";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
@@ -20,7 +21,13 @@ import { DEFAULT_SITE_SETTINGS, type SiteSettings, type ApiKeys, type Publishing
 
 const SITE_SETTINGS_KEY = "site_settings";
 
-export async function getSiteSettings(): Promise<SiteSettings> {
+// React's per-request cache — RootLayout and generateMetadata() (see
+// app/layout.tsx) both need these settings on every single request,
+// and without this they were each running their own separate database
+// round trip for the exact same row on every page view. cache() here
+// dedupes those into one fetch per request, which every route shares,
+// no actual data ever goes stale any later than it already did.
+export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   try {
     const setting = await prisma.setting.findUnique({ where: { key: SITE_SETTINGS_KEY } });
     if (setting?.value && typeof setting.value === "object") {
@@ -37,7 +44,7 @@ export async function getSiteSettings(): Promise<SiteSettings> {
     // Fall through to defaults if the database is unreachable.
   }
   return DEFAULT_SITE_SETTINGS;
-}
+});
 
 /**
  * The version of settings safe to send to the admin's browser: identical

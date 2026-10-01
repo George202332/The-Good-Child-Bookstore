@@ -3,7 +3,6 @@ import Script from "next/script";
 import "./globals.css";
 import { SiteChrome } from "@/components/SiteChrome";
 import { getSiteSettings } from "@/actions/site-settings";
-import { getMySettings } from "@/actions/settings";
 import { Providers } from "@/components/Providers";
 
 const DEFAULT_FAVICON =
@@ -88,32 +87,53 @@ const JSON_LD = {
 };
 
 /**
- * Forces every page to render fresh on each request, rather than being
- * frozen as static HTML at build time. Without this, most storefront
- * pages (shop, about, contact, etc.) were being statically generated —
- * meaning the logo/footer/homepage content fetched here in the root
- * layout only ever reflected whatever was true at the last deploy, not
- * what's actually saved in Site Settings right now. This was the real
- * cause of "changes at the backend don't take effect on the frontend."
+ * This used to force EVERY page in the entire site to render fresh on
+ * each request (export const dynamic = "force-dynamic" right here in
+ * the root layout, which every single route sits under). That was a
+ * blunt fix for a real problem — Site Settings changes (logo, footer)
+ * not showing up without a redeploy — but it had a much bigger side
+ * effect than intended: it wasn't just Site Settings holding pages
+ * back, it was the per-user dark-mode lookup below, which read the
+ * signed-in session (a cookie) and therefore forced Next.js to treat
+ * the *entire* render tree — homepage, Authorship, Affiliate, Blog,
+ * every marketing page, none of which change per request — as fully
+ * dynamic too. That meant a full server round trip (session lookup +
+ * two separate database reads) had to finish before the very first
+ * byte of HTML went out on every single page view, which is what made
+ * first paint feel slow and, on a slow connection, briefly show an
+ * unstyled/incomplete page before the real layout snapped in.
+ *
+ * Fixed properly instead of papered over: getSiteSettings() below has
+ * no per-user dependency (no cookies, no session) so it was never the
+ * actual problem and can stay here safely. Dark mode now applies from
+ * a plain, non-httpOnly cookie read by a tiny inline script in <head>,
+ * synchronously, before the page paints — the standard way to avoid a
+ * "flash of wrong theme" without forcing the whole app to be dynamic
+ * just to know one person's light/dark preference (see
+ * DARK_MODE_COOKIE in actions/settings.ts, set whenever the toggle on
+ * /account/settings is changed). The rest of the site is free to be
+ * statically generated/cached again.
  */
-export const dynamic = "force-dynamic";
+
+const DARK_MODE_INIT_SCRIPT = `
+try {
+  var m = document.cookie.match(/(?:^|; )gcb-dark-mode=([^;]*)/);
+  if (m && m[1] === "1") document.documentElement.classList.add("dark-mode");
+} catch (e) {}
+`;
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const settings = await getSiteSettings();
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
   const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
 
-  let darkMode = false;
-  try {
-    const mySettings = await getMySettings();
-    darkMode = mySettings.darkMode;
-  } catch {
-    // settings unavailable — default to light
-  }
-
   return (
-    <html lang="en" className={darkMode ? "dark-mode" : undefined}>
+    <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Runs before paint, synchronously — see DARK_MODE_INIT_SCRIPT
+            above for why this is a plain script reading a cookie rather
+            than a server-computed class on <html>. */}
+        <script dangerouslySetInnerHTML={{ __html: DARK_MODE_INIT_SCRIPT }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}

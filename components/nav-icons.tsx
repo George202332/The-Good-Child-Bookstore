@@ -124,7 +124,7 @@ export const NAV_ICONS: Record<string, ReactElement> = {
   // x=12. Redrawn here with its outer edges at x=4 and x=20 — centered
   // on x=12, exactly like the icons above and below it — so all three
   // now sit on the same optical center line.
-  "my-transactions": (
+  "transactions": (
     <svg {...ICON_PROPS}><path d="M4 4h13l3 3v13H4Z" /><path d="M9.5 11h6M9.5 14.5h6M9.5 18h4" /></svg>
   ),
 };

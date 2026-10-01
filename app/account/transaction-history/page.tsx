@@ -13,7 +13,7 @@ import { ColHelp } from "@/components/ColHelp";
  * /account, since this page only ever handled the Author case — it now
  * branches on role: a Reader sees their own purchases (the same data
  * as the Author's separate, newer "Transactions" page under Financial,
- * see app/account/my-transactions/page.tsx), and an Author keeps seeing
+ * see app/account/transactions/page.tsx), and an Author keeps seeing
  * this page's original view of sales received plus payouts.
  */
 export default async function AuthorTransactionHistoryPage() {

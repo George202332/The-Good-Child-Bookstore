@@ -256,8 +256,18 @@ export const DEFAULT_PAGES_CONTENT: PagesContent = {
   affiliateMarketing: {
     eyebrow: "✦ Affiliate program",
     heading: "Share books you love, get paid for it.",
-    introText: "Anyone passionate about children's books can earn commission promoting titles from our shelf, with a real time dashboard, transparent payouts, and lifetime earnings from the authors you refer.",
+    introText: "Anyone passionate about children's books can earn commission promoting titles from our shelf, with a real time dashboard, transparent payouts, and lifetime earnings from the authors you refer. There is no separate affiliate account to create: affiliate access comes built into your Reader or Author account, turned on from your dashboard whenever you're ready.",
     sections: [
+      {
+        id: "no-separate-signup",
+        title: "No separate affiliate account",
+        paragraphs: [
+          "Affiliate used to be its own account type here; it no longer is. Today, affiliate capability is built into every Reader and every Author account from the moment you sign up, and turning it on is a single click from your own dashboard, not a second registration form with its own email and password to keep track of.",
+          "If you don't have an account yet, start with whichever one actually describes you: sign up as a Reader if you're here to shop and share books you've read, or as an Author if you're also publishing your own titles with us. Either one gets you full affiliate access the moment you choose to enable it.",
+          "Already have a Reader or Author account? There's nothing to sign up for at all: open your dashboard and enable affiliate access from there.",
+        ],
+        imageUrl: undefined,
+      },
       {
         id: "commission-on-sales",
         title: "Earn commission on every sale you refer",
@@ -323,7 +333,11 @@ export const DEFAULT_PAGES_CONTENT: PagesContent = {
         imageUrl: undefined,
       },
     ],
-    bodyHtml: `<h3>Earn commission on every sale you refer</h3>
+    bodyHtml: `<h3>No separate affiliate account</h3>
+<p>Affiliate used to be its own account type here; it no longer is. Today, affiliate capability is built into every Reader and every Author account from the moment you sign up, and turning it on is a single click from your own dashboard, not a second registration form with its own email and password to keep track of.</p>
+<p>If you don't have an account yet, start with whichever one actually describes you: sign up as a Reader if you're here to shop and share books you've read, or as an Author if you're also publishing your own titles with us. Either one gets you full affiliate access the moment you choose to enable it.</p>
+<p>Already have a Reader or Author account? There's nothing to sign up for at all: open your dashboard and enable affiliate access from there.</p>
+<h3>Earn commission on every sale you refer</h3>
 <p>Every affiliate account comes with a unique link for any book on the shelf. When someone buys through your link, a share of that sale is credited to you automatically, no manual tracking or spreadsheets required on your end.</p>
 <p>You can see exactly which books, which links, and which days are earning the most, so you know where to put your effort next.</p>
 <p>It is worth saying plainly, because it surprises a lot of people who join: you do not need a following of any particular size to start earning through this program. A single well placed recommendation, shared in a classroom newsletter, a parents' group chat, or a small local book club, works exactly the same way, mechanically, as a link shared with a much larger audience online.</p>

@@ -1,9 +1,13 @@
 export interface PaymentBadgeUrls {
-  mpesa?: string;
   mastercard?: string;
   visa?: string;
   amex?: string;
+  // Verve is a real card network Paystack checkout actually accepts
+  // (see app/checkout/page.tsx's "Pay securely with Paystack cards"
+  // row) — unrelated to the footer's trust-badge row below, and kept
+  // here even though the footer itself no longer displays it.
   verve?: string;
+  paypal?: string;
 }
 
 /**

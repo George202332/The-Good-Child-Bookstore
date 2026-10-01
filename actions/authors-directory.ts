@@ -1,5 +1,6 @@
 "use server";
 
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
@@ -34,7 +35,19 @@ export interface AuthorsDirectoryRow extends PublishedAuthorNameRow {
   followerCount: number;
 }
 
-export async function listAuthorsDirectoryRows(): Promise<AuthorsDirectoryRow[]> {
+/**
+ * The actual computation, wrapped below in a short-lived cache (see
+ * listAuthorsDirectoryRows) — this was previously run fresh on every
+ * single visit to the author-facing Authors directory (and by anything
+ * else that calls listPublishedAuthorNames), which meant a full-catalog
+ * scan plus a site-wide follower-count aggregation on every click into
+ * that sidebar item. Neither query was slow in isolation (both hit
+ * indexed columns — Book.status and AuthorNameFollow.authorName), but
+ * doing both, every time, with no caching at all, was the real source
+ * of the noticeable delay: a brand-new author directory, computed from
+ * scratch, is not something that needs to be correct to the second.
+ */
+async function computeAuthorsDirectoryRows(): Promise<AuthorsDirectoryRow[]> {
   const [books, followerCounts] = await Promise.all([
     prisma.book.findMany({
       where: { status: "PUBLISHED" },
@@ -69,6 +82,21 @@ export async function listAuthorsDirectoryRows(): Promise<AuthorsDirectoryRow[]>
     }
   }
   return Array.from(byKey.values()).sort((a, b) => b.followerCount - a.followerCount || a.name.localeCompare(b.name));
+}
+
+// Cached for 60 seconds across every visitor/session — a newly published
+// book or a new follow still shows up within a minute, which is more
+// than fresh enough for a directory listing, in exchange for every
+// navigation within that window being instant instead of re-querying
+// and re-aggregating the whole catalog from scratch.
+const getCachedAuthorsDirectoryRows = unstable_cache(
+  computeAuthorsDirectoryRows,
+  ["authors-directory-rows"],
+  { revalidate: 60 }
+);
+
+export async function listAuthorsDirectoryRows(): Promise<AuthorsDirectoryRow[]> {
+  return getCachedAuthorsDirectoryRows();
 }
 
 /** Follower counts grouped by the exact author NAME readers followed —
