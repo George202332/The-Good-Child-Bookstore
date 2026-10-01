@@ -6,6 +6,9 @@ import Link from "next/link";
 import { updateSiteSettings } from "@/actions/site-settings";
 import type { SiteSettings } from "@/lib/site-settings";
 import { ImageUploadField } from "@/components/ImageUploadField";
+import { SOCIAL_PLATFORM_LABELS, type SocialPlatform } from "@/components/SocialIcon";
+
+const SOCIAL_FIELDS: SocialPlatform[] = ["facebook", "instagram", "pinterest", "youtube", "twitter", "tiktok"];
 
 const BADGE_FIELDS: { key: keyof SiteSettings["paymentBadges"]; label: string }[] = [
   { key: "mastercard", label: "Mastercard" },
@@ -97,6 +100,40 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
           />
         ))}
       </div>
+
+      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Social media icons (footer)</h3>
+      <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>
+        6 slots total. Each one needs a destination link to show up in the footer at all — set that first, then
+        optionally upload a logo image to replace the plain built-in icon.
+      </p>
+      {SOCIAL_FIELDS.map((platform) => (
+        <div className="upload-cards-row" key={platform} style={{ alignItems: "flex-end", marginBottom: 12 }}>
+          <ImageUploadField
+            label={`${SOCIAL_PLATFORM_LABELS[platform]} icon image`}
+            recommendedSize="Recommended 64×64px, square"
+            value={settings.socialLinks[platform].imageUrl}
+            onChange={(url) =>
+              setSettings((s) => ({ ...s, socialLinks: { ...s.socialLinks, [platform]: { ...s.socialLinks[platform], imageUrl: url } } }))
+            }
+          />
+          <div style={{ flex: 1, minWidth: 220 }}>
+            <label className="field-label" htmlFor={`social-url-${platform}`}>{SOCIAL_PLATFORM_LABELS[platform]} link</label>
+            <input
+              className="field"
+              id={`social-url-${platform}`}
+              type="text"
+              placeholder="https://..."
+              value={settings.socialLinks[platform].url === "#" ? "" : (settings.socialLinks[platform].url ?? "")}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  socialLinks: { ...s.socialLinks, [platform]: { ...s.socialLinks[platform], url: e.target.value } },
+                }))
+              }
+            />
+          </div>
+        </div>
+      ))}
 
       <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>API credentials moved</h3>
       <p className="field-hint" style={{ margin: "0 0 12px" }}>

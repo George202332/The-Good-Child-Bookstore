@@ -56,12 +56,30 @@ export interface PublishingFormatsEnabled {
   audiobook: boolean;
 }
 
+/** The 6 fixed footer social media slots. Which platform each slot is
+ * for isn't itself admin-editable (that wasn't asked for) — only the
+ * icon image and the destination link for each one are. Leave a slot's
+ * url blank and it's simply not rendered in the footer. */
+export type SocialPlatform = "facebook" | "instagram" | "pinterest" | "youtube" | "twitter" | "tiktok";
+
+export interface SocialLinkSettings {
+  /** Where the icon links to. A blank/missing url hides that slot entirely. */
+  url?: string;
+  /** Admin-uploaded icon image for this slot; falls back to a built-in icon (see components/SocialIcon.tsx) when empty. */
+  imageUrl?: string;
+}
+
+export type SocialLinks = Record<SocialPlatform, SocialLinkSettings>;
+
 export interface SiteSettings {
   logoImageUrl?: string;
   faviconImageUrl?: string;
   footerTagline: string;
   footerCopyright: string;
   paymentBadges: PaymentBadgeUrls;
+  /** The footer's 6 social media icon slots — icon image + destination
+   * link, both editable from /admin/site-settings. */
+  socialLinks: SocialLinks;
   /** Which formats authors can currently submit new titles in — Admin
    * controls this from Book Management. A format switched off here
    * disappears entirely from the "Submit a new title" page's tabs;
@@ -85,6 +103,18 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     "Storybooks chosen for the way they read aloud, the questions they raise at bedtime, and the shelf-worthy art on every cover. Trusted by parents, teachers, and school librarians.",
   footerCopyright: "© 2026 The Good Child Bookstore. Every cover here is invented for storytime.",
   paymentBadges: {},
+  // All 6 slots default to a plain "#" placeholder link (same as the
+  // original 4 hardcoded footer icons before this round) so the footer
+  // always shows all 6 out of the box — an Admin sets each one's real
+  // destination link (and optionally a logo image) in Site Settings.
+  socialLinks: {
+    facebook: { url: "#" },
+    instagram: { url: "#" },
+    pinterest: { url: "#" },
+    youtube: { url: "#" },
+    twitter: { url: "#" },
+    tiktok: { url: "#" },
+  },
   publishingFormatsEnabled: { ebook: true, print: false, audiobook: true },
   apiKeys: { paymentMode: "test", wiseEnabled: true, payoneerEnabled: false },
 };

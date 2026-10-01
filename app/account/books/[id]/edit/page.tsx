@@ -67,6 +67,7 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
           dimensions: (meta.dimensions as string) ?? undefined,
           weightLb: meta.weightLb != null ? Number(meta.weightLb) : undefined,
           descriptionHtml: (meta.longDescriptionHtml as string) ?? book.description ?? "",
+          aiDeclaration: (meta.aiDeclaration as string) ?? "",
           keywords: typeof meta.keywords === "string" ? (meta.keywords as string).split(",").map((k) => k.trim()).filter(Boolean) : [],
           price: String(Number(book.price)),
           taxSetting: (meta.taxSetting as string) ?? "",

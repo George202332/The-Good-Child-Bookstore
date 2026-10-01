@@ -193,13 +193,7 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
           </div>
 
           <div className="az-desc">
-            <p className="az-quote">&quot;A gentle, richly illustrated story built for read-aloud evenings.&quot;</p>
-            <p className="az-lede">A quietly beloved pick from The Good Child Bookstore shelf team.</p>
             <p>{b.blurb}</p>
-            <p>
-              Shelved under {catName(b.category)} for ages {b.age}, and hand-picked for the read-aloud rhythm that
-              makes a bedtime story worth asking for twice.
-            </p>
           </div>
 
           <div className="az-details-card">
@@ -246,6 +240,11 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
               </button>
             </div>
           </div>
+
+          <p className="az-ai-declaration">
+            <strong>AI use declaration:</strong>{" "}
+            {b.aiDeclaration?.trim() || "This author has not provided a statement on AI use for this title."}
+          </p>
         </div>
 
         <div className="buybox">

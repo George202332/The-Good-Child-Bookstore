@@ -1,12 +1,25 @@
 import Link from "next/link";
 import { Motif } from "@/components/Motif";
 import { PALETTES } from "@/lib/data/catalog";
+import { getPagesContent } from "@/actions/page-content";
+
+export const dynamic = "force-dynamic";
 
 /** Converted from aboutHTML() (the-good-child-bookstore_54_1.html:6058-6106).
- * This was never converted in the initial build — 404 in production until now. */
+ * This was never converted in the initial build — 404 in production until now.
+ *
+ * The hero (eyebrow/heading/intro) is now admin-editable from
+ * /admin/site-settings → Page Content → About Us, the same
+ * eyebrow+heading+bodyHtml pattern already used for Blog and Contact Us
+ * (see lib/page-content.ts, actions/page-content.ts). The Values and
+ * Shelf team sections below it stay as fixed page design (not part of
+ * the admin-editable content), except the first value card, which
+ * claimed titles are "read aloud by our team before" being stocked —
+ * directly contradicted by this round's "the platform does not
+ * actually curate or hand-pick books" and reworded to match reality. */
 
 const VALUES = [
-  { motif: "heart" as const, title: "Chosen, not stocked", text: "Every title is read aloud by our team before it earns a spot on the shelf." },
+  { motif: "heart" as const, title: "A real editorial review", text: "Every submission is read by an actual editor before it goes live, checking age appropriateness, accurate metadata, and copyright." },
   { motif: "leaf" as const, title: "Honest age ranges", text: "We would rather undersell a book than have it arrive too scary or too babyish." },
   { motif: "owl" as const, title: "Small and slow", text: "We add a handful of new titles a month, not a hundred: quality over a wall of options." },
   { motif: "sun" as const, title: "Built for reading aloud", text: "Rhythm and page-turns matter as much as the story; we test both." },
@@ -21,19 +34,19 @@ const TEAM = [
 
 const VALUE_BG = ["var(--pink)", "var(--mint)", "var(--lavender)", "#FBE6B8"];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const { about } = await getPagesContent();
   return (
     <div className="wrap">
       <div className="about-hero" style={{ paddingTop: 56 }}>
         <div>
-          <span className="eyebrow">✦ Est. in a spare bedroom, 2021</span>
-          <h1 style={{ fontSize: 36, marginBottom: 16 }}>A bookstore built by people who read out loud for a living.</h1>
-          <p>
-            The Good Child Bookstore started as a shelf of favorites passed between three families who couldn&apos;t
-            find a store that took bedtime reading as seriously as they did. Every book here has been read aloud,
-            argued over, and voted onto the shelf by our small team before it ever reaches a shipping box.
-          </p>
-          <p>We&apos;re not trying to be the biggest children&apos;s bookstore; just the one you trust to hand your child the right book at the right age.</p>
+          <span className="eyebrow">{about.eyebrow}</span>
+          <h1 style={{ fontSize: 36, marginBottom: 16 }}>{about.heading}</h1>
+          {about.bodyHtml ? (
+            <div className="page-body-content" dangerouslySetInnerHTML={{ __html: about.bodyHtml }} />
+          ) : (
+            <p>{about.introText}</p>
+          )}
           <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 10 }}>Browse the bookshelf</Link>
         </div>
         <div className="about-illustration">

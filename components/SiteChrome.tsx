@@ -45,6 +45,7 @@ export function SiteChrome({ children, settings }: { children: ReactNode; settin
           footerTagline={settings.footerTagline}
           footerCopyright={settings.footerCopyright}
           paymentBadges={settings.paymentBadges}
+          socialLinks={settings.socialLinks}
         />
       )}
     </div>

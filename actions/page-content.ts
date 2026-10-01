@@ -28,6 +28,7 @@ export async function getPagesContent(): Promise<PagesContent> {
       return {
         home: { ...DEFAULT_PAGES_CONTENT.home, ...(stored.home ?? {}) },
         shop: withBody(DEFAULT_PAGES_CONTENT.shop, stored.shop),
+        about: withBody(DEFAULT_PAGES_CONTENT.about, stored.about),
         authorship: {
           ...DEFAULT_PAGES_CONTENT.authorship,
           ...(stored.authorship ?? {}),
@@ -76,6 +77,7 @@ export async function updatePagesContent(content: PagesContent): Promise<{ ok: b
 
   revalidatePath("/");
   revalidatePath("/bookshelf");
+  revalidatePath("/about");
   revalidatePath("/authors");
   revalidatePath("/affiliate");
   revalidatePath("/blog");

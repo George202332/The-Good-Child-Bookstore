@@ -9,11 +9,12 @@ import { PageBodyEditor } from "@/components/PageBodyEditor";
 import { MarketingPageEditor } from "./MarketingPageEditor";
 import { LegalPageEditor } from "./LegalPageEditor";
 
-type TabKey = "home" | "shop" | "authorship" | "affiliateMarketing" | "blog" | "contact" | "privacy" | "terms" | "returns" | "faq";
+type TabKey = "home" | "shop" | "about" | "authorship" | "affiliateMarketing" | "blog" | "contact" | "privacy" | "terms" | "returns" | "faq";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "home", label: "Home" },
   { key: "shop", label: "Bookshelf" },
+  { key: "about", label: "About Us" },
   { key: "authorship", label: "Authorship" },
   { key: "affiliateMarketing", label: "Affiliate" },
   { key: "blog", label: "Blog" },
@@ -160,6 +161,16 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
           bodyHtml={content.shop.bodyHtml}
           onHeadingChange={(v) => setContent((c) => ({ ...c, shop: { ...c.shop, heading: v } }))}
           onBodyChange={(v) => setContent((c) => ({ ...c, shop: { ...c.shop, bodyHtml: v } }))}
+        />
+      )}
+
+      {activeTab === "about" && (
+        <SimplePageEditor
+          headingLabel="Heading"
+          heading={content.about.heading}
+          bodyHtml={content.about.bodyHtml}
+          onHeadingChange={(v) => setContent((c) => ({ ...c, about: { ...c.about, heading: v } }))}
+          onBodyChange={(v) => setContent((c) => ({ ...c, about: { ...c.about, bodyHtml: v } }))}
         />
       )}
 

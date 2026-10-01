@@ -52,6 +52,9 @@ export function PrintSubmissionForm() {
   const [ageGroup, setAgeGroup] = useState(AGE_RANGES[0]);
   const [readingLevel, setReadingLevel] = useState(READING_LEVELS[0]);
   const [description, setDescription] = useState("");
+  // The author's own statement of how (or whether) they used AI in
+  // creating this book — shown on the product page's detail card.
+  const [aiDeclaration, setAiDeclaration] = useState("");
 
   // Section 2
   const [authorFirstName, setAuthorFirstName] = useState("");
@@ -141,6 +144,7 @@ export function PrintSubmissionForm() {
         editor,
         translator,
         readingLevel,
+        aiDeclaration: aiDeclaration.trim() || undefined,
         currency: "USD",
         taxSetting: "Calculate automatically by customer location",
         worldwideRights: true,
@@ -247,6 +251,19 @@ export function PrintSubmissionForm() {
         </select>
         <label className="field-label" htmlFor="p-desc">Book description</label>
         <textarea className="field" id="p-desc" rows={4} placeholder="A short back-cover description of the book…" value={description} onChange={(e) => setDescription(e.target.value)} />
+        <label className="field-label" htmlFor="p-ai-declaration" style={{ marginTop: 14 }}>AI use declaration</label>
+        <p className="field-hint" style={{ margin: "0 0 8px" }}>
+          Tell readers how, if at all, you used AI in creating this book — writing, editing, translation, or the cover
+          and interior art. This shows on the book&apos;s product page exactly as written.
+        </p>
+        <textarea
+          className="field"
+          id="p-ai-declaration"
+          rows={3}
+          placeholder="e.g. &quot;Written and illustrated entirely by the author, with no AI involvement.&quot;"
+          value={aiDeclaration}
+          onChange={(e) => setAiDeclaration(e.target.value)}
+        />
       </Card>
 
       {/* Section 2 */}

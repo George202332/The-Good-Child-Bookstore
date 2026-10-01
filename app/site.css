@@ -798,6 +798,7 @@
   .footer-social a{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;transition:background .15s ease;}
   .footer-social a:hover{background:rgba(255,255,255,0.18);}
   .footer-social svg{width:15px;height:15px;}
+  .footer-social-img{width:17px;height:17px;object-fit:contain;display:block;border-radius:2px;}
   footer h4{color:#fff;font-size:14px;margin-bottom:14px;letter-spacing:0.3px;}
   footer .logo{color:#fff;}
   footer p.tag{font-size:14px;line-height:1.6;max-width:280px;margin-top:12px;}
@@ -809,21 +810,32 @@
     display:flex;justify-content:space-between;font-size:13.5px;color:rgba(255,255,255,0.5);
     flex-wrap:wrap;gap:10px;align-items:center;
   }
-  /* Polished per explicit request: each badge sits on its own small
-     white card (rather than floating bare against the dark footer),
-     with a subtle border and lift-on-hover, and a touch more breathing
-     room between them now that they're larger (M-Pesa removed, the
-     remaining four enlarged ~40% — see Footer.tsx). */
-  .footer-payment-badges{display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
-  .footer-payment-badges svg,
-  .footer-payment-badges .payment-badge-img{
-    display:block;background:#ffffff;border-radius:8px;padding:6px 10px;
+  /* Polished per explicit request: each badge sits in a fixed-size white
+     "slot" card (rather than floating bare against the dark footer, or
+     being sized by its own content), ~30% wider than the previous round,
+     with the gap between slots tightened back down. Logo.tsx/Footer.tsx
+     has the full history (M-Pesa removed, PayPal added, sized up once
+     already, now widened again and re-spaced). */
+  .footer-payment-badges{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .payment-badge-slot{
+    display:flex;align-items:center;justify-content:center;
+    width:95px;height:56px;box-sizing:border-box;
+    background:#ffffff;border-radius:8px;padding:8px 10px;
     border:1px solid rgba(255,255,255,0.14);box-shadow:0 1px 2px rgba(0,0,0,0.12);
     transition:transform 0.15s ease, box-shadow 0.15s ease;
   }
-  .footer-payment-badges svg:hover,
-  .footer-payment-badges .payment-badge-img:hover{
+  .payment-badge-slot:hover{
     transform:translateY(-1px);box-shadow:0 4px 10px rgba(0,0,0,0.18);
+  }
+  /* The slot is the fixed footprint; whatever's inside it (an
+     admin-uploaded logo image, or the built-in SVG fallback) scales DOWN
+     or UP to fit within that footprint without stretching its own
+     proportions or being cropped — a wide logo and a tall logo both end
+     up readable at a consistent size instead of however big the file
+     happened to be uploaded at. */
+  .payment-badge-slot img,
+  .payment-badge-slot svg{
+    max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;
   }
 
   /* ---------- Bookshelf / Shop page ---------- */
@@ -1024,8 +1036,8 @@
 
   .az-desc{padding-top:9px;}
   .az-desc p{font-size:14.5px;line-height:1.7;color:var(--ink);margin-bottom:14px;max-width:640px;}
-  .az-desc p.az-lede{font-weight:700;}
-  .az-desc p.az-quote{font-style:italic;color:var(--ink-soft);}
+  .az-ai-declaration{font-size:13px;line-height:1.6;color:var(--ink-soft);margin-top:10px;max-width:640px;}
+  .az-ai-declaration strong{color:var(--ink);}
   .buy-tabs{
     display:flex;gap:8px;margin-bottom:18px;flex-wrap:nowrap;overflow-x:auto;
     scrollbar-width:none;-ms-overflow-style:none;

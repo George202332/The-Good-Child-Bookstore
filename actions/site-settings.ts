@@ -36,6 +36,18 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
         ...DEFAULT_SITE_SETTINGS,
         ...stored,
         paymentBadges: { ...DEFAULT_SITE_SETTINGS.paymentBadges, ...(stored.paymentBadges ?? {}) },
+        // Merged per-slot (not a flat spread) so an older saved settings
+        // row — from before this round, with no socialLinks at all, or a
+        // partial one missing a slot — still comes back with all 6 keys
+        // present and each slot's own defaults intact.
+        socialLinks: {
+          facebook: { ...DEFAULT_SITE_SETTINGS.socialLinks.facebook, ...(stored.socialLinks?.facebook ?? {}) },
+          instagram: { ...DEFAULT_SITE_SETTINGS.socialLinks.instagram, ...(stored.socialLinks?.instagram ?? {}) },
+          pinterest: { ...DEFAULT_SITE_SETTINGS.socialLinks.pinterest, ...(stored.socialLinks?.pinterest ?? {}) },
+          youtube: { ...DEFAULT_SITE_SETTINGS.socialLinks.youtube, ...(stored.socialLinks?.youtube ?? {}) },
+          twitter: { ...DEFAULT_SITE_SETTINGS.socialLinks.twitter, ...(stored.socialLinks?.twitter ?? {}) },
+          tiktok: { ...DEFAULT_SITE_SETTINGS.socialLinks.tiktok, ...(stored.socialLinks?.tiktok ?? {}) },
+        },
         apiKeys: { ...DEFAULT_SITE_SETTINGS.apiKeys, ...(stored.apiKeys ?? {}) },
         publishingFormatsEnabled: { ...DEFAULT_SITE_SETTINGS.publishingFormatsEnabled, ...(stored.publishingFormatsEnabled ?? {}) },
       };

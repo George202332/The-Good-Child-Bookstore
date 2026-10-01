@@ -94,6 +94,7 @@ export interface LegalPageContent {
 export interface PagesContent {
   home: HomeContent;
   shop: SimplePageContent;
+  about: SimplePageContent;
   authorship: MarketingPageContent;
   affiliateMarketing: MarketingPageContent;
   blog: SimplePageContent;
@@ -123,6 +124,14 @@ export const DEFAULT_PAGES_CONTENT: PagesContent = {
     heading: "Every book on the shelf, in one place.",
     introText: "Filter by category, genre, age, price, and format to find the right book for the right reader.",
     bodyHtml: "<p>Filter by category, genre, age, price, and format to find the right book for the right reader.</p>",
+  },
+  about: {
+    eyebrow: "✦ Est. 2021",
+    heading: "A bookstore built for the authors writing for kids, and the families reading to them.",
+    introText: "The Good Child Bookstore is a home for children's authors to publish eBooks, print, and audiobooks directly, and for readers, parents, teachers, and librarians to find them — with real time sales for authors and a straightforward shopping experience for everyone else.",
+    bodyHtml: `<p>The Good Child Bookstore is a home for children's authors to publish eBooks, print, and audiobooks directly, and for readers, parents, teachers, and librarians to find them — with real time sales for authors and a straightforward shopping experience for everyone else.</p>
+<p>We're not a curated boutique shelf: every book on the platform is here because its author chose to publish it, submitted it for a real editorial review covering the basics (accurate metadata, age appropriateness, copyright), and it was approved. What a reader sees is what our authors have written and our own recommendation logic surfaces, not a hand-picked "staff favorites" list.</p>
+<p>We're not trying to be the biggest children's bookstore; just a fair, transparent place for authors to reach readers directly, and for readers to find the right book for the right age.</p>`,
   },
   authorship: {
     eyebrow: "✦ Authorship",

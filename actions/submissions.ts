@@ -127,6 +127,12 @@ export interface SubmissionMetadata {
   dimensions?: string;
   /** In pounds — shown on the product page's detail card. */
   weightLb?: number;
+  /** The author's own statement of how (or whether) they used AI in
+   * creating this book — shown on the product page's detail card in
+   * place of the old "handpicked by our shelf team" line, since the
+   * platform doesn't actually hand-pick or curate titles. Free text,
+   * written by the author at submission; not validated or fact-checked. */
+  aiDeclaration?: string;
   coAuthors?: string;
   illustrator?: string;
   editor?: string;

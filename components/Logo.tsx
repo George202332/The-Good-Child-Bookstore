@@ -16,9 +16,8 @@ import Link from "next/link";
  * (red through violet) across every letter from the G that opens line
  * one to the e that closes line two — a real per-letter gradient, not
  * a two-stop CSS background-image gradient clipped to the text (which
- * only blends between two colors) — plus a thin grey outline
- * (text-stroke) on every letter so the rainbow fill reads as
- * deliberately bold lettering rather than plain colored text.
+ * only blends between two colors). Plain fill, no outline — a grey
+ * text-stroke was tried in an earlier round and explicitly removed.
  *
  * `logoImageUrl`/`subColor` are still accepted (existing callers pass
  * them — SiteChrome, admin site-settings) but unused; the Site Settings
@@ -54,14 +53,7 @@ function RainbowLine({ text, startIndex }: { text: string; startIndex: number })
         const color = letterColor(letterIndex);
         letterIndex += 1;
         return (
-          <span
-            key={i}
-            style={{
-              color,
-              WebkitTextStroke: "0.6px var(--ink-soft, #6b6b6b)",
-              textShadow: "0 0 0.5px var(--ink-soft, #6b6b6b)",
-            }}
-          >
+          <span key={i} style={{ color }}>
             {ch}
           </span>
         );

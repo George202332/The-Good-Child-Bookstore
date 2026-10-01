@@ -54,6 +54,7 @@ export interface EbookSubmissionInitial {
   dimensions?: string;
   weightLb?: number;
   descriptionHtml?: string;
+  aiDeclaration?: string;
   keywords?: string[];
   price?: string;
   taxSetting?: string;
@@ -123,6 +124,11 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
 
   // Book description
   const [descriptionHtml, setDescriptionHtml] = useState(initial?.descriptionHtml ?? "");
+
+  // AI use declaration — the author's own statement of how (or whether)
+  // AI was used in creating this book, shown on the product page's
+  // detail card. Free text, not validated.
+  const [aiDeclaration, setAiDeclaration] = useState(initial?.aiDeclaration ?? "");
 
   // Keywords
   const [keywords, setKeywords] = useState<string[]>(initial?.keywords ?? []);
@@ -217,6 +223,7 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
         dimensions: dimensions.trim() || undefined,
         weightLb: weightLb ? Number(weightLb) : undefined,
         longDescriptionHtml: descriptionHtml,
+        aiDeclaration: aiDeclaration.trim() || undefined,
         taxSetting,
         worldwideRights,
         countryRestrictions,
@@ -451,6 +458,21 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
         <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={400} minHeight={325} />
         <div style={{ marginTop: 18 }}>
           <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} title={title} />
+        </div>
+        <div style={{ marginTop: 18 }}>
+          <label className="field-label" htmlFor="f-ai-declaration">AI use declaration</label>
+          <p className="field-hint" style={{ margin: "0 0 8px" }}>
+            Tell readers how, if at all, you used AI in creating this book — for example writing, editing, translation,
+            or the cover and interior art. This shows on the book&apos;s product page exactly as written.
+          </p>
+          <textarea
+            className="field"
+            id="f-ai-declaration"
+            rows={3}
+            placeholder="e.g. &quot;Written and illustrated entirely by the author, with no AI involvement.&quot; or &quot;Text written by the author; cover art generated with AI.&quot;"
+            value={aiDeclaration}
+            onChange={(e) => setAiDeclaration(e.target.value)}
+          />
         </div>
       </Card>
 

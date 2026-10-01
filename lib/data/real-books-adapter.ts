@@ -89,6 +89,7 @@ function toCatalogBook(row: RealBookRow): Book {
     weightLb?: number;
     publisher?: string;
     publicationDate?: string;
+    aiDeclaration?: string;
   } | null) ?? null;
   const submittedAuthorName = meta?.authorFirstName || meta?.authorLastName
     ? `${meta.authorFirstName ?? ""} ${meta.authorLastName ?? ""}`.trim()
@@ -142,6 +143,7 @@ function toCatalogBook(row: RealBookRow): Book {
     dimensions: meta?.dimensions,
     weightLb: meta?.weightLb,
     publisher: meta?.publisher,
+    aiDeclaration: meta?.aiDeclaration,
     format: [row.hasEbook && "eBook", row.hasPrint && "Print", row.hasAudiobook && "Audiobook"].filter(Boolean).join(", ") || "eBook",
     blurb: row.description ?? "",
     featured: meta?.includeInPromotions ?? false,

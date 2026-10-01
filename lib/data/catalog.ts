@@ -157,6 +157,10 @@ export interface Book {
   /** The publisher name — real submitted books only, from the
    * submission form's Publisher field. */
   publisher?: string;
+  /** The author's own declared statement of their AI use in creating
+   * this book — real submitted books only, from the submission form's
+   * AI Use Declaration field. Shown on the product page's detail card. */
+  aiDeclaration?: string;
   format: string;
   blurb: string;
   featured: boolean;
