@@ -7,7 +7,8 @@
  * pod_package_id (built from LULU_CONFIG, see lib/lulu-config.ts) and
  * its cover/interior PDF URLs.
  *
- * Same honest caveat as the Wise/Payoneer integrations: this is real,
+ * Same honest caveat applies here as it did for this app's other
+ * third-party integrations: this is real,
  * correct integration code written against Lulu's own API
  * documentation, not exercised against a live Lulu account, since this
  * environment has no network access to Lulu and no real credentials

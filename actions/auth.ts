@@ -30,6 +30,13 @@ interface ReaderSignupInput {
   name: string;
   email: string;
   password: string;
+  /** ISO 3166-1 alpha-2 country code — pre-filled from IP-based
+   * detection (see lib/geo.ts) but always reviewed/confirmed by the
+   * user before submitting, never purely automatic (see
+   * app/signup/reader/ReaderSignupForm.tsx). Required: a signup can't
+   * go through with no country selected, regardless of what the IP
+   * lookup returned. */
+  country: string;
   /** Hidden field real users never see or fill — see the signup forms
    * for the CSS that hides it. Non-empty means a bot filled every
    * field it could find; see the bot-defense block below. */
@@ -46,6 +53,7 @@ interface AuthorSignupInput {
   email: string;
   genre: string;
   password: string;
+  country: string;
   honeypot?: string;
   turnstileToken?: string | null;
 }
@@ -65,7 +73,8 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim();
 
-  if (!email || !name || input.password.length < 6) {
+  const country = input.country?.trim().toUpperCase();
+  if (!email || !name || input.password.length < 6 || !country) {
     return { ok: false, error: "Please fill in every field (password must be at least 6 characters)." };
   }
 
@@ -118,18 +127,14 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
     }
   }
 
-  // Every Author and Affiliate gets their own unique referral code at
-  // the point of registration — so an author can immediately start
-  // referring other authors onto the platform from day one, not only
-  // users who separately signed up as (or opted into being) an
-  // Affiliate.
-  const referralCode = role === "AUTHOR" ? await generateUniqueReferralCode(name) : undefined;
-
-  // Real IP-based geolocation (see lib/geo.ts) captured at the moment
-  // of signup — used to show which country an author actually signed
-  // up from (e.g. on the affiliate's "Authors you've referred" table).
-  const { getRequestGeo } = await import("@/lib/geo");
-  const signupGeo = await getRequestGeo();
+  // Every Reader, Author, and Affiliate gets their own unique referral
+  // code at the point of registration — so affiliate capability (referral
+  // links, promotion links, Tier commissions) is available to every
+  // account from creation, no separate activation step needed (see
+  // lib/affiliate-capability.ts) — this used to be an opt-in a Reader
+  // had to turn on from Settings; now it's automatic for everyone, the
+  // same way it's always worked for Authors.
+  const referralCode = await generateUniqueReferralCode(name);
 
   // When the site is in test mode, every new signup is automatically
   // flagged as test data — no manual marking needed.
@@ -143,15 +148,25 @@ export async function registerUser(input: SignupInput): Promise<RegisterResult> 
       name,
       passwordHash,
       role,
-      // Detected automatically from the signup request's IP — no manual
-      // country field on any signup form, for any role (see lib/geo.ts).
-      country: signupGeo.country,
+      // Pre-filled from IP-based detection but always reviewed/confirmed
+      // by the user on the signup form itself before submitting — see
+      // the ReaderSignupInput/AuthorSignupInput country field above and
+      // app/signup/reader/ReaderSignupForm.tsx /
+      // app/signup/author/AuthorSignupForm.tsx. This never blocks
+      // signup regardless of country (see lib/payout-country-restriction.ts
+      // for the separate, payout-only restriction).
+      country,
       isTestData: siteMode === "test",
-      ...(input.role === "READER" ? { readerProfile: { create: {} } } : {}),
+      ...(input.role === "READER"
+        ? {
+            readerProfile: { create: { affiliateAccess: true } },
+            affiliateProfile: { create: { referralCode } },
+          }
+        : {}),
       ...(input.role === "AUTHOR"
         ? {
-            authorProfile: { create: { primaryGenre: input.genre, penName: input.penName?.trim() || null, referredById, country: signupGeo.country } },
-            affiliateProfile: { create: { referralCode: referralCode! } },
+            authorProfile: { create: { primaryGenre: input.genre, penName: input.penName?.trim() || null, referredById, country } },
+            affiliateProfile: { create: { referralCode } },
           }
         : {}),
     },

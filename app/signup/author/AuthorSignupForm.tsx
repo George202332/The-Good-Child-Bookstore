@@ -1,0 +1,116 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { PasswordField } from "@/components/PasswordField";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
+import { registerUser } from "@/actions/auth";
+import { COUNTRIES } from "@/lib/countries";
+
+const GENRES = ["Picture books", "Bedtime stories", "Early readers", "Middle grade", "Activity books"];
+
+/** Converted from signupAuthorHTML()/handleAuthorSignup() (the-good-child-bookstore_54_1.html:6375-6417).
+ * Arrival via an affiliate's author-referral link (?ref=<code>) is now
+ * captured reliably in middleware (proxy.ts), not from a client-side
+ * effect on this page — see actions/auth.ts registerUser(). Country is
+ * pre-filled from IP-based detection (see the server component
+ * page.tsx) but always editable and required. */
+export function AuthorSignupForm({ defaultCountry }: { defaultCountry: string }) {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [penName, setPenName] = useState("");
+  const [email, setEmail] = useState("");
+  const [genre, setGenre] = useState(GENRES[0]);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [country, setCountry] = useState(defaultCountry);
+  const [countryAutoDetected, setCountryAutoDetected] = useState(!!defaultCountry);
+  const [honeypot, setHoneypot] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password !== confirm) {
+      setError("Those passwords do not match.");
+      return;
+    }
+    if (!country) {
+      setError("Please select your country.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    const result = await registerUser({ role: "AUTHOR", name, penName, email, genre, password, country, honeypot, turnstileToken });
+    if (!result.ok) {
+      setSubmitting(false);
+      setError(result.error ?? "Something went wrong. Please try again.");
+      return;
+    }
+    await signIn("credentials", { email, password, redirect: false });
+    router.push("/account");
+  }
+
+  return (
+    <section className="auth-section">
+      <div className="auth-card" style={{ maxWidth: 480 }}>
+        <h1>Create an author account</h1>
+        <p>Submit titles, track earnings, and message readers from your author dashboard.</p>
+        <form onSubmit={handleSubmit}>
+          <label className="field-label" htmlFor="a-name">Full name</label>
+          <input className="field" id="a-name" type="text" placeholder="Your legal name" required value={name} onChange={(e) => setName(e.target.value)} />
+          <label className="field-label" htmlFor="a-pen">
+            Pen name <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(optional)</span>
+          </label>
+          <input className="field" id="a-pen" type="text" placeholder="How readers will see your name" value={penName} onChange={(e) => setPenName(e.target.value)} />
+          <label className="field-label" htmlFor="a-email">Email</label>
+          <input className="field" id="a-email" type="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <label className="field-label" htmlFor="a-genre">What do you write?</label>
+          <select className="field" id="a-genre" value={genre} onChange={(e) => setGenre(e.target.value)}>
+            {GENRES.map((g) => <option key={g}>{g}</option>)}
+          </select>
+          <label className="field-label" htmlFor="a-country">Country</label>
+          <select
+            className="field"
+            id="a-country"
+            required
+            value={country}
+            onChange={(e) => { setCountry(e.target.value); setCountryAutoDetected(false); }}
+          >
+            <option value="">Select your country…</option>
+            {COUNTRIES.map((c) => <option key={c.iso2} value={c.iso2}>{c.name}</option>)}
+          </select>
+          <div className="field-hint" style={{ marginTop: -14, marginBottom: 16 }}>
+            {countryAutoDetected ? "Auto-detected from your location — edit if it's not quite right." : "Used for royalty/commission payout eligibility."}
+          </div>
+          <label className="field-label" htmlFor="a-password">Password</label>
+          <PasswordField id="a-password" placeholder="At least 6 characters" minLength={6} required value={password} onChange={setPassword} />
+          <label className="field-label" htmlFor="a-confirm">Confirm password</label>
+          <PasswordField id="a-confirm" placeholder="Type it again" minLength={6} required value={confirm} onChange={setConfirm} />
+          {/* Honeypot — invisible and unreachable by keyboard tab order for a real
+              visitor, but a plain input a bot's form-filler will still find. */}
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+            style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+            aria-hidden="true"
+          />
+          <TurnstileWidget onToken={setTurnstileToken} />
+          {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
+          <button className="btn btn-primary" type="submit" disabled={submitting}>
+            {submitting ? "Creating…" : "Create author account"}
+          </button>
+        </form>
+        <div className="auth-switch">Here to shop instead? <Link href="/signup/reader">Sign up as a reader</Link></div>
+        <div className="auth-switch">Already have an account? <Link href="/login">Sign in</Link></div>
+      </div>
+    </section>
+  );
+}

@@ -2064,6 +2064,11 @@
 
   /* ===== Shared "professional form" components (Blog/eBook/Profile) ===== */
   .form-section{background:var(--paper);border-radius:16px;padding:24px;margin-bottom:20px;border:1px solid var(--line);}
+  .payout-methods-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  @media (max-width:1000px){ .payout-methods-grid{grid-template-columns:1fr;} }
+  .profile-info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+  @media (max-width:1100px){ .profile-info-grid{grid-template-columns:1fr 1fr;} }
+  @media (max-width:700px){ .profile-info-grid{grid-template-columns:1fr;} }
   .form-section-header{display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
   .form-section-header h3{font-size:15.5px;margin:0;}
   .form-section-header p{font-size:13px;color:var(--ink-faint);margin:2px 0 0;}

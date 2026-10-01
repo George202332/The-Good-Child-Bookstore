@@ -6,10 +6,9 @@ import { fetchEarningsBreakdown, linesForView } from "@/lib/earnings-lines";
  * Same wallet math as actions/wallet.ts getMyWallet() — both now share
  * the exact same earnings fetch (see lib/earnings-lines.ts) — but for
  * an arbitrary userId rather than the current signed-in session, used
- * by the monthly payout cron job
- * (app/api/cron/monthly-payouts/route.ts), which needs to compute
- * every user's wallet in a system context, not a per-request session
- * context.
+ * by the admin-triggered payout queueing action
+ * (actions/payouts.ts queueDuePayouts), which needs to compute every
+ * user's wallet in a system context, not a per-request session context.
  */
 export async function computeWalletForUserId(userId: string, view: "author" | "affiliate"): Promise<{ available: number }> {
   try {

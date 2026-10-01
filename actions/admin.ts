@@ -16,10 +16,11 @@ import { bookAuthorDisplayName } from "@/lib/book-author-name";
  * had no admin/editor surface at all.
  *
  * Book/blog moderation is ADMIN + EDITOR only (canModerateContent()) —
- * ACCOUNTANT can see the backend but has no moderation power. Payout
- * *execution* (actually moving money via Wise) is ADMIN-only, deliberately
- * narrower than "any backend role" — ACCOUNTANT can view payout requests
- * but not approve/reject them.
+ * ACCOUNTANT can see the backend but has no moderation power. Marking a
+ * payout paid/rejected (the admin has already sent the money manually
+ * outside this system) is ADMIN-only, deliberately narrower than "any
+ * backend role" — ACCOUNTANT can view payout requests but not
+ * approve/reject them.
  */
 
 async function requireModerationRole() {
@@ -225,59 +226,31 @@ export async function saveReviewChecklist(bookId: string, checklist: Record<stri
   }
 }
 
+/**
+ * Marks a payout as paid — a direct, synchronous action, since the
+ * admin has already sent the money manually outside this system
+ * (there's no live payment gateway integration any more; see the
+ * CSV/PDF exports on app/admin/payouts/page.tsx). The atomic `updateMany`
+ * guard, keyed off status "REQUESTED", is what makes double-processing
+ * the same payout impossible even if this is clicked twice in a row or
+ * from two tabs — no PROCESSING intermediate state is needed since
+ * nothing asynchronous happens here any more.
+ */
 export async function approvePayoutRequest(payoutId: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminRole();
 
     const claim = await prisma.payoutRequest.updateMany({
-      where: { id: payoutId, status: { in: ["REQUESTED", "APPROVED"] } },
-      data: { status: "PROCESSING" },
+      where: { id: payoutId, status: "REQUESTED" },
+      data: { status: "PAID", resolvedAt: new Date() },
     });
     if (claim.count === 0) {
       return { ok: false, error: "This payout has already been processed (or is no longer pending) — refresh to see its current status." };
     }
 
-    const payout = await prisma.payoutRequest.findUnique({ where: { id: payoutId }, include: { recipient: true } });
-    if (!payout) return { ok: false, error: "Payout request not found." };
-
-    const { getPayoutGatewayStatus } = await import("@/lib/api-keys");
-    const gatewayStatus = await getPayoutGatewayStatus();
-    const gateway = payout.recipient.gateway === "PAYONEER" ? "PAYONEER" : "WISE";
-
-    if (gateway === "WISE" && !gatewayStatus.wiseEnabled) {
-      await prisma.payoutRequest.update({ where: { id: payoutId }, data: { status: "REQUESTED" } });
-      return { ok: false, error: "Wise is currently switched off in Payment Integrations — enable it, or ask this recipient to switch to Payoneer." };
-    }
-    if (gateway === "PAYONEER" && !gatewayStatus.payoneerEnabled) {
-      await prisma.payoutRequest.update({ where: { id: payoutId }, data: { status: "REQUESTED" } });
-      return { ok: false, error: "Payoneer is currently switched off in Payment Integrations — enable it, or ask this recipient to switch to Wise." };
-    }
-
-    const result = gateway === "PAYONEER"
-      ? await (await import("@/lib/payments/payoneer")).executePayoneerPayout(
-          Number(payout.amount), payout.recipient.currency, payout.recipient.payoneerRecipientId ?? payout.recipient.id, payout.id
-        )
-      : await (await import("@/lib/payments/wise")).executeWisePayout(
-          Number(payout.amount), payout.recipient.currency, payout.recipient.wiseRecipientId ?? payout.recipient.id, payout.id
-        );
-
-    if (result.ok) {
-      await prisma.payoutRequest.update({
-        where: { id: payoutId },
-        data: { status: "PAID", resolvedAt: new Date(), wiseTransferId: result.transferId },
-      });
-      await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent via ${gateway === "PAYONEER" ? "Payoneer" : "Wise"}.`, "PAYOUT", payout.id);
-    } else {
-      // Release the claim — a failed transfer must go back to a
-      // reviewable state, not stay stuck in PROCESSING forever. Back to
-      // REQUESTED specifically, since that's the only status the admin
-      // payouts list queries for; releasing to anything else would make
-      // a failed payout silently vanish from that queue.
-      await prisma.payoutRequest.update({
-        where: { id: payoutId },
-        data: { status: "REQUESTED", failureReason: result.error },
-      });
-      return { ok: false, error: result.error ?? `${gateway === "PAYONEER" ? "Payoneer" : "Wise"} payout failed — it may not be configured in this environment.` };
+    const payout = await prisma.payoutRequest.findUnique({ where: { id: payoutId } });
+    if (payout) {
+      await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
     }
     revalidatePath("/admin/payouts");
     return { ok: true };

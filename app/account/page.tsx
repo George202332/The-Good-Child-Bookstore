@@ -8,7 +8,6 @@ import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { getMyLinkPerformance } from "@/actions/affiliate-performance";
 import { listMyNotifications } from "@/actions/notifications";
 import { notificationTypeInfo, RECENT_ACTIVITY_TYPES, recentActivityLine } from "@/lib/notification-types";
-import { EnableAffiliateBanner } from "@/components/EnableAffiliateBanner";
 import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { LiveRefresher } from "@/components/LiveRefresher";
@@ -135,8 +134,6 @@ export default async function AccountPage() {
             <div className="stat-sub">{affiliateStatus.enabled ? "All time" : "Not enrolled"}</div>
           </div>
         </div>
-
-        {!affiliateStatus.enabled && <EnableAffiliateBanner />}
 
         <h3 style={{ fontSize: 16, marginBottom: 14 }}>Recent orders</h3>
         <div className="map-card" style={{ padding: "6px 16px", marginBottom: 34 }}>
@@ -362,12 +359,9 @@ export default async function AccountPage() {
                 <Link href="/account/promotions" style={{ display: "inline-block", marginTop: 10, fontSize: 12, fontWeight: 700, color: "var(--coral-deep)" }}>Manage affiliate program →</Link>
               </>
             ) : (
-              <>
-                <p style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 10 }}>
-                  Authors can also be affiliates; earn commission promoting your own or other authors&apos; books.
-                </p>
-                <EnableAffiliateBanner />
-              </>
+              <p style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+                Nothing promoted yet — visit Promotions to get your first affiliate link.
+              </p>
             )}
           </div>
 

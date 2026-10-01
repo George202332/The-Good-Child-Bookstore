@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPayoutLedger } from "@/actions/payout-ledger";
-import { buildWiseBatchCsv } from "@/lib/csv/payout-wise-batch";
+import { buildPayoutBatchCsv } from "@/lib/csv/payout-batch";
 import { buildPayoutLedgerPdf } from "@/lib/pdf/payout-ledger";
 
 /**
  * Downloads the full admin payout ledger (see actions/payout-ledger.ts
  * for the ADMIN/ACCOUNTANT-only authorization check it performs
- * itself) as either a Wise-ready bulk-payment CSV (?format=csv, the
+ * itself) as either a manual-bulk-payment CSV (?format=csv, the
  * default) or an internal record-keeping PDF (?format=pdf).
  */
 export async function GET(req: NextRequest) {
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const csv = buildWiseBatchCsv(rows);
+  const csv = buildPayoutBatchCsv(rows);
   return new NextResponse(csv, {
     status: 200,
     headers: {

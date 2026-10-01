@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
+import { prisma } from "@/lib/prisma";
 import { getMyProfile } from "@/actions/profile";
 import { ProfileForm } from "./ProfileForm";
 import { PaymentDetailsSection } from "./PaymentDetailsSection";
-import { listMyWiseRecipients } from "@/actions/wise-recipients";
+import { listMyPayoutMethods } from "@/actions/payout-methods";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 
 export default async function ProfilePage() {
@@ -17,7 +18,8 @@ export default async function ProfilePage() {
   if (!profile) redirect("/login");
 
   const isPayoutEligible = role === "AUTHOR" || (await hasAffiliateCapability(session.user.id));
-  const recipients = isPayoutEligible ? await listMyWiseRecipients() : [];
+  const recipients = isPayoutEligible ? await listMyPayoutMethods() : [];
+  const user = isPayoutEligible ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { country: true } }) : null;
 
   return (
     <DashboardShell role={role} activeKey="profile" displayName={session.user.name ?? ""}>
@@ -30,7 +32,7 @@ export default async function ProfilePage() {
       <ProfileForm initial={profile} />
       {isPayoutEligible && (
         <div style={{ marginTop: 20 }}>
-          <PaymentDetailsSection initial={recipients} />
+          <PaymentDetailsSection initial={recipients} country={user?.country ?? null} />
         </div>
       )}
     </DashboardShell>

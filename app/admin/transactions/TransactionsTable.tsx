@@ -136,7 +136,6 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                   <>
                     <DetailRow label="Currency" value={detail.currency ?? "—"} />
                     <DetailRow label="Earnings type" value={detail.earningsType ?? "—"} />
-                    <DetailRow label="Wise transfer ID" value={detail.wiseTransferId ?? "—"} />
                     <DetailRow label="Failure reason" value={detail.failureReason ?? "—"} />
                     <DetailRow label="Resolved" value={detail.resolvedAt ? new Date(detail.resolvedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—"} />
                   </>

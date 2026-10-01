@@ -39,13 +39,14 @@ export async function getAuthorTransactions(): Promise<AuthorTransactionRow[]> {
       }))
     );
 
-    const payouts = await prisma.payoutRequest.findMany({ where: { userId: session.user.id } });
-    const payoutRows: AuthorTransactionRow[] = payouts.map((p: { id: string; requestedAt: Date; amount: unknown; status: string }) => ({
+    const payouts = await prisma.payoutRequest.findMany({ where: { userId: session.user.id }, include: { recipient: true } });
+    const { payoutMethodLabel } = await import("@/lib/payout-method-label");
+    const payoutRows: AuthorTransactionRow[] = payouts.map((p: { id: string; requestedAt: Date; amount: unknown; status: string; recipient: { type: string } | null }) => ({
       id: p.id,
       date: p.requestedAt.toISOString(),
       type: "Payout" as const,
-      party: "Wise payout",
-      method: "Wise",
+      party: "Payout",
+      method: p.recipient ? payoutMethodLabel(p.recipient.type) : "—",
       amount: Number(p.amount),
       status: p.status,
     }));

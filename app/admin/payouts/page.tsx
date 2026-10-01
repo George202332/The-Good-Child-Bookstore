@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { PayoutsTable } from "./PayoutsTable";
+import { QueuePayoutsButton } from "./QueuePayoutsButton";
 import { getPayoutLedger } from "@/actions/payout-ledger";
 import type { Role } from "@/lib/roles";
 
@@ -11,9 +12,12 @@ import type { Role } from "@/lib/roles";
  * approval, filtered to status "REQUESTED", which is why George
  * couldn't find a record of anything already paid or rejected). See
  * actions/payout-ledger.ts for where this data comes from, and
- * app/api/admin/payout-ledger/route.ts for the CSV (Wise bulk-payment
+ * app/api/admin/payout-ledger/route.ts for the CSV (manual bulk-payment
  * format) and PDF (internal record) exports below.
  *
+ * Payouts are executed manually by an admin outside this system — the
+ * "Queue this month's due payouts" button (actions/payouts.ts
+ * queueDuePayouts) replaces the old automatic monthly cron, and
  * "Mark paid"/"Reject" (ModerationActions, unchanged) still only apply
  * to a row still in the REQUESTED state and are still Admin-only —
  * Accountant keeps view-only access to the whole ledger, matching the
@@ -45,13 +49,15 @@ export default async function PayoutsPage() {
         <div>
           <h2 style={{ fontSize: 20 }}>Payout Requests</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            Every payout ever queued — completed, rejected, or still owed. All payouts go through Wise.
+            Every payout ever queued — completed, rejected, or still owed. Payouts are sent manually; use the exports
+            below to drive that.
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {role === "ADMIN" && <QueuePayoutsButton />}
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page navigation */}
           <a href="/api/admin/payout-ledger?format=csv" className="btn btn-primary btn-small">
-            Export Wise CSV
+            Export Payout CSV
           </a>
           {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page navigation */}
           <a href="/api/admin/payout-ledger?format=pdf" className="btn btn-ghost btn-small">

@@ -137,7 +137,7 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
 
       <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>API credentials moved</h3>
       <p className="field-hint" style={{ margin: "0 0 12px" }}>
-        All third-party API keys and credentials (Paystack, Wise, Payoneer, Lulu, Resend, Google Workspace) now live
+        All third-party API keys and credentials (Paystack, Lulu, Resend, Google Workspace) now live
         in their own dedicated page — see <Link href="/admin/api-management">Admin → API Management</Link>.
       </p>
 

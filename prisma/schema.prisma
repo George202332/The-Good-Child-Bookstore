@@ -69,9 +69,11 @@ enum OrderStatus {
 enum PayoutStatus {
   REQUESTED
   APPROVED
-  /** Claimed by an approvePayoutRequest call that's actively calling
-   * the Wise API right now — see actions/admin.ts for why this exists:
-   * it's what makes a duplicate/concurrent approval impossible. */
+  /** No longer used by approvePayoutRequest (actions/admin.ts), which
+   * now flips REQUESTED straight to PAID — a payout is sent manually by
+   * an admin outside this system, so there's no asynchronous gateway
+   * call to be "processing". Kept in the enum so historical rows that
+   * may have landed in this state under the old flow still read sensibly. */
   PROCESSING
   PAID
   REJECTED
@@ -743,17 +745,15 @@ model PayoutRequest {
   currency       String
   status         PayoutStatus @default(REQUESTED)
   /** "AUTHOR" or "AFFILIATE" — which wallet this specific payout was
-   * queued from (see app/api/cron/monthly-payouts/route.ts, which runs
-   * two independent loops and creates one PayoutRequest per loop per
+   * queued from (see actions/payouts.ts queueDuePayouts, which runs two
+   * independent loops and creates one PayoutRequest per loop per
    * person). An author who is also an affiliate gets two separate rows
-   * in the same monthly run, one of each type — this is what lets the
-   * admin payout ledger (app/admin/payouts/page.tsx) show book-sales
-   * earnings and affiliate earnings as genuinely separate figures
-   * instead of one blended number. Defaults to "AUTHOR" so existing
-   * rows created before this field existed still read sensibly. */
+   * in the same run, one of each type — this is what lets the admin
+   * payout ledger (app/admin/payouts/page.tsx) show book-sales earnings
+   * and affiliate earnings as genuinely separate figures instead of one
+   * blended number. Defaults to "AUTHOR" so existing rows created
+   * before this field existed still read sensibly. */
   earningsType   String       @default("AUTHOR")
-  wiseQuoteId    String?
-  wiseTransferId String?
   failureReason  String?
   requestedAt    DateTime     @default(now())
   resolvedAt     DateTime?
@@ -763,31 +763,25 @@ model PayoutRequest {
 }
 
 /**
- * A payout destination on Wise — replaces direct Paystack payouts, since
- * Paystack payouts are limited to a small set of countries and this
- * platform needs to pay out authors/affiliates internationally
- * (explicitly requested: "all payouts will be done through Wise").
- * `type` matches Wise's own recipient account types (e.g. "mpesa" for
- * Kenyan M-Pesa mobile money, "iban"/"sort_code" for bank transfers,
- * "email" for some currencies) — see lib/payments/wise.ts.
+ * A payout destination on file for an author/affiliate — PayPal, bank
+ * transfer, or M-Pesa. The model name is kept as "WiseRecipient" for
+ * historical reasons (it originally backed a live Wise integration,
+ * since removed per explicit instruction — payouts are now executed
+ * manually by an admin outside this system, see actions/admin.ts
+ * approvePayoutRequest and actions/payout-methods.ts); renaming the
+ * model would force `prisma db push` to drop and recreate the table,
+ * losing production data, so only the action layer and UI were renamed.
+ * `type` is one of "email" (PayPal), "bank", or "mpesa" — see
+ * actions/payout-methods.ts.
  */
 model WiseRecipient {
   id                String   @id @default(cuid())
   userId            String
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /** "WISE" or "PAYONEER" — which payout gateway this recipient record
-   * is for. Each payout is tied to exactly one recipient, so it only
-   * ever goes through exactly one gateway — combined with the atomic
-   * claim in approvePayoutRequest (actions/admin.ts), this is what
-   * makes double-paying the same payout through both systems
-   * impossible, not just unlikely. */
-  gateway           String   @default("WISE")
   type              String
   currency          String
   accountHolderName String
   details           Json
-  wiseRecipientId   String?
-  payoneerRecipientId String?
   isDefault         Boolean  @default(false)
   createdAt         DateTime @default(now())
   payoutRequests    PayoutRequest[]

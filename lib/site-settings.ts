@@ -25,8 +25,10 @@ export interface PaymentBadgeUrls {
  * mode the currently-entered pair actually is (Paystack test and live
  * keys are already distinguishable by their own sk_test_/sk_live_ and
  * pk_test_/pk_live_ prefixes), not a switch between two stored sets.
- * Wise (real money transfers for author/affiliate payouts) and Lulu
- * (print-on-demand) get the same backend-manageable treatment.
+ * Lulu (print-on-demand) gets the same backend-manageable treatment.
+ * Author/affiliate payouts are executed manually by an admin outside
+ * this system (see actions/admin.ts and actions/payouts.ts), so there
+ * are no payout-gateway credentials here any more.
  */
 export interface ApiKeys {
   luluClientKey?: string;
@@ -38,16 +40,6 @@ export interface ApiKeys {
   paymentMode: "test" | "live";
   paystackSecretKey?: string;
   paystackPublicKey?: string;
-  wiseApiToken?: string;
-  wiseProfileId?: string;
-  /** Independently controls whether each payout gateway can actually be
-   * used — approvePayoutRequest (actions/admin.ts) refuses to process a
-   * payout through a gateway that's switched off here, regardless of
-   * which one the recipient's own record points to. */
-  wiseEnabled?: boolean;
-  payoneerEnabled?: boolean;
-  payoneerClientId?: string;
-  payoneerClientSecret?: string;
 }
 
 export interface PublishingFormatsEnabled {
@@ -116,5 +108,5 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     tiktok: { url: "#" },
   },
   publishingFormatsEnabled: { ebook: true, print: false, audiobook: true },
-  apiKeys: { paymentMode: "test", wiseEnabled: true, payoneerEnabled: false },
+  apiKeys: { paymentMode: "test" },
 };

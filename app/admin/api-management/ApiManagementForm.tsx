@@ -148,59 +148,6 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
       </div>
 
       {/* ---------------------------------------------------------- */}
-      {/* Payouts (Wise / Payoneer)                                   */}
-      {/* ---------------------------------------------------------- */}
-      <h3 style={{ fontSize: 15, margin: "24px 0 10px" }}>Payouts (author/affiliate)</h3>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Active payout provider</h4>
-      <p className="field-hint" style={{ margin: "0 0 10px" }}>
-        Only one provider is ever active at a time — switching to one automatically switches the other off.
-      </p>
-      <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-          <input
-            type="radio"
-            name="active-payout-provider"
-            checked={(settings.apiKeys.wiseEnabled ?? true) && !settings.apiKeys.payoneerEnabled}
-            onChange={() => update({ wiseEnabled: true, payoneerEnabled: false })}
-          />
-          Wise
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-          <input
-            type="radio"
-            name="active-payout-provider"
-            checked={!!settings.apiKeys.payoneerEnabled && !settings.apiKeys.wiseEnabled}
-            onChange={() => update({ wiseEnabled: false, payoneerEnabled: true })}
-          />
-          Payoneer
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-          <input
-            type="radio"
-            name="active-payout-provider"
-            checked={!settings.apiKeys.wiseEnabled && !settings.apiKeys.payoneerEnabled}
-            onChange={() => update({ wiseEnabled: false, payoneerEnabled: false })}
-          />
-          Neither (pause all payouts)
-        </label>
-      </div>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Wise</h4>
-      <SecretField id="api-wise-token" label="API Token" isSet={apiKeysSet.wiseApiToken} value={settings.apiKeys.wiseApiToken ?? ""} onChange={(v) => update({ wiseApiToken: v })} />
-      <p className="field-hint" style={{ margin: "4px 0 12px" }}>
-        Just the one token — Wise doesn&apos;t use a separate public/secret pair. Your Wise profile is looked up
-        automatically from this token when you save.{" "}
-        {apiKeysSet.wiseProfileId && "A profile is currently connected."}
-      </p>
-
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Payoneer</h4>
-      <div className="form-grid-2">
-        <SecretField id="api-payoneer-secret" label="Client Secret" isSet={apiKeysSet.payoneerClientSecret} value={settings.apiKeys.payoneerClientSecret ?? ""} onChange={(v) => update({ payoneerClientSecret: v })} />
-        <SecretField id="api-payoneer-public" label="Client ID" isSet={apiKeysSet.payoneerClientId} value={settings.apiKeys.payoneerClientId ?? ""} onChange={(v) => update({ payoneerClientId: v })} />
-      </div>
-
-      {/* ---------------------------------------------------------- */}
       {/* Print-on-demand + Email                                     */}
       {/* ---------------------------------------------------------- */}
       <h3 style={{ fontSize: 15, margin: "24px 0 10px" }}>Print-on-Demand (Lulu)</h3>

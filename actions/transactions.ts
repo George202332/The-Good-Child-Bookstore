@@ -103,7 +103,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       date: p.requestedAt.toISOString(),
       type: "Payout",
       party: p.user.name,
-      detail: "Wise payout",
+      detail: "Payout",
       amount: Number(p.amount),
       companyShare: null,
       authorShare: null,
@@ -141,7 +141,6 @@ export interface TransactionDetail {
   currency?: string;
   earningsType?: string;
   gateway?: string | null;
-  wiseTransferId?: string | null;
   failureReason?: string | null;
   requestedAt?: string;
   resolvedAt?: string | null;
@@ -203,7 +202,6 @@ export async function getTransactionDetail(id: string, type: "sale" | "payout"):
       partyEmail: payout.user.email,
       currency: payout.currency,
       earningsType: payout.earningsType,
-      wiseTransferId: payout.wiseTransferId,
       failureReason: payout.failureReason,
       requestedAt: payout.requestedAt.toISOString(),
       resolvedAt: payout.resolvedAt ? payout.resolvedAt.toISOString() : null,
@@ -226,7 +224,7 @@ export async function getTransactionDetail(id: string, type: "sale" | "payout"):
  *   for a PayoutRequest) is deleted too, via the loose relatedRecordId
  *   reference set when that notification was created (see
  *   lib/payments/finalize.ts and the createNotification call sites in
- *   actions/admin.ts / app/api/webhooks/wise/route.ts). Without this,
+ *   actions/admin.ts). Without this,
  *   the author's or reader's Recent Activity would still show a
  *   notification about a "sale" or "payout" that no longer exists.
  * - For a sale specifically, deleting the SaleLine can leave its

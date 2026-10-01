@@ -9,8 +9,10 @@ import type { ApiKeys } from "@/lib/site-settings";
  *
  * Rebuilt per explicit instruction: PayPal removed. Paystack now uses a
  * single secret/public pair (not separate test/live pairs) — paymentMode
- * is just a label for which kind of key is currently entered. Wise and
- * Lulu are both backend-manageable now too.
+ * is just a label for which kind of key is currently entered. Lulu is
+ * backend-manageable too. Payouts (author/affiliate) are executed
+ * manually by an admin outside this system — see actions/admin.ts and
+ * actions/payouts.ts — so there's no payout-gateway credential here.
  */
 
 async function getStoredApiKeys(): Promise<ApiKeys | null> {
@@ -39,30 +41,3 @@ export async function getPaystackCredentials(): Promise<{ secretKey: string | un
   };
 }
 
-export async function getWiseCredentials(): Promise<{ apiToken: string | undefined; profileId: string | undefined }> {
-  const stored = await getStoredApiKeys();
-  return {
-    apiToken: stored?.wiseApiToken?.trim() || process.env.WISE_API_TOKEN,
-    profileId: stored?.wiseProfileId?.trim() || process.env.WISE_PROFILE_ID,
-  };
-}
-
-export async function getPayoneerCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined }> {
-  const stored = await getStoredApiKeys();
-  return {
-    clientId: stored?.payoneerClientId?.trim() || process.env.PAYONEER_CLIENT_ID,
-    clientSecret: stored?.payoneerClientSecret?.trim() || process.env.PAYONEER_CLIENT_SECRET,
-  };
-}
-
-/** Whether each payout gateway is currently switched on — defaults
- * match DEFAULT_SITE_SETTINGS (Wise on, Payoneer off) if nothing's
- * been saved yet. */
-export async function getPayoutGatewayStatus(): Promise<{ wiseEnabled: boolean; payoneerEnabled: boolean }> {
-  const stored = await getStoredApiKeys();
-  const wiseEnabled = stored?.wiseEnabled ?? true;
-  return {
-    wiseEnabled,
-    payoneerEnabled: wiseEnabled ? false : (stored?.payoneerEnabled ?? false),
-  };
-}

@@ -1,15 +1,15 @@
 /**
- * Turns a WiseRecipient's raw `type` key (Wise's own account-type name,
- * e.g. "iban", "sort_code", "mpesa" — see lib/payments/wise.ts and the
- * comment on the WiseRecipient model) into the plain payment-method
+ * Turns a WiseRecipient's raw `type` key into the plain payment-method
  * label used on the admin payout ledger (app/admin/payouts/page.tsx):
- * PayPal, bank transfer, or wire transfer, matching how George
- * describes these to himself. Wise's real, dynamic account-requirement
- * types vary by currency and aren't a fixed list, so anything not
- * explicitly recognized below falls back to a readable version of the
- * raw key rather than guessing wrong.
+ * PayPal, bank transfer, or M-Pesa, matching how George describes these
+ * to himself. "bank" is the current fixed type used by
+ * actions/payout-methods.ts (see PaymentDetailsSection.tsx) — the older
+ * keys below (iban, sort_code, etc.) are kept harmlessly so historical
+ * records from before that change still show a readable label instead
+ * of falling through to the raw key.
  */
 const KNOWN_METHOD_LABELS: Record<string, string> = {
+  bank: "Bank transfer",
   iban: "Bank transfer",
   sort_code: "Bank transfer",
   account_number: "Bank transfer",

@@ -16,7 +16,7 @@ import { wrapEmailHtml } from "@/lib/email/template";
  * override it from Admin → API Management → Email without touching
  * environment variables or redeploying — the same pattern already
  * used for every other third-party credential in this app (Paystack,
- * Wise, Lulu). If neither the database override nor RESEND_API_KEY is
+ * Lulu). If neither the database override nor RESEND_API_KEY is
  * set, sends are skipped with a clear, loggable reason rather than
  * throwing — a missing email configuration should never take down an
  * order confirmation or any other flow that calls this.

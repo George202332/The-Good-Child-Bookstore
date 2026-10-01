@@ -1,25 +1,38 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { addWiseRecipient, deleteWiseRecipient, setDefaultWiseRecipient, getRequiredFieldsForCurrency, type WiseRecipientRow } from "@/actions/wise-recipients";
-import type { WiseRequiredField } from "@/lib/payments/wise";
+import {
+  addPayoutMethod,
+  updatePayoutMethod,
+  setActivePayoutMethod,
+  type PayoutMethodRow,
+} from "@/actions/payout-methods";
+import { isPayoutMethodLocked, payoutLockMessage } from "@/lib/payout-lock";
+import { isPayoutRestrictedCountry, payoutRestrictionMessage } from "@/lib/payout-country-restriction";
 
 /**
- * Payment Details — moved here from Payout Settings per explicit
- * instruction. Presents the 3 real payout methods (PayPal, Bank
+ * Payment Details — presents the 3 real payout methods (PayPal, Bank
  * transfer, M-Pesa) as toggle cards rather than an open-ended add/remove
- * list: exactly one is active at a time, and whichever one is toggled
- * on is the method actually used when the automatic monthly payout runs
- * (same underlying WiseRecipient.isDefault this app already used, just
- * a simpler 3-option interface on top of it instead of an unlimited
- * recipient manager).
+ * list: at most one is active at a time, and whichever one is active is
+ * the method an admin pays out to when they review and send that
+ * month's payouts manually (see actions/admin.ts approvePayoutRequest
+ * and actions/payouts.ts queueDuePayouts — there is no automatic
+ * payment execution any more).
+ *
+ * Bank transfer uses a fixed, generic field set (bank name, account
+ * number, SWIFT/routing code, country) rather than a live per-currency
+ * lookup — this app no longer talks to any payment gateway to discover
+ * what a given currency needs.
  */
-function Toggle({ type, on, savingType, onActivate }: { type: "email" | "bank" | "mpesa"; on: boolean; savingType: string | null; onActivate: (t: "email" | "bank" | "mpesa") => void }) {
+
+type MethodType = "email" | "bank" | "mpesa";
+
+function Toggle({ type, on, locked, savingType, onActivate }: { type: MethodType; on: boolean; locked: boolean; savingType: string | null; onActivate: (t: MethodType) => void }) {
   return (
-    <label className="toggle-row" style={{ marginBottom: 0 }}>
+    <label className="toggle-row" style={{ marginBottom: 0, opacity: locked && !on ? 0.6 : 1 }}>
       <span className="toggle-switch">
-        <input type="checkbox" checked={on} disabled={savingType === type} onChange={() => { if (!on) onActivate(type); }} />
+        <input type="checkbox" checked={on} disabled={savingType === type || (locked && !on)} onChange={() => { if (!on) onActivate(type); }} />
         <span className="toggle-slider" />
       </span>
       <span style={{ fontWeight: 700, fontSize: 13.5 }}>{on ? "Active for payouts" : "Use this method"}</span>
@@ -27,12 +40,15 @@ function Toggle({ type, on, savingType, onActivate }: { type: "email" | "bank" |
   );
 }
 
-export function PaymentDetailsSection({ initial }: { initial: WiseRecipientRow[] }) {
+export function PaymentDetailsSection({ initial, country }: { initial: PayoutMethodRow[]; country: string | null }) {
   const router = useRouter();
   const paypal = initial.find((r) => r.type === "email");
   const bank = initial.find((r) => r.type === "bank");
   const mpesa = initial.find((r) => r.type === "mpesa");
   const active = initial.find((r) => r.isDefault)?.type;
+  const hasActiveMethod = !!active;
+  const locked = hasActiveMethod && isPayoutMethodLocked();
+  const restricted = isPayoutRestrictedCountry(country);
 
   const [savingType, setSavingType] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -41,205 +57,175 @@ export function PaymentDetailsSection({ initial }: { initial: WiseRecipientRow[]
   const [paypalName, setPaypalName] = useState(paypal?.accountHolderName ?? "");
 
   const [bankName, setBankName] = useState(bank?.accountHolderName ?? "");
+  const [bankCountry, setBankCountry] = useState((bank?.details.country as string) ?? "");
+  const [bankInstitution, setBankInstitution] = useState((bank?.details.bankName as string) ?? "");
+  const [bankAccountNumber, setBankAccountNumber] = useState((bank?.details.accountNumber as string) ?? "");
+  const [bankSwiftCode, setBankSwiftCode] = useState((bank?.details.swiftOrRoutingCode as string) ?? "");
   const [bankCurrency, setBankCurrency] = useState(bank?.currency ?? "USD");
-  const [bankDynamicFields, setBankDynamicFields] = useState<WiseRequiredField[] | null>(null);
-  const [bankAccountType, setBankAccountType] = useState<string>(bank?.type ?? "");
-  const [bankFieldValues, setBankFieldValues] = useState<Record<string, string>>((bank?.details as Record<string, string>) ?? {});
-  const [loadingFields, setLoadingFields] = useState(false);
-  const [fieldsError, setFieldsError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!bankCurrency.trim() || bankCurrency.length !== 3) return;
-    const timer = setTimeout(() => {
-      setLoadingFields(true);
-      setFieldsError(null);
-      getRequiredFieldsForCurrency(bankCurrency.toUpperCase()).then((res) => {
-        setLoadingFields(false);
-        if ("error" in res) {
-          setFieldsError(res.error);
-          setBankDynamicFields(null);
-          return;
-        }
-        const firstType = res[0];
-        if (firstType) {
-          setBankAccountType(firstType.type);
-          setBankDynamicFields(firstType.fields);
-        }
-      });
-    }, 600);
-    return () => clearTimeout(timer);
-  }, [bankCurrency]);
 
   const [mpesaName, setMpesaName] = useState(mpesa?.accountHolderName ?? "");
   const [mpesaPhone, setMpesaPhone] = useState((mpesa?.details.phoneNumber as string) ?? "");
 
-  async function activate(type: "email" | "bank" | "mpesa") {
+  function editLockedFor(type: MethodType): boolean {
+    return active === type && locked;
+  }
+
+  async function activate(type: MethodType) {
     setError(null);
     const existing = type === "email" ? paypal : type === "bank" ? bank : mpesa;
 
-    // Already saved with these exact details and just needs to become
-    // the active one.
     if (existing) {
+      if (hasActiveMethod && locked) { setError(payoutLockMessage()); return; }
       setSavingType(type);
-      await setDefaultWiseRecipient(existing.id);
+      const res = await setActivePayoutMethod(existing.id);
       setSavingType(null);
+      if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
       router.refresh();
       return;
     }
 
-    // Not saved yet — validate and create it as the active method.
+    // Not saved yet — validate and create it. Adding a brand-new method
+    // is always allowed, regardless of date — it only becomes active
+    // for payouts once created, which addPayoutMethod itself handles.
     if (type === "email") {
       if (!paypalEmail.trim() || !paypalName.trim()) { setError("Enter your name and PayPal email first."); return; }
       setSavingType(type);
-      const res = await addWiseRecipient({ type: "email", currency: "USD", accountHolderName: paypalName, details: { email: paypalEmail } });
+      const res = await addPayoutMethod({ type: "email", currency: "USD", accountHolderName: paypalName, details: { email: paypalEmail } });
       setSavingType(null);
       if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
     } else if (type === "bank") {
-      if (!bankName.trim() || !bankAccountType) { setError("Enter your account holder name and fill in the required fields first."); return; }
+      if (!bankName.trim() || !bankInstitution.trim() || !bankAccountNumber.trim() || !bankSwiftCode.trim() || !bankCountry.trim()) {
+        setError("Fill in every bank transfer field first.");
+        return;
+      }
       setSavingType(type);
-      const res = await addWiseRecipient({ type: bankAccountType, currency: bankCurrency, accountHolderName: bankName, details: bankFieldValues });
+      const res = await addPayoutMethod({
+        type: "bank",
+        currency: bankCurrency || "USD",
+        accountHolderName: bankName,
+        details: { bankName: bankInstitution, accountNumber: bankAccountNumber, swiftOrRoutingCode: bankSwiftCode, country: bankCountry },
+      });
       setSavingType(null);
       if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
     } else {
       if (!mpesaName.trim() || !mpesaPhone.trim()) { setError("Enter your name and M-Pesa phone number first."); return; }
       setSavingType(type);
-      const res = await addWiseRecipient({ type: "mpesa", currency: "KES", accountHolderName: mpesaName, details: { phoneNumber: mpesaPhone } });
+      const res = await addPayoutMethod({ type: "mpesa", currency: "KES", accountHolderName: mpesaName, details: { phoneNumber: mpesaPhone } });
       setSavingType(null);
       if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
     }
     router.refresh();
   }
 
-  async function updateDetails(type: "email" | "bank" | "mpesa") {
+  async function saveDetails(type: MethodType) {
+    setError(null);
     const existing = type === "email" ? paypal : type === "bank" ? bank : mpesa;
     if (!existing) return activate(type);
+
+    if (editLockedFor(type)) { setError(payoutLockMessage()); return; }
+
     setSavingType(type);
-    await deleteWiseRecipient(existing.id);
+    let res;
     if (type === "email") {
-      await addWiseRecipient({ type: "email", currency: "USD", accountHolderName: paypalName, details: { email: paypalEmail } });
+      res = await updatePayoutMethod(existing.id, { accountHolderName: paypalName, currency: "USD", details: { email: paypalEmail } });
     } else if (type === "bank") {
-      await addWiseRecipient({ type: bankAccountType, currency: bankCurrency, accountHolderName: bankName, details: bankFieldValues });
+      res = await updatePayoutMethod(existing.id, {
+        accountHolderName: bankName,
+        currency: bankCurrency || "USD",
+        details: { bankName: bankInstitution, accountNumber: bankAccountNumber, swiftOrRoutingCode: bankSwiftCode, country: bankCountry },
+      });
     } else {
-      await addWiseRecipient({ type: "mpesa", currency: "KES", accountHolderName: mpesaName, details: { phoneNumber: mpesaPhone } });
-    }
-    if (active === type) {
-      const refreshed = await import("@/actions/wise-recipients").then((m) => m.listMyWiseRecipients());
-      const justSaved = refreshed.find((r) => r.type === type);
-      if (justSaved) await setDefaultWiseRecipient(justSaved.id);
+      res = await updatePayoutMethod(existing.id, { accountHolderName: mpesaName, currency: "KES", details: { phoneNumber: mpesaPhone } });
     }
     setSavingType(null);
+    if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
     router.refresh();
   }
 
   return (
     <div className="form-section">
       <h3 style={{ fontSize: 16, marginBottom: 4 }}>Payment Details</h3>
-      <p style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 18 }}>
-        Fill in whichever method you want to use, then switch it on. Whichever one is on is the method used when
-        the automatic monthly payout runs on the 15th.
+      <p style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 14 }}>
+        Fill in whichever method you want to use, then switch it on. Whichever one is on is the method your payout
+        is sent to once it&apos;s reviewed and processed.
       </p>
+
+      {restricted && (
+        <div className="field-hint" style={{ background: "var(--cream)", borderRadius: 10, padding: "10px 14px", marginBottom: 14, color: "var(--ink-soft)" }}>
+          {payoutRestrictionMessage()}
+        </div>
+      )}
+      {!restricted && hasActiveMethod && locked && (
+        <div className="field-hint" style={{ background: "var(--cream)", borderRadius: 10, padding: "10px 14px", marginBottom: 14, color: "var(--ink-soft)" }}>
+          {payoutLockMessage()}
+        </div>
+      )}
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginBottom: 12 }}>{error}</div>}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="payout-methods-grid">
         {/* PayPal */}
-        <div className="form-section" style={{ background: "var(--cream)" }}>
+        <div className="form-section" style={{ background: "var(--cream)", marginBottom: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <strong style={{ fontSize: 14 }}>PayPal</strong>
-            <Toggle type="email" on={active === "email"} savingType={savingType} onActivate={activate} />
+            <Toggle type="email" on={active === "email"} locked={restricted ? !paypal : locked} savingType={savingType} onActivate={activate} />
           </div>
-          <div className="form-grid-2">
-            <div>
-              <label className="field-label">Account holder name</label>
-              <input className="field" type="text" value={paypalName} onChange={(e) => setPaypalName(e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label">PayPal email</label>
-              <input className="field" type="email" value={paypalEmail} onChange={(e) => setPaypalEmail(e.target.value)} />
-            </div>
-          </div>
-          {paypal && (
-            <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "email"} onClick={() => updateDetails("email")}>
-              Save changes
-            </button>
-          )}
+          <label className="field-label">Account holder name</label>
+          <input className="field" type="text" value={paypalName} disabled={editLockedFor("email")} onChange={(e) => setPaypalName(e.target.value)} />
+          <label className="field-label">PayPal email</label>
+          <input className="field" type="email" value={paypalEmail} disabled={editLockedFor("email")} onChange={(e) => setPaypalEmail(e.target.value)} />
+          <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "email" || editLockedFor("email") || (restricted && !paypal)} onClick={() => saveDetails("email")}>
+            {paypal ? "Save changes" : "Add method"}
+          </button>
         </div>
 
         {/* Bank transfer */}
-        <div className="form-section" style={{ background: "var(--cream)" }}>
+        <div className="form-section" style={{ background: "var(--cream)", marginBottom: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <strong style={{ fontSize: 14 }}>Bank transfer</strong>
-            <Toggle type="bank" on={active === "bank"} savingType={savingType} onActivate={activate} />
+            <Toggle type="bank" on={active === "bank"} locked={restricted ? !bank : locked} savingType={savingType} onActivate={activate} />
+          </div>
+          <label className="field-label">Account holder name</label>
+          <input className="field" type="text" value={bankName} disabled={editLockedFor("bank")} onChange={(e) => setBankName(e.target.value)} />
+          <label className="field-label">Bank name</label>
+          <input className="field" type="text" value={bankInstitution} disabled={editLockedFor("bank")} onChange={(e) => setBankInstitution(e.target.value)} />
+          <div className="form-grid-2">
+            <div>
+              <label className="field-label">Account number</label>
+              <input className="field" type="text" value={bankAccountNumber} disabled={editLockedFor("bank")} onChange={(e) => setBankAccountNumber(e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">SWIFT / Routing code</label>
+              <input className="field" type="text" value={bankSwiftCode} disabled={editLockedFor("bank")} onChange={(e) => setBankSwiftCode(e.target.value)} />
+            </div>
           </div>
           <div className="form-grid-2">
             <div>
-              <label className="field-label">Account holder name</label>
-              <input className="field" type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} />
+              <label className="field-label">Country</label>
+              <input className="field" type="text" placeholder="e.g. Kenya" value={bankCountry} disabled={editLockedFor("bank")} onChange={(e) => setBankCountry(e.target.value)} />
             </div>
             <div>
               <label className="field-label">Currency</label>
-              <input className="field" type="text" maxLength={3} value={bankCurrency} onChange={(e) => setBankCurrency(e.target.value.toUpperCase())} />
+              <input className="field" type="text" maxLength={3} value={bankCurrency} disabled={editLockedFor("bank")} onChange={(e) => setBankCurrency(e.target.value.toUpperCase())} />
             </div>
           </div>
-          {loadingFields && <p className="field-hint">Checking what Wise needs for {bankCurrency}…</p>}
-          {fieldsError && <p className="field-hint" style={{ color: "var(--coral-deep)" }}>{fieldsError}</p>}
-          {!loadingFields && bankDynamicFields && (
-            <>
-              <p className="field-hint" style={{ margin: "8px 0" }}>Fields required by Wise for a {bankCurrency} {bankAccountType} account:</p>
-              <div className="form-grid-2">
-                {bankDynamicFields.map((f) => (
-                  <div key={f.key}>
-                    <label className="field-label">{f.name}{f.required && " *"}</label>
-                    {f.type === "select" && f.options ? (
-                      <select
-                        className="field"
-                        value={bankFieldValues[f.key] ?? ""}
-                        onChange={(e) => setBankFieldValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                      >
-                        <option value="">Select…</option>
-                        {f.options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-                      </select>
-                    ) : (
-                      <input
-                        className="field"
-                        type="text"
-                        placeholder={f.example}
-                        value={bankFieldValues[f.key] ?? ""}
-                        onChange={(e) => setBankFieldValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-          {bank && (
-            <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "bank"} onClick={() => updateDetails("bank")}>
-              Save changes
-            </button>
-          )}
+          <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "bank" || editLockedFor("bank") || (restricted && !bank)} onClick={() => saveDetails("bank")}>
+            {bank ? "Save changes" : "Add method"}
+          </button>
         </div>
 
         {/* M-Pesa */}
-        <div className="form-section" style={{ background: "var(--cream)" }}>
+        <div className="form-section" style={{ background: "var(--cream)", marginBottom: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <strong style={{ fontSize: 14 }}>M-Pesa</strong>
-            <Toggle type="mpesa" on={active === "mpesa"} savingType={savingType} onActivate={activate} />
+            <Toggle type="mpesa" on={active === "mpesa"} locked={restricted ? !mpesa : locked} savingType={savingType} onActivate={activate} />
           </div>
-          <div className="form-grid-2">
-            <div>
-              <label className="field-label">Account holder name</label>
-              <input className="field" type="text" value={mpesaName} onChange={(e) => setMpesaName(e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label">M-Pesa phone number</label>
-              <input className="field" type="tel" placeholder="+254 7XX XXX XXX" value={mpesaPhone} onChange={(e) => setMpesaPhone(e.target.value)} />
-            </div>
-          </div>
-          {mpesa && (
-            <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "mpesa"} onClick={() => updateDetails("mpesa")}>
-              Save changes
-            </button>
-          )}
+          <label className="field-label">Account holder name</label>
+          <input className="field" type="text" value={mpesaName} disabled={editLockedFor("mpesa")} onChange={(e) => setMpesaName(e.target.value)} />
+          <label className="field-label">M-Pesa phone number</label>
+          <input className="field" type="tel" placeholder="+254 7XX XXX XXX" value={mpesaPhone} disabled={editLockedFor("mpesa")} onChange={(e) => setMpesaPhone(e.target.value)} />
+          <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "mpesa" || editLockedFor("mpesa") || (restricted && !mpesa)} onClick={() => saveDetails("mpesa")}>
+            {mpesa ? "Save changes" : "Add method"}
+          </button>
         </div>
       </div>
     </div>

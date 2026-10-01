@@ -10,8 +10,8 @@ import { fetchEarningsBreakdown, sumLines } from "@/lib/earnings-lines";
  * The full admin payout ledger — every payout ever queued, whatever its
  * status, not just the ones still awaiting approval (see
  * app/admin/payouts/page.tsx, which previously only listed status
- * "REQUESTED" rows). Each row is one Wise transfer (see
- * app/api/cron/monthly-payouts/route.ts): since that job creates a
+ * "REQUESTED" rows). Each row is one payout (see
+ * actions/payouts.ts queueDuePayouts): since that action creates a
  * separate PayoutRequest for book-sales earnings vs affiliate earnings
  * even for the same person in the same month, the split between the
  * two is naturally one-or-the-other on any given row today (see
@@ -232,7 +232,7 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
   // instant it hits even one PayoutRequest whose WiseRecipient row is
   // gone — which is exactly what crashed this page. That could only
   // happen if a recipient with real payout history got deleted despite
-  // the guard now added in actions/wise-recipients.ts, but a page that
+  // the guard now added in actions/payout-methods.ts, but a page that
   // reads a payout's entire history (unlike the old REQUESTED-only
   // view) has to stay readable even if an old, already-orphaned row
   // like that exists from before that guard existed — so any payout

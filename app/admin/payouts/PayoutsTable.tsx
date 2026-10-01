@@ -158,7 +158,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
             <thead>
               <tr>
                 <th style={TH_STYLE}>Account #<ColHelp text="This recipient's account number on the platform." /></th>
-                <th style={TH_STYLE}>Account holder<ColHelp text="The name on file with Wise for this payout — who the money is actually sent to." /></th>
+                <th style={TH_STYLE}>Account holder<ColHelp text="The name on file for this payout — who the money is actually sent to." /></th>
                 <th style={TH_STYLE}>Email<ColHelp text="The recipient's account email." /></th>
                 <th style={TH_STYLE}>Book sales<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
                 <th style={TH_STYLE}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>

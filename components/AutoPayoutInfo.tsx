@@ -1,10 +1,12 @@
 /**
- * Replaces the old "click to request a payout" button — payouts are no
- * longer requested manually. Everything earned in a calendar month
- * automatically becomes payable on the 15th of the following month,
- * and gets queued up for payment on that date without anyone needing
- * to ask (see app/api/cron/monthly-payouts/route.ts). This component
- * just explains the schedule and shows what's coming.
+ * Replaces the old "click to request a payout" button — nothing needs
+ * to be manually requested. Everything earned in a calendar month
+ * becomes payable on the 15th of the following month, once the total
+ * due clears the minimum threshold; an admin then reviews and sends
+ * the money manually (see actions/payouts.ts queueDuePayouts and
+ * actions/admin.ts approvePayoutRequest — there's no automatic payment
+ * execution). This component just explains the schedule and shows
+ * what's coming.
  */
 export function AutoPayoutInfo({
   onHold,
@@ -25,14 +27,13 @@ export function AutoPayoutInfo({
     <div className="form-section" style={{ background: "var(--cream)" }}>
       <h3 style={{ fontSize: 15, marginBottom: 8 }}>How payouts work now</h3>
       <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 14 }}>
-        Payouts are automatic — everything you earn in a calendar month becomes payable on the 15th of the
-        following month, and is queued up for payment on that date without needing to be requested.
+        Nothing to request — everything you earn in a calendar month becomes payable on the 15th of the following
+        month, once it&apos;s confirmed. An admin reviews and sends the payment from there.
       </p>
 
       {!hasRecipient ? (
         <p style={{ fontSize: 13.5, color: "var(--coral-deep)" }}>
-          You don&apos;t have a payout destination on file yet — add one below so your automatic payouts have
-          somewhere to go.
+          You don&apos;t have a payout destination on file yet — add one below so your payouts have somewhere to go.
         </p>
       ) : (
         <>
@@ -43,8 +44,7 @@ export function AutoPayoutInfo({
           )}
           {available > 0 ? (
             <div style={{ fontSize: 13.5 }}>
-              <strong>${available.toFixed(2)}</strong> is available and will be automatically queued for payment on
-              the next 15th.
+              <strong>${available.toFixed(2)}</strong> is available and becomes payable on the next 15th.
             </div>
           ) : (
             <div style={{ fontSize: 13.5, color: "var(--ink-faint)" }}>Nothing is available for payout yet.</div>

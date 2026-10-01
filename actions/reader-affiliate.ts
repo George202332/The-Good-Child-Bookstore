@@ -1,61 +1,14 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { generateUniqueReferralCode } from "@/lib/referral-code";
 
 /**
- * Converted from enableReaderAffiliateAccess() (the-good-child-bookstore
- * _54_1.html accountHTML() reader branch) — a Reader (or Author) can
- * enable affiliate capability directly from their own dashboard, no
- * separate account or role change needed. This grants a real
- * AffiliateProfile (referral links, earnings, payouts all work exactly
- * like a dedicated Affiliate account) while the user's primary role and
- * all their existing reader data stays untouched.
+ * A Reader's affiliate snapshot for the dashboard stat card — affiliate
+ * capability is automatic for every Reader account from creation (see
+ * lib/affiliate-capability.ts and actions/auth.ts), so there's no
+ * manual activation step any more; this just reports the real numbers.
  */
-
-export async function enableReaderAffiliateAccess(): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
-  if (!session?.user || (session.user.role !== "READER" && session.user.role !== "AUTHOR")) {
-    return { ok: false, error: "Only reader or author accounts can enable affiliate access this way." };
-  }
-
-  const existing = await prisma.affiliateProfile.findUnique({ where: { userId: session.user.id } });
-  if (!existing) {
-    await prisma.affiliateProfile.create({
-      data: { userId: session.user.id, referralCode: await generateUniqueReferralCode(session.user.name ?? "member") },
-    });
-  }
-
-  // Always flip this back on, whether the AffiliateProfile was just
-  // created or already existed from an earlier activation — this is
-  // the actual toggle Settings reads, and re-enabling after a previous
-  // deactivation was silently failing because this line used to be
-  // skipped whenever the profile already existed.
-  const readerProfile = await prisma.readerProfile.findUnique({ where: { userId: session.user.id } });
-  if (readerProfile) {
-    await prisma.readerProfile.update({ where: { userId: session.user.id }, data: { affiliateAccess: true } });
-  }
-
-  revalidatePath("/account");
-  revalidatePath("/account/settings");
-  return { ok: true };
-}
-
-export async function disableReaderAffiliateAccess(): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "READER") {
-    return { ok: false, error: "Only reader accounts use this toggle." };
-  }
-  const readerProfile = await prisma.readerProfile.findUnique({ where: { userId: session.user.id } });
-  if (readerProfile) {
-    await prisma.readerProfile.update({ where: { userId: session.user.id }, data: { affiliateAccess: false } });
-  }
-  revalidatePath("/account");
-  revalidatePath("/account/settings");
-  return { ok: true };
-}
 
 export interface ReaderAffiliateStatus {
   enabled: boolean;
@@ -67,11 +20,15 @@ export async function getReaderAffiliateStatus(): Promise<ReaderAffiliateStatus>
   if (!session?.user) return { enabled: false, totalEarnings: 0 };
 
   try {
+    const { hasAffiliateCapability } = await import("@/lib/affiliate-capability");
+    const enabled = await hasAffiliateCapability(session.user.id);
+    if (!enabled) return { enabled: false, totalEarnings: 0 };
+
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       include: { affiliateProfile: { include: { affiliateLinks: { include: { saleLines: true } } } } },
     });
-    if (!user?.affiliateProfile) return { enabled: false, totalEarnings: 0 };
+    if (!user?.affiliateProfile) return { enabled: true, totalEarnings: 0 };
 
     const totalEarnings = user.affiliateProfile.affiliateLinks
       .flatMap((l: { saleLines: { affiliateShare: unknown }[] }) => l.saleLines)

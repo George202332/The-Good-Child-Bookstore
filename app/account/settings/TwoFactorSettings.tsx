@@ -17,8 +17,8 @@ type View = "status" | "choose-method" | "enter-phone" | "verify-setup" | "disab
  * Security / 2FA — added inside the existing Settings page, right
  * below Change password, for both Reader and Author (same component,
  * no role-specific behavior needed). Does not redesign Settings at
- * all — just one more map-card section, matching AffiliateToggle's
- * and ChangePasswordForm's existing visual pattern.
+ * all — just one more map-card section, matching ChangePasswordForm's
+ * existing visual pattern.
  */
 export function TwoFactorSettings({ initial }: { initial: TwoFactorStatus }) {
   const router = useRouter();

@@ -2,10 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getMySettings, getMarketingOptIn } from "@/actions/settings";
-import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { getMyTwoFactorStatus } from "@/actions/two-factor";
 import { SettingsForm } from "./SettingsForm";
-import { AffiliateToggle } from "./AffiliateToggle";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { MarketingOptInToggle } from "./MarketingOptInToggle";
 import { TwoFactorSettings } from "./TwoFactorSettings";
@@ -17,7 +15,6 @@ export default async function SettingsPage() {
   if (role !== "READER" && role !== "AUTHOR") redirect("/admin");
 
   const settings = await getMySettings();
-  const affiliateStatus = role === "READER" ? await getReaderAffiliateStatus() : null;
   const marketingOptIn = role === "READER" ? await getMarketingOptIn() : false;
   const twoFactorStatus = await getMyTwoFactorStatus();
 
@@ -34,7 +31,6 @@ export default async function SettingsPage() {
         <ChangePasswordForm />
       </div>
       <TwoFactorSettings initial={twoFactorStatus} />
-      {role === "READER" && <AffiliateToggle initialEnabled={affiliateStatus?.enabled ?? false} />}
       {role === "READER" && <MarketingOptInToggle initialOptIn={marketingOptIn} />}
     </DashboardShell>
   );
