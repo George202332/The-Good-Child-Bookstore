@@ -74,6 +74,20 @@
     display:flex;align-items:center;justify-content:space-between;
     padding:18px 0;
   }
+  /* .header-inner's own "padding:18px 0" shorthand above wins over
+     .wrap's horizontal padding at any width where both rules apply
+     (same specificity, .header-inner declared later in this file) —
+     on desktop that's invisible because .wrap's max-width:1280px
+     centers with auto margins once the viewport is wider than that,
+     so there's always clear space outside it regardless. Below
+     900px .wrap is full-bleed (its max-width no longer binds), so
+     the zeroed-out horizontal padding left the logo and account
+     icon flush against the physical screen edges — this restores
+     it for mobile only, matching .wrap's own 20px breakpoint, without
+     touching the (already fine) desktop layout. */
+  @media (max-width:900px){
+    .header-inner{padding:18px 20px;}
+  }
   /* Plain text wordmark — no icon, no image, no background box of its
      own; it just sits on whatever surface it's placed on (header cream,
      footer ink), set in the site's own Times New Roman like every other
@@ -148,6 +162,41 @@
   }
   @media (max-width:1024px){
     nav.main-nav{display:none;}
+  }
+
+  /* ---------- Mobile nav (hamburger) for the main site header ----------
+     Shown at the same breakpoint the desktop nav.main-nav disappears at
+     (<=1024px). Positioned on its own row directly under the logo/account
+     row, not inside it, so it never overlaps the search/wishlist/cart/
+     account cluster. Deliberately NOT styled like the dashboard sidebar's
+     mobile toggle (.dashboard-mobile-toggle, see DashboardSidebarNav.tsx)
+     — that one sits on a solid var(--paper) bar with a border and shadow;
+     this one stays fully transparent so it blends into the header's own
+     cream background, with no contrasting strip behind it. The underlying
+     open/close interaction (toggle + Escape-to-close + close-on-nav-click)
+     mirrors that same dashboard pattern — see Header.tsx. */
+  .mobile-nav-bar{display:none;}
+  .mobile-nav-menu{display:none;}
+  @media (max-width:1024px){
+    .mobile-nav-bar{display:flex;padding:0 0 10px;}
+    .mobile-nav-toggle{
+      display:inline-flex;align-items:center;gap:8px;
+      background:transparent;border:none;box-shadow:none;
+      padding:6px 2px;font-size:14px;font-weight:700;color:var(--ink-soft);
+      cursor:pointer;
+    }
+    .mobile-nav-toggle:hover{color:var(--ink);}
+    .mobile-nav-toggle svg{flex-shrink:0;}
+    .mobile-nav-menu.open{
+      display:flex;flex-direction:column;align-items:flex-start;
+      gap:2px;padding:2px 0 14px;
+    }
+    .mobile-nav-menu a{
+      width:100%;padding:10px 2px;font-weight:600;font-size:14.5px;
+      color:var(--ink-soft);border-bottom:1px solid var(--line);
+    }
+    .mobile-nav-menu a:last-child{border-bottom:none;}
+    .mobile-nav-menu a.active, .mobile-nav-menu a:hover{color:var(--ink);}
   }
 
   /* ---------- Hero ---------- */
@@ -284,6 +333,19 @@
   .carousel-outer.carousel-padded .carousel-arrow.carousel-left{left:0;}
   .carousel-outer.carousel-padded .carousel-arrow.carousel-right{right:0;}
   @media (max-width:600px){ .carousel-arrow{width:30px;height:30px;} .carousel-arrow svg{width:14px;height:14px;} }
+  /* The book detail page's "details" carousel (pages/language/genre/.../
+     file size, in .az-details-card below) doesn't use the .carousel-padded
+     variant, so its arrows sit at the default left:-14px/right:-14px —
+     offset outward from .carousel-outer's own edge. .az-details-card has
+     overflow:visible specifically so they're not clipped, but on a narrow
+     phone that still puts them right at the very edge of the card with no
+     breathing room. Insetting them on mobile only keeps them comfortably
+     inside the card's bounds without touching the desktop treatment. */
+  @media (max-width:760px){
+    .az-details-card .carousel-outer{padding:0 26px;}
+    .az-details-card .carousel-arrow.carousel-left{left:0;}
+    .az-details-card .carousel-arrow.carousel-right{right:0;}
+  }
 
   /* ---------- Promo banner ---------- */
   .promo-banner{
@@ -794,6 +856,11 @@
   footer.footer-minimal .footer-bottom{font-size:13px;}
   .footer-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr 1fr;gap:28px;margin-bottom:40px;}
   @media (max-width:900px){ .footer-grid{grid-template-columns:1fr 1fr;} }
+  /* Below 600px even 2 columns squeezes each column's links/headings —
+     stack every column (Shop, About, Get involved, Policies, the
+     logo/tagline/social block) into its own full-width section so the
+     visitor scrolls cleanly through them one at a time. */
+  @media (max-width:600px){ .footer-grid{grid-template-columns:1fr;gap:32px;} }
   .footer-social{display:flex;gap:10px;margin-top:16px;}
   .footer-social a{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;transition:background .15s ease;}
   .footer-social a:hover{background:rgba(255,255,255,0.18);}
@@ -1078,6 +1145,10 @@
   /* Right column (buy box) */
   .buybox{border:1px solid var(--line);border-radius:14px;padding:20px;min-height:612px;box-sizing:border-box;}
   .buybox-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
+  /* 2x2 is fine down to a normal phone width, but on a narrow phone the
+     4 format tiles ("Print: Paperback", "Print: Hardcover", etc.) get
+     cramped in a 2-column grid — one tile per row below 400px. */
+  @media (max-width:400px){ .buybox-tiles{grid-template-columns:1fr;} }
   .buybox-tile{
     border:2px solid var(--line);border-radius:10px;padding:12px;text-align:left;height:94px;box-sizing:border-box;
     transition:border-color .15s ease, box-shadow .15s ease;background:var(--paper);
@@ -1533,6 +1604,19 @@
     background:var(--paper);border-radius:20px;box-shadow:var(--shadow);
     padding:32px 44px;width:100%;max-width:440px;
   }
+  /* .auth-section has no .wrap of its own, and .auth-card's width:100%
+     (with box-sizing:border-box) means its own horizontal padding is
+     ALL the breathing room it gets — on mobile, where the section has
+     no side margin either, that made the Login/Sign up/Create-account
+     card's rounded corners touch (or, with a 44px padding wider than
+     some phones' viewport, overflow) the physical screen edges. Giving
+     the section its own gutter and trimming the card's own padding to
+     fit comfortably inside it fixes both pages without changing
+     anything above 480px. */
+  @media (max-width:480px){
+    .auth-section{padding:24px 16px 48px;}
+    .auth-card{padding:28px 20px;}
+  }
   .auth-card h1{font-size:26px;margin-bottom:6px;text-align:center;}
   .auth-card > p{font-size:14px;color:var(--ink-soft);text-align:center;margin-bottom:20px;}
   .auth-card .field{margin-bottom:16px;padding:9px 16px;}
@@ -1543,6 +1627,7 @@
   .auth-divider span{flex:1;height:2px;background:var(--line);}
   .auth-divider small{font-size:12.5px;color:var(--ink-faint);}
   .role-pick{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:8px;}
+  @media (max-width:480px){ .role-pick{grid-template-columns:1fr;} }
   .login-type-tabs{display:flex;gap:8px;margin-bottom:20px;}
   .login-type-tabs .affiliate-tab{flex:1;text-align:center;justify-content:center;}
   .role-card{
@@ -1662,6 +1747,27 @@
   /* ---------- Author: stats & earnings ---------- */
   .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:34px;}
   @media (max-width:800px){ .stat-grid{grid-template-columns:1fr 1fr;} }
+  /* 2 columns is still a side-by-side squeeze on a narrow phone (each
+     stat-card has its own 20px padding) — one stat per row below 420px. */
+  @media (max-width:420px){ .stat-grid{grid-template-columns:1fr;} }
+
+  /* ---------- Author/Reader dashboard: paired cards ----------
+     app/account/page.tsx (and a few sibling account pages) lay a couple
+     of dashboard cards out side by side via an inline style={{display:
+     "grid", gridTemplateColumns: ...}} rather than a CSS class, which a
+     plain @media rule can't reach — these classes replace those inline
+     styles so the same cards (Sales trend/Format split, Affiliate
+     snapshot/Titles on shelf, Average rating/Recent activity, and the
+     analogous pairs on the Affiliate performance, Sales analytics and
+     Blog analytics pages) become a clean one-per-row stack on mobile
+     instead of staying squeezed side by side. */
+  .dash-grid-main{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;}
+  .dash-grid-perf{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;align-items:stretch;}
+  .dash-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .dash-grid-2-tight{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media (max-width:700px){
+    .dash-grid-main, .dash-grid-perf, .dash-grid-2, .dash-grid-2-tight{grid-template-columns:1fr;}
+  }
   .stat-card{background:var(--paper);border-radius:16px;padding:20px;transition:box-shadow .5s ease;}
 
   /* ---------- Dashboard color-coded stat cards ---------- */

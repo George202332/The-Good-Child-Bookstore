@@ -60,7 +60,7 @@ export default async function BlogAnalyticsPage() {
         <BarChart data={data.monthlyReads.map((m) => ({ label: m.month, value: m.reads }))} color="#2451B7" />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+      <div className="dash-grid-2" style={{ marginBottom: 24 }}>
         <div className="map-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 16 }}>Reads by region</h3>
           <PieChart data={data.regionBreakdown.map((c, i) => ({ label: c.country, value: c.reads, color: REGION_COLORS[i % REGION_COLORS.length] }))} />

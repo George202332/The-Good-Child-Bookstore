@@ -41,6 +41,28 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   const { count: cartCount } = useCart();
   const { count: wishlistCount } = useWishlist();
   const [search, setSearch] = useState("");
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Close the mobile nav on every navigation, same pattern as the
+  // dashboard sidebar's mobile panel (DashboardSidebarNav.tsx) — adjusting
+  // state during render rather than in an effect so the close happens in
+  // the same render as the navigation instead of one tick later.
+  const [lastPathname, setLastPathname] = useState(pathname);
+  if (pathname !== lastPathname) {
+    setLastPathname(pathname);
+    setMobileNavOpen(false);
+  }
+
+  // Close on Escape, same as the dashboard sidebar's mobile panel and any
+  // other dismissible overlay on the site (see Modal.tsx).
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileNavOpen]);
   // A backend account (Admin/Editor/Accountant) signed in at /admin/login
   // is a real, valid session — but it has no business being shown as
   // "signed in" on the storefront, which is what made it look like
@@ -148,6 +170,47 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
           </Link>
         </div>
       </div>
+
+      {/* Mobile-only nav (hamburger), shown at the same breakpoint the
+          desktop nav.main-nav disappears at. Sits on its own row directly
+          under the logo/account row rather than inside it, so it never
+          overlaps the search/wishlist/cart/account cluster. Unlike the
+          dashboard sidebar's mobile toggle (DashboardSidebarNav.tsx),
+          this one has no background/border/shadow of its own — see
+          .mobile-nav-toggle in app/site.css — so it blends into the
+          header's cream background instead of sitting on a contrasting
+          white bar; the open/close interaction (toggle + Escape-to-close
+          + close-on-nav-click) is the same pattern. */}
+      <div className="wrap mobile-nav-bar">
+        <button
+          type="button"
+          className="mobile-nav-toggle"
+          aria-expanded={mobileNavOpen}
+          aria-controls="mobile-nav-menu"
+          onClick={() => setMobileNavOpen((o) => !o)}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+            <path d="M4 7h16M4 12h16M4 17h16" />
+          </svg>
+          Menu
+        </button>
+      </div>
+      <nav
+        id="mobile-nav-menu"
+        className={`wrap mobile-nav-menu${mobileNavOpen ? " open" : ""}`}
+        aria-label="Mobile navigation"
+      >
+        {NAV_ITEMS.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={active === item.match ? "active" : ""}
+            onClick={() => setMobileNavOpen(false)}
+          >
+            {item.label}
+          </Link>
+        ))}
+      </nav>
     </header>
   );
 }

@@ -64,7 +64,7 @@ export default async function PerformancePage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.3fr 1fr", gap: 20, marginBottom: 24, alignItems: "stretch" }}>
+      <div className="dash-grid-perf" style={{ marginBottom: 24 }}>
         <div className="map-card" style={{ padding: 20, margin: 0 }}>
           <h3 style={{ fontSize: 15, marginBottom: 4 }}>Clicks per month</h3>
           <p className="field-hint" style={{ margin: "0 0 14px" }}>January through December, {new Date().getFullYear()}.</p>

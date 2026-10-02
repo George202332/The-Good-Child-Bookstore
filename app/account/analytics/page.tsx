@@ -62,7 +62,7 @@ export default async function AuthorAnalyticsPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+      <div className="dash-grid-2" style={{ marginBottom: 24 }}>
         <div className="map-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by month: {new Date().getFullYear()}</h3>
           <BarChart data={data.monthlySales.map((m) => ({ label: m.month, value: m.units }))} color="#2451B7" />
@@ -73,7 +73,7 @@ export default async function AuthorAnalyticsPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 24 }}>
+      <div className="dash-grid-2" style={{ marginBottom: 24 }}>
         <div className="map-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 16 }}>Top regions</h3>
           {data.topCountriesWithPct.length === 0 ? (

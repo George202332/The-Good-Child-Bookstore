@@ -222,7 +222,7 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
             <input className="field" id="p-series" type="text" value={seriesName} onChange={(e) => setSeriesName(e.target.value)} />
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        <div className="form-grid-3">
           <div>
             <label className="field-label" htmlFor="p-edition">Edition</label>
             <input className="field" id="p-edition" type="text" value={edition} onChange={(e) => setEdition(e.target.value)} />
@@ -240,7 +240,7 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
         </div>
         <label className="field-label" htmlFor="p-pubdate">Publication date</label>
         <input className="field" id="p-pubdate" type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        <div className="form-grid-3">
           <div>
             <label className="field-label" htmlFor="p-category">Category</label>
             <select className="field" id="p-category" value={category} onChange={(e) => setCategory(e.target.value)}>
@@ -302,7 +302,7 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
         </div>
         <label className="field-label" htmlFor="p-coauthors">Co-author(s)</label>
         <input className="field" id="p-coauthors" type="text" value={coAuthors} onChange={(e) => setCoAuthors(e.target.value)} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+        <div className="form-grid-3">
           <div>
             <label className="field-label" htmlFor="p-illustrator">Illustrator</label>
             <input className="field" id="p-illustrator" type="text" value={illustrator} onChange={(e) => setIllustrator(e.target.value)} />

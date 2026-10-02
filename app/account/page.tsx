@@ -328,7 +328,7 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 20, marginBottom: 20 }}>
+        <div className="dash-grid-main" style={{ marginBottom: 20 }}>
           <div className="map-card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales trend: {now.getFullYear()}</h3>
             <BarChart data={monthBuckets.map((m) => ({ label: m.label, value: m.count }))} color="#1F6B48" />
@@ -347,7 +347,7 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div className="dash-grid-2-tight" style={{ marginBottom: 16 }}>
           <div className="map-card" style={{ padding: 14 }}>
             <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Affiliate snapshot</h3>
             {isAffiliateToo ? (
@@ -394,7 +394,7 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="dash-grid-2-tight">
           <div className="map-card" style={{ padding: 14 }}>
             <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Average rating</h3>
             <div className="rb-card" style={{ border: "none", padding: 0 }}>
