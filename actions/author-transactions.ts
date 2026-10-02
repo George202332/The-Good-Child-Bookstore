@@ -39,17 +39,33 @@ export async function getAuthorTransactions(): Promise<AuthorTransactionRow[]> {
       }))
     );
 
-    const payouts = await prisma.payoutRequest.findMany({ where: { userId: session.user.id }, include: { recipient: true } });
+    // Recipient is fetched as a SEPARATE query rather than via `include`
+    // deliberately: `include` on a required relation makes Prisma throw
+    // the instant it hits even one PayoutRequest whose WiseRecipient row
+    // is gone, which would silently blank out this author's ENTIRE
+    // transaction history (sales included, via the catch below) instead
+    // of just that one payout's method label — see the identical
+    // defensive pattern (and fuller explanation) in
+    // actions/payout-ledger.ts's getPayoutLedger.
+    const payouts = await prisma.payoutRequest.findMany({ where: { userId: session.user.id } });
+    const recipientIds = [...new Set(payouts.map((p: { recipientId: string }) => p.recipientId))];
+    const recipients = recipientIds.length
+      ? ((await prisma.wiseRecipient.findMany({ where: { id: { in: recipientIds } } })) as { id: string; type: string }[])
+      : [];
+    const recipientById = new Map(recipients.map((r) => [r.id, r]));
     const { payoutMethodLabel } = await import("@/lib/payout-method-label");
-    const payoutRows: AuthorTransactionRow[] = payouts.map((p: { id: string; requestedAt: Date; amount: unknown; status: string; recipient: { type: string } | null }) => ({
-      id: p.id,
-      date: p.requestedAt.toISOString(),
-      type: "Payout" as const,
-      party: "Payout",
-      method: p.recipient ? payoutMethodLabel(p.recipient.type) : "—",
-      amount: Number(p.amount),
-      status: p.status,
-    }));
+    const payoutRows: AuthorTransactionRow[] = payouts.map((p: { id: string; requestedAt: Date; amount: unknown; status: string; recipientId: string }) => {
+      const recipient = recipientById.get(p.recipientId);
+      return {
+        id: p.id,
+        date: p.requestedAt.toISOString(),
+        type: "Payout" as const,
+        party: "Payout",
+        method: recipient ? payoutMethodLabel(recipient.type) : "—",
+        amount: Number(p.amount),
+        status: p.status,
+      };
+    });
 
     return [...saleRows, ...payoutRows].sort((a, b) => (a.date < b.date ? 1 : -1));
   } catch {

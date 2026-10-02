@@ -18,6 +18,8 @@ import { PromoBanner } from "@/components/PromoBanner";
 import { StatsBand } from "@/components/StatsBand";
 import { FeaturedAuthors } from "@/components/FeaturedAuthors";
 import { CATS, BOOKS } from "@/lib/data/catalog";
+import { getPlatformStats } from "@/lib/platform-stats";
+import { LiveRefresher } from "@/components/LiveRefresher";
 
 /**
  * Converted from homeHTML() (the-good-child-bookstore_54_1.html:3651+).
@@ -95,6 +97,7 @@ export default async function HomePage() {
   const AGE_EXPLORER = AGE_EXPLORER_BASE.map((a) => ({ ...a, count: ageCounts.get(a.range) ?? 0 }));
   const content = await getPagesContent();
   const hero = content.home;
+  const platformStats = await getPlatformStats();
   let blogPosts: HomeBlogPost[] = [];
   try {
     const result = await prisma.blog.findMany({
@@ -253,11 +256,24 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: 0 }}>
-        <div className="wrap">
-          <StatsBand />
-        </div>
-      </FadeInSection>
+      {/* The stats band (books published / authors / readers / countries
+          served) is hidden entirely — not just visually, but removed from
+          the layout so Featured Authors moves up with no gap left behind
+          — until every real, live launch threshold in
+          lib/platform-stats.ts is simultaneously met. LiveRefresher below
+          keeps `platformStats` current for every visitor, signed in or
+          not, by re-running this Server Component's data fetch on an
+          interval (see components/LiveRefresher.tsx) — once the
+          thresholds are crossed, the band reclaims this spot on the very
+          next refresh with no deploy needed. */}
+      <LiveRefresher intervalMs={60000} />
+      {platformStats.thresholdsMet && (
+        <FadeInSection style={{ paddingTop: 0 }}>
+          <div className="wrap">
+            <StatsBand stats={platformStats} />
+          </div>
+        </FadeInSection>
+      )}
 
       <FadeInSection style={{ paddingTop: "calc(0.5in - 8mm)" }}>
         <div className="wrap">

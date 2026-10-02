@@ -140,7 +140,6 @@ export interface TransactionDetail {
   // Payout-only fields.
   currency?: string;
   earningsType?: string;
-  gateway?: string | null;
   failureReason?: string | null;
   requestedAt?: string;
   resolvedAt?: string | null;

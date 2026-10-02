@@ -74,7 +74,7 @@ export function BrowseBooksSection({ books }: { books: BrowsableBook[] }) {
           {search.trim() ? "No books match that search." : "Every promotable book already has your link — check Books on Promotion below."}
         </div>
       ) : (
-        <div className="no-scrollbar" style={{ maxHeight: ROW_HEIGHT * VISIBLE_ROWS, overflowY: "auto" }}>
+        <div className="no-scrollbar" style={{ maxHeight: ROW_HEIGHT * VISIBLE_ROWS, overflowY: "auto", overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead style={{ position: "sticky", top: 0, background: "var(--paper)", zIndex: 1 }}>
               <tr>

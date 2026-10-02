@@ -1,9 +1,7 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
-import { SignOutButton } from "./SignOutButton";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
-import { NAV_ICONS } from "./nav-icons";
+import { DashboardSidebarNav } from "./DashboardSidebarNav";
 
 interface NavItem {
   key: string;
@@ -111,33 +109,12 @@ export async function DashboardShell({
       {/* The inactivity timer now mounts once from app/account/layout.tsx,
           not here — see SessionInactivityTimer.tsx for why. */}
       <div className="dashboard-layout">
-        <aside className="dashboard-sidebar" id="dashboard-sidebar-nav" aria-label={`Account menu for ${displayName}`}>
-          <nav aria-label="Account navigation">
-            {sections.map((sec) => (
-              <div className="dashboard-nav-group" key={sec.name}>
-                <div className="dashboard-nav-section-label">{sec.name}</div>
-                {sec.items.map((it) => (
-                  <Link
-                    key={it.key}
-                    href={it.href}
-                    className={`dashboard-nav-link ${activeKey === it.key ? "active" : ""}`}
-                    aria-current={activeKey === it.key ? "page" : undefined}
-                  >
-                    {NAV_ICONS[it.key] ? (
-                      <span className={`dashboard-nav-icon ${unreadSidebarKeys.has(it.key) && activeKey !== it.key ? "has-unread" : ""}`}>
-                        {NAV_ICONS[it.key]}
-                        {unreadSidebarKeys.has(it.key) && activeKey !== it.key && <span className="dashboard-nav-blink-dot" aria-label="New notification" />}
-                      </span>
-                    ) : null}
-                    <span>{it.label}</span>
-                    {it.badge ? <span className="nav-badge">{it.badge}</span> : null}
-                  </Link>
-                ))}
-              </div>
-            ))}
-          </nav>
-          <SignOutButton />
-        </aside>
+        <DashboardSidebarNav
+          sections={sections}
+          activeKey={activeKey}
+          unreadSidebarKeys={[...unreadSidebarKeys]}
+          displayName={displayName}
+        />
         <main className="dashboard-content">{children}</main>
       </div>
     </div>
