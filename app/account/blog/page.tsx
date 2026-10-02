@@ -44,11 +44,33 @@ export default async function BlogPage() {
   if (!session?.user) redirect("/login");
   const role = session.user.role as Role;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: { blogs: { orderBy: { createdAt: "desc" } } },
-  });
-  const myPosts = (user?.blogs ?? []) as OwnBlog[];
+  // Previously fetched via `prisma.user.findUnique({ include: { blogs: … } })`
+  // with no limit and no field selection at all — every post this
+  // account has ever written, each with its full `content` (the
+  // complete rich-text/HTML body of the post, easily tens of KB each),
+  // pulled into memory on every single visit to this page. The
+  // previous round bounded the OTHER writers' published-posts query
+  // below (`take: 60` + an explicit `select`) but left this one — the
+  // account's OWN posts — completely untouched, which is almost
+  // certainly why the crash kept recurring "on every account tested":
+  // this query runs for every signed-in visitor regardless of how many
+  // posts anyone else has written, so it doesn't need a high-volume
+  // outlier account to hit a real cost — it scales with how much any
+  // individual account has written over time, and every account that
+  // writes blogs accumulates more content here with no cap. Bounded
+  // and narrowed the same way the other query already was.
+  const myPosts = (await prisma.blog.findMany({
+    where: { authorId: session.user.id },
+    select: {
+      id: true, slug: true, title: true, subtitle: true, content: true,
+      shortSummary: true, coverImageUrl: true, imageAltText: true,
+      authorFirstName: true, authorLastName: true, categories: true, tags: true,
+      metaTitle: true, metaDescription: true, seoKeywords: true, canonicalUrl: true,
+      featured: true, allowComments: true, status: true, createdAt: true, publishAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 60,
+  })) as OwnBlog[];
 
   let othersPublished: {
     id: string; slug: string; title: string; subtitle: string | null; content: string;

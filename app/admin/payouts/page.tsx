@@ -63,6 +63,10 @@ export default async function PayoutsPage() {
           <a href="/api/admin/payout-ledger?format=pdf" className="btn btn-ghost btn-small">
             Download PDF
           </a>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- file download, not a page navigation */}
+          <a href="/api/admin/payout-ledger?format=xlsx" className="btn btn-ghost btn-small">
+            Export Excel
+          </a>
         </div>
       </div>
 

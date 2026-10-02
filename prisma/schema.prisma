@@ -554,6 +554,20 @@ model Blog {
   reads           BlogRead[]
 
   @@index([status])
+  // Added: every "this writer's own blog data" query (the My Blogs
+  // list, and every Blogs-analytics aggregate in
+  // actions/blog-analytics.ts — reads/comments counts, region
+  // groupBy, top-posts ordering, all filtered or joined through
+  // `blog: { authorId }`) filters or joins on authorId. Book (the
+  // sibling content model) has had both @@index([status]) AND
+  // @@index([authorId]) all along; Blog only ever got the status
+  // index. Without this, every one of those queries requires Postgres
+  // to join/scan without an index on this column, and the cost scales
+  // with the TOTAL size of the Blog table site-wide, not just one
+  // account's own post count — which is consistent with the crash
+  // being reported across every account rather than only high-volume
+  // ones. Requires `npx prisma db push` to actually take effect.
+  @@index([authorId])
 }
 
 /** A single real page view of a published post, geotagged the same way

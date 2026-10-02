@@ -69,7 +69,7 @@ export default async function AuthorAnalyticsPage() {
         </div>
         <div className="map-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by format</h3>
-          <PieChart data={data.formatBreakdown.map((f) => ({ label: f.format, value: f.count, color: FORMAT_COLORS[f.format] ?? "#9A93A8" }))} legendOffset="0.5in" />
+          <PieChart data={data.formatBreakdown.map((f) => ({ label: f.format, value: f.count, color: FORMAT_COLORS[f.format] ?? "#9A93A8" }))} />
         </div>
       </div>
 
