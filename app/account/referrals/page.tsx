@@ -112,9 +112,9 @@ export default async function ReferralsPage() {
               company&apos;s revenue from their book sales, for as long as they publish with us — your current tier
               is <strong>{currentTier.name}</strong>.
             </p>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 13, fontWeight: 700 }}>Referral Link:</span>
-              <code style={{ fontSize: 12.5 }}>{siteUrl}/signup/author?ref={profile.referralCode}</code>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, flexShrink: 0 }}>Referral Link:</span>
+              <code style={{ fontSize: 12.5, wordBreak: "break-all", overflowWrap: "anywhere", flex: "1 1 200px", minWidth: 0 }}>{siteUrl}/signup/author?ref={profile.referralCode}</code>
               <CopyLinkButton text={`${siteUrl}/signup/author?ref=${profile.referralCode}`} />
             </div>
           </div>

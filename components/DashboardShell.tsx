@@ -105,7 +105,7 @@ export async function DashboardShell({
     sec.items.push(it);
   });
   return (
-    <div className="wrap" style={{ padding: "26px 0 80px" }}>
+    <div className="wrap" style={{ paddingTop: 26, paddingBottom: 80 }}>
       {/* The inactivity timer now mounts once from app/account/layout.tsx,
           not here — see SessionInactivityTimer.tsx for why. */}
       <div className="dashboard-layout">

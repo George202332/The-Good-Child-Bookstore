@@ -37,6 +37,16 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const active = routeMatch(pathname);
+  // /account/** (and every route under it) renders its own dashboard
+  // sidebar nav with its own mobile toggle (DashboardSidebarNav.tsx) —
+  // showing this header's main-site hamburger there too stacked two
+  // separate mobile menus on top of each other. The main-site nav only
+  // makes sense once you're back on the public storefront, so it's
+  // suppressed entirely for this route and DashboardSidebarNav's own
+  // toggle (restyled to match this header's transparent look, see
+  // .dashboard-mobile-toggle in app/site.css) is the single mobile menu
+  // shown while on a dashboard page.
+  const isDashboardRoute = pathname.startsWith("/account");
   const { data: session } = useSession();
   const { count: cartCount } = useCart();
   const { count: wishlistCount } = useWishlist();
@@ -181,36 +191,40 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
           header's cream background instead of sitting on a contrasting
           white bar; the open/close interaction (toggle + Escape-to-close
           + close-on-nav-click) is the same pattern. */}
-      <div className="wrap mobile-nav-bar">
-        <button
-          type="button"
-          className="mobile-nav-toggle"
-          aria-expanded={mobileNavOpen}
-          aria-controls="mobile-nav-menu"
-          onClick={() => setMobileNavOpen((o) => !o)}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-            <path d="M4 7h16M4 12h16M4 17h16" />
-          </svg>
-          Menu
-        </button>
-      </div>
-      <nav
-        id="mobile-nav-menu"
-        className={`wrap mobile-nav-menu${mobileNavOpen ? " open" : ""}`}
-        aria-label="Mobile navigation"
-      >
-        {NAV_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={active === item.match ? "active" : ""}
-            onClick={() => setMobileNavOpen(false)}
+      {!isDashboardRoute && (
+        <>
+          <div className="wrap mobile-nav-bar">
+            <button
+              type="button"
+              className="mobile-nav-toggle"
+              aria-expanded={mobileNavOpen}
+              aria-controls="mobile-nav-menu"
+              onClick={() => setMobileNavOpen((o) => !o)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+              Menu
+            </button>
+          </div>
+          <nav
+            id="mobile-nav-menu"
+            className={`wrap mobile-nav-menu${mobileNavOpen ? " open" : ""}`}
+            aria-label="Mobile navigation"
           >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+            {NAV_ITEMS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={active === item.match ? "active" : ""}
+                onClick={() => setMobileNavOpen(false)}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        </>
+      )}
     </header>
   );
 }

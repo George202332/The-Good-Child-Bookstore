@@ -13,8 +13,8 @@ export function GetLinkButton({ bookId, bookSlug, existingCode }: { bookId: stri
   if (code) {
     const url = typeof window !== "undefined" ? `${window.location.origin}/${bookSlug}?aff=${code}` : `/${bookSlug}?aff=${code}`;
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <code style={{ fontSize: 11.5 }}>{url}</code>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", minWidth: 0 }}>
+        <code style={{ fontSize: 11.5, wordBreak: "break-all", overflowWrap: "anywhere", flex: "1 1 160px", minWidth: 0 }}>{url}</code>
         <button type="button" className="btn btn-ghost btn-small" onClick={() => navigator.clipboard.writeText(url)}>Copy</button>
       </div>
     );
