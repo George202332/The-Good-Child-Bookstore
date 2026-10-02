@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
+import { useRevenueHighlightActive } from "@/components/RevenueHighlight";
 
 export interface PromotionRawRow {
   isbn: string | null;
@@ -12,6 +13,11 @@ export interface PromotionRawRow {
   price: number;
   commission: number;
   saleDate: string;
+  /** True when this specific promotion-commission line happened after
+   * the last time this user viewed Revenue — see BookSalesRow.isNew;
+   * this row is grouped by book+format below, so a group is "new" if
+   * ANY raw line that fed into it is. */
+  isNew?: boolean;
 }
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
@@ -25,6 +31,7 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
   const [month, setMonth] = useState("all");
   const [year, setYear] = useState("all");
+  const highlightActive = useRevenueHighlightActive();
 
   const years = useMemo(() => {
     const seen = new Set<string>();
@@ -33,7 +40,7 @@ export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
   }, [rows]);
 
   const grouped = useMemo(() => {
-    const byBookFormat = new Map<string, { isbn: string | null; title: string; author: string; format: string; price: number; copies: number; commission: number }>();
+    const byBookFormat = new Map<string, { isbn: string | null; title: string; author: string; format: string; price: number; copies: number; commission: number; isNew: boolean }>();
     for (const r of rows) {
       const d = new Date(r.saleDate);
       if (month !== "all" && d.getMonth() !== Number(month)) continue;
@@ -43,8 +50,9 @@ export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
       if (existing) {
         existing.copies += 1;
         existing.commission += r.commission;
+        existing.isNew = existing.isNew || !!r.isNew;
       } else {
-        byBookFormat.set(key, { isbn: r.isbn, title: r.title, author: r.author, format: r.format, price: r.price, copies: 1, commission: r.commission });
+        byBookFormat.set(key, { isbn: r.isbn, title: r.title, author: r.author, format: r.format, price: r.price, copies: 1, commission: r.commission, isNew: !!r.isNew });
       }
     }
     return Array.from(byBookFormat.values());
@@ -94,7 +102,7 @@ export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
             </thead>
             <tbody>
               {grouped.map((r, i) => (
-                <tr key={`${r.title}-${r.format}-${i}`}>
+                <tr key={`${r.title}-${r.format}-${i}`} className={highlightActive && r.isNew ? "revenue-row-new" : undefined}>
                   <td style={TABLE_CELL_STYLE}>{r.isbn ?? `#${i + 1}`}</td>
                   <td style={TABLE_CELL_STYLE}>{r.title}</td>
                   <td style={TABLE_CELL_STYLE}>{r.author}</td>

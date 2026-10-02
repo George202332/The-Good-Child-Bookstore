@@ -126,6 +126,19 @@ model User {
   suspended     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  /** The last time this user actually opened their Revenue page (see
+   * app/account/revenue/page.tsx) — persisted, not client-side state,
+   * so it survives refreshes/new sessions. Compared against the
+   * timestamps of this user's own royalty/referral/promotion earnings
+   * to decide (a) whether the Revenue sidebar link should still be
+   * blinking (see components/DashboardShell.tsx's unread-sidebar-key
+   * pattern, reused for this) and (b)/(c) which specific stat card and
+   * ledger row are "new since you last looked" the moment the page
+   * itself loads. Updated to now() every time the page loads — read
+   * BEFORE that update so the page can still compare against the
+   * PREVIOUS visit, see actions/revenue-last-viewed.ts. Null until the
+   * very first visit. */
+  lastViewedRevenueAt DateTime?
 
   // Role-specific profile extensions (only the relevant one is populated)
   authorProfile    AuthorProfile?

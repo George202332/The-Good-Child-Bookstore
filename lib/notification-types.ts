@@ -2,6 +2,9 @@ export type NotificationType =
   | "PAYMENT"
   | "PAYOUT"
   | "SALE"
+  | "REVENUE_ROYALTY"
+  | "REVENUE_REFERRAL"
+  | "REVENUE_PROMOTION"
   | "REVIEW"
   | "BOOK_PUBLISHED"
   | "REVISION"
@@ -25,7 +28,14 @@ export const NOTIFICATION_TYPES: Record<NotificationType, NotificationTypeInfo> 
   PAYMENT: {
     color: "#1F6B48", // green
     iconPath: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
-    sidebarKey: "revenue",
+    // Was "revenue" — but PAYMENT fires for the READER'S OWN purchase
+    // confirmation (see actions/orders.ts confirmOrderPaidDirectly and
+    // lib/payments/finalize.ts), not for anyone actually earning
+    // revenue from it. An Author who also shops as a customer would
+    // otherwise see their own Revenue tab blink every time THEY bought
+    // a book — nothing to do with their own royalties/commissions. The
+    // reader's own order history is the one that's actually relevant.
+    sidebarKey: "orders",
   },
   PAYOUT: {
     color: "#2451B7", // blue
@@ -36,6 +46,32 @@ export const NOTIFICATION_TYPES: Record<NotificationType, NotificationTypeInfo> 
     color: "#1F6B48", // green
     iconPath: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
     sidebarKey: "analytics",
+  },
+  /** One of these three fires per SaleLine alongside (not instead of)
+   * SALE above, whenever that line actually carries a nonzero
+   * royalty/referral/commission share — see the createNotification
+   * calls in lib/payments/finalize.ts and actions/orders.ts
+   * confirmOrderPaidDirectly. All three point the Revenue tab's own
+   * blink (see components/DashboardShell.tsx's existing unread-sidebar
+   * pattern, reused here rather than rebuilt) — which specific stat
+   * card and ledger row that blink resolves to once the Revenue page
+   * is actually open is a separate, more granular comparison against
+   * User.lastViewedRevenueAt (see actions/revenue-last-viewed.ts and
+   * app/account/revenue/page.tsx), not this notification itself. */
+  REVENUE_ROYALTY: {
+    color: "#1F6B48", // green — same family as SALE/PAYMENT
+    iconPath: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+    sidebarKey: "revenue",
+  },
+  REVENUE_REFERRAL: {
+    color: "#C68A1E", // gold
+    iconPath: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+    sidebarKey: "revenue",
+  },
+  REVENUE_PROMOTION: {
+    color: "#6B3FA0", // purple
+    iconPath: "M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+    sidebarKey: "revenue",
   },
   REVIEW: {
     color: "#C68A1E", // gold

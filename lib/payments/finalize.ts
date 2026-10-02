@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { notifyRevenueEarners } from "@/lib/payments/notify-earners";
 
 /** Marks an order PAID and logs the payment — shared by the webhook
  * handlers (app/api/webhooks/*) and the gateway return flow
@@ -13,7 +14,6 @@ export async function finalizeOrderPayment(
     data: { status: "PAID" },
     include: {
       reader: { include: { user: true } },
-      lines: { include: { book: { include: { author: { include: { user: true } } } } } },
     },
   });
   await prisma.paymentLog.create({
@@ -33,25 +33,13 @@ export async function finalizeOrderPayment(
     // Non-critical — a failed notification shouldn't block payment confirmation.
   }
 
-  // Notify each author whose book was just sold — "You've got a sale"
-  // on their Recent Activity (see recentActivityLine in
-  // lib/notification-types.ts). One notification per SaleLine (a
-  // format like ebook/paperback of the same title in one order is its
-  // own SaleLine, and its own real sale) — each tagged with that
-  // line's id as relatedRecordId, so deleting that specific transaction
-  // later (actions/transactions.ts's deleteTransaction) can find and
-  // remove exactly this notification, never leaving a trace behind.
-  try {
-    for (const line of order.lines) {
-      const authorUserId = line.book.author?.user?.id;
-      if (!authorUserId) continue;
-      await prisma.notification.create({
-        data: { userId: authorUserId, title: line.book.title, body: `A copy of "${line.book.title}" just sold.`, type: "SALE", relatedRecordId: line.id },
-      });
-    }
-  } catch {
-    // Non-critical.
-  }
+  // Notifies the author of each line's book ("You've got a sale" on
+  // their Recent Activity, plus the Revenue-tab blink), and any
+  // referring/promoting affiliate of their own commission — see
+  // lib/payments/notify-earners.ts, now shared with the demo-mode
+  // confirmation path (actions/orders.ts confirmOrderPaidDirectly) so
+  // the two can't drift out of sync again.
+  await notifyRevenueEarners(orderId);
 
   // Any physical copies in this order get submitted to Lulu as a real
   // print-on-demand job — never allowed to block payment confirmation

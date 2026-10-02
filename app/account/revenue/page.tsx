@@ -6,6 +6,8 @@ import { BookSalesTable, type BookSalesRow } from "./BookSalesTable";
 import { ReferralRevenueTable, type ReferralRawRow } from "./ReferralRevenueTable";
 import { BookPromotionTable, type PromotionRawRow } from "./BookPromotionTable";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { bumpLastViewedRevenueAt } from "@/actions/revenue-last-viewed";
+import { RevenueHighlightProvider, BlinkStatCard } from "@/components/RevenueHighlight";
 
 interface SaleLineRow {
   id: string;
@@ -101,6 +103,17 @@ export default async function RevenuePage() {
   });
 
   const now = new Date();
+
+  // When this user last actually opened this page, BEFORE this visit
+  // bumps it to now() — see actions/revenue-last-viewed.ts. Null on a
+  // first-ever visit, which is treated as "nothing to highlight yet"
+  // rather than "everything is new," so a brand-new account doesn't
+  // open Revenue to a wall of blinking rows.
+  const previousViewedAt = await bumpLastViewedRevenueAt();
+  function isNewSince(d: Date): boolean {
+    return previousViewedAt !== null && d > previousViewedAt;
+  }
+
   const books = (user?.authorProfile?.books ?? []) as AuthorBookWithLines[];
   const bookSaleLines = books.flatMap((b) => b.saleLines);
   const bookSalesTotal = bookSaleLines.reduce((s, l) => s + Number(l.authorShare), 0);
@@ -117,9 +130,11 @@ export default async function RevenuePage() {
     const price = Number(l.grossAmount);
     const key = `${l.book.title}:${formatLabelFor(l.format, l.book)}:${l.saleType}:${price.toFixed(2)}`;
     const existing = bookSalesByCondition.get(key);
+    const lineIsNew = isNewSince(l.createdAt);
     if (existing) {
       existing.units += 1;
       if (l.createdAt.toISOString() > existing.date) existing.date = l.createdAt.toISOString();
+      existing.isNew = existing.isNew || lineIsNew;
     } else {
       bookSalesByCondition.set(key, {
         date: l.createdAt.toISOString(),
@@ -131,6 +146,7 @@ export default async function RevenuePage() {
         affiliate: Number(l.affiliateShare),
         share: Number(l.authorShare),
         units: 1,
+        isNew: lineIsNew,
       });
     }
   }
@@ -166,6 +182,7 @@ export default async function RevenuePage() {
     saleDate: l.createdAt.toISOString(),
     revenue: Number(l.companyShare),
     commission: Number(l.authorReferralShare),
+    isNew: isNewSince(l.createdAt),
   }));
 
   type PromotionSaleLine = {
@@ -209,10 +226,21 @@ export default async function RevenuePage() {
     price: listPriceFor(l.book, l.format),
     commission: Number(l.affiliateShare),
     saleDate: l.createdAt.toISOString(),
+    isNew: isNewSince(l.createdAt),
   }));
 
   const grandTotal = (isAuthor ? bookSalesTotal : 0) + referralTotal + promotionTotal;
   const monthlyTotal = (isAuthor ? bookSalesMonthly : 0) + referralMonthly + promotionMonthly;
+
+  // Which of the three cards (item 4b) should blink for exactly 10
+  // seconds when this page opens — true only when at least one
+  // underlying line is newer than the user's previous visit. Also
+  // drives the page-wide row-highlight (item 4c): if nothing is new in
+  // ANY category, there's nothing to highlight-until-click either.
+  const hasNewRoyalty = isAuthor && bookSaleLines.some((l) => isNewSince(l.createdAt));
+  const hasNewReferral = referralSaleLines.some((l) => isNewSince(l.createdAt));
+  const hasNewPromotion = promotionSaleLines.some((l) => isNewSince(l.createdAt));
+  const hasAnythingNew = hasNewRoyalty || hasNewReferral || hasNewPromotion;
 
   return (
     <DashboardShell role={role} activeKey="revenue" displayName={session.user.name ?? ""}>
@@ -225,24 +253,31 @@ export default async function RevenuePage() {
           </p>
         </div>
       </div>
+      {/* RevenueHighlightProvider wraps everything that can be
+          highlighted on this page (the three tables below), so a
+          single document-wide "has the page been clicked yet" state
+          clears every highlighted row at once — see
+          components/RevenueHighlight.tsx for both mechanisms (this
+          one and the 10-second card blink right below). */}
+      <RevenueHighlightProvider hasNew={hasAnythingNew}>
       <div className="stat-grid" style={{ marginBottom: 12 }}>
         {isAuthor && (
-          <div className="stat-card stat-card-referral">
+          <BlinkStatCard blink={hasNewRoyalty} className="stat-card stat-card-referral">
             <div className="stat-label">Lifetime royalties</div>
             <div className="stat-value">${bookSalesTotal.toFixed(2)}</div>
             <div className="stat-sub">All time</div>
-          </div>
+          </BlinkStatCard>
         )}
-        <div className="stat-card stat-card-promotion">
+        <BlinkStatCard blink={hasNewReferral} className="stat-card stat-card-promotion">
           <div className="stat-label">Referral revenue</div>
           <div className="stat-value">${referralTotal.toFixed(2)}</div>
           <div className="stat-sub">All time</div>
-        </div>
-        <div className="stat-card stat-card-total">
+        </BlinkStatCard>
+        <BlinkStatCard blink={hasNewPromotion} className="stat-card stat-card-total">
           <div className="stat-label">Book promotion</div>
           <div className="stat-value">${promotionTotal.toFixed(2)}</div>
           <div className="stat-sub">All time</div>
-        </div>
+        </BlinkStatCard>
         <div className="stat-card stat-card-due">
           <div className="stat-label">Total earnings</div>
           <div className="stat-value">${grandTotal.toFixed(2)}</div>
@@ -291,6 +326,7 @@ export default async function RevenuePage() {
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Book Promotion</h3>
       <BookPromotionTable rows={promotionRawRows} />
+      </RevenueHighlightProvider>
     </DashboardShell>
   );
 }

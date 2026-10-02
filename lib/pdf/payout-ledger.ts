@@ -77,7 +77,7 @@ export async function buildPayoutLedgerPdf(rows: PayoutLedgerRow[]): Promise<Uin
     { label: "Holder / Email", w: 0.19 },
     { label: "Method", w: 0.11 },
     { label: "Details", w: 0.22 },
-    { label: "Book sales", w: 0.09, align: "right" },
+    { label: "Royalties", w: 0.09, align: "right" },
     { label: "Affiliate", w: 0.09, align: "right" },
     { label: "Total", w: 0.08, align: "right" },
     { label: "Status", w: 0.08 },

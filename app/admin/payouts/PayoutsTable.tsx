@@ -70,16 +70,22 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
 
   // Totals always reflect EVERY account, regardless of the current
   // search/filter selection — a search narrowing the visible rows
-  // should never make the always-on totals look wrong.
+  // should never make the always-on totals look wrong. Referral and
+  // Commission are kept as two separate running totals (not combined
+  // into one "affiliate" figure) specifically so the totals row below
+  // can put each one directly under its own column, same as every
+  // other total here — a combined number spanning both columns is what
+  // made this row look misaligned in the first place.
   const totals = useMemo(
     () =>
       rows.reduce(
         (acc, r) => ({
-          bookSales: acc.bookSales + r.bookSalesEarnings,
-          affiliate: acc.affiliate + r.referralEarnings + r.commissionEarnings,
+          royalties: acc.royalties + r.bookSalesEarnings,
+          referral: acc.referral + r.referralEarnings,
+          commission: acc.commission + r.commissionEarnings,
           combined: acc.combined + r.combinedTotal,
         }),
-        { bookSales: 0, affiliate: 0, combined: 0 }
+        { royalties: 0, referral: 0, commission: 0, combined: 0 }
       ),
     [rows]
   );
@@ -110,7 +116,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
           >
             <option value="ALL">All payouts</option>
             <option value="AFFILIATE">Affiliate commission</option>
-            <option value="BOOK_SALES">Book sales</option>
+            <option value="BOOK_SALES">Royalties</option>
           </select>
         </div>
         <div style={{ minWidth: 140 }}>
@@ -160,11 +166,11 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 <th style={TH_STYLE}>Account #<ColHelp text="This recipient's account number on the platform." /></th>
                 <th style={TH_STYLE}>Account holder<ColHelp text="The name on file for this payout — who the money is actually sent to." /></th>
                 <th style={TH_STYLE}>Email<ColHelp text="The recipient's account email." /></th>
-                <th style={TH_STYLE}>Book sales<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
+                <th style={TH_STYLE}>Royalties<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
                 <th style={TH_STYLE}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>
                 <th style={TH_STYLE}>Commission<ColHelp text="Commission from copies sold through this person's own affiliate promotional links." /></th>
-                <th style={TH_STYLE}>Total<ColHelp text="Book sales plus referral plus commission — the full amount of this payout." /></th>
-                <th style={TH_STYLE}>Status<ColHelp text="Live means the current month is still in progress and this total keeps growing as sales happen — it's not a real payout request yet. Pending means it's queued or awaiting approval. Paid means the transfer has gone out. Rejected means it was declined." /></th>
+                <th style={TH_STYLE}>Total<ColHelp text="Royalties plus referral plus commission — the full amount of this payout." /></th>
+                <th style={TH_STYLE}>Status<ColHelp text="Live means the current month is still in progress and this total keeps growing as sales happen — it's not a real payout request yet. Pending covers two cases: queued and awaiting approval, or already released from last month (or earlier) but not queued yet — no payout method on file, or still under the $30 minimum and rolling forward. Paid means the transfer has gone out. Rejected means it was declined." /></th>
                 <th style={TH_STYLE}>Requested<ColHelp text="The date this payout was queued. For a Live row, this is simply today — nothing has actually been requested yet." /></th>
                 <th style={TH_STYLE}>Report<ColHelp text="Download this payout's month as a full PDF statement — the same report available to that account holder on their own Payouts page." /></th>
               </tr>
@@ -203,6 +209,8 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                     <td style={TD_STYLE}>
                       {p.status === "LIVE"
                         ? "This month (in progress)"
+                        : p.status === "UNQUEUED"
+                        ? "Released, not yet queued"
                         : new Date(p.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </td>
                     <td style={TD_STYLE}>
@@ -225,13 +233,26 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
         {/* Static totals row — outside the scrolling area above, so it
             stays visible no matter how far the list above is scrolled.
             Always sums every account, not just the filtered/visible
-            rows (see `totals`, computed from the full `rows` prop). */}
+            rows (see `totals`, computed from the full `rows` prop).
+            This is a second, separate <table> from the one holding the
+            header + data rows above, so it MUST repeat the exact same
+            column count and the exact same colSpan grouping the header
+            uses, cell for cell, or its totals silently drift out from
+            under the columns they're supposed to sit beneath — which is
+            exactly what a combined Referral+Commission cell (colSpan=2)
+            did before: it didn't line up under either column, only
+            under the midpoint between them. Every money total below
+            now gets its own single-column cell, matching the header
+            1:1: Account #/holder/email (3, labeled), Royalties,
+            Referral, Commission, Total, then Status/Requested/Report
+            (3, empty) — 3 + 1 + 1 + 1 + 1 + 3 = 10, same as the header. */}
         <table style={{ width: "100%", borderCollapse: "collapse", borderTop: "2px solid var(--line)" }}>
           <tbody>
             <tr style={{ background: "var(--admin-panel, #F7F8FB)" }}>
               <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }} colSpan={3}>Totals — all accounts</td>
-              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.bookSales.toFixed(2)}</td>
-              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }} colSpan={2}>${totals.affiliate.toFixed(2)}</td>
+              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.royalties.toFixed(2)}</td>
+              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.referral.toFixed(2)}</td>
+              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.commission.toFixed(2)}</td>
               <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.combined.toFixed(2)}</td>
               <td style={{ ...TD_STYLE, borderBottom: "none" }} colSpan={3} />
             </tr>
@@ -252,14 +273,19 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
               { label: "Email", value: detailRow.email },
               { label: "Payment method", value: detailRow.paymentMethod },
               { label: "Account / payment details", value: detailRow.accountDetails },
-              { label: "Book sales earnings", value: `$${detailRow.bookSalesEarnings.toFixed(2)}` },
+              { label: "Royalties", value: `$${detailRow.bookSalesEarnings.toFixed(2)}` },
               { label: "Referral earnings", value: `$${detailRow.referralEarnings.toFixed(2)}` },
               { label: "Commission earnings", value: `$${detailRow.commissionEarnings.toFixed(2)}` },
               { label: "Combined total", value: `$${detailRow.combinedTotal.toFixed(2)}` },
               { label: "Currency", value: detailRow.currency },
               {
                 label: "Requested",
-                value: detailRow.status === "LIVE" ? "This month (in progress)" : new Date(detailRow.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+                value:
+                  detailRow.status === "LIVE"
+                    ? "This month (in progress)"
+                    : detailRow.status === "UNQUEUED"
+                    ? "Released, not yet queued"
+                    : new Date(detailRow.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
               },
               {
                 label: "Resolved",

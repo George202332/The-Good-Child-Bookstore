@@ -305,6 +305,16 @@ export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: b
     // Non-critical.
   }
 
+  // Notifies the author of each line's book ("You've got a sale" on
+  // their Recent Activity, plus the Revenue-tab blink), and any
+  // referring/promoting affiliate of their own commission — see
+  // lib/payments/notify-earners.ts. This demo-mode confirmation path
+  // previously never did any of this at all (only the real-gateway
+  // path in lib/payments/finalize.ts did, and even that one never
+  // notified affiliates) — now both paths share the exact same logic.
+  const { notifyRevenueEarners } = await import("@/lib/payments/notify-earners");
+  await notifyRevenueEarners(orderId);
+
   // Any physical copies in this order get submitted to Lulu as a real
   // print-on-demand job — never allowed to block or undo the order
   // confirmation itself if it fails, since the customer's payment

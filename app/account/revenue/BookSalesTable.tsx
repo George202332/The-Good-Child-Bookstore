@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
+import { useRevenueHighlightActive } from "@/components/RevenueHighlight";
 
 export interface BookSalesRow {
   date: string;
@@ -14,6 +15,12 @@ export interface BookSalesRow {
   affiliate: number;
   share: number;
   units: number;
+  /** True when at least one of the raw sales grouped into this row
+   * happened after the last time this user viewed Revenue (see
+   * app/account/revenue/page.tsx) — drives the highlight below, which
+   * stays on until the page is clicked anywhere (see
+   * components/RevenueHighlight.tsx). */
+  isNew?: boolean;
 }
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
@@ -27,6 +34,7 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
   const [month, setMonth] = useState("all");
   const [year, setYear] = useState("all");
+  const highlightActive = useRevenueHighlightActive();
 
   const years = useMemo(() => {
     const seen = new Set<string>();
@@ -90,7 +98,7 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
             </thead>
             <tbody>
               {filtered.map((r, i) => (
-                <tr key={i}>
+                <tr key={i} className={highlightActive && r.isNew ? "revenue-row-new" : undefined}>
                   <td style={TABLE_CELL_STYLE}>{new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                   <td style={TABLE_CELL_STYLE}>{r.title}</td>
                   <td style={TABLE_CELL_STYLE}>{r.format}</td>

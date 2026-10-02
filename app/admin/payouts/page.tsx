@@ -35,12 +35,12 @@ export default async function PayoutsPage() {
 
   const totals = rows.reduce(
     (acc, r) => ({
-      bookSales: acc.bookSales + r.bookSalesEarnings,
+      royalties: acc.royalties + r.bookSalesEarnings,
       affiliate: acc.affiliate + r.referralEarnings + r.commissionEarnings,
       combined: acc.combined + r.combinedTotal,
       paidCount: acc.paidCount + (r.paid ? 1 : 0),
     }),
-    { bookSales: 0, affiliate: 0, combined: 0, paidCount: 0 }
+    { royalties: 0, affiliate: 0, combined: 0, paidCount: 0 }
   );
 
   return (
@@ -72,8 +72,8 @@ export default async function PayoutsPage() {
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card">
-          <div className="stat-label">Book sales earnings</div>
-          <div className="stat-value">${totals.bookSales.toFixed(2)}</div>
+          <div className="stat-label">Royalties</div>
+          <div className="stat-value">${totals.royalties.toFixed(2)}</div>
           <div className="stat-sub">All time</div>
         </div>
         <div className="stat-card">
@@ -84,7 +84,7 @@ export default async function PayoutsPage() {
         <div className="stat-card">
           <div className="stat-label">Combined total</div>
           <div className="stat-value">${totals.combined.toFixed(2)}</div>
-          <div className="stat-sub">Book sales + affiliate</div>
+          <div className="stat-sub">Royalties + affiliate</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Paid / total</div>

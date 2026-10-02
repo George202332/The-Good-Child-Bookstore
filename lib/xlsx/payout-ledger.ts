@@ -36,7 +36,7 @@ export async function buildPayoutLedgerXlsx(rows: PayoutLedgerRow[]): Promise<Bu
     { header: "Payment Method", key: "paymentMethod", width: 16 },
     { header: "Account / Payment Details", key: "accountDetails", width: 28 },
     { header: "Currency", key: "currency", width: 10 },
-    { header: "Book Sales Earnings", key: "bookSalesEarnings", width: 18 },
+    { header: "Royalties", key: "bookSalesEarnings", width: 18 },
     { header: "Referral Earnings", key: "referralEarnings", width: 16 },
     { header: "Commission Earnings", key: "commissionEarnings", width: 18 },
     { header: "Combined Total", key: "combinedTotal", width: 16 },
@@ -68,7 +68,7 @@ export async function buildPayoutLedgerXlsx(rows: PayoutLedgerRow[]): Promise<Bu
       combinedTotal: r.combinedTotal,
       status: r.status === "LIVE" ? "Live" : r.paid ? "Paid" : r.status === "REJECTED" ? "Rejected" : "Pending",
       reportMonthKey: r.reportMonthKey,
-      requestedAt: r.status === "LIVE" ? "This month" : new Date(r.requestedAt).toLocaleDateString("en-US"),
+      requestedAt: r.status === "LIVE" ? "This month" : r.status === "UNQUEUED" ? "Not yet queued" : new Date(r.requestedAt).toLocaleDateString("en-US"),
       resolvedAt: r.resolvedAt ? new Date(r.resolvedAt).toLocaleDateString("en-US") : "",
     });
     row.eachCell((cell, colNumber) => {

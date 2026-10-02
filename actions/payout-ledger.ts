@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { authAdmin } from "@/lib/auth-admin";
 import type { Role } from "@/lib/roles";
 import { payoutMethodLabel, formatAccountDetails } from "@/lib/payout-method-label";
-import { fetchEarningsBreakdown, sumLines } from "@/lib/earnings-lines";
+import { fetchEarningsBreakdown, linesForView, sumLines } from "@/lib/earnings-lines";
+import { computeWallet, releaseDateFor } from "@/lib/wallet";
 
 /**
  * The full admin payout ledger — every payout ever queued, whatever its
@@ -100,6 +101,19 @@ export interface PayoutLedgerRow {
   isAffiliate: boolean;
 }
 
+/** Shared by getLiveMonthRows and getPendingUnqueuedRows below — looks
+ * up whichever payout destination is on file for this user, or a
+ * "Not set yet" placeholder if none is, same either way regardless of
+ * which synthetic row category is asking. */
+async function recipientFieldsFor(userId: string) {
+  const recipient = await prisma.wiseRecipient.findFirst({ where: { userId }, orderBy: { isDefault: "desc" } });
+  return {
+    accountHolderName: recipient ? recipient.accountHolderName : "Not set yet",
+    paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
+    accountDetails: recipient ? formatAccountDetails(recipient.details) : "—",
+  };
+}
+
 /**
  * One synthetic "Live" row per author/affiliate with a nonzero current-
  * month accrual — the admin-side mirror of the rolling live → pending →
@@ -126,15 +140,6 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const rows: PayoutLedgerRow[] = [];
-
-  async function recipientFieldsFor(userId: string) {
-    const recipient = await prisma.wiseRecipient.findFirst({ where: { userId }, orderBy: { isDefault: "desc" } });
-    return {
-      accountHolderName: recipient ? recipient.accountHolderName : "Not set yet",
-      paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
-      accountDetails: recipient ? formatAccountDetails(recipient.details) : "—",
-    };
-  }
 
   const authors = (await prisma.user.findMany({
     where: { role: "AUTHOR", authorProfile: { isNot: null } },
@@ -219,6 +224,153 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
   return rows;
 }
 
+/**
+ * THE FIX for "a payout that should be in this ledger is missing."
+ *
+ * Root cause: before this function existed, the ledger only ever had
+ * two sources — getLiveMonthRows (the CURRENT, still-open calendar
+ * month's raw sales, recomputed fresh every load) and real
+ * PayoutRequest rows (created only when an Admin clicks "Queue this
+ * month's due payouts" AND that person already has a payout method on
+ * file AND their balance clears the $30 minimum — see
+ * lib/payout-threshold.ts, actions/payouts.ts queueDuePayouts).
+ *
+ * That leaves a real gap for any earnings month that is no longer the
+ * current month, but was never actually queued into a PayoutRequest —
+ * which happens whenever:
+ *   - the balance was under $30 and intentionally rolled forward (the
+ *     explicit, correct behavior per lib/payout-threshold.ts — NOT a
+ *     bug on its own), or
+ *   - the recipient had no payout method on file yet when the button
+ *     was last clicked, so queueDuePayouts silently skipped them that
+ *     run (`if (!recipient) continue`), or
+ *   - the button simply wasn't clicked that month at all.
+ *
+ * None of that money is ever actually lost — computeWallet's
+ * "available" (released, minus whatever's already paid/pending) still
+ * adds it to whatever gets queued later. But until that later queueing
+ * happens, it was invisible on THIS page: not the current month (so
+ * getLiveMonthRows skips it), and not a real PayoutRequest (none
+ * exists yet). The author/affiliate's OWN Monthly Payout History
+ * (lib/payout-monthly.ts computeMonthlyPayoutRows) doesn't have this
+ * gap — it buckets every month with real earnings and shows each one
+ * as "Pending payout" whether or not a PayoutRequest covers it yet —
+ * so the admin ledger was actually showing LESS than what the account
+ * holder could already see for themselves, which is exactly how one
+ * real, already-earned payout can go missing from this specific table.
+ *
+ * The fix: surface that same released-but-unqueued balance here too,
+ * as one synthetic "Pending" row per author/affiliate (status
+ * "UNQUEUED" — deliberately distinct from the real "REQUESTED" status
+ * so ModerationActions' Approve/Reject never renders against a row
+ * that has no real PayoutRequest id behind it). Referral and
+ * commission are split proportionally to each category's own RELEASED
+ * share (not lifetime share), so the two always add back up to exactly
+ * the row's combinedTotal — same invariant item 1's totals-row fix
+ * depends on. `reportMonthKey` points at the most recently closed
+ * month as the best single-month approximation for the report
+ * download link; a balance that rolled forward across several months
+ * doesn't have one single "correct" month, which is an existing,
+ * pre-existing limitation of the reportMonthKey concept (see
+ * earningsMonthKeyFor above), not something this fix introduces.
+ */
+async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
+  const now = new Date();
+  const prevMonthKey = monthKeyOf(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+  const rows: PayoutLedgerRow[] = [];
+
+  function releasedSum(lines: { createdAt: Date; amount: number }[]): number {
+    return lines.filter((l) => now.getTime() >= releaseDateFor(l.createdAt).getTime()).reduce((s, l) => s + l.amount, 0);
+  }
+
+  async function paidAndPendingFor(userId: string, earningsType: string): Promise<{ paidOut: number; pending: number }> {
+    const payouts = (await prisma.payoutRequest.findMany({ where: { userId, earningsType } })) as { status: string; amount: unknown }[];
+    const paidOut = payouts.filter((p) => p.status === "PAID").reduce((s, p) => s + Number(p.amount), 0);
+    const pending = payouts.filter((p) => p.status === "REQUESTED" || p.status === "APPROVED").reduce((s, p) => s + Number(p.amount), 0);
+    return { paidOut, pending };
+  }
+
+  const authors = await prisma.user.findMany({
+    where: { role: "AUTHOR", authorProfile: { isNot: null } },
+    select: { id: true, accountNumber: true, email: true, role: true },
+  });
+  for (const u of authors) {
+    const breakdown = await fetchEarningsBreakdown(u.id);
+    const lines = linesForView(breakdown, "author");
+    const { paidOut, pending } = await paidAndPendingFor(u.id, "AUTHOR");
+    const wallet = computeWallet(lines, paidOut, pending);
+    if (wallet.available <= 0) continue;
+    const fields = await recipientFieldsFor(u.id);
+    rows.push({
+      id: `pending-author-${u.id}`,
+      userId: u.id,
+      accountNumber: u.accountNumber,
+      accountHolderName: fields.accountHolderName,
+      email: u.email,
+      role: u.role,
+      paymentMethod: fields.paymentMethod,
+      accountDetails: fields.accountDetails,
+      currency: "USD",
+      bookSalesEarnings: wallet.available,
+      referralEarnings: 0,
+      commissionEarnings: 0,
+      combinedTotal: wallet.available,
+      reportMonthKey: prevMonthKey,
+      status: "UNQUEUED",
+      paid: false,
+      requestedAt: now.toISOString(),
+      resolvedAt: null,
+      isAffiliate: false,
+    });
+  }
+
+  const affiliateProfiles = await prisma.affiliateProfile.findMany({
+    select: { userId: true, user: { select: { accountNumber: true, email: true, role: true } } },
+  });
+  for (const a of affiliateProfiles as { userId: string; user: { accountNumber: string; email: string; role: string } }[]) {
+    const breakdown = await fetchEarningsBreakdown(a.userId);
+    const combinedLines = linesForView(breakdown, "affiliate");
+    const { paidOut, pending } = await paidAndPendingFor(a.userId, "AFFILIATE");
+    const wallet = computeWallet(combinedLines, paidOut, pending);
+    if (wallet.available <= 0) continue;
+
+    // Split the netted "available" figure between Referral and
+    // Commission proportionally to each category's own RELEASED
+    // total — not their lifetime total — so this stays accurate even
+    // when one category is fully paid off already and the other isn't.
+    const releasedReferral = releasedSum(breakdown.referral);
+    const releasedCommission = releasedSum(breakdown.commission);
+    const releasedCombined = releasedReferral + releasedCommission;
+    const referralEarnings = releasedCombined > 0 ? +(wallet.available * (releasedReferral / releasedCombined)).toFixed(2) : 0;
+    const commissionEarnings = +(wallet.available - referralEarnings).toFixed(2);
+
+    const fields = await recipientFieldsFor(a.userId);
+    rows.push({
+      id: `pending-affiliate-${a.userId}`,
+      userId: a.userId,
+      accountNumber: a.user.accountNumber,
+      accountHolderName: fields.accountHolderName,
+      email: a.user.email,
+      role: a.user.role,
+      paymentMethod: fields.paymentMethod,
+      accountDetails: fields.accountDetails,
+      currency: "USD",
+      bookSalesEarnings: 0,
+      referralEarnings,
+      commissionEarnings,
+      combinedTotal: wallet.available,
+      reportMonthKey: prevMonthKey,
+      status: "UNQUEUED",
+      paid: false,
+      requestedAt: now.toISOString(),
+      resolvedAt: null,
+      isAffiliate: true,
+    });
+  }
+
+  return rows;
+}
+
 export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: string }> {
   try {
     await requireAdminOrAccountant();
@@ -292,12 +444,16 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
       })
     );
 
-    // Live rows (current, still-open month) lead the ledger, followed by
-    // every real payout ever queued, most recent first — the same
-    // rolling live → pending → paid pattern as the author-facing Payout
-    // Settings page, just across every account instead of just one.
+    // Live rows (current, still-open month) lead the ledger, then any
+    // released-but-not-yet-queued "Pending" balances (see
+    // getPendingUnqueuedRows — this is what closes the "a real payout
+    // is missing" gap), then every real payout ever queued, most
+    // recent first — the same rolling live → pending → paid pattern as
+    // the author-facing Payout Settings page, just across every
+    // account instead of just one.
     const liveRows = await getLiveMonthRows();
-    return [...liveRows, ...historicalRows];
+    const pendingRows = await getPendingUnqueuedRows();
+    return [...liveRows, ...pendingRows, ...historicalRows];
   } catch (e) {
     // Surfaced on the page as a readable message instead of a generic
     // Next.js crash screen — see app/admin/payouts/page.tsx. Most

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
+import { useRevenueHighlightActive } from "@/components/RevenueHighlight";
 
 export interface ReferralRawRow {
   accountId: string;
@@ -11,6 +12,11 @@ export interface ReferralRawRow {
   saleDate: string;
   revenue: number;
   commission: number;
+  /** True when this specific referral-earning line happened after the
+   * last time this user viewed Revenue — see BookSalesRow.isNew for
+   * the full explanation; this row is grouped by author below, so a
+   * group is "new" if ANY raw line that fed into it is. */
+  isNew?: boolean;
 }
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
@@ -24,6 +30,7 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
   const [month, setMonth] = useState("all");
   const [year, setYear] = useState("all");
+  const highlightActive = useRevenueHighlightActive();
 
   const years = useMemo(() => {
     const seen = new Set<string>();
@@ -32,7 +39,7 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
   }, [rows]);
 
   const grouped = useMemo(() => {
-    const byAuthor = new Map<string, { accountId: string; name: string; dateJoined: string; revenue: number; commission: number }>();
+    const byAuthor = new Map<string, { accountId: string; name: string; dateJoined: string; revenue: number; commission: number; isNew: boolean }>();
     for (const r of rows) {
       const d = new Date(r.saleDate);
       if (month !== "all" && d.getMonth() !== Number(month)) continue;
@@ -41,8 +48,9 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
       if (existing) {
         existing.revenue += r.revenue;
         existing.commission += r.commission;
+        existing.isNew = existing.isNew || !!r.isNew;
       } else {
-        byAuthor.set(r.accountId, { accountId: r.accountId, name: r.name, dateJoined: r.dateJoined, revenue: r.revenue, commission: r.commission });
+        byAuthor.set(r.accountId, { accountId: r.accountId, name: r.name, dateJoined: r.dateJoined, revenue: r.revenue, commission: r.commission, isNew: !!r.isNew });
       }
     }
     return Array.from(byAuthor.values());
@@ -90,7 +98,7 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
             </thead>
             <tbody>
               {grouped.map((r) => (
-                <tr key={r.accountId}>
+                <tr key={r.accountId} className={highlightActive && r.isNew ? "revenue-row-new" : undefined}>
                   <td style={{ ...TABLE_CELL_STYLE, fontFamily: "monospace" }}>{r.accountId}</td>
                   <td style={TABLE_CELL_STYLE}>{r.name}</td>
                   <td style={TABLE_CELL_STYLE}>{new Date(r.dateJoined).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
