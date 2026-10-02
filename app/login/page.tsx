@@ -27,16 +27,33 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // The actual credential submission. Deliberately NOT wired to the
-  // <form>'s onSubmit event (see the form below) — only two things call
-  // this: an explicit tap/click of the "Sign in" button, and an explicit
-  // Enter keypress while focus is in the password field. On mobile,
-  // selecting a saved credential from the browser/OS autofill strip can
-  // fill both fields *and* synthesize a submit (or an Enter-equivalent)
-  // in one action — that's a mobile browser/autofill behavior, not
-  // something this page's code was doing wrong, but routing the actual
-  // signIn() call only through these two explicit paths means merely
-  // filling in the fields (by typing or by autofill) can never log
-  // anyone in on its own, regardless of what triggered it.
+  // <form>'s onSubmit event (see the form below), and — after three
+  // separate rounds of "logs me in automatically on mobile" reports on
+  // Author accounts specifically — deliberately NOT wired to any Enter
+  // keypress either, not even one scoped to the password field. Two
+  // earlier rounds treated a real Enter-in-password-field keydown as an
+  // intentional submit, reasoning that a genuine Enter press is a
+  // deliberate "submit" signal. That reasoning missed the actual mobile
+  // mechanism: on-screen keyboards on Android/iOS expose a "Go"/"Done"/
+  // "Next" action key on the LAST field of a form, and tapping it fires
+  // a real `Enter` keydown event — indistinguishable from a desktop
+  // Enter press — the moment someone finishes typing their password.
+  // Someone who taps that keyboard button to dismiss the keyboard (a
+  // completely ordinary way to finish typing on mobile) was, by design,
+  // being logged in immediately, with no tap on "Sign in" at all — which
+  // is exactly what kept getting reported as "it logs me in by itself".
+  // Author accounts likely surfaced this more because author sign-in is
+  // typically the LAST thing in a return-visit flow typed carefully on a
+  // phone, where finishing the password field with the keyboard's action
+  // key (rather than tapping away from the keyboard first) is the
+  // natural way to end.
+  //
+  // The fix: performLogin() now runs from exactly ONE place — the
+  // explicit "Sign in" button's onClick (type="button", not "submit", so
+  // it is never itself part of any form submission). No keydown handler,
+  // no onSubmit, and no other code path reaches it, so there is no way
+  // for typing, autofill, or a virtual keyboard's action key to log
+  // anyone in without a real tap on that button.
   async function performLogin() {
     setSubmitting(true);
     setError(null);
@@ -67,15 +84,17 @@ export default function LoginPage() {
         <h1>Welcome</h1>
         {/*
          * This form's onSubmit deliberately only calls preventDefault() —
-         * it never performs the actual sign-in. That's so that no matter
-         * how a submit event ends up firing on this <form> (a genuine
-         * Enter keypress is handled separately below, but mobile browsers
-         * can also synthesize a submit when autofill fills in a saved
-         * credential), it can never, by itself, log anyone in. The real
-         * sign-in only ever runs from performLogin(), called from exactly
-         * two places: the Sign in button's onClick (type="button", not
-         * "submit" — so it isn't itself part of form submission), and the
-         * password field's onKeyDown when the key is actually Enter.
+         * it never performs the actual sign-in, and nothing below ever
+         * calls performLogin() from a keydown/Enter handler any more
+         * either (see performLogin()'s comment for why that was the real
+         * mobile "auto-login" mechanism). So no matter how a submit event
+         * ends up firing on this <form> — a real Enter press, a mobile
+         * keyboard's "Go"/"Done" action key, or a browser/autofill
+         * synthesizing a submit when a saved credential is selected — it
+         * can never, by itself, log anyone in. The real sign-in runs from
+         * performLogin(), called from exactly one place: the Sign in
+         * button's onClick (type="button", not "submit" — so it isn't
+         * itself part of form submission).
          */}
         <form onSubmit={(e) => e.preventDefault()} autoComplete="on">
           <label className="field-label" htmlFor="l-email">Email</label>
@@ -91,28 +110,15 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
           <label className="field-label" htmlFor="l-password">Password</label>
-          <div
-            onKeyDown={(e) => {
-              // Scoped to the actual <input> (not the eye-icon show/hide
-              // button PasswordField also renders in this wrapper) so
-              // tabbing to that button and pressing Enter/Space to toggle
-              // visibility can't also trigger a sign-in attempt.
-              if (e.key === "Enter" && !submitting && (e.target as HTMLElement).tagName === "INPUT") {
-                e.preventDefault();
-                void performLogin();
-              }
-            }}
-          >
-            <PasswordField
-              id="l-password"
-              name="reader-password"
-              placeholder="Your password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={setPassword}
-            />
-          </div>
+          <PasswordField
+            id="l-password"
+            name="reader-password"
+            placeholder="Your password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={setPassword}
+          />
           {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "-8px 0 16px" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--ink-soft)", cursor: "pointer" }}>

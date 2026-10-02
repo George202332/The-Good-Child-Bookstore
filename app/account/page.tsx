@@ -279,6 +279,10 @@ export default async function AccountPage() {
         <div className="section-head" style={{ marginBottom: 16 }}>
           <div>
             <h2 style={{ fontSize: 15.5 }}>Dashboard</h2>
+            <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
+              A quick snapshot of how your books and promotions are doing — sales, earnings, and what&apos;s new,
+              all in one place.
+            </p>
           </div>
         </div>
 

@@ -55,21 +55,32 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
   return (
     <form onSubmit={handleSave}>
       {/* Profile summary — full width, sets the tone for the rest of the page */}
-      <div className="map-card" style={{ padding: "20px 24px", marginBottom: 16, display: "flex", alignItems: "center", gap: 18 }}>
+      <div className="map-card" style={{ padding: "20px 24px", marginBottom: 16, display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
         <div style={{ width: 56, height: 56, borderRadius: "50%", background: "var(--coral)", color: "var(--ink)", fontSize: 20, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           {initials}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 18, fontWeight: 700 }}>{name}</div>
           <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 2 }}>
-            {ROLE_LABEL[initial.role] ?? initial.role} · Account #{initial.accountNumber} · Member since {memberSince}
+            {ROLE_LABEL[initial.role] ?? initial.role} · Member since {memberSince}
           </div>
         </div>
-        {initial.role === "AUTHOR" && initial.referralCode && (
-          <div style={{ fontSize: 12, color: "var(--ink-faint)", textAlign: "right", flexShrink: 0 }}>
-            Referral code<br /><strong style={{ fontSize: 13.5, color: "var(--ink)" }}>{initial.referralCode}</strong>
+        {/* Account number and (for authors) referral code used to sit
+           side by side on the right of this card — on a narrow phone
+           that squeezed two separate pieces of identifying text into a
+           sliver of width next to the avatar/name. Stacked in their own
+           column instead (account number on top, referral code below)
+           so each stays fully readable regardless of screen width. */}
+        <div className="profile-meta-box">
+          <div>
+            Account #<strong style={{ color: "var(--ink)" }}>{initial.accountNumber}</strong>
           </div>
-        )}
+          {initial.role === "AUTHOR" && initial.referralCode && (
+            <div>
+              Referral code<br /><strong style={{ fontSize: 13.5, color: "var(--ink)" }}>{initial.referralCode}</strong>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="form-section">
@@ -159,7 +170,7 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
         </div>
       )}
 
-      <div>
+      <div className="profile-save-row">
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
         {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved.</div>}
         <button type="submit" className="btn btn-primary btn-small" disabled={submitting} style={{ marginTop: 6 }}>

@@ -24,19 +24,27 @@ export interface BlogListItem {
   canonicalUrl: string | null;
   featured: boolean;
   allowComments: boolean;
-  status: "DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "REJECTED" | "ARCHIVED";
+  status: "DRAFT" | "PENDING_REVIEW" | "PUBLISHED" | "REJECTED" | "ARCHIVED" | "SUSPENDED" | "WITHDRAWN";
   createdAt: string;
   publishAt: string | null;
   authorName: string;
   isMine: boolean;
 }
 
+// Mirrors every value of the Prisma ContentStatus enum (prisma/schema.prisma) —
+// SUSPENDED and WITHDRAWN were missing here even though moderation
+// (actions/blog.ts suspendBlog/withdrawBlog) can set a post to either,
+// which meant a writer whose post had been suspended or withdrawn saw a
+// blank status pill (STATUS_LABEL/STATUS_CLASS lookups coming back
+// undefined) instead of an explanation.
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft",
   PENDING_REVIEW: "In review",
   PUBLISHED: "Published",
   REJECTED: "Needs changes",
   ARCHIVED: "Archived",
+  SUSPENDED: "Suspended",
+  WITHDRAWN: "Withdrawn",
 };
 const STATUS_CLASS: Record<string, string> = {
   DRAFT: "status-draft",
@@ -44,6 +52,8 @@ const STATUS_CLASS: Record<string, string> = {
   PUBLISHED: "status-published",
   REJECTED: "status-review",
   ARCHIVED: "status-draft",
+  SUSPENDED: "status-review",
+  WITHDRAWN: "status-draft",
 };
 
 /** Landing state is always the list. "Submit a new blog" sits top-left

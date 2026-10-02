@@ -53,7 +53,11 @@ export function BrowseBooksSection({ books }: { books: BrowsableBook[] }) {
     <div className="map-card" style={{ padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
         <h3 style={{ fontSize: 15, margin: 0 }}>Browse all books</h3>
-        <div style={{ display: "flex", gap: 8 }}>
+        {/* flexWrap here (missing before) is what keeps "Latest Published" —
+           the longest of these three tab labels, and white-space:nowrap by
+           design (see .view-tab) — from spilling out past the card's edge
+           on a narrow phone instead of wrapping onto its own line. */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className={`view-tab ${sortMode === "category" ? "active" : ""}`} onClick={() => setSortMode("category")}>Category</button>
           <button type="button" className={`view-tab ${sortMode === "genre" ? "active" : ""}`} onClick={() => setSortMode("genre")}>Genre</button>
           <button type="button" className={`view-tab ${sortMode === "latest" ? "active" : ""}`} onClick={() => setSortMode("latest")}>Latest Published</button>

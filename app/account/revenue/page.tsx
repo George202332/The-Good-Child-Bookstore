@@ -219,6 +219,10 @@ export default async function RevenuePage() {
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 15.5 }}>Revenue</h2>
+          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
+            Everything you&apos;ve earned, broken down by where it came from — book sales, referrals, and
+            promotions — and what&apos;s been paid out so far.
+          </p>
         </div>
       </div>
       <div className="stat-grid" style={{ marginBottom: 12 }}>

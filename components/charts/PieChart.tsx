@@ -32,7 +32,13 @@ export function PieChart({ data, size = 160, donut = true, legendOffset }: { dat
   });
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+    // justifyContent:"center" plus width:100% is what keeps the pie +
+    // legend centered as a unit once flexWrap puts the legend on its own
+    // row on a narrow phone — without it the default flex-start left-
+    // aligns each wrapped row, so on mobile (where this chart's card is
+    // often wider than the pie+legend's own content) the whole thing sat
+    // off to one side instead of balanced in the card.
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24, flexWrap: "wrap", width: "100%" }}>
       <div
         style={{
           width: size,

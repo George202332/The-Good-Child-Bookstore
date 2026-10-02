@@ -59,10 +59,31 @@ export default async function BlogPage() {
     author: { name: string };
   }[] = [];
   try {
+    // Bounded to the 60 most recent posts, and selecting only the
+    // fields this page actually uses (never `include: { author: true }`,
+    // which pulled every other writer's *entire* User row — passwordHash
+    // included — for every single published post site-wide). With no
+    // limit at all, this grew without bound as more posts were
+    // published: a full, unbounded table scan plus a full join on User
+    // for every row, on every single visit to this page. Once there was
+    // enough real data that query could blow the serverless function's
+    // time/memory budget outright — a crash a try/catch around the
+    // query can't catch, since the function is killed before the
+    // promise has a chance to reject normally. That's almost certainly
+    // why reloading never helped: the data that made the query too
+    // heavy was still there on every retry.
     const result = await prisma.blog.findMany({
       where: { status: "PUBLISHED", authorId: { not: session.user.id } },
-      include: { author: true },
+      select: {
+        id: true, slug: true, title: true, subtitle: true, content: true,
+        shortSummary: true, coverImageUrl: true, imageAltText: true,
+        authorFirstName: true, authorLastName: true, categories: true, tags: true,
+        metaTitle: true, metaDescription: true, seoKeywords: true, canonicalUrl: true,
+        featured: true, allowComments: true, createdAt: true, publishAt: true, status: true,
+        author: { select: { name: true } },
+      },
       orderBy: { publishAt: "desc" },
+      take: 60,
     });
     if (Array.isArray(result)) othersPublished = result;
   } catch {

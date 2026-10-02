@@ -90,7 +90,12 @@ export default async function ActiveCampaignsPage() {
               <thead>
                 <tr>
                   <th style={TABLE_HEAD_STYLE}>Book<ColHelp text="The book you're promoting." /></th>
-                  <th style={TABLE_HEAD_STYLE}>Link<ColHelp text="Your unique affiliate link for this book — share it to earn commission on sales through it." /></th>
+                  {/* Mobile-only: the Copy Link button in the last column
+                     already does what this raw-URL text column is for, so
+                     it's hidden (CSS only, see .promo-link-col) below 700px
+                     — desktop keeps showing it as before, and the link/
+                     Copy Link functionality itself is unchanged either way. */}
+                  <th className="promo-link-col" style={TABLE_HEAD_STYLE}>Link<ColHelp text="Your unique affiliate link for this book — share it to earn commission on sales through it." /></th>
                   <th style={TABLE_HEAD_STYLE}>Clicks<ColHelp text="How many times your link has been clicked." /></th>
                   <th style={TABLE_HEAD_STYLE}>Sales<ColHelp text="How many purchases came through your link." /></th>
                   <th style={TABLE_HEAD_STYLE}>Earned<ColHelp text="Total commission you've earned from this link." /></th>
@@ -114,7 +119,7 @@ export default async function ActiveCampaignsPage() {
                           <span style={{ fontWeight: 700 }}>{l.bookTitle}</span>
                         </div>
                       </td>
-                      <td style={TABLE_CELL_STYLE}><code style={{ fontSize: 11.5, wordBreak: "break-all" }}>{url}</code></td>
+                      <td className="promo-link-col" style={TABLE_CELL_STYLE}><code style={{ fontSize: 11.5, wordBreak: "break-all" }}>{url}</code></td>
                       <td style={TABLE_CELL_STYLE}>{l.clicks}</td>
                       <td style={TABLE_CELL_STYLE}>{l.conversions}</td>
                       <td style={TABLE_CELL_STYLE}>${l.commissionEarned.toFixed(2)}</td>

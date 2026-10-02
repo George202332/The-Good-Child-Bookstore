@@ -68,7 +68,20 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// Defining a custom `viewport` export replaces Next.js's own default
+// entirely (it doesn't merge with it) — with only `themeColor` set here,
+// the page was shipping with NO `width`/`initialScale`, i.e. no real
+// `<meta name="viewport" content="width=device-width, initial-scale=1">`
+// at all. That's exactly the condition that brings back the browser's
+// legacy ~300ms double-tap-to-zoom delay on every tap, which modern
+// mobile browsers only suppress automatically once they can see a page
+// has explicitly opted out of pinch-zoom-via-double-tap via a proper
+// viewport meta tag — this is almost certainly the real cause of the
+// site-wide tap lag on mobile (see also the global `touch-action:
+// manipulation` rule added in app/site.css for the same issue).
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
   themeColor: "#3F3350",
 };
 

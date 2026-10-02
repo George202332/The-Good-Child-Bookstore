@@ -47,7 +47,7 @@ const WHY_CARDS: [string, string, string][] = [
   ['<path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/>', "Affiliate rewards", "Anyone, reader or author, can earn commission sharing books they love through our affiliate program."],
   ['<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h6M9 11h6"/>', "Educational content", "Reading level and curriculum-friendly tags help teachers and homeschool parents plan with confidence."],
   ['<path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4Z"/><path d="M9 12l2 2 4-4"/>', "A safe platform for kids", "No third-party ads, no unmoderated content, and every listing is age-tagged honestly."],
-  ['<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>', "Excellent support", "A real, small team behind hello@thegoodchildbookstore.com; no ticket numbers, no bots."],
+  ['<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>', "Excellent support", "A real, small team behind support@thegoodchildbookstore.com; no ticket numbers, no bots."],
 ];
 
 const BENEFIT_CARDS: [string, string, string][] = [

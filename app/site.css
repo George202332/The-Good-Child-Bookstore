@@ -59,6 +59,15 @@
   a{color:inherit;text-decoration:none;}
   button{font-family:inherit;cursor:pointer;border:none;background:none;}
   img{max-width:100%;display:block;}
+  /* Site-wide tap responsiveness: tells the browser these elements are
+     never meant to be double-tap-zoomed, so it can dispatch a tap's
+     click immediately instead of waiting (historically up to ~300ms) to
+     see whether a second tap is coming. Belt-and-suspenders alongside
+     the corrected viewport meta tag (app/layout.tsx) — that alone
+     should already suppress the delay in every modern mobile browser,
+     but this makes the intent explicit on every actual tap target site-
+     wide regardless. */
+  a, button, [role="button"], input, select, textarea, label{touch-action:manipulation;}
   ::selection{background:var(--gold);color:var(--ink);}
 
   .wrap{max-width:1280px;margin:0 auto;padding:0 40px;}
@@ -2149,6 +2158,12 @@
   .view-tab.active{background:var(--coral);color:#fff;border-color:var(--coral);}
   .no-scrollbar{scrollbar-width:none;-ms-overflow-style:none;}
   .no-scrollbar::-webkit-scrollbar{display:none;}
+  /* "Books on Promotion" table (Promotions tab): the raw-link text column
+     is redundant with the Copy Link button next to it, on a phone where
+     every column is already tight — hidden on mobile only, desktop is
+     unaffected, and the Copy Link button (a separate column) still works
+     exactly as before on both. */
+  @media (max-width:700px){ .promo-link-col{display:none;} }
 
   /* ---------- Read Sample preview panel ---------- */
   /* The panel's viewport shows exactly one page at a time (scroll-snap
@@ -2193,6 +2208,14 @@
 
   /* ===== Shared "professional form" components (Blog/eBook/Profile) ===== */
   .form-section{background:var(--paper);border-radius:16px;padding:24px;margin-bottom:20px;border:1px solid var(--line);}
+  /* Profile tab summary card: account number + (author) referral code,
+     stacked in their own right-aligned column instead of being squeezed
+     side by side — see ProfileForm.tsx for why. */
+  .profile-meta-box{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;text-align:right;font-size:12px;color:var(--ink-faint);margin-left:auto;}
+  /* Save Changes on the Profile tab: left-aligned by default (matches
+     every other form on the site), right-aligned on mobile per request. */
+  .profile-save-row{display:flex;flex-direction:column;align-items:flex-start;}
+  @media (max-width:700px){ .profile-save-row{align-items:flex-end;} }
   .payout-methods-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
   @media (max-width:1000px){ .payout-methods-grid{grid-template-columns:1fr;} }
   .profile-info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
