@@ -7,7 +7,7 @@ import { checkManuscriptMetadata, type MetadataCheckResult } from "@/actions/met
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { RichTextEditor } from "@/components/RichTextEditor";
-import { SectionHeader, Card } from "./shared";
+import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 import { AuthorAliasField } from "./AuthorAliasField";
 import { KeywordsField } from "./KeywordsField";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
@@ -32,6 +32,13 @@ export interface EbookSubmissionInitial {
   bookId: string;
   manuscriptFileId?: string;
   coverImageUrl?: string;
+  /** An optional audiobook file already uploaded on this title — see
+   * the Audiobook upload field in the Files section below. */
+  audiobookFileId?: string;
+  /** The audiobook's own retail price, as a string for the price input
+   * — only ever meaningful (and only ever rendered) once an audiobook
+   * file exists. */
+  audiobookPrice?: string;
   title: string;
   subtitle?: string;
   edition?: string;
@@ -81,12 +88,35 @@ export interface EbookSubmissionInitial {
  * review on save. Not a separate, simplified edit form — the same
  * page, the same fields, per explicit instruction.
  */
-export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInitial } = {}) {
+export function EbookSubmissionForm({
+  initial,
+  audiobookEnabled = true,
+  onSharedFieldsChange,
+}: {
+  initial?: EbookSubmissionInitial;
+  /** Admin's "Formats open for submission" toggle for Audio book (see
+   * PublishingFormatToggles) — when off, the Audiobook upload field
+   * below doesn't render at all, same as it used to gate the whole
+   * separate Audiobook tab. */
+  audiobookEnabled?: boolean;
+  /** Reports this form's shared fields (title, author, description,
+   * category, age range, etc) up to the parent wizard every time they
+   * change, so the Print tab can be pre-filled with them — see
+   * SharedSubmissionFields in ./shared.tsx. */
+  onSharedFieldsChange?: (fields: SharedSubmissionFields) => void;
+} = {}) {
   const router = useRouter();
 
   // Files
   const [manuscriptFileId, setManuscriptFileId] = useState<string | undefined>(initial?.manuscriptFileId);
   const [coverImageUrl, setCoverImageUrl] = useState(initial?.coverImageUrl ?? "");
+
+  // Audiobook — optional, lives on this same tab (relabeled "eBook /
+  // Audiobook" by the parent wizard) rather than a separate Audiobook
+  // tab. Per explicit instruction, the price field below doesn't exist
+  // at all until a file has actually been uploaded here.
+  const [audiobookFileId, setAudiobookFileId] = useState<string | undefined>(initial?.audiobookFileId);
+  const [audiobookPrice, setAudiobookPrice] = useState(initial?.audiobookPrice ?? "");
 
   // Book information
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -183,6 +213,20 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
   }, [descriptionHtml]);
   const DESCRIPTION_WORD_LIMIT = 200;
 
+  // Report the shared subset of fields up to the parent wizard on every
+  // change, so switching to the Print tab can pre-fill them there — see
+  // SharedSubmissionFields in ./shared.tsx.
+  useEffect(() => {
+    onSharedFieldsChange?.({
+      title, subtitle, edition, seriesName, language, publicationDate,
+      category, genre, ageGroup, readingLevel,
+      authorFirstName, authorLastName,
+      description: plainTextFromHtml(descriptionHtml),
+      aiDeclaration,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onSharedFieldsChange is expected to be a stable callback from the parent; including it would re-run this on every parent render for no reason.
+  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, aiDeclaration]);
+
   const [metadataCheck, setMetadataCheck] = useState<MetadataCheckResult>({ titleFound: true, authorFound: true, checked: false });
   useEffect(() => {
     if (!manuscriptFileId || !title.trim()) return;
@@ -227,7 +271,8 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
       language,
       coverImageUrl,
       manuscriptFileId,
-      formats: { ebook: true, print: false, audiobook: false },
+      audiobookFileId,
+      formats: { ebook: true, print: false, audiobook: !!audiobookFileId },
       metadata: {
         authorFirstName,
         authorLastName,
@@ -256,6 +301,8 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
         seoTitle,
         seoDescription,
         keywords: keywords.join(", "),
+        audiobookEnabled: !!audiobookFileId,
+        audiobookRetailPrice: audiobookFileId ? Number(audiobookPrice) || 0 : undefined,
       },
       submitForReview,
     };
@@ -277,10 +324,10 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
         <SectionHeader n={1} title="Files" sub="Manuscript and cover — this is where we start." />
         <div className="upload-cards-row">
           <FileUploadField
-            label="Manuscript (PDF or DOCX)"
+            label="Manuscript (PDF, EPUB, MOBI, or DOCX)"
             sizeHint="Max 4MB — a DOCX file is converted to PDF automatically"
-            allowedTypes={["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
-            accept=".pdf,.docx"
+            allowedTypes={["application/pdf", "application/epub+zip", "application/x-mobipocket-ebook", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
+            accept=".pdf,.epub,.mobi,.docx"
             onUploaded={(ids) => setManuscriptFileId(ids[0])}
             onFileMeta={(results) => {
               const result = results[0];
@@ -317,6 +364,40 @@ export function EbookSubmissionForm({ initial }: { initial?: EbookSubmissionInit
           Readers get a free preview of the first 10 pages from the &quot;Read Sample&quot; button on the book&apos;s
           page — there&apos;s nothing separate to upload for that.
         </p>
+
+        {audiobookEnabled && (
+          <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
+            <label className="field-label" style={{ marginBottom: 2 }}>Audiobook (optional)</label>
+            <p className="field-hint" style={{ margin: "0 0 10px" }}>
+              Add an audiobook edition of this same title right here — there&apos;s no separate Audiobook submission
+              anymore. Uploading a file is entirely optional.
+            </p>
+            <div className="upload-cards-row">
+              <FileUploadField
+                label="Audiobook file (MP3 or M4A)"
+                sizeHint="Max 4MB"
+                allowedTypes={["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/aac"]}
+                accept=".mp3,.m4a,.aac"
+                onUploaded={(ids) => setAudiobookFileId(ids[0])}
+                fillWidth
+              />
+            </div>
+            {audiobookFileId ? (
+              <div style={{ marginTop: 14, maxWidth: 220 }}>
+                <label className="field-label" htmlFor="f-audiobook-price">Audiobook list price (USD)</label>
+                <input className="field" id="f-audiobook-price" type="number" step={0.01} value={audiobookPrice} onChange={(e) => setAudiobookPrice(e.target.value)} />
+                <div className="field-hint">
+                  The Audiobook format only appears on the book&apos;s page once both a file and a price are set.
+                </div>
+              </div>
+            ) : (
+              <p className="field-hint" style={{ marginTop: 10 }}>
+                Upload an audiobook file above to set its price — the Audiobook format won&apos;t show on the
+                book&apos;s page until both exist.
+              </p>
+            )}
+          </div>
+        )}
       </Card>
 
       {/* Section 2 — Book information */}

@@ -182,7 +182,7 @@ export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?
   const goLiveAt = existing.publishAt && existing.publishAt > new Date() ? existing.publishAt : new Date();
   const blog = await prisma.blog.update({
     where: { id: blogId },
-    data: { status: "PUBLISHED", publishAt: goLiveAt },
+    data: { status: "PUBLISHED", publishAt: goLiveAt, revisionNotes: null },
     include: { author: true },
   });
   const { createNotification } = await import("@/actions/notifications");
@@ -195,17 +195,55 @@ export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?
   return { ok: true };
 }
 
-export async function rejectBlog(blogId: string): Promise<{ ok: boolean; error?: string }> {
+export async function rejectBlog(blogId: string, comments?: string): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
   const blog = await prisma.blog.update({
     where: { id: blogId },
-    data: { status: "REJECTED" },
+    data: { status: "REJECTED", revisionNotes: comments?.trim() || null },
     include: { author: true },
   });
   const { createNotification } = await import("@/actions/notifications");
-  await createNotification(blog.author.id, `Revision requested: "${blog.title}"`, `"${blog.title}" was not approved this time.`, "BLOG_REVISION");
+  await createNotification(
+    blog.author.id,
+    `Revision requested: "${blog.title}"`,
+    comments?.trim() ? `"${blog.title}" was sent back for revision: ${comments.trim()}` : `"${blog.title}" was not approved this time.`,
+    "BLOG_REVISION"
+  );
   revalidatePath("/admin/blog");
+  revalidatePath(`/admin/blog/${blogId}/review`);
+  return { ok: true };
+}
+
+/** Suspend/Withdraw for a blog post — same moderation-only actions
+ * Book Management offers, applied directly (any Admin or Editor can
+ * finalize either, unlike Book's Editor-proposes/Admin-ratifies tiering
+ * — Blog has no pending-ratification state to match that with, and
+ * adding one was out of proportion to what was asked here). Suspend
+ * pulls the post from public view while keeping it on record; Withdraw
+ * is the same, worded for a more permanent removal — neither is a hard
+ * delete. */
+export async function suspendBlog(blogId: string, comments?: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
+  const blog = await prisma.blog.update({ where: { id: blogId }, data: { status: "SUSPENDED" }, include: { author: true } });
+  const { createNotification } = await import("@/actions/notifications");
+  await createNotification(blog.author.id, `Suspended: "${blog.title}"`, comments?.trim() || `"${blog.title}" has been suspended.`, "BLOG_REVISION");
+  revalidatePath("/admin/blog");
+  revalidatePath(`/admin/blog/${blogId}/review`);
+  return { ok: true };
+}
+
+export async function withdrawBlog(blogId: string, comments?: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
+  const blog = await prisma.blog.update({ where: { id: blogId }, data: { status: "WITHDRAWN" }, include: { author: true } });
+  const { createNotification } = await import("@/actions/notifications");
+  await createNotification(blog.author.id, `Withdrawn: "${blog.title}"`, comments?.trim() || `"${blog.title}" has been withdrawn.`, "BLOG_REVISION");
+  revalidatePath("/admin/blog");
+  revalidatePath(`/admin/blog/${blogId}/review`);
   return { ok: true };
 }

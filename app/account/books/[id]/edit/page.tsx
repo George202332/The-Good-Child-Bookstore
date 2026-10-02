@@ -28,6 +28,8 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
 
   const manuscriptFile = book.files.find((f: { kind: string; url: string }) => f.kind === "MANUSCRIPT");
   const manuscriptFileId = manuscriptFile?.url.split("/").pop();
+  const audiobookFile = book.files.find((f: { kind: string; url: string }) => f.kind === "AUDIOBOOK");
+  const audiobookFileId = audiobookFile?.url.split("/").pop();
   const meta = (book.submissionMetadata as Record<string, unknown> | null) ?? {};
 
   return (
@@ -44,6 +46,8 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
         initial={{
           bookId: book.id,
           manuscriptFileId,
+          audiobookFileId,
+          audiobookPrice: book.audiobookPrice != null ? String(Number(book.audiobookPrice)) : "",
           coverImageUrl: book.coverImageUrl ?? "",
           title: book.title,
           subtitle: book.subtitle ?? "",

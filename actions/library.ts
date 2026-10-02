@@ -121,6 +121,8 @@ export async function listLibrary(): Promise<LibraryItem[]> {
       if (bf.book.hasPrint && bf.book.paperbackPrice != null) folder = "paperbacks";
       else if (bf.book.hasPrint && bf.book.hardcoverPrice != null) folder = "hardcovers";
       else if (bf.book.hasEbook) folder = "ebooks";
+    } else if (bf.kind === "AUDIOBOOK") {
+      folder = "audiobooks";
     }
     items.push({ id: bf.id, kind: "file", mimeType: "application/pdf", name: `${bf.book.title} — ${bf.kind.toLowerCase()}`, createdAt: bf.createdAt, folder, url: bf.url });
   }

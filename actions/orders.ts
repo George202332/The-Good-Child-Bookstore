@@ -355,7 +355,11 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary | n
         return {
           title: l.book.title,
           price: Number(l.grossAmount),
-          downloadUrl: isEbook ? (l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url ?? null) : null,
+          downloadUrl: isEbook
+            ? (l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url ?? null)
+            : isAudiobook
+            ? (l.book.files.find((f) => f.kind === "AUDIOBOOK")?.url ?? null)
+            : null,
           hasEbook: isEbook,
           hasAudiobook: isAudiobook,
           isPrint,

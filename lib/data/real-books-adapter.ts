@@ -96,6 +96,8 @@ function toCatalogBook(row: RealBookRow): Book {
     : null;
   const paperbackPrice = row.paperbackPrice != null ? Number(row.paperbackPrice) : (meta?.paperbackEnabled && meta.paperbackRetailPrice ? meta.paperbackRetailPrice : null);
   const hardcoverPrice = row.hardcoverPrice != null ? Number(row.hardcoverPrice) : (meta?.hardcoverEnabled && meta.hardcoverRetailPrice ? meta.hardcoverRetailPrice : null);
+  const audiobookUrl = row.files.find((f) => f.kind === "AUDIOBOOK")?.url;
+  const audiobookPrice = row.audiobookPrice != null ? Number(row.audiobookPrice) : null;
 
   return {
     id: row.id,
@@ -118,15 +120,21 @@ function toCatalogBook(row: RealBookRow): Book {
       ebook: row.ebookPrice ? Number(row.ebookPrice) : price,
       print: hardcoverPrice ?? price,
       paperback: paperbackPrice ?? price,
-      audiobook: row.audiobookPrice ? Number(row.audiobookPrice) : price,
+      audiobook: audiobookPrice ?? price,
     },
     formatAvailable: {
       ebook: row.hasEbook,
       paperback: row.hasPrint && paperbackPrice != null,
       hardcover: row.hasPrint && hardcoverPrice != null,
-      audiobook: row.hasAudiobook,
+      // Per explicit instruction: the Audiobook format is only ever
+      // shown/purchasable once BOTH an audio file has been uploaded AND
+      // a price has been set for it — missing either one, and the
+      // Audiobook option is entirely absent from the product page, not
+      // shown disabled/unavailable.
+      audiobook: row.hasAudiobook && !!audiobookUrl && audiobookPrice != null,
     },
     manuscriptUrl: row.files.find((f) => f.kind === "MANUSCRIPT")?.url,
+    audiobookUrl,
     isbn: row.isbn ?? "",
     // The date the author actually entered at submission, when they set
     // one — falls back to when the row was created for older

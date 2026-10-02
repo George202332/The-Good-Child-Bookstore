@@ -3,23 +3,32 @@
 import { useState } from "react";
 import { EbookSubmissionForm } from "./EbookSubmissionForm";
 import { PrintSubmissionForm } from "./PrintSubmissionForm";
+import type { SharedSubmissionFields } from "./shared";
 
-type Format = "ebook" | "print" | "audiobook";
+type Format = "ebook" | "print";
 
-/** Top-level tab switcher for the three submission workflows — eBook,
- * Print Copy (a fully dedicated Lulu print-on-demand workflow, see
- * PrintSubmissionForm.tsx), and Audio book (not yet built out to the
- * same depth as the other two). Admin controls which of these are
- * currently open for submission from Book Management — a format
- * switched off there simply doesn't render as a tab here at all. */
+/** Top-level tab switcher for the submission workflow — exactly two
+ * tabs: "eBook / Audiobook" (an optional audiobook file/price live
+ * right inside that same form now — there's no separate Audiobook tab
+ * any more) and "Print Copy" (a fully dedicated Lulu print-on-demand
+ * workflow, see PrintSubmissionForm.tsx). Admin still controls whether
+ * each is currently open for submission from Book Management — a
+ * format switched off there doesn't render as a tab here at all, and
+ * turning off "Audio book" there hides just the audiobook upload field
+ * on the eBook tab, not the whole tab.
+ *
+ * Whatever shared fields (title, author, description, category, age
+ * range, etc — see SharedSubmissionFields) the author enters on the
+ * eBook tab are lifted up here and handed to the Print tab as a
+ * one-time prefill, so nothing has to be re-typed. */
 export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: boolean; print: boolean; audiobook: boolean } }) {
   const ALL_FORMATS: { key: Format; label: string }[] = [
-    { key: "ebook", label: "eBook" },
+    { key: "ebook", label: "eBook / Audiobook" },
     { key: "print", label: "Print Copy" },
-    { key: "audiobook", label: "Audio book" },
   ];
   const visibleFormats = ALL_FORMATS.filter((f) => enabledFormats[f.key]);
   const [activeFormat, setActiveFormat] = useState<Format>(visibleFormats[0]?.key ?? "ebook");
+  const [sharedFields, setSharedFields] = useState<SharedSubmissionFields | undefined>(undefined);
 
   if (visibleFormats.length === 0) {
     return (
@@ -48,21 +57,15 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
         </div>
         <p style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
           {activeFormat === "print"
-            ? "A dedicated workflow for printed books, fulfilled through our print-on-demand partner."
-            : "Publishing a printed book? The Print Copy tab opens our dedicated print publishing workflow, including cover wrap preview and print-on-demand fulfillment."}
+            ? "A dedicated workflow for printed books, fulfilled through our print-on-demand partner. Whatever you already entered on the eBook / Audiobook tab is pre-filled below."
+            : "Publish an eBook with an optional audiobook edition right on this tab. Publishing a printed book? The Print Copy tab opens our dedicated print publishing workflow, including cover wrap preview and print-on-demand fulfillment."}
         </p>
       </div>
 
-      {activeFormat === "ebook" && enabledFormats.ebook && <EbookSubmissionForm />}
-      {activeFormat === "print" && enabledFormats.print && <PrintSubmissionForm />}
-      {activeFormat === "audiobook" && enabledFormats.audiobook && (
-        <div className="form-section">
-          <p style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
-            The Audio book submission workflow isn&apos;t built out to the same depth as eBook and Print Copy yet —
-            that&apos;s real, separate follow-up work.
-          </p>
-        </div>
+      {activeFormat === "ebook" && enabledFormats.ebook && (
+        <EbookSubmissionForm audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setSharedFields} />
       )}
+      {activeFormat === "print" && enabledFormats.print && <PrintSubmissionForm prefill={sharedFields} />}
     </div>
   );
 }

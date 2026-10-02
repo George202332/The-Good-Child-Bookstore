@@ -11,7 +11,7 @@ import { Ean13Barcode } from "@/components/Ean13Barcode";
 import { LULU_CONFIG, buildPodPackageId, labelForCode } from "@/lib/lulu-config";
 import { computePrintPricing } from "@/lib/lulu-pricing";
 import { computeCoverGeometry } from "@/lib/cover-preview";
-import { SectionHeader, Card } from "./shared";
+import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 
 const CATEGORIES = ["Picture books", "Bedtime stories", "Middle grade", "Educational"];
 const GENRES = ["Adventure", "Fantasy", "Animal Story", "Fairy Tale", "Poetry", "Educational"];
@@ -36,30 +36,33 @@ const PAPERBACK_BINDINGS = LULU_CONFIG.bindings.filter((b) => !b.hardcover);
  * the numbers shown are a documented, labeled estimate (see
  * lib/lulu-pricing.ts), not a live quote.
  */
-export function PrintSubmissionForm() {
+export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFields } = {}) {
   const router = useRouter();
 
-  // Section 1
-  const [title, setTitle] = useState("");
-  const [subtitle, setSubtitle] = useState("");
-  const [seriesName, setSeriesName] = useState("");
-  const [edition, setEdition] = useState("");
+  // Section 1 — whatever the author already entered on the eBook /
+  // Audiobook tab is pre-filled here (see SharedSubmissionFields in
+  // ./shared.tsx) so there's nothing to re-type; every field stays
+  // fully editable afterward.
+  const [title, setTitle] = useState(prefill?.title ?? "");
+  const [subtitle, setSubtitle] = useState(prefill?.subtitle ?? "");
+  const [seriesName, setSeriesName] = useState(prefill?.seriesName ?? "");
+  const [edition, setEdition] = useState(prefill?.edition ?? "");
   const [isbn, setIsbn] = useState("978-1-59299-541-7");
-  const [language, setLanguage] = useState(LANGUAGES[0]);
-  const [publicationDate, setPublicationDate] = useState("");
-  const [category, setCategory] = useState(CATEGORIES[0]);
-  const [genre, setGenre] = useState(GENRES[0]);
-  const [ageGroup, setAgeGroup] = useState(AGE_RANGES[0]);
-  const [readingLevel, setReadingLevel] = useState(READING_LEVELS[0]);
-  const [description, setDescription] = useState("");
+  const [language, setLanguage] = useState(prefill?.language || LANGUAGES[0]);
+  const [publicationDate, setPublicationDate] = useState(prefill?.publicationDate ?? "");
+  const [category, setCategory] = useState(prefill?.category || CATEGORIES[0]);
+  const [genre, setGenre] = useState(prefill?.genre || GENRES[0]);
+  const [ageGroup, setAgeGroup] = useState(prefill?.ageGroup || AGE_RANGES[0]);
+  const [readingLevel, setReadingLevel] = useState(prefill?.readingLevel || READING_LEVELS[0]);
+  const [description, setDescription] = useState(prefill?.description ?? "");
   const descriptionWordCount = description.trim() ? description.trim().split(/\s+/).filter(Boolean).length : 0;
   // The author's own statement of how (or whether) they used AI in
   // creating this book — shown on the product page's detail card.
-  const [aiDeclaration, setAiDeclaration] = useState("");
+  const [aiDeclaration, setAiDeclaration] = useState(prefill?.aiDeclaration ?? "");
 
   // Section 2
-  const [authorFirstName, setAuthorFirstName] = useState("");
-  const [authorLastName, setAuthorLastName] = useState("");
+  const [authorFirstName, setAuthorFirstName] = useState(prefill?.authorFirstName ?? "");
+  const [authorLastName, setAuthorLastName] = useState(prefill?.authorLastName ?? "");
   const [coAuthors, setCoAuthors] = useState("");
   const [illustrator, setIllustrator] = useState("");
   const [editor, setEditor] = useState("");
@@ -67,6 +70,15 @@ export function PrintSubmissionForm() {
 
   // Section 3
   const [printReadyPdfFileId, setPrintReadyPdfFileId] = useState<string | undefined>();
+  // Page count + trim-size dimensions, auto-detected from the uploaded
+  // print-ready PDF itself (same readPdfMetadata() helper the eBook
+  // manuscript upload already uses — see actions/files.ts) — reviewed/
+  // editable, same "detect, pre-fill, let the author confirm or
+  // correct" pattern as the eBook tab.
+  const [printPages, setPrintPages] = useState("");
+  const [printPagesAutoDetected, setPrintPagesAutoDetected] = useState(false);
+  const [printDimensions, setPrintDimensions] = useState("");
+  const [printDimensionsAutoDetected, setPrintDimensionsAutoDetected] = useState(false);
   const [frontCoverImageUrl, setFrontCoverImageUrl] = useState("");
   const [customBackCoverPdfFileId, setCustomBackCoverPdfFileId] = useState<string | undefined>();
   // Which cover actually gets sent to Lulu: "auto" (front cover + our
@@ -146,6 +158,8 @@ export function PrintSubmissionForm() {
         translator,
         readingLevel,
         aiDeclaration: aiDeclaration.trim() || undefined,
+        pages: printPages ? Number(printPages) : undefined,
+        dimensions: printDimensions.trim() || undefined,
         currency: "USD",
         taxSetting: "Calculate automatically by customer location",
         worldwideRights: true,
@@ -314,6 +328,21 @@ export function PrintSubmissionForm() {
             allowedTypes={["application/pdf"]}
             accept=".pdf"
             onUploaded={(ids) => setPrintReadyPdfFileId(ids[0])}
+            onFileMeta={(results) => {
+              const result = results[0];
+              if (typeof result?.pageCount === "number") {
+                setPrintPages(String(result.pageCount));
+                setPrintPagesAutoDetected(true);
+              } else {
+                setPrintPagesAutoDetected(false);
+              }
+              if (result?.dimensions) {
+                setPrintDimensions(result.dimensions);
+                setPrintDimensionsAutoDetected(true);
+              } else {
+                setPrintDimensionsAutoDetected(false);
+              }
+            }}
             fillWidth
           />
           <ImageUploadField
@@ -427,9 +456,37 @@ export function PrintSubmissionForm() {
             </p>
           </>
         )}
-        <p style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 4 }}>
-          Page count: upload a print-ready or interior PDF to calculate
-        </p>
+        <div className="form-grid-2" style={{ marginTop: 4 }}>
+          <div>
+            <label className="field-label" htmlFor="p-pages">Pages</label>
+            <input
+              className="field"
+              id="p-pages"
+              type="number"
+              min={1}
+              placeholder="Upload a print-ready PDF to auto-fill"
+              value={printPages}
+              onChange={(e) => { setPrintPages(e.target.value); setPrintPagesAutoDetected(false); }}
+            />
+            <div className="field-hint">
+              {printPagesAutoDetected ? "Auto-detected from your uploaded print-ready PDF — edit if it's not quite right." : "Auto-fills once you upload the print-ready PDF above."}
+            </div>
+          </div>
+          <div>
+            <label className="field-label" htmlFor="p-dimensions">Trim dimensions (as uploaded)</label>
+            <input
+              className="field"
+              id="p-dimensions"
+              type="text"
+              placeholder="Upload a print-ready PDF to auto-fill"
+              value={printDimensions}
+              onChange={(e) => { setPrintDimensions(e.target.value); setPrintDimensionsAutoDetected(false); }}
+            />
+            <div className="field-hint">
+              {printDimensionsAutoDetected ? "Auto-detected from your uploaded print-ready PDF — edit if it's not quite right." : "Auto-fills once you upload the print-ready PDF above. The Trim size buttons above are what's actually sent to Lulu."}
+            </div>
+          </div>
+        </div>
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 16 }}>
           {paperbackEnabled && (
             <div>

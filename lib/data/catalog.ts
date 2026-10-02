@@ -138,6 +138,10 @@ export interface Book {
    * viewer renders the first 6 pages of this exact file. Real
    * submitted books only; the static demo catalog has none. */
   manuscriptUrl?: string;
+  /** The uploaded audiobook file's URL — real submitted books only, and
+   * only set once both an audio file and a price exist (see
+   * formatAvailable.audiobook above, which gates on this the same way). */
+  audiobookUrl?: string;
   isbn: string;
   pubDate: string;
   sizeMB: string;

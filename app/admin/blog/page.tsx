@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
-import { ModerationActions } from "./ModerationActions";
 import { getBlogStats, listBlogsForModeration } from "@/actions/blog-management";
 import { ColHelp } from "@/components/ColHelp";
 
@@ -99,7 +98,7 @@ export default async function BlogModerationPage({
               <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Status<ColHelp text="Where this post is in the moderation pipeline: Draft (not submitted), Pending Review, Published (live on the journal), or Rejected (sent back for revision)." /></th>
               <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Submitted<ColHelp text="The date this post was created or last submitted for review." /></th>
               <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Comments<ColHelp text="How many comments this post has received." /></th>
-              <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Action<ColHelp text="Approve or reject a post awaiting review, or view its comments once it's already published." /></th>
+              <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Open<ColHelp text="Open this post's full submission for review: content preview, details, comments, and Approve/Attention/Suspend/Withdraw." /></th>
             </tr>
           </thead>
           <tbody>
@@ -120,11 +119,7 @@ export default async function BlogModerationPage({
                   </td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{p.commentCount}</td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
-                    {p.status === "PENDING_REVIEW" ? (
-                      <ModerationActions blogId={p.id} />
-                    ) : (
-                      <Link href={`/admin/blog/${p.id}`} className="btn btn-ghost btn-small">View comments</Link>
-                    )}
+                    <Link href={`/admin/blog/${p.id}/review`} className="btn btn-primary btn-small">Open</Link>
                   </td>
                 </tr>
               ))

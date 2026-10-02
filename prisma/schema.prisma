@@ -537,6 +537,11 @@ model Blog {
   featured        Boolean       @default(false)
   allowComments   Boolean       @default(true)
   status          ContentStatus @default(DRAFT)
+  /** The moderator's comment explaining what needs to change, shown to
+   * the writer when a post is sent back for revision (status
+   * REJECTED) — same pattern as Book.revisionNotes. Cleared when the
+   * post is later approved. */
+  revisionNotes   String?
   // Authorship is by User directly (not AuthorProfile) so Reader and
   // Affiliate accounts can write blog posts too, not just Author
   // accounts — blogging is open to every account type.

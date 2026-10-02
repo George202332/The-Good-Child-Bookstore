@@ -179,6 +179,15 @@ export interface SubmissionMetadata {
   keywords?: string;
   fileType?: string;
   narrator?: string;
+  /** Whether an audiobook file has actually been uploaded on the eBook /
+   * Audiobook tab — audiobookRetailPrice (and the Audiobook format
+   * itself) is only ever meaningful when this is true; the price field
+   * doesn't even render on the form until an audio file is uploaded. */
+  audiobookEnabled?: boolean;
+  /** The audiobook's own retail price — a separate purchasable edition
+   * from the eBook, same pattern as paperbackRetailPrice/
+   * hardcoverRetailPrice below. */
+  audiobookRetailPrice?: number;
   // Real Lulu print-configuration fields (see lib/lulu-config.ts) — only
   // meaningful when the print format is enabled.
   interiorColor?: string;
@@ -238,6 +247,10 @@ export interface SubmitBookInput {
   coverAltText?: string;
   manuscriptFileId?: string;
   samplePagesFileId?: string;
+  /** The uploaded audiobook file — optional, lives on the eBook /
+   * Audiobook tab. Stored as its own BookFile (kind "AUDIOBOOK"), same
+   * pattern as the manuscript. */
+  audiobookFileId?: string;
   promotionalImageUrls?: string[];
   formats: { ebook: boolean; print: boolean; audiobook: boolean };
   metadata: SubmissionMetadata;
@@ -286,6 +299,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   const bookFiles: { kind: string; url: string }[] = [];
   if (input.manuscriptFileId) bookFiles.push({ kind: "MANUSCRIPT", url: `/api/files/${input.manuscriptFileId}` });
   if (input.samplePagesFileId) bookFiles.push({ kind: "SAMPLE", url: `/api/files/${input.samplePagesFileId}` });
+  if (input.audiobookFileId) bookFiles.push({ kind: "AUDIOBOOK", url: `/api/files/${input.audiobookFileId}` });
   for (const url of input.promotionalImageUrls ?? []) bookFiles.push({ kind: "PROMOTIONAL", url });
 
   const [category, genre, siteMode] = await Promise.all([
@@ -317,6 +331,14 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
         : null,
       hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice
         ? input.metadata.hardcoverRetailPrice
+        : null,
+      // Audiobook is only ever a purchasable, visible format once BOTH
+      // an audio file has actually been uploaded AND a price has been
+      // set (see formatAvailable.audiobook in lib/data/real-books-adapter.ts,
+      // which also requires the AUDIOBOOK BookFile to exist) — this is
+      // the real per-format price the storefront and checkout read.
+      audiobookPrice: input.formats.audiobook && input.audiobookFileId && input.metadata.audiobookEnabled && input.metadata.audiobookRetailPrice
+        ? input.metadata.audiobookRetailPrice
         : null,
       submissionMetadata: JSON.parse(JSON.stringify(input.metadata)),
       files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
@@ -371,6 +393,7 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   const bookFiles: { kind: string; url: string }[] = [];
   if (input.manuscriptFileId) bookFiles.push({ kind: "MANUSCRIPT", url: `/api/files/${input.manuscriptFileId}` });
   if (input.samplePagesFileId) bookFiles.push({ kind: "SAMPLE", url: `/api/files/${input.samplePagesFileId}` });
+  if (input.audiobookFileId) bookFiles.push({ kind: "AUDIOBOOK", url: `/api/files/${input.audiobookFileId}` });
   for (const url of input.promotionalImageUrls ?? []) bookFiles.push({ kind: "PROMOTIONAL", url });
 
   if (existing.status === "PUBLISHED") {
@@ -396,7 +419,7 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   ]);
 
   await prisma.$transaction([
-    prisma.bookFile.deleteMany({ where: { bookId, kind: { in: ["MANUSCRIPT", "SAMPLE", "PROMOTIONAL"] } } }),
+    prisma.bookFile.deleteMany({ where: { bookId, kind: { in: ["MANUSCRIPT", "SAMPLE", "PROMOTIONAL", "AUDIOBOOK"] } } }),
     prisma.categoryOnBook.deleteMany({ where: { bookId } }),
     prisma.genreOnBook.deleteMany({ where: { bookId } }),
     prisma.book.update({
@@ -456,7 +479,7 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
   ]);
 
   await prisma.$transaction([
-    prisma.bookFile.deleteMany({ where: { bookId, kind: { in: ["MANUSCRIPT", "SAMPLE", "PROMOTIONAL"] } } }),
+    prisma.bookFile.deleteMany({ where: { bookId, kind: { in: ["MANUSCRIPT", "SAMPLE", "PROMOTIONAL", "AUDIOBOOK"] } } }),
     prisma.categoryOnBook.deleteMany({ where: { bookId } }),
     prisma.genreOnBook.deleteMany({ where: { bookId } }),
     prisma.book.update({

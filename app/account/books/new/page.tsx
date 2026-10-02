@@ -15,12 +15,12 @@ import { NewBookFormTabs } from "./NewBookFormTabs";
 export const maxDuration = 60;
 
 /**
- * Submit New Title — rebuilt to match the exact reference design
- * provided (both the eBook and Print Copy tabs), covering every section
- * shown: numbered steps, real file uploads, live checklist/preview for
- * eBook; real Lulu POD configuration, cover-wrap preview, and EAN-13
- * barcode generation for Print Copy. Audio book is not yet built to the
- * same depth.
+ * Submit New Title — exactly two tabs: "eBook / Audiobook" and "Print
+ * Copy". eBook / Audiobook covers numbered steps, real file uploads
+ * (including an optional audiobook file/price right on this tab), and a
+ * live checklist/preview; Print Copy covers real Lulu POD configuration,
+ * cover-wrap preview, and EAN-13 barcode generation, pre-filled with
+ * whatever shared fields were already entered on the eBook tab.
  */
 export default async function NewBookPage() {
   const session = await auth();

@@ -13,9 +13,12 @@ const FORMATS: { key: keyof PublishingFormatsEnabled; label: string }[] = [
 
 /** Each button is a real on/off switch for that format, not a
  * navigation tab — clicking one toggles whether authors can currently
- * submit a new title in that format at all. Turning one off makes it
- * disappear entirely from the "Submit a new title" page; it never
- * affects books already submitted in that format. */
+ * submit a new title in that format at all. Turning eBook or Print off
+ * makes that whole tab disappear from the "Submit a new title" page;
+ * Audio book isn't a separate tab any more (it's an optional file/price
+ * right on the eBook tab), so turning it off instead just hides that
+ * audiobook upload field there. None of this affects books already
+ * submitted in that format. */
 export function PublishingFormatToggles({ initial }: { initial: PublishingFormatsEnabled }) {
   const router = useRouter();
   const [formats, setFormats] = useState(initial);
@@ -39,8 +42,9 @@ export function PublishingFormatToggles({ initial }: { initial: PublishingFormat
     <div className="map-card" style={{ padding: 20, marginBottom: 20 }}>
       <h3 style={{ fontSize: 15, marginBottom: 4 }}>Formats open for submission</h3>
       <p className="field-hint" style={{ margin: "0 0 14px" }}>
-        Turn a format off to remove it entirely from the &quot;Submit a new title&quot; page — authors won&apos;t
-        see that tab at all. Books already submitted in that format aren&apos;t affected.
+        Turn eBook or Print off to remove that whole tab from the &quot;Submit a new title&quot; page. Audio book
+        isn&apos;t its own tab — turning it off just hides the optional audiobook upload field on the eBook tab.
+        Books already submitted in that format aren&apos;t affected.
       </p>
       <div style={{ display: "flex", gap: 10 }}>
         {FORMATS.map((f) => (
