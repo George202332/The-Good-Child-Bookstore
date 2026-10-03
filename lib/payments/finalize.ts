@@ -1,24 +1,40 @@
 import { prisma } from "@/lib/prisma";
 import { notifyRevenueEarners } from "@/lib/payments/notify-earners";
+import { reportSystemError } from "@/lib/site-health/alert";
 
 /** Marks an order PAID and logs the payment — shared by the webhook
  * handlers (app/api/webhooks/*) and the gateway return flow
- * (app/checkout/return), so both paths record identically. */
+ * (app/checkout/return), so both paths record identically.
+ *
+ * The core PAID-marking + payment-log write is the one part of this
+ * function that genuinely can't fail silently — a buyer whose payment
+ * succeeded but whose order never got marked PAID is exactly the kind
+ * of thing Site Health's "payment and checkout" alert exists for — so
+ * it's wrapped and reported through reportSystemError() before
+ * re-throwing (both callers already handle a thrown error from this
+ * function: the webhook route lets it 500 so Paystack retries, and the
+ * return-page catch falls back to its own DB-status check). */
 export async function finalizeOrderPayment(
   orderId: string,
   gateway: "PAYSTACK",
   rawPayload: unknown
 ): Promise<void> {
-  const order = await prisma.order.update({
-    where: { id: orderId },
-    data: { status: "PAID" },
-    include: {
-      reader: { include: { user: true } },
-    },
-  });
-  await prisma.paymentLog.create({
-    data: { orderId, gateway, rawPayload: rawPayload as object, verified: true },
-  });
+  let order;
+  try {
+    order = await prisma.order.update({
+      where: { id: orderId },
+      data: { status: "PAID" },
+      include: {
+        reader: { include: { user: true } },
+      },
+    });
+    await prisma.paymentLog.create({
+      data: { orderId, gateway, rawPayload: rawPayload as object, verified: true },
+    });
+  } catch (e) {
+    await reportSystemError("CHECKOUT", e, { orderId, gateway });
+    throw e;
+  }
 
   try {
     await prisma.notification.create({

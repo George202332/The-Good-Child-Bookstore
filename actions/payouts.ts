@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { computeWalletForUserId } from "@/lib/compute-wallet-for-user";
 import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
+import { reportSystemError } from "@/lib/site-health/alert";
 
 async function requireAdminRole() {
   const session = await auth();
@@ -79,6 +80,11 @@ export async function queueDuePayouts(): Promise<{ ok: boolean; queued?: number;
     revalidatePath("/admin/payouts");
     return { ok: true, queued };
   } catch (e) {
+    // This is the real payout-queueing logic failing (not the
+    // requireAdminRole() check above, which already returned on its
+    // own) — exactly the kind of payout-pipeline breakdown Site
+    // Health's alerting exists to catch immediately.
+    await reportSystemError("PAYOUT", e, { action: "queueDuePayouts" });
     return { ok: false, error: e instanceof Error ? e.message : "Couldn't queue this month's payouts — please try again." };
   }
 }

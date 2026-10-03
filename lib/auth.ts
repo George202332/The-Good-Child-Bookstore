@@ -5,6 +5,67 @@ import { prisma } from "@/lib/prisma";
 import { BACKEND_ROLES, type Role } from "@/lib/roles";
 import { logAuditEvent } from "@/lib/audit-log";
 import { getRequestIp, getRequestUserAgent } from "@/lib/geo";
+import { reportSystemError } from "@/lib/site-health/alert";
+
+/**
+ * The actual credential-check logic for the public (Reader/Author)
+ * instance — split out from the NextAuth `authorize()` callback below
+ * only so that callback can wrap it in one try/catch and report a
+ * genuinely unexpected failure (DB unreachable, bcrypt choking, etc)
+ * to Site Health without changing any of the real logic here. A wrong
+ * password/unknown email is NOT such a failure — it's an ordinary,
+ * expected outcome, already tracked via logAuditEvent's LOGIN_FAILED
+ * below (surfaced on the Site Health page's auth card).
+ */
+async function authorizeReaderOrAuthor(credentials: Partial<Record<"email" | "password", unknown>>) {
+  // Trimmed the same way registerUser() and requestPasswordReset()
+  // already trim it when creating/looking up an account — this was
+  // previously only lowercased here, not trimmed, so a stray
+  // leading/trailing space (autofill, or pasted from an email
+  // invite) made a real account's email fail to match and get
+  // reported as a "wrong password" (the login form shows the same
+  // generic error for "no such user" and "bad password" alike).
+  const user = await prisma.user.findUnique({
+    where: { email: String(credentials.email).trim().toLowerCase() },
+  });
+  if (!user) return null;
+  // Backend accounts can only ever authenticate through the
+  // separate admin instance (lib/auth-admin.ts) — never here,
+  // even with the right password. Prevented at this level
+  // rather than caught and signed back out afterward.
+  if (BACKEND_ROLES.includes(user.role as Role)) return null;
+
+  const valid = await bcrypt.compare(String(credentials.password), user.passwordHash);
+  if (!valid) {
+    const ip = await getRequestIp();
+    const userAgent = await getRequestUserAgent();
+    await logAuditEvent(user.id, "LOGIN_FAILED", { ip, userAgent });
+    return null;
+  }
+  if (user.suspended) return null;
+
+  {
+    const ip = await getRequestIp();
+    const userAgent = await getRequestUserAgent();
+    await logAuditEvent(user.id, "LOGIN", { ip, userAgent });
+  }
+
+  // Checked once, right at password-success, so the very first
+  // JWT this session ever gets already knows whether a second
+  // factor is required — see the `jwt` callback below for how
+  // this becomes `twoFactorVerified: false` until the
+  // post-login challenge screen (app/account/layout.tsx) clears
+  // it via the client-side session update() call.
+  const twoFactorConfig = await prisma.twoFactorConfig.findUnique({ where: { userId: user.id } });
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    twoFactorEnabled: !!twoFactorConfig?.enabled,
+  };
+}
 
 /**
  * Auth.js (NextAuth v5) configuration — the public instance, for
@@ -32,54 +93,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-
-        // Trimmed the same way registerUser() and requestPasswordReset()
-        // already trim it when creating/looking up an account — this was
-        // previously only lowercased here, not trimmed, so a stray
-        // leading/trailing space (autofill, or pasted from an email
-        // invite) made a real account's email fail to match and get
-        // reported as a "wrong password" (the login form shows the same
-        // generic error for "no such user" and "bad password" alike).
-        const user = await prisma.user.findUnique({
-          where: { email: String(credentials.email).trim().toLowerCase() },
-        });
-        if (!user) return null;
-        // Backend accounts can only ever authenticate through the
-        // separate admin instance (lib/auth-admin.ts) — never here,
-        // even with the right password. Prevented at this level
-        // rather than caught and signed back out afterward.
-        if (BACKEND_ROLES.includes(user.role as Role)) return null;
-
-        const valid = await bcrypt.compare(String(credentials.password), user.passwordHash);
-        if (!valid) {
-          const ip = await getRequestIp();
-          const userAgent = await getRequestUserAgent();
-          await logAuditEvent(user.id, "LOGIN_FAILED", { ip, userAgent });
-          return null;
+        try {
+          return await authorizeReaderOrAuthor(credentials);
+        } catch (e) {
+          // Only a genuinely unexpected throw reaches here — see
+          // authorizeReaderOrAuthor's comment above.
+          await reportSystemError("AUTH", e, { email: String(credentials.email) });
+          throw e;
         }
-        if (user.suspended) return null;
-
-        {
-          const ip = await getRequestIp();
-          const userAgent = await getRequestUserAgent();
-          await logAuditEvent(user.id, "LOGIN", { ip, userAgent });
-        }
-
-        // Checked once, right at password-success, so the very first
-        // JWT this session ever gets already knows whether a second
-        // factor is required — see the `jwt` callback below for how
-        // this becomes `twoFactorVerified: false` until the
-        // post-login challenge screen (app/account/layout.tsx) clears
-        // it via the client-side session update() call.
-        const twoFactorConfig = await prisma.twoFactorConfig.findUnique({ where: { userId: user.id } });
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          twoFactorEnabled: !!twoFactorConfig?.enabled,
-        };
       },
     }),
   ],

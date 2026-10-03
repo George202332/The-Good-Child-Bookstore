@@ -8,6 +8,16 @@ import { createNotification } from "@/actions/notifications";
 import { submitUrlToIndexNow } from "@/lib/indexnow";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { reportSystemError } from "@/lib/site-health/alert";
+
+/** True for the "Not authorized."/"Only Admins can..." errors
+ * requireModerationRole()/requireAdminRole() throw deliberately — those
+ * are an expected access-control outcome, not a real failure, so
+ * payout-pipeline alerting (see below) skips them and only reports
+ * genuinely unexpected errors. */
+function isAuthorizationError(e: unknown): boolean {
+  return e instanceof Error && (e.message === "Not authorized." || e.message.startsWith("Only Admins can"));
+}
 
 /**
  * Converted from the editorial workflow described in the brief (Draft →
@@ -255,6 +265,7 @@ export async function approvePayoutRequest(payoutId: string): Promise<{ ok: bool
     revalidatePath("/admin/payouts");
     return { ok: true };
   } catch (e) {
+    if (!isAuthorizationError(e)) await reportSystemError("PAYOUT", e, { action: "approvePayoutRequest", payoutId });
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
   }
 }
@@ -270,6 +281,7 @@ export async function rejectPayoutRequest(payoutId: string): Promise<{ ok: boole
     revalidatePath("/admin/payouts");
     return { ok: true };
   } catch (e) {
+    if (!isAuthorizationError(e)) await reportSystemError("PAYOUT", e, { action: "rejectPayoutRequest", payoutId });
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
   }
 }

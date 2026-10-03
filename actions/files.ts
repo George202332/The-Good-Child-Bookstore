@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { reportSystemError } from "@/lib/site-health/alert";
 
 /**
  * Generic (non-image) file upload — manuscripts (PDF/EPUB/MOBI) and
@@ -136,6 +137,7 @@ export async function uploadGenericFile(formData: FormData, allowedTypes: string
     const pdfMeta = inferredMime === "application/pdf" ? await readPdfMetadata(bytes) : {};
     return { ok: true, fileId: record.id, fileName: file.name, fileSizeBytes: bytes.byteLength, ...pdfMeta };
   } catch (e) {
+    await reportSystemError("FILE_UPLOAD", e, { fileName: file.name, fileType: file.type, userId: session.user.id });
     return { ok: false, error: e instanceof Error ? e.message : "Failed to store file." };
   }
 }

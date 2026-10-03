@@ -20,6 +20,7 @@
   --admin-accent-soft: rgba(91, 141, 239, 0.14);
   --admin-success: #3FBF7F;
   --admin-danger: #EF6262;
+  --admin-warning: #E8B339;
 
   min-height: 100vh;
   background: var(--admin-bg);
@@ -248,6 +249,52 @@
   .admin-sidebar { width: 100%; min-height: auto; position: static; flex-direction: row; overflow-x: auto; }
   .admin-content { padding: 20px; }
 }
+
+/* Site Health — status cards (green/healthy, yellow/warning, red/error)
+   per category, matching the existing .stat-card/.map-card visual
+   language rather than inventing a new one. */
+.admin-shell .health-card {
+  background: var(--admin-panel);
+  border: 1px solid var(--admin-border);
+  border-left: 4px solid var(--admin-text-faint);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.admin-shell .health-card.health-ok { border-left-color: var(--admin-success); }
+.admin-shell .health-card.health-warning { border-left-color: var(--admin-warning); }
+.admin-shell .health-card.health-error { border-left-color: var(--admin-danger); }
+
+.admin-shell .health-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.admin-shell .health-dot.health-ok { background: var(--admin-success); }
+.admin-shell .health-dot.health-warning { background: var(--admin-warning); }
+.admin-shell .health-dot.health-error { background: var(--admin-danger); }
+
+.admin-shell .health-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.admin-shell .health-pill.health-ok { background: rgba(63, 191, 127, 0.14); color: var(--admin-success); }
+.admin-shell .health-pill.health-warning { background: rgba(232, 179, 57, 0.14); color: var(--admin-warning); }
+.admin-shell .health-pill.health-error { background: rgba(239, 98, 98, 0.14); color: var(--admin-danger); }
+
+.admin-shell .health-check-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--admin-border);
+}
+.admin-shell .health-check-row:last-child { border-bottom: none; }
 
 /* Reduced field/button sizing on the admin login page specifically */
 .admin-login-form .field { padding: 9px 14px; font-size: 13px; }

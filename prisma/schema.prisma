@@ -967,3 +967,50 @@ model AnalyticsEvent {
   createdAt DateTime @default(now())
 }
 
+/**
+ * Backs the new admin Site Health page (app/admin/site-health) — the
+ * one place an unexpected server-side error from a key code path
+ * (checkout/payment confirmation, the payout pipeline, file uploads,
+ * auth) gets a durable record, going forward. This is deliberately NOT
+ * a general request-logging/APM table: there's no middleware writing
+ * one row per request, just the specific `reportSystemError()` calls
+ * wired into those four pipelines (see lib/site-health/alert.ts) — so
+ * Site Health is honest that this is "errors logged since this round
+ * shipped", not a historical record of every failure the app has ever
+ * had.
+ *
+ * `signature` is a short, deterministic key (source + a normalized
+ * version of the message) used purely for the alert-storm dedup in
+ * reportSystemError() — looking up "has THIS exact error already
+ * alerted recently" is a simple indexed equality lookup rather than a
+ * fuzzy match over `message`. `alertedAt` is set only on the specific
+ * row that actually triggered an outbound email — every other
+ * occurrence of the same signature within the dedup window still gets
+ * its own row (so the real failure count on the dashboard stays
+ * accurate), just without a second email going out.
+ */
+model SystemErrorLog {
+  id        String    @id @default(cuid())
+  /** Which pipeline this came from — "CHECKOUT" | "PAYOUT" |
+   * "FILE_UPLOAD" | "AUTH" | "OTHER". Plain string, not an enum,
+   * matching Notification.type's reasoning: a new source should never
+   * be blocked by a missing enum value. */
+  source    String
+  message   String
+  signature String
+  /** Arbitrary extra context (an order id, a user id, the file name,
+   * etc) — whatever the call site had on hand that would help George
+   * track down what happened, never anything secret like a password or
+   * full card number. */
+  context   Json?
+  /** Set only when this specific row is the one that actually sent an
+   * alert email (see reportSystemError's dedup window) — null on every
+   * other occurrence of the same signature logged while that window is
+   * still open. */
+  alertedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([source, createdAt])
+  @@index([signature, createdAt])
+}
+
