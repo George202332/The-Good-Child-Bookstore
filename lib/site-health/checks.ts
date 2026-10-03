@@ -316,10 +316,21 @@ async function getPayoutSystemHealth(): Promise<HealthCategory> {
   // REVENUE_* notification — the exact class of bug notify-earners.ts
   // was written to fix; this catches it if that pipeline silently
   // fails again.
+  // A SaleLine is created the moment checkout starts (createPendingOrder),
+  // before payment is confirmed — its parent Order sits PENDING until
+  // notifyRevenueEarners() actually runs on PAID confirmation, and stays
+  // PENDING forever if the buyer abandons checkout (nothing in this app
+  // ever flips an abandoned order to FAILED/CANCELLED). Without the
+  // `order: { status: "PAID" }` filter here, every abandoned/never-paid
+  // cart's SaleLine would correctly have no notification — it was never
+  // actually paid for — and this check would misreport that as the
+  // notify-earners pipeline having failed, rather than counting only the
+  // sale lines that pipeline was ever supposed to notify.
   const since30d = new Date(Date.now() - 30 * DAY_MS);
   const recentEarningLines = await prisma.saleLine.findMany({
     where: {
       createdAt: { gte: since30d },
+      order: { status: "PAID" },
       OR: [{ authorShare: { gt: 0 } }, { authorReferralShare: { gt: 0 } }, { affiliateShare: { gt: 0 } }],
     },
     select: { id: true, authorShare: true, authorReferralShare: true, affiliateShare: true, createdAt: true },
@@ -352,8 +363,19 @@ async function getPayoutSystemHealth(): Promise<HealthCategory> {
   // available balance rather than vanishing) — a sanity check, not an
   // audit.
   try {
+    // Same reasoning as the missing-earner-notifications check above:
+    // only a PAID order's SaleLines are real, collected money that
+    // should ever be "earned" by anyone — an abandoned/never-paid
+    // cart's SaleLine has a real authorShare/affiliateShare computed
+    // on it at checkout time, but counting that here would compare
+    // this figure against a payout ledger that (correctly, after the
+    // getPayoutLedger/fetchEarningsBreakdown fix) only ever accounts
+    // for PAID-order money — an apples-to-oranges gap, not a real one.
     const [earnedAgg, ledger] = await Promise.all([
-      prisma.saleLine.aggregate({ _sum: { authorShare: true, authorReferralShare: true, affiliateShare: true } }),
+      prisma.saleLine.aggregate({
+        where: { order: { status: "PAID" } },
+        _sum: { authorShare: true, authorReferralShare: true, affiliateShare: true },
+      }),
       getPayoutLedger(),
     ]);
     const totalEarned = Number(earnedAgg._sum.authorShare ?? 0) + Number(earnedAgg._sum.authorReferralShare ?? 0) + Number(earnedAgg._sum.affiliateShare ?? 0);
@@ -367,7 +389,7 @@ async function getPayoutSystemHealth(): Promise<HealthCategory> {
         id: "reconciliation",
         label: "Total earned vs. total accounted for in the payout ledger (live, sanity check only)",
         status: diff > tolerance ? "warning" : "ok",
-        detail: `Total author/referral/affiliate shares ever earned: $${totalEarned.toFixed(2)}. Total across the payout ledger's live + unqueued + historical rows: $${ledgerTotal.toFixed(2)}. Difference: $${diff.toFixed(2)}.${diff > tolerance ? " Outside the small rounding tolerance — worth a manual look, not necessarily a bug (a REJECTED payout still counts here as \"accounted for\" even though that money rolls back into the person's balance)." : ""}`,
+        detail: `Total author/referral/affiliate shares ever earned (PAID orders only): $${totalEarned.toFixed(2)}. Total across the payout ledger's live + unqueued + historical rows: $${ledgerTotal.toFixed(2)}. Difference: $${diff.toFixed(2)}.${diff > tolerance ? " Outside the small rounding tolerance — worth a manual look, not necessarily a bug. Two known, legitimate (non-bug) sources of a gap here: (1) a REJECTED payout still counts here as \"accounted for\" even though that money rolls back into the person's balance, and (2) a sale from last calendar month whose earnings haven't reached their release date yet (the 15th of this month) is correctly excluded from both the live-month row (not the current month) and the unqueued-pending row (not yet released) — real, earned, on-hold money that's briefly invisible to this ledger until the 15th. If the gap persists well past that date, it's worth investigating further." : ""}`,
       });
     }
   } catch (e) {

@@ -141,11 +141,17 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
   const rows: PayoutLedgerRow[] = [];
 
+  // Only a PAID order's SaleLines are real, collected money — see the
+  // identical comment in lib/earnings-lines.ts fetchEarningsBreakdown,
+  // which this bulk query is deliberately kept in sync with. Without
+  // this, a current-month abandoned/never-paid cart's SaleLine would
+  // show up here as a real "Live" accruing balance and could eventually
+  // be queued and paid out for a sale that was never actually paid for.
   const authors = (await prisma.user.findMany({
     where: { role: "AUTHOR", authorProfile: { isNot: null } },
     include: {
       authorProfile: {
-        include: { books: { include: { saleLines: { where: { createdAt: { gte: start, lt: end } } } } } },
+        include: { books: { include: { saleLines: { where: { createdAt: { gte: start, lt: end }, order: { status: "PAID" } } } } } },
       },
     },
   })) as {
@@ -183,8 +189,8 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
   const affiliateProfiles = (await prisma.affiliateProfile.findMany({
     include: {
       user: true,
-      affiliateLinks: { include: { saleLines: { where: { createdAt: { gte: start, lt: end } } } } },
-      authorReferralEarnings: { where: { createdAt: { gte: start, lt: end } } },
+      affiliateLinks: { include: { saleLines: { where: { createdAt: { gte: start, lt: end }, order: { status: "PAID" } } } } },
+      authorReferralEarnings: { where: { createdAt: { gte: start, lt: end }, order: { status: "PAID" } } },
     },
   })) as {
     userId: string;

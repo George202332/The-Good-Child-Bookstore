@@ -37,7 +37,21 @@ export { linesForView, sumLines } from "@/lib/earnings-lines-core";
  * comment above for why this exists.
  */
 export async function fetchEarningsBreakdown(userId: string, range?: DateRange): Promise<EarningsBreakdown> {
-  const dateFilter = range ? { createdAt: { gte: range.start, lt: range.end } } : {};
+  // A SaleLine is created the moment checkout starts (see
+  // actions/orders.ts createPendingOrder), BEFORE payment is actually
+  // confirmed — its parent Order sits at status PENDING until the
+  // gateway (or demo-mode fallback) confirms it PAID, and stays PENDING
+  // forever if the buyer abandons checkout or the payment simply never
+  // completes (nothing in this app ever flips an abandoned order to
+  // FAILED/CANCELLED). So a SaleLine's authorShare/affiliateShare/
+  // authorReferralShare is a potential split computed at order-creation
+  // time, not yet real money — only a PAID order's SaleLines represent
+  // money actually collected and owed to anyone. Every earnings/wallet
+  // figure derived from this function MUST only ever count SaleLines
+  // whose order is PAID, or an abandoned/never-paid cart's figures would
+  // eventually be queued and paid out for a sale that never happened.
+  const paidFilter = { order: { status: "PAID" as const } };
+  const dateFilter = range ? { createdAt: { gte: range.start, lt: range.end }, ...paidFilter } : paidFilter;
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
