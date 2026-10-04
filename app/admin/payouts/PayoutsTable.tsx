@@ -17,39 +17,41 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 const VISIBLE_ROWS = 15;
 const ROW_HEIGHT_PX = 42;
 
-/** Four genuinely distinct states, per explicit instruction — "on
- * hold" (not yet released), "released but not yet queued", "queued
- * and awaiting manual payment", and "paid" used to all collapse into
- * one ambiguous "Pending" pill (everything that wasn't Live/Paid/
- * Rejected), which is exactly what made held-back money look the same
- * as money already queued and just waiting on an admin to click
- * "Mark paid". */
+/** Genuinely distinct states, per explicit instruction — "on hold, not
+ * yet released" (LIVE), "on hold, released but still under the $30
+ * minimum, rolling over" (Category A / ON_HOLD), "scheduled, crossed
+ * $30 and ready" (Category B / SCHEDULED), "queued and awaiting manual
+ * payment" (REQUESTED/APPROVED), and "paid" — previously several of
+ * these collapsed into one ambiguous "Pending" pill, which is exactly
+ * what made held-back money look the same as money already due. */
 function statusLabel(p: PayoutLedgerRow): string {
   if (p.status === "LIVE") return "On Hold";
   if (p.paid) return "Paid";
   if (p.status === "REJECTED") return "Rejected";
-  if (p.status === "UNQUEUED") return "Released — Not Queued";
+  if (p.status === "ON_HOLD") return "On Hold";
+  if (p.status === "SCHEDULED") return "Scheduled";
   return "Queued"; // REQUESTED / APPROVED — a real PayoutRequest, awaiting manual payment by the 15th.
 }
 
 function statusPillStyle(p: PayoutLedgerRow) {
-  if (p.status === "LIVE") return { background: "rgba(36,81,183,0.14)", color: "#2451B7" }; // On Hold
+  if (p.status === "LIVE") return { background: "rgba(36,81,183,0.14)", color: "#2451B7" }; // On Hold (unreleased)
   if (p.paid) return { background: "rgba(31,107,72,0.15)", color: "#1F6B48" }; // Paid
   if (p.status === "REJECTED") return { background: "rgba(107,115,133,0.15)", color: "#6B7385" };
-  if (p.status === "UNQUEUED") return { background: "rgba(138,90,15,0.12)", color: "#8A5A0F" }; // Released, not queued
+  if (p.status === "ON_HOLD") return { background: "rgba(138,90,15,0.12)", color: "#8A5A0F" }; // Category A, under $30
+  if (p.status === "SCHEDULED") return { background: "rgba(180,101,15,0.16)", color: "#B4650F" }; // Category B, ready
   return { background: "rgba(196,120,20,0.18)", color: "#B4650F" }; // Queued, awaiting payment
 }
 
-/** A bulk "Mark paid" action only ever applies to real, already-queued
- * PayoutRequest rows in status REQUESTED — the only status
- * approvePayoutRequest()/bulkMarkPayoutsPaid() actually accept. On
- * Hold (LIVE) and Released-Not-Queued (UNQUEUED) rows have no real
- * PayoutRequest id behind them at all yet (see actions/payout-ledger.ts),
- * so they're never selectable here — queuing them first (the "Queue
- * this month's due payouts" button) is what turns them into a real,
- * bulk-payable row. */
+/** A bulk "Mark paid" action applies to real, already-queued
+ * PayoutRequest rows in status REQUESTED, and — per Amendment 5 — also
+ * to Category B "Scheduled" rows, which have crossed the $30 minimum
+ * and are confirmed/ready even though they don't have a real
+ * PayoutRequest id yet (paying one creates it on the fly, already PAID
+ * — see actions/admin.ts payScheduledBalance). On Hold (LIVE, or
+ * Category A/ON_HOLD — still under $30 and rolling over) rows are
+ * never selectable here, since they aren't actually due yet. */
 function isBulkPayable(p: PayoutLedgerRow): boolean {
-  return p.status === "REQUESTED";
+  return p.status === "REQUESTED" || p.status === "SCHEDULED";
 }
 
 /**
@@ -289,27 +291,31 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 <th style={TH_STYLE}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>
                 <th style={TH_STYLE}>Commission<ColHelp text="Commission from copies sold through this person's own affiliate promotional links." /></th>
                 <th style={TH_STYLE}>Total<ColHelp text="Royalties plus referral plus commission — the full amount of this payout." /></th>
-                <th style={TH_STYLE}>Status<ColHelp text="On Hold means this money hasn't been released yet (the current month is still in progress, or a past rejected payout rolled back into the balance). Released — Not Queued means it's available but hasn't been turned into a real payout request yet (no payout method on file, or still under the $30 minimum). Queued means a real payout request exists, awaiting manual payment by the 15th. Paid means the transfer has gone out. Rejected means it was declined." /></th>
-                <th style={TH_STYLE}>Requested<ColHelp text="The date this payout was queued. For an On Hold row, this is simply today — nothing has actually been requested yet." /></th>
+                <th style={TH_STYLE}>Status<ColHelp text="On Hold means this money hasn't been released yet (the current month is still in progress, or a past rejected payout rolled back into the balance), or has been released but is still under the $30 minimum and is rolling over. Scheduled means it's crossed $30, is confirmed, and is ready to be paid by the 15th. Queued means a real payout request exists, awaiting manual payment by the 15th. Paid means the transfer has gone out. Rejected means it was declined." /></th>
                 <th style={TH_STYLE}>Report<ColHelp text="Download this payout's month as a full PDF statement — the same report available to that account holder on their own Payouts page." /></th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={canModerate ? 11 : 10} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                  <td colSpan={canModerate ? 10 : 9} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
                     No payouts have been queued yet — this table fills in as soon as one is.
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={canModerate ? 11 : 10} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                  <td colSpan={canModerate ? 10 : 9} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
                     No payouts match your search or filters.
                   </td>
                 </tr>
               ) : (
                 filtered.map((p) => (
-                  <tr key={p.id} onClick={() => setDetailRow(p)} style={{ cursor: "pointer" }}>
+                  <tr
+                    key={p.id}
+                    onClick={() => setDetailRow(p)}
+                    className={p.paid ? "payout-row-paid" : undefined}
+                    style={{ cursor: "pointer", background: p.paid ? "rgba(31,107,72,0.07)" : undefined }}
+                  >
                     {canModerate && (
                       <td style={{ ...TD_STYLE, textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
                         {isBulkPayable(p) && (
@@ -323,21 +329,15 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                       <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{p.role}</div>
                     </td>
                     <td style={TD_STYLE}>{p.email}</td>
-                    <td style={TD_STYLE}>{p.bookSalesEarnings > 0 ? `$${p.bookSalesEarnings.toFixed(2)}` : "—"}</td>
-                    <td style={TD_STYLE}>{p.referralEarnings > 0 ? `$${p.referralEarnings.toFixed(2)}` : "—"}</td>
-                    <td style={TD_STYLE}>{p.commissionEarnings > 0 ? `$${p.commissionEarnings.toFixed(2)}` : "—"}</td>
+                    <td style={TD_STYLE}>${p.bookSalesEarnings.toFixed(2)}</td>
+                    <td style={TD_STYLE}>${p.referralEarnings.toFixed(2)}</td>
+                    <td style={TD_STYLE}>${p.commissionEarnings.toFixed(2)}</td>
                     <td style={{ ...TD_STYLE, fontWeight: 700 }}>${p.combinedTotal.toFixed(2)}</td>
                     <td style={TD_STYLE}>
                       <span className="age-pill" style={statusPillStyle(p)}>
                         {statusLabel(p)}
+                        {p.paid && " ✓"}
                       </span>
-                    </td>
-                    <td style={TD_STYLE}>
-                      {p.status === "LIVE"
-                        ? "This month (in progress)"
-                        : p.status === "UNQUEUED"
-                        ? "Released, not yet queued"
-                        : new Date(p.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </td>
                     <td style={TD_STYLE}>
                       <a
@@ -353,39 +353,50 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 ))
               )}
             </tbody>
+            {/*
+              THE REAL FIX for the totals-row misalignment (this is at
+              least the 2nd report of it): the previous "fix" treated it
+              as a colSpan-count bug and recounted the cells — and that
+              count was in fact already correct (11/10 on both sides
+              before this round's column changes). Re-reading the actual
+              markup with fresh eyes, the real root cause is structural,
+              not arithmetic: the totals row used to live in a SEPARATE
+              <table> element, sitting outside the scrolling wrapper div
+              above. Two independent <table>s each run their own column-
+              width auto-layout from their own content — matching colSpan
+              math does NOT guarantee matching pixel widths across two
+              separate tables, and critically, when the data table's
+              content is wide enough to scroll horizontally (inside its
+              own overflowX:auto wrapper) and the totals table is NOT
+              inside that same scrollable wrapper, the two drift apart
+              the instant the data table is scrolled sideways — the
+              totals table has nothing to scroll in sync with.
+              The fix: this totals row is now the LAST ROW OF THE SAME
+              <table>, inside the SAME scrolling wrapper, so it shares
+              the exact same column-width computation and scrolls
+              perfectly in sync, horizontally, with the header/data
+              above. "Stays in view while scrolling" (the original goal)
+              is instead achieved with `position: sticky; bottom: 0` on
+              its cells — a trick that still pins it to the bottom of the
+              scrolling area without needing a second table at all.
+            */}
+            <tbody>
+              <tr>
+                <td
+                  style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", fontWeight: 700, position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }}
+                  colSpan={canModerate ? 4 : 3}
+                >
+                  Totals — all accounts
+                </td>
+                <td style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", fontWeight: 700, position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }}>${totals.royalties.toFixed(2)}</td>
+                <td style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", fontWeight: 700, position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }}>${totals.referral.toFixed(2)}</td>
+                <td style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", fontWeight: 700, position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }}>${totals.commission.toFixed(2)}</td>
+                <td style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", fontWeight: 700, position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }}>${totals.combined.toFixed(2)}</td>
+                <td style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }} colSpan={2} />
+              </tr>
+            </tbody>
           </table>
         </div>
-
-        {/* Static totals row — outside the scrolling area above, so it
-            stays visible no matter how far the list above is scrolled.
-            Always sums every account, not just the filtered/visible
-            rows (see `totals`, computed from the full `rows` prop).
-            This is a second, separate <table> from the one holding the
-            header + data rows above, so it MUST repeat the exact same
-            column count and the exact same colSpan grouping the header
-            uses, cell for cell, or its totals silently drift out from
-            under the columns they're supposed to sit beneath — which is
-            exactly what a combined Referral+Commission cell (colSpan=2)
-            did before: it didn't line up under either column, only
-            under the midpoint between them. Every money total below
-            now gets its own single-column cell, matching the header
-            1:1: optional checkbox column (when canModerate) folded into
-            the leading labeled cell, Account #/holder/email (3,
-            labeled), Royalties, Referral, Commission, Total, then
-            Status/Requested/Report (3, empty) — (canModerate ? 4 : 3) +
-            1 + 1 + 1 + 1 + 3 = 11 or 10, same as the header either way. */}
-        <table style={{ width: "100%", borderCollapse: "collapse", borderTop: "2px solid var(--line)" }}>
-          <tbody>
-            <tr style={{ background: "var(--admin-panel, #F7F8FB)" }}>
-              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }} colSpan={canModerate ? 4 : 3}>Totals — all accounts</td>
-              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.royalties.toFixed(2)}</td>
-              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.referral.toFixed(2)}</td>
-              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.commission.toFixed(2)}</td>
-              <td style={{ ...TD_STYLE, borderBottom: "none", fontWeight: 700 }}>${totals.combined.toFixed(2)}</td>
-              <td style={{ ...TD_STYLE, borderBottom: "none" }} colSpan={3} />
-            </tr>
-          </tbody>
-        </table>
       </div>
 
       {detailRow && (
@@ -406,15 +417,6 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
               { label: "Commission earnings", value: `$${detailRow.commissionEarnings.toFixed(2)}` },
               { label: "Combined total", value: `$${detailRow.combinedTotal.toFixed(2)}` },
               { label: "Currency", value: detailRow.currency },
-              {
-                label: "Requested",
-                value:
-                  detailRow.status === "LIVE"
-                    ? "This month (in progress)"
-                    : detailRow.status === "UNQUEUED"
-                    ? "Released, not yet queued"
-                    : new Date(detailRow.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-              },
               {
                 label: "Resolved",
                 value: detailRow.resolvedAt ? new Date(detailRow.resolvedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—",

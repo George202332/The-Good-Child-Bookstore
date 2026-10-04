@@ -6,6 +6,7 @@ import type { Role } from "@/lib/roles";
 import { payoutMethodLabel, formatAccountDetails } from "@/lib/payout-method-label";
 import { fetchEarningsBreakdown, linesForView, sumLines } from "@/lib/earnings-lines";
 import { computeWallet, releaseDateFor } from "@/lib/wallet";
+import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
 
 /**
  * The full admin payout ledger — every payout ever queued, whatever its
@@ -104,11 +105,23 @@ export interface PayoutLedgerRow {
 /** Shared by getLiveMonthRows and getPendingUnqueuedRows below — looks
  * up whichever payout destination is on file for this user, or a
  * "Not set yet" placeholder if none is, same either way regardless of
- * which synthetic row category is asking. */
+ * which synthetic row category is asking.
+ *
+ * FIX (Amendment 5 — "Account Holder" column showing no names): this
+ * used to fall back to "Not set yet" only when NO WiseRecipient row
+ * existed at all (`recipient ? recipient.accountHolderName : "Not set
+ * yet"`) — a recipient row that exists but has a blank/empty-string
+ * accountHolderName (legacy rows created before that field was
+ * enforced as required at the form level, or rows touched by an
+ * earlier manual DB edit) passed the truthiness check on `recipient`
+ * itself and rendered as a literal empty cell instead of falling back
+ * to anything readable. Checking the NAME's own truthiness, not just
+ * whether a recipient row was found, is what actually closes this
+ * gap. */
 async function recipientFieldsFor(userId: string) {
   const recipient = await prisma.wiseRecipient.findFirst({ where: { userId }, orderBy: { isDefault: "desc" } });
   return {
-    accountHolderName: recipient ? recipient.accountHolderName : "Not set yet",
+    accountHolderName: recipient && recipient.accountHolderName.trim() ? recipient.accountHolderName : "Not set yet",
     paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
     accountDetails: recipient ? formatAccountDetails(recipient.details) : "—",
   };
@@ -266,19 +279,41 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
  * real, already-earned payout can go missing from this specific table.
  *
  * The fix: surface that same released-but-unqueued balance here too,
- * as one synthetic "Pending" row per author/affiliate (status
- * "UNQUEUED" — deliberately distinct from the real "REQUESTED" status
- * so ModerationActions' Approve/Reject never renders against a row
- * that has no real PayoutRequest id behind it). Referral and
- * commission are split proportionally to each category's own RELEASED
- * share (not lifetime share), so the two always add back up to exactly
- * the row's combinedTotal — same invariant item 1's totals-row fix
- * depends on. `reportMonthKey` points at the most recently closed
- * month as the best single-month approximation for the report
- * download link; a balance that rolled forward across several months
- * doesn't have one single "correct" month, which is an existing,
- * pre-existing limitation of the reportMonthKey concept (see
- * earningsMonthKeyFor above), not something this fix introduces.
+ * as one synthetic "Pending" row per author/affiliate — deliberately
+ * distinct from the real "REQUESTED" status so ModerationActions'
+ * Approve/Reject never renders against a row that has no real
+ * PayoutRequest id behind it. Referral and commission are split
+ * proportionally to each category's own RELEASED share (not lifetime
+ * share), so the two always add back up to exactly the row's
+ * combinedTotal — same invariant item 1's totals-row fix depends on.
+ * `reportMonthKey` points at the most recently closed month as the
+ * best single-month approximation for the report download link; a
+ * balance that rolled forward across several months doesn't have one
+ * single "correct" month, which is an existing, pre-existing
+ * limitation of the reportMonthKey concept (see earningsMonthKeyFor
+ * above), not something this fix introduces.
+ *
+ * Amendment 2/4 split: this released-but-unqueued balance is now split
+ * into two genuinely distinct statuses rather than one lumped
+ * "UNQUEUED" bucket, reflecting the real $30 minimum-payout threshold:
+ *   - "ON_HOLD" (Category A) — the released total is still under
+ *     MIN_PAYOUT_AMOUNT. This is NOT stuck — it's the explicit,
+ *     correct rollover behavior (lib/payout-threshold.ts): it simply
+ *     keeps accumulating with whatever releases next month until it
+ *     crosses the threshold. Never bulk-payable.
+ *   - "SCHEDULED" (Category B) — the released total has crossed
+ *     MIN_PAYOUT_AMOUNT and is confirmed/ready; it's just waiting on
+ *     the admin to either click "Queue this month's due payouts"
+ *     (which turns it into a real PayoutRequest) or, now, to be paid
+ *     directly as a bulk-payable row (see isBulkPayable in
+ *     PayoutsTable.tsx) ahead of the 15th deadline.
+ * Both statuses already reflect the FULL accumulated rollover amount,
+ * not just the current cycle's slice — computeWallet()'s `available`
+ * is a running total across every released-but-unpaid SaleLine ever,
+ * so a person who was $12 short last cycle and earns $25 more this
+ * cycle shows up here as one single $37 SCHEDULED row, not two
+ * separate payments — exactly the "combined, not separate" rule
+ * Amendment 2 asked for.
  */
 async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
   const now = new Date();
@@ -322,7 +357,7 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
       commissionEarnings: 0,
       combinedTotal: wallet.available,
       reportMonthKey: prevMonthKey,
-      status: "UNQUEUED",
+      status: wallet.available >= MIN_PAYOUT_AMOUNT ? "SCHEDULED" : "ON_HOLD",
       paid: false,
       requestedAt: now.toISOString(),
       resolvedAt: null,
@@ -366,7 +401,7 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
       commissionEarnings,
       combinedTotal: wallet.available,
       reportMonthKey: prevMonthKey,
-      status: "UNQUEUED",
+      status: wallet.available >= MIN_PAYOUT_AMOUNT ? "SCHEDULED" : "ON_HOLD",
       paid: false,
       requestedAt: now.toISOString(),
       resolvedAt: null,
@@ -426,11 +461,17 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
         const recipient = recipientById.get(p.recipientId);
         const reportMonthKey = earningsMonthKeyFor(p.requestedAt);
         const split = isAffiliate ? await referralAndCommissionFor(p.userId, reportMonthKey) : { referral: 0, commission: 0 };
+        // Same distinction as recipientFieldsFor above: a recipient row
+        // that no longer exists is "Recipient deleted"; a recipient row
+        // that exists but has a blank name is "Not set yet" — collapsing
+        // both into one fallback is what made this column look
+        // unpopulated even for payouts with a real, just-unnamed recipient.
+        const accountHolderName = !recipient ? "Recipient deleted" : recipient.accountHolderName.trim() ? recipient.accountHolderName : "Not set yet";
         return {
           id: p.id,
           userId: p.userId,
           accountNumber: p.user.accountNumber,
-          accountHolderName: recipient?.accountHolderName ?? "Recipient deleted",
+          accountHolderName,
           email: p.user.email,
           role: p.user.role,
           paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
@@ -451,12 +492,14 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
     );
 
     // Live rows (current, still-open month) lead the ledger, then any
-    // released-but-not-yet-queued "Pending" balances (see
-    // getPendingUnqueuedRows — this is what closes the "a real payout
-    // is missing" gap), then every real payout ever queued, most
-    // recent first — the same rolling live → pending → paid pattern as
-    // the author-facing Payout Settings page, just across every
-    // account instead of just one.
+    // released-but-not-yet-queued balances split into "ON_HOLD"
+    // (Category A, still under the $30 minimum) and "SCHEDULED"
+    // (Category B, crossed $30 and ready) — see getPendingUnqueuedRows,
+    // this is what closes the "a real payout is missing" gap — then
+    // every real payout ever queued, most recent first — the same
+    // rolling live → pending → paid pattern as the author-facing
+    // Payout Settings page, just across every account instead of just
+    // one.
     const liveRows = await getLiveMonthRows();
     const pendingRows = await getPendingUnqueuedRows();
     return [...liveRows, ...pendingRows, ...historicalRows];

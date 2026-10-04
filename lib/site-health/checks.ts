@@ -114,7 +114,7 @@ async function getDatabaseHealth(): Promise<HealthCategory> {
   // live count for visibility.
   try {
     const ledger = await getPayoutLedger();
-    const unqueuedCount = "error" in ledger ? null : ledger.filter((r) => r.status === "UNQUEUED").length;
+    const unqueuedCount = "error" in ledger ? null : ledger.filter((r) => r.status === "ON_HOLD" || r.status === "SCHEDULED").length;
     checks.push({
       id: "unqueued-balances",
       label: "Released-but-unqueued payout balances (live)",
@@ -122,7 +122,7 @@ async function getDatabaseHealth(): Promise<HealthCategory> {
       detail:
         unqueuedCount === null
           ? "Couldn't load the payout ledger to check."
-          : `${unqueuedCount} account(s) with a released balance not yet queued into a PayoutRequest — already surfaced as \"Pending\" rows on the Payout Requests page, not a bug by itself.`,
+          : `${unqueuedCount} account(s) with a released balance not yet queued into a PayoutRequest — already surfaced on the Payout Requests page as \"On Hold\" (still under the $30 minimum, rolling over) or \"Scheduled\" (crossed $30, ready and waiting to be paid), not a bug by itself.`,
     });
   } catch (e) {
     checks.push({ id: "unqueued-balances", label: "Released-but-unqueued payout balances (live)", status: "warning", detail: e instanceof Error ? e.message : "Couldn't check." });
@@ -389,7 +389,7 @@ async function getPayoutSystemHealth(): Promise<HealthCategory> {
         id: "reconciliation",
         label: "Total earned vs. total accounted for in the payout ledger (live, sanity check only)",
         status: diff > tolerance ? "warning" : "ok",
-        detail: `Total author/referral/affiliate shares ever earned (PAID orders only): $${totalEarned.toFixed(2)}. Total across the payout ledger's live + unqueued + historical rows: $${ledgerTotal.toFixed(2)}. Difference: $${diff.toFixed(2)}.${diff > tolerance ? " Outside the small rounding tolerance — worth a manual look, not necessarily a bug. Two known, legitimate (non-bug) sources of a gap here: (1) a REJECTED payout still counts here as \"accounted for\" even though that money rolls back into the person's balance (visible again once it re-queues, or in the ledger's \"On Hold\"/\"Released — Not Queued\" rows in the meantime), and (2) a sale from the still-open current calendar month hasn't reached its release date yet (the 1st of next month) and is correctly excluded from the unqueued-pending row (not yet released) — it's still visible as part of that person's \"On Hold\" live-month row, just not countable as released money yet. If the gap persists well past the current month closing, it's worth investigating further." : ""}`,
+        detail: `Total author/referral/affiliate shares ever earned (PAID orders only): $${totalEarned.toFixed(2)}. Total across the payout ledger's live + unqueued + historical rows: $${ledgerTotal.toFixed(2)}. Difference: $${diff.toFixed(2)}.${diff > tolerance ? " Outside the small rounding tolerance — worth a manual look, not necessarily a bug. Two known, legitimate (non-bug) sources of a gap here: (1) a REJECTED payout still counts here as \"accounted for\" even though that money rolls back into the person's balance (visible again once it re-queues, or in the ledger's \"On Hold\"/\"Scheduled\" rows in the meantime), and (2) a sale from the still-open current calendar month hasn't been released yet (it releases once that earnings month closes) and is correctly excluded from the on-hold/scheduled rows (not yet released) — it's still visible as part of that person's \"On Hold\" live-month row, just not countable as released money yet. If the gap persists well past the current month closing, it's worth investigating further." : ""}`,
       });
     }
   } catch (e) {

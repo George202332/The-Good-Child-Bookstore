@@ -9,6 +9,14 @@ export interface BookSalesRow {
   date: string;
   title: string;
   format: string;
+  /** Still tracked on every row (organic vs affiliate) for the grouping
+   * key upstream in app/account/revenue/page.tsx, even though its own
+   * column was removed from this table (Amendment 1 — the closest
+   * column to what was reported as "Cell Type"; no column by that
+   * exact name ever existed here) to fix the horizontal scrollbar. Not
+   * load-bearing for anything else on the Revenue page: it's never
+   * filtered on, and the Company/Affiliate money columns already make
+   * clear whether a sale was affiliate-referred. */
   saleType: string;
   price: number;
   company: number;
@@ -87,7 +95,6 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
                 <th style={TABLE_HEAD_STYLE}>Date<ColHelp text="The date of the most recent sale in this row. Every sale here shares the exact same book, format, sale type, and price — the date shown is simply the latest one among them." /></th>
                 <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The title of the book that was sold." /></th>
                 <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="The edition purchased: eBook, Paperback, Hardcover, or Audiobook. Each format can have its own price, so it's tracked separately." /></th>
-                <th style={TABLE_HEAD_STYLE}>Sale Type<ColHelp text="Organic means the customer found and bought the book directly, with no affiliate link involved. Affiliate means they bought it after clicking someone's promotional link, which earns that affiliate a commission out of the company's share." /></th>
                 <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The price the customer paid for one copy in this format. If this book's price ever changes, sales at the old and new price appear as separate rows." /></th>
                 <th style={TABLE_HEAD_STYLE}>Company<ColHelp text="The company's cut of a single copy at this price: normally 30%, or a smaller share if part of it was carved out to pay an affiliate's referral commission." /></th>
                 <th style={TABLE_HEAD_STYLE}>Affiliate<ColHelp text="The commission an affiliate earns on a single copy sold through their link: 10% of the price. Always $0.00 for organic sales, since no affiliate was involved." /></th>
@@ -102,7 +109,6 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
                   <td style={TABLE_CELL_STYLE}>{new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                   <td style={TABLE_CELL_STYLE}>{r.title}</td>
                   <td style={TABLE_CELL_STYLE}>{r.format}</td>
-                  <td style={TABLE_CELL_STYLE}><span className="age-pill">{r.saleType === "AFFILIATE" ? "Affiliate" : "Organic"}</span></td>
                   <td style={TABLE_CELL_STYLE}>${r.price.toFixed(2)}</td>
                   <td style={TABLE_CELL_STYLE}>${r.company.toFixed(2)}</td>
                   <td style={TABLE_CELL_STYLE}>${r.affiliate.toFixed(2)}</td>

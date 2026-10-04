@@ -36,25 +36,19 @@ export default async function PayoutSettingsPage() {
 
   let available = 0;
   let onHold = 0;
-  let nextReleaseDate: string | null = null;
   if (role === "AUTHOR") {
     const authorWallet = await getMyWallet("author");
     available += authorWallet.available;
     onHold += authorWallet.onHold;
-    nextReleaseDate = authorWallet.nextReleaseDate;
     if (isAffiliateToo) {
       const affiliateWallet = await getMyWallet("affiliate");
       available += affiliateWallet.available;
       onHold += affiliateWallet.onHold;
-      if (affiliateWallet.nextReleaseDate && (!nextReleaseDate || affiliateWallet.nextReleaseDate < nextReleaseDate)) {
-        nextReleaseDate = affiliateWallet.nextReleaseDate;
-      }
     }
   } else {
     const wallet = await getMyWallet("affiliate");
     available = wallet.available;
     onHold = wallet.onHold;
-    nextReleaseDate = wallet.nextReleaseDate;
   }
 
   return (
@@ -93,13 +87,13 @@ export default async function PayoutSettingsPage() {
               ? "Paid by the 15th"
               : statCards.pendingPayout < MIN_PAYOUT_AMOUNT
                 ? `Held, under $${MIN_PAYOUT_AMOUNT}`
-                : "Released — due by the 15th"}
+                : "Confirmed — released by the 15th"}
           </div>
         </div>
       </div>
 
       <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Your payout schedule</h3>
-      <AutoPayoutInfo available={available} onHold={onHold} nextReleaseDate={nextReleaseDate} hasRecipient={true} />
+      <AutoPayoutInfo available={available} onHold={onHold} hasRecipient={true} />
 
       <h3 style={{ fontSize: 16, margin: "28px 0 14px" }}>Monthly Payout History</h3>
       <div className="map-card" style={{ padding: 20 }}>
@@ -122,7 +116,7 @@ export default async function PayoutSettingsPage() {
                 <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many copies of your own books were sold this month." /></th>
                 <th style={TABLE_HEAD_STYLE}>Referral<ColHelp text="A percentage of company revenue from authors you personally referred onto the platform, earned this month." /></th>
                 <th style={TABLE_HEAD_STYLE}>Promotion<ColHelp text="Commission earned this month from copies sold through your own affiliate promotional links." /></th>
-                <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="This month's earnings become available on the 1st of the following month, as long as the total due has reached the $30 minimum, and are due to be paid out by the 15th of that same month at the latest." /></th>
+                <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="Once this month's earnings are confirmed and the total due has reached the $30 minimum, they're released by the 15th of the following month." /></th>
                 <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Live means the month is still in progress and this row keeps growing as sales happen. Pending payout means the month closed and it hasn't been paid yet (due by the 15th). Paid means the transfer for this month has gone out." /></th>
                 <th style={TABLE_HEAD_STYLE}>Amount<ColHelp text="Your total earnings for the month: book sales plus referral and promotion commissions combined." /></th>
                 <th style={TABLE_HEAD_STYLE}>Report<ColHelp text="Download this month's full payout statement as a PDF, itemized the same way as your account's statements are always formatted." /></th>

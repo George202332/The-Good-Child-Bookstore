@@ -137,9 +137,10 @@ export async function computePayoutStatCards(userId: string): Promise<PayoutStat
     .filter((l) => l.createdAt >= curStart && l.createdAt < curEnd)
     .reduce((sum, l) => sum + l.amount, 0);
 
-  // "On Hold" (until paid) — last month's now-closed total, released
-  // since the 1st of THIS month and due to be paid out by the 15th of
-  // THIS month at the latest. Once an admin has actually created this
+  // "On Hold" (until paid) — last month's now-closed total, now
+  // released and due to be paid out by the 15th of THIS month at the
+  // latest. (Only "released by the 15th" is ever communicated to the
+  // author/affiliate — see components/AutoPayoutInfo.tsx.) Once an admin has actually created this
   // month's PayoutRequest, prefer its real amount/status over the live
   // recomputation (so a manually-adjusted or already-paid figure wins).
   const thisMonthPayout = payoutRequests.find(

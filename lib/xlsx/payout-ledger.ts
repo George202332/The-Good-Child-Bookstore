@@ -66,9 +66,9 @@ export async function buildPayoutLedgerXlsx(rows: PayoutLedgerRow[]): Promise<Bu
       referralEarnings: r.referralEarnings,
       commissionEarnings: r.commissionEarnings,
       combinedTotal: r.combinedTotal,
-      status: r.status === "LIVE" ? "Live" : r.paid ? "Paid" : r.status === "REJECTED" ? "Rejected" : "Pending",
+      status: r.status === "LIVE" ? "Live" : r.paid ? "Paid" : r.status === "REJECTED" ? "Rejected" : r.status === "ON_HOLD" ? "On Hold" : r.status === "SCHEDULED" ? "Scheduled" : "Pending",
       reportMonthKey: r.reportMonthKey,
-      requestedAt: r.status === "LIVE" ? "This month" : r.status === "UNQUEUED" ? "Not yet queued" : new Date(r.requestedAt).toLocaleDateString("en-US"),
+      requestedAt: r.status === "LIVE" || r.status === "ON_HOLD" || r.status === "SCHEDULED" ? "Not yet queued" : new Date(r.requestedAt).toLocaleDateString("en-US"),
       resolvedAt: r.resolvedAt ? new Date(r.resolvedAt).toLocaleDateString("en-US") : "",
     });
     row.eachCell((cell, colNumber) => {

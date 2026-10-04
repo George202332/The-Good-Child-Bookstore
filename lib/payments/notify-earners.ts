@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/actions/notifications";
+import { reportSystemError } from "@/lib/site-health/alert";
 
 /**
  * Notifies everyone who actually earned real money on this now-PAID
@@ -30,6 +31,43 @@ import { createNotification } from "@/actions/notifications";
  * whichever of authorShare/authorReferralShare/affiliateShare is
  * nonzero on the line decides who gets notified, same as everywhere
  * else real money is computed from a SaleLine.
+ *
+ * FRESH re-investigation (this round) of Site Health's repeated
+ * "3-4 recent sale lines missing a notification" flag — the previous
+ * round's conclusion (abandoned/unpaid checkouts correctly not
+ * notified, see lib/site-health/checks.ts's PAID-order filter) is a
+ * real, legitimate non-bug, but it does NOT explain this flag
+ * recurring on sale lines that genuinely belong to PAID orders, which
+ * is what George is reporting again now that real sales are flowing.
+ *
+ * The actual gap, found by tracing the whole loop below fresh: EVERY
+ * line of an order was processed inside ONE shared try/catch around
+ * the entire function. If notifying line #1 of a 4-line order
+ * succeeds but line #2 throws (a null-ish relation, a transient DB
+ * hiccup, `createNotification` itself failing) — line #2's error
+ * aborts the loop entirely, so lines #3 and #4, which may have been
+ * perfectly fine, NEVER get notified either, and the whole failure
+ * was swallowed by a bare `catch {}` with literally zero trace left
+ * anywhere (not even logged) — exactly the "3-4 sale lines" pattern:
+ * one bad line cascades into silently dropping its neighbors in the
+ * same order. This is a different, new root cause from the earnings-
+ * counting (PAID-filter) bug two rounds ago — a notification-pipeline
+ * gap, not an earnings-counting gap, matching the task's own framing
+ * that these are two separate questions.
+ *
+ * The fix: each line's notification work now runs in its OWN try/catch
+ * (so one line's failure can never take its siblings down with it)
+ * and reports through reportSystemError("PAYOUT", ...) on failure, so
+ * a real failure now leaves a trace in SystemErrorLog / Site Health's
+ * "Logged errors" category instead of vanishing — if this happens
+ * again, it will actually be visible, with which specific line and
+ * error, rather than just a mystery count. Also fixes a second, real
+ * gap this surfaced: before, a SALE+REVENUE_ROYALTY pair failing for
+ * one author could silently also skip that SAME line's separate
+ * REVENUE_REFERRAL/REVENUE_PROMOTION notifications to a DIFFERENT
+ * person (the referring/promoting affiliate) — now each recipient's
+ * notification for a line is independent of the others on that line
+ * too.
  */
 export async function notifyRevenueEarners(orderId: string): Promise<void> {
   try {
@@ -68,43 +106,64 @@ export async function notifyRevenueEarners(orderId: string): Promise<void> {
         // deleting that specific transaction later
         // (actions/transactions.ts deleteTransaction) can find and
         // remove exactly these notifications, never leaving a trace.
-        await createNotification(
-          line.book.author.user.id,
-          line.book.title,
-          `A copy of "${line.book.title}" just sold.`,
-          "SALE",
-          line.id
-        );
-        await createNotification(
-          line.book.author.user.id,
-          line.book.title,
-          `You earned $${authorShare.toFixed(2)} in royalties on "${line.book.title}".`,
-          "REVENUE_ROYALTY",
-          line.id
-        );
+        //
+        // Isolated in its own try/catch (see the module comment above)
+        // so a failure notifying THIS author never silently skips the
+        // referral/promotion notifications below for a different
+        // person on the same line, or any later line in this order.
+        try {
+          await createNotification(
+            line.book.author.user.id,
+            line.book.title,
+            `A copy of "${line.book.title}" just sold.`,
+            "SALE",
+            line.id
+          );
+          await createNotification(
+            line.book.author.user.id,
+            line.book.title,
+            `You earned $${authorShare.toFixed(2)} in royalties on "${line.book.title}".`,
+            "REVENUE_ROYALTY",
+            line.id
+          );
+        } catch (e) {
+          await reportSystemError("PAYOUT", e, { action: "notifyRevenueEarners.royalty", orderId, saleLineId: line.id });
+        }
       }
 
       if (line.authorReferralAffiliate && authorReferralShare > 0) {
-        await createNotification(
-          line.authorReferralAffiliate.user.id,
-          line.book.title,
-          `You earned $${authorReferralShare.toFixed(2)} in referral commission from "${line.book.title}".`,
-          "REVENUE_REFERRAL",
-          line.id
-        );
+        try {
+          await createNotification(
+            line.authorReferralAffiliate.user.id,
+            line.book.title,
+            `You earned $${authorReferralShare.toFixed(2)} in referral commission from "${line.book.title}".`,
+            "REVENUE_REFERRAL",
+            line.id
+          );
+        } catch (e) {
+          await reportSystemError("PAYOUT", e, { action: "notifyRevenueEarners.referral", orderId, saleLineId: line.id });
+        }
       }
 
       if (line.affiliateLink && affiliateShare > 0) {
-        await createNotification(
-          line.affiliateLink.affiliate.user.id,
-          line.book.title,
-          `You earned $${affiliateShare.toFixed(2)} in promotion commission from "${line.book.title}".`,
-          "REVENUE_PROMOTION",
-          line.id
-        );
+        try {
+          await createNotification(
+            line.affiliateLink.affiliate.user.id,
+            line.book.title,
+            `You earned $${affiliateShare.toFixed(2)} in promotion commission from "${line.book.title}".`,
+            "REVENUE_PROMOTION",
+            line.id
+          );
+        } catch (e) {
+          await reportSystemError("PAYOUT", e, { action: "notifyRevenueEarners.promotion", orderId, saleLineId: line.id });
+        }
       }
     }
-  } catch {
-    // Non-critical — a failed notification shouldn't block payment confirmation.
+  } catch (e) {
+    // The order fetch itself failing is the only thing left uncaught
+    // above — still non-critical to payment confirmation, but now also
+    // logged rather than silently swallowed, for the same reason as
+    // every per-line catch above.
+    await reportSystemError("PAYOUT", e, { action: "notifyRevenueEarners.fetchOrder", orderId });
   }
 }

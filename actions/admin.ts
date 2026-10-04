@@ -9,6 +9,8 @@ import { submitUrlToIndexNow } from "@/lib/indexnow";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
 import { reportSystemError } from "@/lib/site-health/alert";
+import { computeWalletForUserId } from "@/lib/compute-wallet-for-user";
+import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
 
 /** True for the "Not authorized."/"Only Admins can..." errors
  * requireModerationRole()/requireAdminRole() throw deliberately — those
@@ -287,21 +289,73 @@ export async function rejectPayoutRequest(payoutId: string): Promise<{ ok: boole
 }
 
 /**
+ * Pays a Category B ("Scheduled") synthetic row directly — one of
+ * these has crossed the $30 minimum (lib/payout-threshold.ts) and is
+ * confirmed/ready, but has no real PayoutRequest row behind it yet
+ * (see actions/payout-ledger.ts getPendingUnqueuedRows — it's computed
+ * fresh from real sale data on every load, not stored). Paying it
+ * creates the real PayoutRequest — already in status PAID, since the
+ * admin is confirming money that's already been sent manually outside
+ * this system, same as approvePayoutRequest() — using the FULL
+ * accumulated rollover amount (computeWalletForUserId's `available`),
+ * so a balance that rolled over across several cycles goes out as one
+ * single combined payment, never two.
+ *
+ * Re-checks the $30 minimum and recomputes the amount fresh at the
+ * moment of paying (never trusts a client-supplied figure) — the
+ * synthetic row's id encodes only who it's for (`pending-author-<id>`
+ * / `pending-affiliate-<id>`), not an amount, by design.
+ */
+async function payScheduledBalance(syntheticId: string): Promise<{ ok: boolean; amount?: number; error?: string }> {
+  const authorMatch = syntheticId.match(/^pending-author-(.+)$/);
+  const affiliateMatch = syntheticId.match(/^pending-affiliate-(.+)$/);
+  if (!authorMatch && !affiliateMatch) return { ok: false, error: "Not a payable balance." };
+
+  const userId = (authorMatch ?? affiliateMatch)![1];
+  const view: "author" | "affiliate" = authorMatch ? "author" : "affiliate";
+  const earningsType = authorMatch ? "AUTHOR" : "AFFILIATE";
+
+  const wallet = await computeWalletForUserId(userId, view);
+  if (wallet.available < MIN_PAYOUT_AMOUNT) {
+    return { ok: false, error: "This balance is still under the $30 minimum — it isn't actually due yet." };
+  }
+
+  const recipient = await prisma.wiseRecipient.findFirst({ where: { userId }, orderBy: { isDefault: "desc" } });
+  if (!recipient) return { ok: false, error: "This recipient has no payout destination on file." };
+
+  const now = new Date();
+  const payout = await prisma.payoutRequest.create({
+    data: {
+      userId,
+      recipientId: recipient.id,
+      amount: wallet.available,
+      currency: "USD",
+      earningsType,
+      status: "PAID",
+      resolvedAt: now,
+    },
+  });
+  await createNotification(userId, "Payout sent", `Your $${wallet.available.toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
+  return { ok: true, amount: wallet.available };
+}
+
+/**
  * The bulk counterpart to approvePayoutRequest() above — select
  * several/all due payouts on app/admin/payouts/PayoutsTable.tsx and
  * mark them all paid in one click, instead of one "Mark paid" click
- * per row. Deliberately reuses the exact same atomic, status-"REQUESTED"-
- * only guard as the single-row action (a plain `updateMany`, extended
- * to an `id IN (...)` list) — a row that isn't actually in REQUESTED
- * any more (already paid from another tab, rejected, or never a real
- * PayoutRequest at all — an On Hold/Released-Not-Queued synthetic row
- * has no real id to match here) is silently skipped rather than
- * erroring out the whole batch, the same "already processed, refresh
- * to see its current status" tolerance the single-row action has.
- * `updateMany` doesn't report which specific ids it actually touched,
- * so the real "Payout sent" notification per recipient is sent from a
- * second query, scoped to PAID rows whose resolvedAt falls in the tiny
- * window this one call just set — see `resolvedAt` below.
+ * per row. Handles two genuinely different row shapes in the same
+ * call, since both are now bulk-payable (Amendment 5):
+ *   - Real PayoutRequest rows in status REQUESTED — the exact same
+ *     atomic, status-guarded `updateMany` as the single-row action. A
+ *     row that isn't actually REQUESTED any more (already paid from
+ *     another tab, rejected) is silently skipped rather than erroring
+ *     out the whole batch.
+ *   - Synthetic "Scheduled" (Category B) rows, which have no real
+ *     PayoutRequest id yet — paid via payScheduledBalance() above,
+ *     which creates that PayoutRequest on the fly, already PAID.
+ * On Hold (Category A, still under $30) and Released/not-yet-released
+ * rows are never selectable in the UI (isBulkPayable), so they never
+ * reach this function at all.
  */
 export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: boolean; updated?: number; error?: string }> {
   try {
@@ -310,23 +364,35 @@ export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: bo
       return { ok: false, error: "No payouts were selected." };
     }
 
-    const resolvedAt = new Date();
-    const claim = await prisma.payoutRequest.updateMany({
-      where: { id: { in: payoutIds }, status: "REQUESTED" },
-      data: { status: "PAID", resolvedAt },
-    });
+    const scheduledIds = payoutIds.filter((id) => id.startsWith("pending-author-") || id.startsWith("pending-affiliate-"));
+    const realIds = payoutIds.filter((id) => !scheduledIds.includes(id));
 
-    if (claim.count > 0) {
-      const paid = await prisma.payoutRequest.findMany({
-        where: { id: { in: payoutIds }, status: "PAID", resolvedAt },
+    let updated = 0;
+
+    if (realIds.length > 0) {
+      const resolvedAt = new Date();
+      const claim = await prisma.payoutRequest.updateMany({
+        where: { id: { in: realIds }, status: "REQUESTED" },
+        data: { status: "PAID", resolvedAt },
       });
-      for (const payout of paid) {
-        await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
+      if (claim.count > 0) {
+        const paid = await prisma.payoutRequest.findMany({
+          where: { id: { in: realIds }, status: "PAID", resolvedAt },
+        });
+        for (const payout of paid) {
+          await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
+        }
+        updated += claim.count;
       }
-      revalidatePath("/admin/payouts");
     }
 
-    return { ok: true, updated: claim.count };
+    for (const id of scheduledIds) {
+      const result = await payScheduledBalance(id);
+      if (result.ok) updated += 1;
+    }
+
+    if (updated > 0) revalidatePath("/admin/payouts");
+    return { ok: true, updated };
   } catch (e) {
     if (!isAuthorizationError(e)) await reportSystemError("PAYOUT", e, { action: "bulkMarkPayoutsPaid", payoutIds });
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
