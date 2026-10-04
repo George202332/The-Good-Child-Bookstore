@@ -5,7 +5,16 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * Route protection:
- *  - /admin/**  and /editor/** are backend-only surfaces (ADMIN, EDITOR).
+ *  - /admin/**, /editor/**, and /investor/** are backend-only surfaces
+ *    (ADMIN, EDITOR, and — Investor correction — INVESTOR). /investor
+ *    was missing from this middleware entirely until now (both from the
+ *    redirect-lookup exclusion below and from the matcher at the bottom
+ *    of this file, so it never even ran on an /investor request) —
+ *    Investor pages were still safe, since app/investor/layout.tsx has
+ *    always independently checked the real backend session itself
+ *    before rendering anything, but that meant Investor requests always
+ *    paid for a full page render before being bounced, instead of being
+ *    redirected at the edge the same way /admin and /editor already are.
  *  - /account/** is the existing frontend dashboard (READER, AUTHOR, AFFILIATE).
  *
  * These two areas now read two genuinely independent session cookies
@@ -42,7 +51,7 @@ export default async function middleware(req: NextRequest) {
   // matter — previously ran on every single request, including every
   // /account and /admin click, adding an unneeded database round trip
   // before those pages even started loading.
-  const isPublicContentRoute = pathname.startsWith("/blog") || pathname.startsWith("/book") || (!pathname.startsWith("/admin") && !pathname.startsWith("/editor") && !pathname.startsWith("/account") && pathname !== "/signup/author");
+  const isPublicContentRoute = pathname.startsWith("/blog") || pathname.startsWith("/book") || (!pathname.startsWith("/admin") && !pathname.startsWith("/editor") && !pathname.startsWith("/investor") && !pathname.startsWith("/account") && pathname !== "/signup/author");
   if (isPublicContentRoute) {
     try {
       const redirect = await prisma.redirect.findUnique({ where: { fromPath: pathname } });
@@ -61,7 +70,7 @@ export default async function middleware(req: NextRequest) {
   // in an infinite loop.
   const isAdminLoginRoute = pathname === "/admin/login";
 
-  const isBackendRoute = (pathname.startsWith("/admin") || pathname.startsWith("/editor")) && !isAdminLoginRoute;
+  const isBackendRoute = (pathname.startsWith("/admin") || pathname.startsWith("/editor") || pathname.startsWith("/investor")) && !isAdminLoginRoute;
   if (isBackendRoute) {
     const adminToken = await getToken({ req, cookieName: "gcb-admin-session-token", secret: process.env.AUTH_SECRET });
     const role = (adminToken as { role?: string } | null)?.role;
@@ -113,5 +122,5 @@ export default async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/editor/:path*", "/account/:path*", "/book/:path*", "/blog/:path*", "/signup/author", "/:slug"],
+  matcher: ["/admin/:path*", "/editor/:path*", "/investor/:path*", "/account/:path*", "/book/:path*", "/blog/:path*", "/signup/author", "/:slug"],
 };
