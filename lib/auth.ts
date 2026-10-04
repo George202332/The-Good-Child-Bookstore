@@ -83,6 +83,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionToken: {
       name: "gcb-session-token",
       options: { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" },
+      // No maxAge here on purpose — Auth.js still forces this cookie to
+      // persist for `session.maxAge` (30 days, the default below)
+      // regardless of what's set in this options object. Turning it
+      // into a true session-only cookie (cleared when the browser
+      // itself fully closes, not just this tab) is done by stripping
+      // the Expires/Max-Age Auth.js adds, after the fact, in
+      // app/api/auth/[...nextauth]/route.ts — see lib/session-cookie.ts.
     },
   },
   providers: [

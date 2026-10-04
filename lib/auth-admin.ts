@@ -66,6 +66,11 @@ export const { handlers: adminHandlers, auth: authAdmin, signIn: signInAdmin, si
     sessionToken: {
       name: "gcb-admin-session-token",
       options: { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" },
+      // See the matching comment in lib/auth.ts — this cookie's
+      // persistence is stripped after the fact too, in
+      // app/api/auth-admin/[...nextauth]/route.ts (client sign-in) and
+      // actions/admin-auth.ts (the Server-Action sign-in this instance
+      // actually uses) via lib/session-cookie.ts.
     },
     callbackUrl: { name: "gcb-admin-callback-url", options: { sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" } },
     csrfToken: { name: "gcb-admin-csrf-token", options: { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" } },

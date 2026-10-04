@@ -11,12 +11,17 @@ import { computeWallet, nextReleaseDate, releaseDateFor } from "../lib/wallet";
  */
 
 describe("releaseDateFor", () => {
-  test("a sale releases on the 15th of the FOLLOWING month", () => {
-    assert.deepEqual(releaseDateFor(new Date(2026, 0, 5)), new Date(2026, 1, 15));
+  // Per explicit instruction (Amendment 3): money becomes available for
+  // payout processing as soon as its earnings month closes (the 1st of
+  // the FOLLOWING month) — the 15th is only the deadline an admin must
+  // pay it by, not the moment it unlocks. See lib/wallet.ts's module
+  // comment for why this used to incorrectly use the 15th for both.
+  test("a sale releases on the 1st of the FOLLOWING month", () => {
+    assert.deepEqual(releaseDateFor(new Date(2026, 0, 5)), new Date(2026, 1, 1));
   });
 
   test("December sales roll over into January of the next year", () => {
-    assert.deepEqual(releaseDateFor(new Date(2026, 11, 31)), new Date(2027, 0, 15));
+    assert.deepEqual(releaseDateFor(new Date(2026, 11, 31)), new Date(2027, 0, 1));
   });
 });
 

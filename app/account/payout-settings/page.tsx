@@ -78,7 +78,7 @@ export default async function PayoutSettingsPage() {
         <div className="stat-card stat-card-promotion">
           <div className="stat-label">Last Month</div>
           <div className="stat-value">${statCards.lastMonth.toFixed(2)}</div>
-          <div className="stat-sub">Paid on the 15th</div>
+          <div className="stat-sub">Paid by the 15th</div>
         </div>
         <div className="stat-card stat-card-total">
           <div className="stat-label">Next Month</div>
@@ -86,14 +86,14 @@ export default async function PayoutSettingsPage() {
           <div className="stat-sub">Still growing</div>
         </div>
         <div className="stat-card stat-card-due">
-          <div className="stat-label">{statCards.pendingStatus === "Paid" ? "Paid This Month" : "Pending Payout"}</div>
+          <div className="stat-label">{statCards.pendingStatus === "Paid" ? "Paid This Month" : "On Hold"}</div>
           <div className="stat-value">${statCards.pendingPayout.toFixed(2)}</div>
           <div className="stat-sub">
             {statCards.pendingStatus === "Paid"
-              ? "Paid on the 15th"
+              ? "Paid by the 15th"
               : statCards.pendingPayout < MIN_PAYOUT_AMOUNT
                 ? `Held, under $${MIN_PAYOUT_AMOUNT}`
-                : "Due the 15th"}
+                : "Released — due by the 15th"}
           </div>
         </div>
       </div>
@@ -122,8 +122,8 @@ export default async function PayoutSettingsPage() {
                 <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many copies of your own books were sold this month." /></th>
                 <th style={TABLE_HEAD_STYLE}>Referral<ColHelp text="A percentage of company revenue from authors you personally referred onto the platform, earned this month." /></th>
                 <th style={TABLE_HEAD_STYLE}>Promotion<ColHelp text="Commission earned this month from copies sold through your own affiliate promotional links." /></th>
-                <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="This month's earnings become payable on the 15th of the following month, as long as the total due has reached the $30 minimum." /></th>
-                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Live means the month is still in progress and this row keeps growing as sales happen. Pending payout means the month closed and the 15th hasn't been processed yet. Paid means the transfer for this month has gone out." /></th>
+                <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="This month's earnings become available on the 1st of the following month, as long as the total due has reached the $30 minimum, and are due to be paid out by the 15th of that same month at the latest." /></th>
+                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Live means the month is still in progress and this row keeps growing as sales happen. Pending payout means the month closed and it hasn't been paid yet (due by the 15th). Paid means the transfer for this month has gone out." /></th>
                 <th style={TABLE_HEAD_STYLE}>Amount<ColHelp text="Your total earnings for the month: book sales plus referral and promotion commissions combined." /></th>
                 <th style={TABLE_HEAD_STYLE}>Report<ColHelp text="Download this month's full payout statement as a PDF, itemized the same way as your account's statements are always formatted." /></th>
               </tr>

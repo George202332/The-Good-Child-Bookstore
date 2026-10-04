@@ -11,6 +11,8 @@ import { notificationTypeInfo, RECENT_ACTIVITY_TYPES, recentActivityLine } from 
 import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { LiveRefresher } from "@/components/LiveRefresher";
+import { PayoutHoldBanner } from "@/components/PayoutHoldBanner";
+import { computePayoutStatCards } from "@/lib/payout-monthly";
 
 export const dynamic = "force-dynamic";
 
@@ -92,10 +94,14 @@ export default async function AccountPage() {
     // Wishlist is tracked client-side (localStorage, see useWishlist) rather
     // than in the database, so there's no server-side count to show here.
     const affiliateStatus = await getReaderAffiliateStatus();
+    const payoutStatCards = affiliateStatus.enabled ? await computePayoutStatCards(session.user.id) : null;
 
     return (
       <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
         <LiveRefresher />
+        {payoutStatCards && payoutStatCards.pendingPayout > 0 && (
+          <PayoutHoldBanner amount={payoutStatCards.pendingPayout} status={payoutStatCards.pendingStatus} />
+        )}
         {user?.mustChangePassword && (
           <div className="map-card" style={{ padding: "12px 16px", marginBottom: 16, background: "#FBE6B8" }}>
             <p style={{ fontSize: 13, color: "#8A5A0B", margin: 0 }}>
@@ -234,7 +240,7 @@ export default async function AccountPage() {
       if (f && f in formatCounts) formatCounts[f] += 1;
     }
 
-    const [{ isAffiliateToo, affiliateLinks }, lifetimePayoutAgg, authorsReferredCount, notifications, publishedBlogCount] = await Promise.all([
+    const [{ isAffiliateToo, affiliateLinks }, lifetimePayoutAgg, authorsReferredCount, notifications, publishedBlogCount, payoutStatCards] = await Promise.all([
       (async () => {
         const isAffiliateToo = await hasAffiliateCapability(session.user.id);
         const affiliateLinks = isAffiliateToo ? await getMyLinkPerformance() : [];
@@ -249,6 +255,7 @@ export default async function AccountPage() {
         : Promise.resolve(0),
       listMyNotifications(),
       prisma.blog.count({ where: { authorId: session.user.id, status: "PUBLISHED" } }),
+      computePayoutStatCards(session.user.id),
     ]);
     const affiliateClicks = affiliateLinks.reduce((s, l) => s + l.clicks, 0);
     const affiliateSold = affiliateLinks.reduce((s, l) => s + l.conversions, 0);
@@ -285,6 +292,10 @@ export default async function AccountPage() {
             </p>
           </div>
         </div>
+
+        {payoutStatCards.pendingPayout > 0 && (
+          <PayoutHoldBanner amount={payoutStatCards.pendingPayout} status={payoutStatCards.pendingStatus} />
+        )}
 
         <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 20 }}>
           <div className="stat-card stat-card-maroon">

@@ -124,7 +124,7 @@ export async function computePayoutStatCards(userId: string): Promise<PayoutStat
     .reduce((sum: number, p: { amount: unknown }) => sum + Number(p.amount), 0);
 
   const { start: lastMonthStart, end: lastMonthEnd } = previousMonthRange(now);
-  // "Last Month" — the payout actually disbursed on the 15th of last
+  // "Last Month" — the payout actually disbursed by the 15th of last
   // calendar month (a settled historical figure, not a live total).
   const lastMonthPayout = payoutRequests
     .filter((p: { requestedAt: Date; status: string }) => p.requestedAt >= lastMonthStart && p.requestedAt < lastMonthEnd && p.status === "PAID")
@@ -137,9 +137,10 @@ export async function computePayoutStatCards(userId: string): Promise<PayoutStat
     .filter((l) => l.createdAt >= curStart && l.createdAt < curEnd)
     .reduce((sum, l) => sum + l.amount, 0);
 
-  // "Pending Payout" — last month's now-closed total, due on the 15th
-  // of THIS month. Once the cron has actually created this month's
-  // PayoutRequest, prefer its real amount/status over the live
+  // "On Hold" (until paid) — last month's now-closed total, released
+  // since the 1st of THIS month and due to be paid out by the 15th of
+  // THIS month at the latest. Once an admin has actually created this
+  // month's PayoutRequest, prefer its real amount/status over the live
   // recomputation (so a manually-adjusted or already-paid figure wins).
   const thisMonthPayout = payoutRequests.find(
     (p: { requestedAt: Date }) => p.requestedAt >= curStart && p.requestedAt < curEnd

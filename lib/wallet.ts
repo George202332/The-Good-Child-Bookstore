@@ -2,12 +2,19 @@
  * Wallet math shared by author Revenue and affiliate Earnings pages.
  *
  * Per explicit instruction: payouts are no longer requested on demand.
- * Instead, every sale's share is "On Hold" until money earned in a
- * given calendar month automatically becomes "Available" on the 15th
- * of the following month — e.g. everything earned in June becomes
- * payable on July 15th. Once available, it's paid out automatically
- * (see app/api/cron/monthly-payouts/route.ts) rather than requiring
- * the author/affiliate to click a "request payout" button.
+ * Instead, every sale's share is "On Hold" until the calendar month it
+ * was earned in actually closes — at which point it becomes
+ * "Available" on the 1st of the following month, e.g. everything
+ * earned in June becomes available July 1st. An admin then has until
+ * the 15th of that same month to actually send the money (see
+ * actions/payouts.ts queueDuePayouts and actions/admin.ts
+ * approvePayoutRequest) — the 15th is the LATEST allowable payout
+ * date, a deadline, not the moment the money unlocks. (An earlier
+ * round of this release logic used the 15th for both — unlocking and
+ * the deadline landed on the same day, which is why money correctly
+ * earned and released could still look "on hold"/invisible everywhere
+ * in the system for the first two weeks of the month it was actually
+ * payable in.)
  */
 
 export interface WalletShareLine {
@@ -21,10 +28,14 @@ export interface Wallet {
   available: number;
 }
 
-/** The date a sale's earnings become available: the 15th of the month
- * after the sale happened. */
+/** The date a sale's earnings become available for payout processing:
+ * the 1st of the month after the sale happened — e.g. a June sale
+ * releases July 1st, giving an admin the rest of July (up to and
+ * including the 15th, the actual payment deadline — see
+ * app/account/payout-settings/page.tsx and app/admin/payouts/page.tsx
+ * for where that deadline is surfaced) to actually send the money. */
 export function releaseDateFor(saleDate: Date): Date {
-  return new Date(saleDate.getFullYear(), saleDate.getMonth() + 1, 15);
+  return new Date(saleDate.getFullYear(), saleDate.getMonth() + 1, 1);
 }
 
 function isReleased(saleDate: Date, now: Date): boolean {

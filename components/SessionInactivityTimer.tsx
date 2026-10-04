@@ -97,9 +97,26 @@ export function SessionInactivityTimer({ isAdmin = false }: { isAdmin?: boolean 
       } catch {
         // Not critical — the redirect below is what actually matters.
       }
-      if (isAdmin) await adminSignOut();
-      else await signOut({ redirect: false });
-      window.location.href = isAdmin ? "/admin/login?timeout=1" : "/login?timeout=1";
+      // The actual sign-out call is network-bound (a Server Action for
+      // admin, a fetch to /api/auth/signout for reader/author) and can
+      // fail transiently. It used to sit outside any try/catch here, so
+      // a failed call threw out of checkIdle() entirely, skipped the
+      // redirect below, and — since loggedOutRef was already flipped to
+      // true just above — every later 15s tick returned immediately
+      // without ever retrying: the tab was left open, apparently idle,
+      // with no logout and no way to recover short of a full reload.
+      // Wrapped so the redirect to the login page always happens even
+      // if the sign-out call itself errors (the session cookie's own
+      // expiry — see lib/session-cookie.ts / session.maxAge — is still
+      // the backstop if a failed call somehow left it intact).
+      try {
+        if (isAdmin) await adminSignOut();
+        else await signOut({ redirect: false });
+      } catch {
+        // Fall through to the redirect regardless.
+      } finally {
+        window.location.href = isAdmin ? "/admin/login?timeout=1" : "/login?timeout=1";
+      }
     }
 
     ACTIVITY_EVENTS.forEach((evt) => window.addEventListener(evt, markActive, { passive: true }));

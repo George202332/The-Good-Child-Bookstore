@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { EmailVerificationRequired } from "@/components/EmailVerificationRequired";
 import { TwoFactorChallengeScreen } from "@/components/TwoFactorChallengeScreen";
 import { SessionInactivityTimer } from "@/components/SessionInactivityTimer";
+import { BackNavigationGuard } from "@/components/BackNavigationGuard";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
     return (
       <>
         <SessionInactivityTimer />
+        <BackNavigationGuard />
         <EmailVerificationRequired email={user.email} />
       </>
     );
@@ -58,6 +60,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
     return (
       <>
         <SessionInactivityTimer />
+        <BackNavigationGuard />
         <TwoFactorChallengeScreen />
       </>
     );
@@ -66,6 +69,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
   return (
     <>
       <SessionInactivityTimer />
+      <BackNavigationGuard />
       {children}
     </>
   );

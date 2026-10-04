@@ -285,3 +285,50 @@ export async function rejectPayoutRequest(payoutId: string): Promise<{ ok: boole
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
   }
 }
+
+/**
+ * The bulk counterpart to approvePayoutRequest() above — select
+ * several/all due payouts on app/admin/payouts/PayoutsTable.tsx and
+ * mark them all paid in one click, instead of one "Mark paid" click
+ * per row. Deliberately reuses the exact same atomic, status-"REQUESTED"-
+ * only guard as the single-row action (a plain `updateMany`, extended
+ * to an `id IN (...)` list) — a row that isn't actually in REQUESTED
+ * any more (already paid from another tab, rejected, or never a real
+ * PayoutRequest at all — an On Hold/Released-Not-Queued synthetic row
+ * has no real id to match here) is silently skipped rather than
+ * erroring out the whole batch, the same "already processed, refresh
+ * to see its current status" tolerance the single-row action has.
+ * `updateMany` doesn't report which specific ids it actually touched,
+ * so the real "Payout sent" notification per recipient is sent from a
+ * second query, scoped to PAID rows whose resolvedAt falls in the tiny
+ * window this one call just set — see `resolvedAt` below.
+ */
+export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: boolean; updated?: number; error?: string }> {
+  try {
+    await requireAdminRole();
+    if (!Array.isArray(payoutIds) || payoutIds.length === 0) {
+      return { ok: false, error: "No payouts were selected." };
+    }
+
+    const resolvedAt = new Date();
+    const claim = await prisma.payoutRequest.updateMany({
+      where: { id: { in: payoutIds }, status: "REQUESTED" },
+      data: { status: "PAID", resolvedAt },
+    });
+
+    if (claim.count > 0) {
+      const paid = await prisma.payoutRequest.findMany({
+        where: { id: { in: payoutIds }, status: "PAID", resolvedAt },
+      });
+      for (const payout of paid) {
+        await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
+      }
+      revalidatePath("/admin/payouts");
+    }
+
+    return { ok: true, updated: claim.count };
+  } catch (e) {
+    if (!isAuthorizationError(e)) await reportSystemError("PAYOUT", e, { action: "bulkMarkPayoutsPaid", payoutIds });
+    return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
+  }
+}

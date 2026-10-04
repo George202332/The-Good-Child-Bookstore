@@ -39,8 +39,16 @@ export default async function PayoutsPage() {
       affiliate: acc.affiliate + r.referralEarnings + r.commissionEarnings,
       combined: acc.combined + r.combinedTotal,
       paidCount: acc.paidCount + (r.paid ? 1 : 0),
+      // "On Hold" — held-back money per explicit instruction: the
+      // still-open current month's accruing earnings (status "LIVE")
+      // plus anything released but not yet queued as a real payout
+      // (status "UNQUEUED" — e.g. a rejected payout's amount rolling
+      // back into the balance until it's requeued). Shown as its own
+      // figure rather than silently folded into — or left out of —
+      // the totals above, which only ever meant "real/queued payouts".
+      onHold: acc.onHold + (r.status === "LIVE" || r.status === "UNQUEUED" ? r.combinedTotal : 0),
     }),
-    { royalties: 0, affiliate: 0, combined: 0, paidCount: 0 }
+    { royalties: 0, affiliate: 0, combined: 0, paidCount: 0, onHold: 0 }
   );
 
   return (
@@ -85,6 +93,11 @@ export default async function PayoutsPage() {
           <div className="stat-label">Combined total</div>
           <div className="stat-value">${totals.combined.toFixed(2)}</div>
           <div className="stat-sub">Royalties + affiliate</div>
+        </div>
+        <div className="stat-card stat-card-due">
+          <div className="stat-label">On Hold</div>
+          <div className="stat-value">${totals.onHold.toFixed(2)}</div>
+          <div className="stat-sub">Not yet released, or released but not queued</div>
         </div>
         <div className="stat-card">
           <div className="stat-label">Paid / total</div>
