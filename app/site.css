@@ -95,7 +95,13 @@
      it for mobile only, matching .wrap's own 20px breakpoint, without
      touching the (already fine) desktop layout. */
   @media (max-width:900px){
-    .header-inner{padding:18px 20px;}
+    /* Reduced from 18px (Amendment 10) — the mobile hamburger used to
+       sit on its own second row below this one (.mobile-nav-bar,
+       removed), which needed extra vertical breathing room of its own;
+       now that the toggle lives inline in this same row, that reserved
+       space is freed, so the header can sit a little closer to the
+       page content below it. */
+    .header-inner{padding:14px 20px;}
   }
   /* Plain text wordmark — no icon, no image, no background box of its
      own; it just sits on whatever surface it's placed on (header cream,
@@ -173,32 +179,30 @@
     nav.main-nav{display:none;}
   }
 
-  /* ---------- Mobile nav (hamburger) for the main site header ----------
-     Shown at the same breakpoint the desktop nav.main-nav disappears at
-     (<=1024px). Positioned on its own row directly under the logo/account
-     row, not inside it, so it never overlaps the search/wishlist/cart/
-     account cluster. Deliberately NOT styled like the dashboard sidebar's
-     mobile toggle (.dashboard-mobile-toggle, see DashboardSidebarNav.tsx)
-     — that one sits on a solid var(--paper) bar with a border and shadow;
-     this one stays fully transparent so it blends into the header's own
-     cream background, with no contrasting strip behind it. The underlying
-     open/close interaction (toggle + Escape-to-close + close-on-nav-click)
-     mirrors that same dashboard pattern — see Header.tsx. */
-  .mobile-nav-bar{display:none;}
+  /* ---------- Mobile nav hamburger — ONE shared toggle ----------
+     Amendment 10: previously two separate toggles existed (this one on
+     its own row below the logo/account row, plus a second one inside
+     DashboardSidebarNav for /account routes) — now there's exactly one
+     button, icon-only (5 lines, no "Menu" label), sitting inline in
+     .header-actions between the logo and the wishlist icon, on every
+     route including the dashboards (see Header.tsx — it dispatches a
+     window CustomEvent to DashboardSidebarNav on /account routes
+     instead of toggling its own main-nav dropdown). Removing the old
+     second row this toggle used to occupy is what frees up the header-
+     to-content spacing below (see .header-inner's mobile padding,
+     reduced now that nothing reserves room for that row any more). */
+  .header-mobile-toggle{display:none;}
   .mobile-nav-menu{display:none;}
   @media (max-width:1024px){
-    .mobile-nav-bar{display:flex;padding:0 0 10px;}
-    .mobile-nav-toggle{
-      display:inline-flex;align-items:center;gap:8px;
+    .header-mobile-toggle{
+      display:inline-flex;align-items:center;justify-content:center;
       background:transparent;border:none;box-shadow:none;
-      padding:6px 2px;font-size:14px;font-weight:700;color:var(--ink-soft);
-      cursor:pointer;
+      padding:4px;color:var(--ink-soft);cursor:pointer;
     }
-    .mobile-nav-toggle:hover{color:var(--ink);}
-    .mobile-nav-toggle svg{flex-shrink:0;}
+    .header-mobile-toggle:hover{color:var(--ink);}
     .mobile-nav-menu.open{
       display:flex;flex-direction:column;align-items:flex-start;
-      gap:2px;padding:2px 0 14px;
+      gap:2px;padding:2px 0 10px;
     }
     .mobile-nav-menu a{
       width:100%;padding:10px 2px;font-weight:600;font-size:14.5px;
@@ -1698,22 +1702,9 @@
   .dashboard-sidebar-account-type{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:0.7px;color:var(--ink-faint);}
   .dashboard-mobile-overlay{display:none;position:fixed;inset:0;background:rgba(63,51,80,0.35);z-index:390;}
   .dashboard-mobile-overlay.open{display:block;}
-  .dashboard-mobile-toggle{display:none;}
-  @media (max-width:1024px){
-    /* Restyled to match the main site header's transparent mobile-nav-toggle
-       (see .mobile-nav-toggle above and Header.tsx) rather than sitting on
-       its own solid white bar — this is now the ONLY mobile nav toggle shown
-       while on a dashboard page (Header.tsx suppresses its own main-site
-       hamburger for every /account/** route), so it adopts that toggle's
-       look even though it opens the dashboard sidebar nav, not the main-site
-       nav. */
-    .dashboard-mobile-toggle{
-      display:inline-flex;align-items:center;gap:8px;background:transparent;border:none;box-shadow:none;
-      padding:6px 2px;font-size:14px;font-weight:700;color:var(--ink-soft);cursor:pointer;
-      margin-bottom:20px;
-    }
-    .dashboard-mobile-toggle:hover{color:var(--ink);}
-  }
+  /* Amendment 10: this panel no longer renders its own toggle button —
+     see .header-mobile-toggle above and Header.tsx/DashboardSidebarNav.tsx
+     — so there's no .dashboard-mobile-toggle style to keep here any more. */
   .dashboard-nav-group{margin-bottom:14px;}
   .dashboard-nav-group:last-child{margin-bottom:0;}
   .dashboard-nav-section-label{

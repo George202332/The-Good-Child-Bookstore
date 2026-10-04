@@ -99,8 +99,8 @@ export default async function AccountPage() {
     return (
       <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
         <LiveRefresher />
-        {payoutStatCards && payoutStatCards.pendingPayout > 0 && (
-          <PayoutHoldBanner amount={payoutStatCards.pendingPayout} status={payoutStatCards.pendingStatus} />
+        {payoutStatCards && payoutStatCards.pendingPayout > 0 && payoutStatCards.pendingStatus !== "Paid" && (
+          <PayoutHoldBanner amount={payoutStatCards.pendingPayout} />
         )}
         {user?.mustChangePassword && (
           <div className="map-card" style={{ padding: "12px 16px", marginBottom: 16, background: "#FBE6B8" }}>
@@ -293,8 +293,8 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        {payoutStatCards.pendingPayout > 0 && (
-          <PayoutHoldBanner amount={payoutStatCards.pendingPayout} status={payoutStatCards.pendingStatus} />
+        {payoutStatCards.pendingPayout > 0 && payoutStatCards.pendingStatus !== "Paid" && (
+          <PayoutHoldBanner amount={payoutStatCards.pendingPayout} />
         )}
 
         <div className="stat-grid dashboard-color-cards" style={{ marginBottom: 20 }}>

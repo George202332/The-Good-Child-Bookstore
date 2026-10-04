@@ -335,15 +335,53 @@ async function getPayoutSystemHealth(): Promise<HealthCategory> {
     },
     select: { id: true, authorShare: true, authorReferralShare: true, affiliateShare: true, createdAt: true },
   });
+  // FRESH re-investigation (this round) of Amendment 3 — the per-line
+  // try/catch isolation in lib/payments/notify-earners.ts (an earlier
+  // round's fix) genuinely stopped one failing recipient from taking
+  // down its siblings' notifications, but THIS check never actually
+  // verified that fix did its job: it only asked "does at least ONE
+  // REVENUE_* notification exist for this sale line at all", not "does
+  // EVERY earner this line actually owes money to have THEIR OWN
+  // notification". A single SaleLine routinely owes money to MULTIPLE
+  // people at once — an affiliate-referred sale pays the author's
+  // royalty (REVENUE_ROYALTY) AND the promoting affiliate's commission
+  // (REVENUE_PROMOTION) off the very same line, and can also carry a
+  // separate referring affiliate's lifetime cut (REVENUE_REFERRAL) on
+  // top of that. The old grouping collapsed all 3 notification types
+  // into one Set keyed only by relatedRecordId, so a line where the
+  // affiliate's notification succeeded but the author's failed (or any
+  // other partial-failure combination) still counted as "has a
+  // matching notification" and was never flagged — which is exactly
+  // how this kept recurring even after the per-line isolation fix: that
+  // fix stopped one failure from cascading, but a single isolated
+  // failure on just one recipient of a multi-earner line was invisible
+  // to this check the entire time.
+  //
+  // The fix: check each line against the SPECIFIC notification type(s)
+  // it's actually supposed to have, one per nonzero share column, and
+  // count a line as missing if ANY of its expected notifications isn't
+  // there — not just when all of them are.
   let missingNotifications = 0;
   if (recentEarningLines.length > 0) {
     const lineIds = recentEarningLines.map((l: { id: string }) => l.id);
     const existingNotifs = await prisma.notification.findMany({
       where: { relatedRecordId: { in: lineIds }, type: { in: ["REVENUE_ROYALTY", "REVENUE_REFERRAL", "REVENUE_PROMOTION"] } },
-      select: { relatedRecordId: true },
+      select: { relatedRecordId: true, type: true },
     });
-    const notifiedLineIds = new Set(existingNotifs.map((n: { relatedRecordId: string | null }) => n.relatedRecordId));
-    missingNotifications = recentEarningLines.filter((l: { id: string }) => !notifiedLineIds.has(l.id)).length;
+    const notifiedTypesByLine = new Map<string, Set<string>>();
+    for (const n of existingNotifs as { relatedRecordId: string | null; type: string }[]) {
+      if (!n.relatedRecordId) continue;
+      const set = notifiedTypesByLine.get(n.relatedRecordId) ?? new Set<string>();
+      set.add(n.type);
+      notifiedTypesByLine.set(n.relatedRecordId, set);
+    }
+    missingNotifications = recentEarningLines.filter((l: { id: string; authorShare: unknown; authorReferralShare: unknown; affiliateShare: unknown }) => {
+      const have = notifiedTypesByLine.get(l.id) ?? new Set<string>();
+      if (Number(l.authorShare) > 0 && !have.has("REVENUE_ROYALTY")) return true;
+      if (Number(l.authorReferralShare) > 0 && !have.has("REVENUE_REFERRAL")) return true;
+      if (Number(l.affiliateShare) > 0 && !have.has("REVENUE_PROMOTION")) return true;
+      return false;
+    }).length;
   }
   checks.push({
     id: "missing-earner-notifications",

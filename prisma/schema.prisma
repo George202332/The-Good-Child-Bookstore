@@ -37,6 +37,13 @@ enum Role {
   CHIEF_EDITOR
   ADMIN
   ACCOUNTANT
+  /** Amendment 12 — a new backend-staff role, read-only across every
+   * financial/analytics surface (same login flow as Editor/Accountant,
+   * via lib/auth-admin.ts, never the public reader/author /login page)
+   * with no ability to moderate content, manage users, or mutate
+   * anything. See lib/roles.ts, actions/payout-ledger.ts, and the
+   * app/investor/** route tree. Requires `npx prisma db push`. */
+  INVESTOR
 }
 
 enum ContentStatus {

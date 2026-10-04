@@ -164,9 +164,15 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
   }
 
   function runBulkMarkPaid() {
-    const ids = [...selected].filter((id) => rows.some((r) => r.id === id && isBulkPayable(r)));
+    // A row's own `id` is what's tracked in `selected` (it's unique and
+    // is what the checkboxes key off), but a merged row (see
+    // actions/payout-ledger.ts mergeSameBatchHistoricalRows) carries 2
+    // real PayoutRequest ids behind that one row — both have to be sent
+    // to the server or the second one is left behind, un-resolved.
+    const selectedRows = rows.filter((r) => selected.has(r.id) && isBulkPayable(r));
+    const ids = selectedRows.flatMap((r) => r.componentIds ?? [r.id]);
     if (ids.length === 0) return;
-    if (!window.confirm(`Mark ${ids.length} payout${ids.length === 1 ? "" : "s"} as paid? This sends a "Payout sent" notification to each recipient.`)) return;
+    if (!window.confirm(`Mark ${selectedRows.length} payout${selectedRows.length === 1 ? "" : "s"} as paid? This sends a "Payout sent" notification to each recipient.`)) return;
     setBulkMessage(null);
     startBulkTransition(async () => {
       const res = await bulkMarkPayoutsPaid(ids);
@@ -445,7 +451,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 >
                   Download report
                 </a>
-                {detailRow.status === "REQUESTED" && canModerate && <ModerationActions payoutId={detailRow.id} />}
+                {detailRow.status === "REQUESTED" && canModerate && <ModerationActions payoutId={detailRow.componentIds ?? detailRow.id} />}
               </div>
             </div>
         </Modal>

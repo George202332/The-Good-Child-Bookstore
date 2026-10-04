@@ -21,12 +21,24 @@
  *     breakdowns, payouts) with no ability to moderate content or manage
  *     users/site settings — added per explicit request for a role that
  *     "fetches all accounting information" without broader admin power.
+ *   - INVESTOR (Amendment 12) is also backend/internal-only, same login
+ *     flow as the roles above (lib/auth-admin.ts — never the public
+ *     reader/author /login page). READ-ONLY, narrower than ACCOUNTANT:
+ *     it can see the same financial/analytics data as Accountant (so the
+ *     existing `canViewFinancials`/BACKEND_ROLES checks already cover
+ *     it almost everywhere) but, per explicit instruction, is given its
+ *     own clearly-separate, clearly-read-only area (app/investor/**)
+ *     rather than being layered onto the shared admin pages — a sensitive
+ *     financial surface is exactly the wrong place to rely on a shared
+ *     page's mutation buttons all happening to stay hidden correctly. An
+ *     Investor can also reach a growth/retention overview
+ *     (app/investor/overview) that no other role has at all.
  */
 
-export type Role = "READER" | "AUTHOR" | "EDITOR" | "CHIEF_EDITOR" | "ADMIN" | "ACCOUNTANT";
+export type Role = "READER" | "AUTHOR" | "EDITOR" | "CHIEF_EDITOR" | "ADMIN" | "ACCOUNTANT" | "INVESTOR";
 
 export const FRONTEND_ROLES: Role[] = ["READER", "AUTHOR"];
-export const BACKEND_ROLES: Role[] = ["EDITOR", "CHIEF_EDITOR", "ADMIN", "ACCOUNTANT"];
+export const BACKEND_ROLES: Role[] = ["EDITOR", "CHIEF_EDITOR", "ADMIN", "ACCOUNTANT", "INVESTOR"];
 
 export const PERMISSIONS: Record<Role, string[]> = {
   ADMIN: [
@@ -65,6 +77,14 @@ export const PERMISSIONS: Record<Role, string[]> = {
     "transactions:view",
     "payouts:view",
   ],
+  INVESTOR: [
+    "finance:view",
+    "analytics:view",
+    "transactions:view",
+    "payouts:view",
+    "growthMetrics:view",
+    "reports:download",
+  ],
   AUTHOR: [
     "books:upload",
     "books:editOwn",
@@ -93,9 +113,12 @@ export function hasPermission(role: Role, permission: string): boolean {
 }
 
 /** EDITOR/CHIEF_EDITOR cannot see financial information — explicit per
- * the brief. ACCOUNTANT exists specifically to see financial information. */
+ * the brief. ACCOUNTANT exists specifically to see financial information.
+ * INVESTOR (Amendment 12) is also a read-only financial-viewing role,
+ * same as Accountant, just confined to its own area (app/investor/**)
+ * instead of the shared admin pages. */
 export function canViewFinancials(role: Role): boolean {
-  return role === "ADMIN" || role === "AUTHOR" || role === "ACCOUNTANT";
+  return role === "ADMIN" || role === "AUTHOR" || role === "ACCOUNTANT" || role === "INVESTOR";
 }
 
 /** ACCOUNTANT can view the financial admin pages (Transactions, Analytics,

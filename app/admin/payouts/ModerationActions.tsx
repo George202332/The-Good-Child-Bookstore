@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { approvePayoutRequest, rejectPayoutRequest } from "@/actions/admin";
 
-export function ModerationActions({ payoutId }: { payoutId: string }) {
+export function ModerationActions({ payoutId }: { payoutId: string | string[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);

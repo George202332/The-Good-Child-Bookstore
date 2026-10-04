@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
+import { AnalyticsSummaryView } from "@/components/admin-views/AnalyticsSummaryView";
 import { getAnalyticsSummary } from "@/actions/analytics";
-import { ColHelp } from "@/components/ColHelp";
 
 /**
  * Analytics — the brief's Revenue/Orders/Books Sold/Top Books/Monthly
@@ -14,141 +14,14 @@ export default async function AnalyticsPage() {
   const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
+  if (role === "INVESTOR") redirect("/investor/sales-analytics");
   if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");
 
   const data = await getAnalyticsSummary();
-  const maxMonthly = Math.max(1, ...data.monthlyRevenue.map((m) => m.amount));
-  const maxTopBookSales = Math.max(1, ...data.topBooks.map((b) => b.unitsSold));
 
   return (
     <AdminShell role={role} activeKey="analytics" displayName={session.user.name ?? ""}>
-      <div className="section-head" style={{ marginBottom: 16 }}>
-        <div>
-          <h2 style={{ fontSize: 20 }}>Sales Analytics</h2>
-          <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Platform-wide sales performance.</p>
-        </div>
-      </div>
-
-      <div className="stat-grid" style={{ marginBottom: 24 }}>
-        <div className="stat-card">
-          <div className="stat-label">Orders</div>
-          <div className="stat-value">{data.totalOrders}</div>
-          <div className="stat-sub">Paid, all time</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Books sold</div>
-          <div className="stat-value">{data.totalBooksSold}</div>
-          <div className="stat-sub">Units, all time</div>
-        </div>
-        {data.totalCompanyRevenue !== null && (
-          <div className="stat-card">
-            <div className="stat-label">Company revenue</div>
-            <div className="stat-value">${data.totalCompanyRevenue.toFixed(2)}</div>
-            <div className="stat-sub">30% share, all time</div>
-          </div>
-        )}
-        {data.totalAuthorRevenue !== null && (
-          <div className="stat-card">
-            <div className="stat-label">Author payouts</div>
-            <div className="stat-value">${data.totalAuthorRevenue.toFixed(2)}</div>
-            <div className="stat-sub">All time</div>
-          </div>
-        )}
-      </div>
-
-      {data.monthlyRevenue.length > 0 ? (
-        <>
-          <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Monthly revenue (gross)</h3>
-          <div className="map-card" style={{ padding: "16px 16px", display: "flex", alignItems: "flex-end", gap: 10, height: 160 }}>
-            {data.monthlyRevenue.map((m) => (
-              <div key={m.month} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
-                <div
-                  title={`$${m.amount.toFixed(2)}`}
-                  style={{
-                    width: "100%",
-                    background: "var(--coral)",
-                    borderRadius: "4px 4px 0 0",
-                    height: `${Math.max(4, (m.amount / maxMonthly) * 110)}px`,
-                  }}
-                />
-                <div style={{ fontSize: 10, color: "var(--ink-faint)", marginTop: 6, whiteSpace: "nowrap" }}>{m.month}</div>
-              </div>
-            ))}
-          </div>
-        </>
-      ) : (
-        <>
-          <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Monthly revenue (gross)</h3>
-          <div className="map-card" style={{ padding: "20px 16px", height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13 }}>
-            No revenue yet — this chart fills in once sales start coming through.
-          </div>
-        </>
-      )}
-
-      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Revenue breakdown by month</h3>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 24 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ textAlign: "left" }}>
-              {[
-                { label: "Month", help: "The calendar month this row summarizes." },
-                { label: "Orders", help: "Paid orders placed that month." },
-                { label: "Books Sold", help: "Total copies sold that month, across all books." },
-                { label: "Gross Revenue", help: "Total money taken in that month, before splitting between company, authors, and affiliates." },
-                { label: "Company Share", help: "The company's 30% cut of that month's gross revenue." },
-                { label: "Author Share", help: "The combined royalties paid to authors from that month's sales." },
-                { label: "Affiliate Share", help: "The combined commission paid to affiliates from that month's sales." },
-              ].map((c) => (
-                <th key={c.label} style={{ padding: "12px 16px", borderBottom: "1px solid var(--line)", color: "var(--ink-faint)", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>
-                  {c.label}<ColHelp text={c.help} />
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.revenueBreakdown.length === 0 ? (
-              <tr>
-                <td colSpan={7} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
-                  No revenue recorded yet — this table fills in month by month as sales happen.
-                </td>
-              </tr>
-            ) : (
-              data.revenueBreakdown.map((row) => (
-                <tr key={row.month}>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", fontWeight: 700, whiteSpace: "nowrap" }}>{row.month}</td>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{row.orders}</td>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{row.booksSold}</td>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.grossRevenue.toFixed(2)}</td>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.companyShare.toFixed(2)}</td>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.authorShare.toFixed(2)}</td>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>${row.affiliateShare.toFixed(2)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Top books</h3>
-      <div className="map-card" style={{ padding: "6px 16px" }}>
-        {data.topBooks.length === 0 ? (
-          <div style={{ padding: "20px 0", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
-            No sales recorded yet — top-selling books will appear here.
-          </div>
-        ) : (
-          data.topBooks.map((b) => (
-            <div key={b.title} style={{ padding: "12px 0", borderBottom: "1px solid var(--line)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                <span style={{ fontWeight: 700, fontSize: 13.5 }}>{b.title}</span>
-                <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{b.unitsSold} sold</span>
-              </div>
-              <div style={{ background: "var(--line)", borderRadius: 4, height: 6 }}>
-                <div style={{ width: `${(b.unitsSold / maxTopBookSales) * 100}%`, background: "var(--mint-deep)", height: 6, borderRadius: 4 }} />
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      <AnalyticsSummaryView data={data} />
     </AdminShell>
   );
 }

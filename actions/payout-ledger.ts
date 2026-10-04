@@ -51,11 +51,17 @@ async function referralAndCommissionFor(userId: string, monthKey: string): Promi
   return { referral: sumLines(referral), commission: sumLines(commission) };
 }
 
+// Investor (Amendment 12) gets the exact same READ access to this ledger
+// as Accountant always has — it reaches this same function from its own
+// separate, read-only app/investor/payouts page rather than the shared
+// admin one, so there's no risk of it ever seeing a moderation/mutation
+// control: those are rendered by PayoutsTable only when `canModerate` is
+// explicitly passed true, which app/investor/payouts never does.
 async function requireAdminOrAccountant() {
   const session = await authAdmin();
   const role = session?.user?.role as Role | undefined;
-  if (!session?.user || (role !== "ADMIN" && role !== "ACCOUNTANT")) {
-    throw new Error("Only Admin or Accountant can view the payout ledger.");
+  if (!session?.user || (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "INVESTOR")) {
+    throw new Error("Only Admin, Accountant, or Investor can view the payout ledger.");
   }
   return role!;
 }
@@ -100,6 +106,16 @@ export interface PayoutLedgerRow {
    * book-sales payout — powers the admin ledger's "affiliate status"
    * filter. */
   isAffiliate: boolean;
+  /** Set only on a historical row that actually represents TWO real
+   * PayoutRequest ids merged for display (see mergeSameBatchRows below)
+   * — an account that's both an author and an affiliate gets one real
+   * PayoutRequest per earnings type from the SAME queueDuePayouts click,
+   * same person, same moment, which used to render as two separate rows
+   * that looked like an unexplained duplicate. `id` on a merged row is
+   * just the first of these two ids (kept unique for React's key/row
+   * selection); moderation/bulk-pay actions must act on every id here,
+   * not just `id`, or the second real payout is left stranded. */
+  componentIds?: string[];
 }
 
 /** Shared by getLiveMonthRows and getPendingUnqueuedRows below — looks
@@ -118,10 +134,32 @@ export interface PayoutLedgerRow {
  * to anything readable. Checking the NAME's own truthiness, not just
  * whether a recipient row was found, is what actually closes this
  * gap. */
-async function recipientFieldsFor(userId: string) {
+/**
+ * FIX (Amendment 5, 2nd pass — "Account Holder" column): the previous
+ * round's fix (falling back to "Not set yet" when the WiseRecipient's
+ * own accountHolderName was blank) was correct as far as it went, but
+ * missed the actual complaint — "Not set yet" is a placeholder, not a
+ * name, and WiseRecipient.accountHolderName is free-text the account
+ * holder typed into a payout form (see
+ * app/account/profile/PaymentDetailsSection.tsx): nothing stops them
+ * from entering just a first name, a nickname, or leaving it
+ * effectively blank on an old row. Meanwhile this app ALREADY has a
+ * reliable, always-present full name for every account — User.name,
+ * collected at signup — that this column never consulted at all.
+ *
+ * The fix: prefer the WiseRecipient's own accountHolderName when it's
+ * actually set, but fall back to the real registered User.name (never
+ * to a role/account-type string, and never silently to a blank cell)
+ * before ever falling back to "Not set yet" — which now only fires if
+ * somehow neither exists. `fallbackName` is the real User.name, passed
+ * in by every caller below so this function doesn't need its own
+ * extra query per user.
+ */
+async function recipientFieldsFor(userId: string, fallbackName: string) {
   const recipient = await prisma.wiseRecipient.findFirst({ where: { userId }, orderBy: { isDefault: "desc" } });
+  const recipientName = recipient && recipient.accountHolderName.trim() ? recipient.accountHolderName.trim() : "";
   return {
-    accountHolderName: recipient && recipient.accountHolderName.trim() ? recipient.accountHolderName : "Not set yet",
+    accountHolderName: recipientName || fallbackName || "Not set yet",
     paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
     accountDetails: recipient ? formatAccountDetails(recipient.details) : "—",
   };
@@ -178,7 +216,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  type PersonInfo = { accountNumber: string; email: string; role: string };
+  type PersonInfo = { accountNumber: string; email: string; role: string; name: string };
   const authorAmounts = new Map<string, number>();
   const affiliateAmounts = new Map<string, { referral: number; commission: number }>();
   const personInfo = new Map<string, PersonInfo>();
@@ -197,7 +235,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
       },
     },
   })) as {
-    id: string; accountNumber: string; email: string; role: string;
+    id: string; accountNumber: string; email: string; role: string; name: string;
     authorProfile: { books: { saleLines: { authorShare: unknown }[] }[] } | null;
   }[];
   for (const u of authors) {
@@ -205,7 +243,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
     const amount = books.reduce((sum, b) => sum + b.saleLines.reduce((s, l) => s + Number(l.authorShare), 0), 0);
     if (amount <= 0) continue;
     authorAmounts.set(u.id, amount);
-    personInfo.set(u.id, { accountNumber: u.accountNumber, email: u.email, role: u.role });
+    personInfo.set(u.id, { accountNumber: u.accountNumber, email: u.email, role: u.role, name: u.name });
   }
 
   const affiliateProfiles = (await prisma.affiliateProfile.findMany({
@@ -216,7 +254,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
     },
   })) as {
     userId: string;
-    user: { accountNumber: string; email: string; role: string };
+    user: { accountNumber: string; email: string; role: string; name: string };
     affiliateLinks: { saleLines: { affiliateShare: unknown }[] }[];
     authorReferralEarnings: { authorReferralShare: unknown }[];
   }[];
@@ -225,7 +263,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
     const referral = a.authorReferralEarnings.reduce((sum, r) => sum + Number(r.authorReferralShare), 0);
     if (direct + referral <= 0) continue;
     affiliateAmounts.set(a.userId, { referral, commission: direct });
-    if (!personInfo.has(a.userId)) personInfo.set(a.userId, { accountNumber: a.user.accountNumber, email: a.user.email, role: a.user.role });
+    if (!personInfo.has(a.userId)) personInfo.set(a.userId, { accountNumber: a.user.accountNumber, email: a.user.email, role: a.user.role, name: a.user.name });
   }
 
   const rows: PayoutLedgerRow[] = [];
@@ -236,7 +274,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
     const affiliate = affiliateAmounts.get(userId);
     const referralEarnings = affiliate?.referral ?? 0;
     const commissionEarnings = affiliate?.commission ?? 0;
-    const fields = await recipientFieldsFor(userId);
+    const fields = await recipientFieldsFor(userId, info.name);
     rows.push({
       id: `live-${userId}`,
       userId,
@@ -375,14 +413,14 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     return { paidOut, pending };
   }
 
-  type PersonInfo = { accountNumber: string; email: string; role: string };
+  type PersonInfo = { accountNumber: string; email: string; role: string; name: string };
   const personInfo = new Map<string, PersonInfo>();
   const authorAvailable = new Map<string, number>();
   const affiliateAvailable = new Map<string, { referral: number; commission: number; total: number }>();
 
   const authors = await prisma.user.findMany({
     where: { role: "AUTHOR", authorProfile: { isNot: null } },
-    select: { id: true, accountNumber: true, email: true, role: true },
+    select: { id: true, accountNumber: true, email: true, role: true, name: true },
   });
   for (const u of authors) {
     const breakdown = await fetchEarningsBreakdown(u.id);
@@ -391,13 +429,13 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     const wallet = computeWallet(lines, paidOut, pending);
     if (wallet.available <= 0) continue;
     authorAvailable.set(u.id, wallet.available);
-    personInfo.set(u.id, { accountNumber: u.accountNumber, email: u.email, role: u.role });
+    personInfo.set(u.id, { accountNumber: u.accountNumber, email: u.email, role: u.role, name: u.name });
   }
 
   const affiliateProfiles = await prisma.affiliateProfile.findMany({
-    select: { userId: true, user: { select: { accountNumber: true, email: true, role: true } } },
+    select: { userId: true, user: { select: { accountNumber: true, email: true, role: true, name: true } } },
   });
-  for (const a of affiliateProfiles as { userId: string; user: { accountNumber: string; email: string; role: string } }[]) {
+  for (const a of affiliateProfiles as { userId: string; user: { accountNumber: string; email: string; role: string; name: string } }[]) {
     const breakdown = await fetchEarningsBreakdown(a.userId);
     const combinedLines = linesForView(breakdown, "affiliate");
     const { paidOut, pending } = await paidAndPendingFor(a.userId, "AFFILIATE");
@@ -415,7 +453,7 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     const commissionEarnings = +(wallet.available - referralEarnings).toFixed(2);
 
     affiliateAvailable.set(a.userId, { referral: referralEarnings, commission: commissionEarnings, total: wallet.available });
-    if (!personInfo.has(a.userId)) personInfo.set(a.userId, { accountNumber: a.user.accountNumber, email: a.user.email, role: a.user.role });
+    if (!personInfo.has(a.userId)) personInfo.set(a.userId, { accountNumber: a.user.accountNumber, email: a.user.email, role: a.user.role, name: a.user.name });
   }
 
   const rows: PayoutLedgerRow[] = [];
@@ -428,7 +466,7 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     const commissionEarnings = affiliate?.commission ?? 0;
     const authorEligible = bookSalesEarnings >= MIN_PAYOUT_AMOUNT;
     const affiliateEligible = (affiliate?.total ?? 0) >= MIN_PAYOUT_AMOUNT;
-    const fields = await recipientFieldsFor(userId);
+    const fields = await recipientFieldsFor(userId, info.name);
     rows.push({
       id: `pending-${userId}`,
       userId,
@@ -488,7 +526,7 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
       requestedAt: Date;
       resolvedAt: Date | null;
       recipientId: string;
-      user: { accountNumber: string; email: string; role: string };
+      user: { accountNumber: string; email: string; role: string; name: string };
     }[];
 
     const recipientIds = [...new Set(payouts.map((p) => p.recipientId))];
@@ -509,7 +547,11 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
         // that exists but has a blank name is "Not set yet" — collapsing
         // both into one fallback is what made this column look
         // unpopulated even for payouts with a real, just-unnamed recipient.
-        const accountHolderName = !recipient ? "Recipient deleted" : recipient.accountHolderName.trim() ? recipient.accountHolderName : "Not set yet";
+        const accountHolderName = !recipient
+          ? "Recipient deleted"
+          : recipient.accountHolderName.trim()
+          ? recipient.accountHolderName.trim()
+          : p.user.name || "Not set yet";
         return {
           id: p.id,
           userId: p.userId,
@@ -534,6 +576,84 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
       })
     );
 
+    // FIX (Amendment 5, 3rd+ report — "duplicate account rows", the
+    // ACTUAL remaining source): the previous round's fix de-duplicated
+    // the two SYNTHETIC row builders (getLiveMonthRows /
+    // getPendingUnqueuedRows) so an author-and-affiliate account gets
+    // one computed row each for "this month" and "released but not yet
+    // queued". That fix never touched the REAL historical rows built
+    // just above — and queueDuePayouts (actions/payouts.ts) has always
+    // created one PayoutRequest per earnings type per person, per run:
+    // an account that is both an author and an affiliate gets TWO real
+    // PayoutRequest rows the moment an Admin clicks "Queue this month's
+    // due payouts", same account number, same holder name, same email,
+    // same requestedAt run — which is exactly what still looked like a
+    // duplicate row every single time that button was used, completely
+    // unaffected by last round's fix (which only ever touched the
+    // not-yet-queued/current-month rows, not real queued history).
+    //
+    // The fix: merge the two real PayoutRequest rows from the SAME
+    // queueDuePayouts run (same userId, same calendar day, same
+    // status) into one display row — royalties and affiliate
+    // earnings as separate columns on that one row, exactly like every
+    // other row in this ledger — while keeping BOTH real ids around
+    // (componentIds) so moderation/bulk actions still resolve and act
+    // on each real PayoutRequest independently. Rows whose statuses
+    // have since diverged (one approved/paid, the other still queued —
+    // possible once an admin starts moderating them separately) are
+    // deliberately left UNMERGED: that's two genuinely different,
+    // currently-true states for the same cycle, not one duplicate
+    // entry, and merging them would hide which one still needs action.
+    function mergeSameBatchHistoricalRows(input: PayoutLedgerRow[]): PayoutLedgerRow[] {
+      const byKey = new Map<string, PayoutLedgerRow[]>();
+      for (const r of input) {
+        const dayKey = r.requestedAt.slice(0, 10); // YYYY-MM-DD, local to requestedAt's own ISO string
+        const key = `${r.userId}|${dayKey}|${r.status}`;
+        const bucket = byKey.get(key);
+        if (bucket) bucket.push(r);
+        else byKey.set(key, [r]);
+      }
+
+      const merged: PayoutLedgerRow[] = [];
+      for (const bucket of byKey.values()) {
+        if (bucket.length === 1) {
+          merged.push(bucket[0]);
+          continue;
+        }
+        // Only ever 2 real rows can share (userId, day, status): one
+        // AUTHOR-type and one AFFILIATE-type PayoutRequest from the
+        // same run (queueDuePayouts only ever creates at most one of
+        // each per person per run). If more than 2 land in the same
+        // bucket, something else is going on — don't merge, so nothing
+        // is ever silently hidden; just pass them through as-is.
+        if (bucket.length !== 2 || bucket[0].isAffiliate === bucket[1].isAffiliate) {
+          merged.push(...bucket);
+          continue;
+        }
+        const [a, b] = bucket;
+        const authorSide = a.isAffiliate ? b : a;
+        const affiliateSide = a.isAffiliate ? a : b;
+        merged.push({
+          ...authorSide,
+          id: authorSide.id,
+          componentIds: [authorSide.id, affiliateSide.id],
+          bookSalesEarnings: authorSide.bookSalesEarnings,
+          referralEarnings: affiliateSide.referralEarnings,
+          commissionEarnings: affiliateSide.commissionEarnings,
+          combinedTotal: authorSide.combinedTotal + affiliateSide.combinedTotal,
+          isAffiliate: true,
+          resolvedAt: authorSide.resolvedAt && affiliateSide.resolvedAt
+            ? (authorSide.resolvedAt > affiliateSide.resolvedAt ? authorSide.resolvedAt : affiliateSide.resolvedAt)
+            : null,
+        });
+      }
+      // Keep the same most-recent-first ordering the ledger promises.
+      merged.sort((x, y) => new Date(y.requestedAt).getTime() - new Date(x.requestedAt).getTime());
+      return merged;
+    }
+
+    const mergedHistoricalRows = mergeSameBatchHistoricalRows(historicalRows);
+
     // Live rows (current, still-open month) lead the ledger, then any
     // released-but-not-yet-queued balances split into "ON_HOLD"
     // (Category A, still under the $30 minimum) and "SCHEDULED"
@@ -545,7 +665,7 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
     // one.
     const liveRows = await getLiveMonthRows();
     const pendingRows = await getPendingUnqueuedRows();
-    return [...liveRows, ...pendingRows, ...historicalRows];
+    return [...liveRows, ...pendingRows, ...mergedHistoricalRows];
   } catch (e) {
     // Surfaced on the page as a readable message instead of a generic
     // Next.js crash screen — see app/admin/payouts/page.tsx. Most

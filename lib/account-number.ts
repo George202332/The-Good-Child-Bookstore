@@ -15,6 +15,7 @@ import type { Role } from "@/lib/roles";
  *   CHIEF_EDITOR  75000001, 75000002, ...
  *   ADMIN         80000001, 80000002, ...
  *   ACCOUNTANT    90000001, 90000002, ...
+ *   INVESTOR      95000001, 95000002, ...
  *
  * Backed by IdSequence (one row per role, holding the last number
  * issued) so numbers are assigned atomically and never repeat, even
@@ -28,6 +29,7 @@ const ROLE_BASE: Record<Role, number> = {
   CHIEF_EDITOR: 75_000_000,
   ADMIN: 80_000_000,
   ACCOUNTANT: 90_000_000,
+  INVESTOR: 95_000_000,
 };
 
 export async function generateAccountNumber(role: Role): Promise<string> {

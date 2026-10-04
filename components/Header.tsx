@@ -37,15 +37,12 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const active = routeMatch(pathname);
-  // /account/** (and every route under it) renders its own dashboard
-  // sidebar nav with its own mobile toggle (DashboardSidebarNav.tsx) —
-  // showing this header's main-site hamburger there too stacked two
-  // separate mobile menus on top of each other. The main-site nav only
-  // makes sense once you're back on the public storefront, so it's
-  // suppressed entirely for this route and DashboardSidebarNav's own
-  // toggle (restyled to match this header's transparent look, see
-  // .dashboard-mobile-toggle in app/site.css) is the single mobile menu
-  // shown while on a dashboard page.
+  // /account/** (and every route under it) shows the dashboard sidebar
+  // nav's mobile panel instead of the main-site nav dropdown when the
+  // shared hamburger (see .header-mobile-toggle below) is tapped — the
+  // main-site nav only makes sense once you're back on the public
+  // storefront. There's only ever the ONE hamburger button now
+  // (Amendment 10); this flag just decides which panel it opens.
   const isDashboardRoute = pathname.startsWith("/account");
   const { data: session } = useSession();
   const { count: cartCount } = useCart();
@@ -103,6 +100,35 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
     router.replace(`/bookshelf?${params.toString()}`, { scroll: false });
   }
 
+  // The dashboard sidebar's own mobile panel (DashboardSidebarNav.tsx)
+  // lives inside DashboardShell, not here — but Amendment 10 wants ONE
+  // shared hamburger button, positioned the same place (between the
+  // logo and the wishlist icon) on every route, including /account.
+  // Since Header and DashboardSidebarNav don't share a React parent
+  // below the root layout, the button here just dispatches a plain
+  // window CustomEvent that DashboardSidebarNav listens for to toggle
+  // its own `open` state, and DashboardSidebarNav dispatches its state
+  // back on every change so this button's aria-expanded stays accurate
+  // — the simplest way to keep one visual toggle in sync with state
+  // that necessarily still lives with the panel it opens.
+  const [dashboardNavOpen, setDashboardNavOpen] = useState(false);
+  useEffect(() => {
+    if (!isDashboardRoute) return;
+    function onState(e: Event) {
+      setDashboardNavOpen((e as CustomEvent<boolean>).detail);
+    }
+    window.addEventListener("dashboard-mobile-nav-state", onState as EventListener);
+    return () => window.removeEventListener("dashboard-mobile-nav-state", onState as EventListener);
+  }, [isDashboardRoute]);
+
+  function toggleMobileMenu() {
+    if (isDashboardRoute) {
+      window.dispatchEvent(new CustomEvent("dashboard-mobile-nav-toggle"));
+    } else {
+      setMobileNavOpen((o) => !o);
+    }
+  }
+
   const user = isBackendSession ? undefined : session?.user;
   const initials = user?.name
     ?.split(" ")
@@ -123,6 +149,24 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
           ))}
         </nav>
         <div className="header-actions">
+          {/* One shared mobile hamburger — sits between the logo and the
+              wishlist icon (Amendment 10), not on its own row below the
+              header any more, and not labeled "Menu" any more: icon-only,
+              5 lines (was 3). On /account routes this opens the dashboard
+              sidebar panel instead of the main-site nav menu — see
+              toggleMobileMenu/dashboardNavOpen above. */}
+          <button
+            type="button"
+            className="header-mobile-toggle"
+            aria-expanded={isDashboardRoute ? dashboardNavOpen : mobileNavOpen}
+            aria-controls={isDashboardRoute ? "dashboard-sidebar-nav" : "mobile-nav-menu"}
+            aria-label="Menu"
+            onClick={toggleMobileMenu}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M4 5h16M4 9h16M4 13h16M4 17h16M4 21h16" />
+            </svg>
+          </button>
           <label className="search-pill">
             <SearchIcon />
             <input
@@ -181,49 +225,28 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
         </div>
       </div>
 
-      {/* Mobile-only nav (hamburger), shown at the same breakpoint the
-          desktop nav.main-nav disappears at. Sits on its own row directly
-          under the logo/account row rather than inside it, so it never
-          overlaps the search/wishlist/cart/account cluster. Unlike the
-          dashboard sidebar's mobile toggle (DashboardSidebarNav.tsx),
-          this one has no background/border/shadow of its own — see
-          .mobile-nav-toggle in app/site.css — so it blends into the
-          header's cream background instead of sitting on a contrasting
-          white bar; the open/close interaction (toggle + Escape-to-close
-          + close-on-nav-click) is the same pattern. */}
+      {/* Mobile-only nav dropdown, shown at the same breakpoint the
+          desktop nav.main-nav disappears at. The toggle button that
+          opens this now lives up in .header-actions, between the logo
+          and the wishlist icon (Amendment 10) — this is just the panel
+          it opens, with no toggle button of its own any more. */}
       {!isDashboardRoute && (
-        <>
-          <div className="wrap mobile-nav-bar">
-            <button
-              type="button"
-              className="mobile-nav-toggle"
-              aria-expanded={mobileNavOpen}
-              aria-controls="mobile-nav-menu"
-              onClick={() => setMobileNavOpen((o) => !o)}
+        <nav
+          id="mobile-nav-menu"
+          className={`wrap mobile-nav-menu${mobileNavOpen ? " open" : ""}`}
+          aria-label="Mobile navigation"
+        >
+          {NAV_ITEMS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={active === item.match ? "active" : ""}
+              onClick={() => setMobileNavOpen(false)}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-                <path d="M4 7h16M4 12h16M4 17h16" />
-              </svg>
-              Menu
-            </button>
-          </div>
-          <nav
-            id="mobile-nav-menu"
-            className={`wrap mobile-nav-menu${mobileNavOpen ? " open" : ""}`}
-            aria-label="Mobile navigation"
-          >
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={active === item.match ? "active" : ""}
-                onClick={() => setMobileNavOpen(false)}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </>
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       )}
     </header>
   );

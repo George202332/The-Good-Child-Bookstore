@@ -248,20 +248,30 @@ export async function saveReviewChecklist(bookId: string, checklist: Record<stri
  * from two tabs — no PROCESSING intermediate state is needed since
  * nothing asynchronous happens here any more.
  */
-export async function approvePayoutRequest(payoutId: string): Promise<{ ok: boolean; error?: string }> {
+/**
+ * Accepts either a single real PayoutRequest id, or (see
+ * actions/payout-ledger.ts's mergeSameBatchHistoricalRows) the 2 real
+ * ids behind one merged "both an author and an affiliate, same
+ * queueDuePayouts run" display row — approving that row has to resolve
+ * BOTH real payouts, or the second one is left stranded as a
+ * still-REQUESTED row the next time the ledger loads, right back to
+ * looking like an unresolved duplicate.
+ */
+export async function approvePayoutRequest(payoutId: string | string[]): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminRole();
+    const ids = Array.isArray(payoutId) ? payoutId : [payoutId];
 
     const claim = await prisma.payoutRequest.updateMany({
-      where: { id: payoutId, status: "REQUESTED" },
+      where: { id: { in: ids }, status: "REQUESTED" },
       data: { status: "PAID", resolvedAt: new Date() },
     });
     if (claim.count === 0) {
       return { ok: false, error: "This payout has already been processed (or is no longer pending) — refresh to see its current status." };
     }
 
-    const payout = await prisma.payoutRequest.findUnique({ where: { id: payoutId } });
-    if (payout) {
+    const payouts = await prisma.payoutRequest.findMany({ where: { id: { in: ids }, status: "PAID" } });
+    for (const payout of payouts) {
       await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
     }
     revalidatePath("/admin/payouts");
@@ -272,14 +282,19 @@ export async function approvePayoutRequest(payoutId: string): Promise<{ ok: bool
   }
 }
 
-export async function rejectPayoutRequest(payoutId: string): Promise<{ ok: boolean; error?: string }> {
+/** See approvePayoutRequest above re: accepting a merged row's 2 real ids. */
+export async function rejectPayoutRequest(payoutId: string | string[]): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminRole();
-    const payout = await prisma.payoutRequest.update({
-      where: { id: payoutId },
+    const ids = Array.isArray(payoutId) ? payoutId : [payoutId];
+    const payouts = await prisma.payoutRequest.findMany({ where: { id: { in: ids } } });
+    await prisma.payoutRequest.updateMany({
+      where: { id: { in: ids } },
       data: { status: "REJECTED", resolvedAt: new Date() },
     });
-    await createNotification(payout.userId, "Payout rejected", `Your $${Number(payout.amount).toFixed(2)} payout request was not approved.`, "PAYOUT", payout.id);
+    for (const payout of payouts) {
+      await createNotification(payout.userId, "Payout rejected", `Your $${Number(payout.amount).toFixed(2)} payout request was not approved.`, "PAYOUT", payout.id);
+    }
     revalidatePath("/admin/payouts");
     return { ok: true };
   } catch (e) {

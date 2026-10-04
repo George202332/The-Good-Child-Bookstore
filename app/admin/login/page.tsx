@@ -36,7 +36,9 @@ export default function AdminLoginPage() {
       setError(result.error ?? "That email or password isn't right.");
       return;
     }
-    window.location.href = "/admin";
+    // Investor (Amendment 12) lands on its own read-only area, never
+    // the shared admin backend — every other backend role is unchanged.
+    window.location.href = result.role === "INVESTOR" ? "/investor" : "/admin";
   }
 
   return (

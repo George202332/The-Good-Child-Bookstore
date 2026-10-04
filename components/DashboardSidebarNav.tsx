@@ -71,21 +71,28 @@ export function DashboardSidebarNav({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
 
+  // Amendment 10: this panel no longer renders its own toggle button —
+  // the single shared hamburger (between the logo and the wishlist
+  // icon on every route, including this one) now lives in Header.tsx.
+  // Header and this component don't share a React parent below the
+  // root layout, so they talk over two plain window CustomEvents
+  // instead of a prop: Header dispatches "dashboard-mobile-nav-toggle"
+  // on click, and this listens for it; this dispatches
+  // "dashboard-mobile-nav-state" on every change so Header's own
+  // aria-expanded stays in sync with the real state.
+  useEffect(() => {
+    function onToggle() {
+      setOpen((o) => !o);
+    }
+    window.addEventListener("dashboard-mobile-nav-toggle", onToggle);
+    return () => window.removeEventListener("dashboard-mobile-nav-toggle", onToggle);
+  }, []);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("dashboard-mobile-nav-state", { detail: open }));
+  }, [open]);
+
   return (
     <>
-      <button
-        type="button"
-        className="dashboard-mobile-toggle"
-        aria-expanded={open}
-        aria-controls="dashboard-sidebar-nav"
-        onClick={() => setOpen((o) => !o)}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
-          <path d="M4 7h16M4 12h16M4 17h16" />
-        </svg>
-        Menu
-      </button>
-
       {/* Dimmed backdrop, mobile-only (see .dashboard-mobile-overlay) —
           clicking it closes the panel, same as clicking outside any
           other overlay/modal on the site. */}

@@ -27,6 +27,7 @@ export default async function PayoutsPage() {
   const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role as Role;
+  if (role === "INVESTOR") redirect("/investor/payouts");
   if (role !== "ADMIN" && role !== "ACCOUNTANT") redirect("/admin");
 
   const ledger = await getPayoutLedger();
