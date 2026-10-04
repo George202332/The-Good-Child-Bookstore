@@ -147,12 +147,41 @@ async function recipientFieldsFor(userId: string) {
  * per account. The categorization logic (organic/referral/commission)
  * is intentionally kept identical to fetchEarningsBreakdown's, just
  * inlined for this bulk shape.
+ *
+ * FIX (Amendment 5 — duplicate account rows): this used to run as two
+ * separate loops, one over authors (pushing a "live-author-<id>" row
+ * with only bookSalesEarnings set) and one over affiliate profiles
+ * (pushing a SEPARATE "live-affiliate-<id>" row with only
+ * referral/commission set). Any account that is BOTH an author AND an
+ * affiliate — which this app explicitly supports (see
+ * hasAffiliateCapability, AffiliateProfile.userId) — got two rows in
+ * the ledger for the exact same person this exact same month: one
+ * showing only their royalties, the other showing only their
+ * referral/commission, each looking like a different, smaller account
+ * than they really are, and splitting their account-holder/contact
+ * info lookup across two otherwise-identical rows.
+ *
+ * The fix: compute each side's amounts into its own map keyed by
+ * userId first (no row objects yet), then walk the UNION of both
+ * maps' keys once, building exactly one row per userId with
+ * bookSalesEarnings from the author side (0 if absent) and
+ * referralEarnings/commissionEarnings from the affiliate side (0 if
+ * absent) — so an author-only account, an affiliate-only account, and
+ * an account that's both all come out as one row each, with
+ * combinedTotal always the sum of all three columns on THAT row. This
+ * also means recipientFieldsFor (the account-holder/payment-method
+ * lookup) now runs once per person instead of once per person per
+ * earnings category.
  */
 async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const rows: PayoutLedgerRow[] = [];
+
+  type PersonInfo = { accountNumber: string; email: string; role: string };
+  const authorAmounts = new Map<string, number>();
+  const affiliateAmounts = new Map<string, { referral: number; commission: number }>();
+  const personInfo = new Map<string, PersonInfo>();
 
   // Only a PAID order's SaleLines are real, collected money — see the
   // identical comment in lib/earnings-lines.ts fetchEarningsBreakdown,
@@ -175,28 +204,8 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
     const books = u.authorProfile?.books ?? [];
     const amount = books.reduce((sum, b) => sum + b.saleLines.reduce((s, l) => s + Number(l.authorShare), 0), 0);
     if (amount <= 0) continue;
-    const fields = await recipientFieldsFor(u.id);
-    rows.push({
-      id: `live-author-${u.id}`,
-      userId: u.id,
-      accountNumber: u.accountNumber,
-      accountHolderName: fields.accountHolderName,
-      email: u.email,
-      role: u.role,
-      paymentMethod: fields.paymentMethod,
-      accountDetails: fields.accountDetails,
-      currency: "USD",
-      bookSalesEarnings: amount,
-      referralEarnings: 0,
-      commissionEarnings: 0,
-      combinedTotal: amount,
-      reportMonthKey: monthKeyOf(now),
-      status: "LIVE",
-      paid: false,
-      requestedAt: now.toISOString(),
-      resolvedAt: null,
-      isAffiliate: false,
-    });
+    authorAmounts.set(u.id, amount);
+    personInfo.set(u.id, { accountNumber: u.accountNumber, email: u.email, role: u.role });
   }
 
   const affiliateProfiles = (await prisma.affiliateProfile.findMany({
@@ -214,29 +223,40 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
   for (const a of affiliateProfiles) {
     const direct = a.affiliateLinks.reduce((sum, l) => sum + l.saleLines.reduce((s, sl) => s + Number(sl.affiliateShare), 0), 0);
     const referral = a.authorReferralEarnings.reduce((sum, r) => sum + Number(r.authorReferralShare), 0);
-    const amount = direct + referral;
-    if (amount <= 0) continue;
-    const fields = await recipientFieldsFor(a.userId);
+    if (direct + referral <= 0) continue;
+    affiliateAmounts.set(a.userId, { referral, commission: direct });
+    if (!personInfo.has(a.userId)) personInfo.set(a.userId, { accountNumber: a.user.accountNumber, email: a.user.email, role: a.user.role });
+  }
+
+  const rows: PayoutLedgerRow[] = [];
+  const allUserIds = new Set([...authorAmounts.keys(), ...affiliateAmounts.keys()]);
+  for (const userId of allUserIds) {
+    const info = personInfo.get(userId)!;
+    const bookSalesEarnings = authorAmounts.get(userId) ?? 0;
+    const affiliate = affiliateAmounts.get(userId);
+    const referralEarnings = affiliate?.referral ?? 0;
+    const commissionEarnings = affiliate?.commission ?? 0;
+    const fields = await recipientFieldsFor(userId);
     rows.push({
-      id: `live-affiliate-${a.userId}`,
-      userId: a.userId,
-      accountNumber: a.user.accountNumber,
+      id: `live-${userId}`,
+      userId,
+      accountNumber: info.accountNumber,
       accountHolderName: fields.accountHolderName,
-      email: a.user.email,
-      role: a.user.role,
+      email: info.email,
+      role: info.role,
       paymentMethod: fields.paymentMethod,
       accountDetails: fields.accountDetails,
       currency: "USD",
-      bookSalesEarnings: 0,
-      referralEarnings: referral,
-      commissionEarnings: direct,
-      combinedTotal: amount,
+      bookSalesEarnings,
+      referralEarnings,
+      commissionEarnings,
+      combinedTotal: bookSalesEarnings + referralEarnings + commissionEarnings,
       reportMonthKey: monthKeyOf(now),
       status: "LIVE",
       paid: false,
       requestedAt: now.toISOString(),
       resolvedAt: null,
-      isAffiliate: true,
+      isAffiliate: referralEarnings + commissionEarnings > 0,
     });
   }
 
@@ -293,6 +313,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
  * limitation of the reportMonthKey concept (see earningsMonthKeyFor
  * above), not something this fix introduces.
  *
+ *
  * Amendment 2/4 split: this released-but-unqueued balance is now split
  * into two genuinely distinct statuses rather than one lumped
  * "UNQUEUED" bucket, reflecting the real $30 minimum-payout threshold:
@@ -314,11 +335,34 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
  * cycle shows up here as one single $37 SCHEDULED row, not two
  * separate payments — exactly the "combined, not separate" rule
  * Amendment 2 asked for.
+ *
+ * FIX (Amendment 5 — duplicate account rows, same root cause as
+ * getLiveMonthRows above): this used to be two separate loops pushing
+ * two separate rows ("pending-author-<id>" with only bookSalesEarnings,
+ * "pending-affiliate-<id>" with only referral/commission) for any
+ * account that is both an author and an affiliate. Same fix pattern:
+ * compute each side's wallet into its own map keyed by userId, then
+ * build ONE row per userId across the union of both.
+ *
+ * The one real wrinkle merging these two (that getLiveMonthRows didn't
+ * have): the $30 minimum is checked PER EARNINGS TYPE both here and at
+ * the moment of actually queuing/paying (actions/payouts.ts
+ * queueDuePayouts, actions/admin.ts payScheduledBalance) — an author
+ * wallet at $35 and an affiliate wallet at $10 for the same person are
+ * two independently-decided payability states, not one. Combining them
+ * into a single displayed row must not blur that: `status` on the
+ * merged row is "SCHEDULED" the moment EITHER side has individually
+ * crossed the threshold (there's real money to actually pay right now),
+ * and paying it (payScheduledBalance, below) still only ever queues the
+ * side(s) that individually clear $30 — a side still under $30 simply
+ * stays accruing and reappears next load as part of a (possibly now
+ * author-only or affiliate-only) row, exactly like today. `combinedTotal`
+ * is still the full sum of both sides, matching the worked example in
+ * the task ($5 royalty + $3 referral + $2 commission = one $10 row).
  */
 async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
   const now = new Date();
   const prevMonthKey = monthKeyOf(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-  const rows: PayoutLedgerRow[] = [];
 
   function releasedSum(lines: { createdAt: Date; amount: number }[]): number {
     return lines.filter((l) => now.getTime() >= releaseDateFor(l.createdAt).getTime()).reduce((s, l) => s + l.amount, 0);
@@ -331,6 +375,11 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     return { paidOut, pending };
   }
 
+  type PersonInfo = { accountNumber: string; email: string; role: string };
+  const personInfo = new Map<string, PersonInfo>();
+  const authorAvailable = new Map<string, number>();
+  const affiliateAvailable = new Map<string, { referral: number; commission: number; total: number }>();
+
   const authors = await prisma.user.findMany({
     where: { role: "AUTHOR", authorProfile: { isNot: null } },
     select: { id: true, accountNumber: true, email: true, role: true },
@@ -341,28 +390,8 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     const { paidOut, pending } = await paidAndPendingFor(u.id, "AUTHOR");
     const wallet = computeWallet(lines, paidOut, pending);
     if (wallet.available <= 0) continue;
-    const fields = await recipientFieldsFor(u.id);
-    rows.push({
-      id: `pending-author-${u.id}`,
-      userId: u.id,
-      accountNumber: u.accountNumber,
-      accountHolderName: fields.accountHolderName,
-      email: u.email,
-      role: u.role,
-      paymentMethod: fields.paymentMethod,
-      accountDetails: fields.accountDetails,
-      currency: "USD",
-      bookSalesEarnings: wallet.available,
-      referralEarnings: 0,
-      commissionEarnings: 0,
-      combinedTotal: wallet.available,
-      reportMonthKey: prevMonthKey,
-      status: wallet.available >= MIN_PAYOUT_AMOUNT ? "SCHEDULED" : "ON_HOLD",
-      paid: false,
-      requestedAt: now.toISOString(),
-      resolvedAt: null,
-      isAffiliate: false,
-    });
+    authorAvailable.set(u.id, wallet.available);
+    personInfo.set(u.id, { accountNumber: u.accountNumber, email: u.email, role: u.role });
   }
 
   const affiliateProfiles = await prisma.affiliateProfile.findMany({
@@ -385,27 +414,41 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     const referralEarnings = releasedCombined > 0 ? +(wallet.available * (releasedReferral / releasedCombined)).toFixed(2) : 0;
     const commissionEarnings = +(wallet.available - referralEarnings).toFixed(2);
 
-    const fields = await recipientFieldsFor(a.userId);
+    affiliateAvailable.set(a.userId, { referral: referralEarnings, commission: commissionEarnings, total: wallet.available });
+    if (!personInfo.has(a.userId)) personInfo.set(a.userId, { accountNumber: a.user.accountNumber, email: a.user.email, role: a.user.role });
+  }
+
+  const rows: PayoutLedgerRow[] = [];
+  const allUserIds = new Set([...authorAvailable.keys(), ...affiliateAvailable.keys()]);
+  for (const userId of allUserIds) {
+    const info = personInfo.get(userId)!;
+    const bookSalesEarnings = authorAvailable.get(userId) ?? 0;
+    const affiliate = affiliateAvailable.get(userId);
+    const referralEarnings = affiliate?.referral ?? 0;
+    const commissionEarnings = affiliate?.commission ?? 0;
+    const authorEligible = bookSalesEarnings >= MIN_PAYOUT_AMOUNT;
+    const affiliateEligible = (affiliate?.total ?? 0) >= MIN_PAYOUT_AMOUNT;
+    const fields = await recipientFieldsFor(userId);
     rows.push({
-      id: `pending-affiliate-${a.userId}`,
-      userId: a.userId,
-      accountNumber: a.user.accountNumber,
+      id: `pending-${userId}`,
+      userId,
+      accountNumber: info.accountNumber,
       accountHolderName: fields.accountHolderName,
-      email: a.user.email,
-      role: a.user.role,
+      email: info.email,
+      role: info.role,
       paymentMethod: fields.paymentMethod,
       accountDetails: fields.accountDetails,
       currency: "USD",
-      bookSalesEarnings: 0,
+      bookSalesEarnings,
       referralEarnings,
       commissionEarnings,
-      combinedTotal: wallet.available,
+      combinedTotal: bookSalesEarnings + referralEarnings + commissionEarnings,
       reportMonthKey: prevMonthKey,
-      status: wallet.available >= MIN_PAYOUT_AMOUNT ? "SCHEDULED" : "ON_HOLD",
+      status: authorEligible || affiliateEligible ? "SCHEDULED" : "ON_HOLD",
       paid: false,
       requestedAt: now.toISOString(),
       resolvedAt: null,
-      isAffiliate: true,
+      isAffiliate: referralEarnings + commissionEarnings > 0,
     });
   }
 

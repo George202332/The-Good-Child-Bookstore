@@ -11,8 +11,9 @@ const TH: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 1
 const TD: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
 
 const COLUMNS: { label: string; help: string }[] = [
-  { label: "Transaction ID", help: "A short reference for this row — the full ID appears in the detail pop-up." },
+  { label: "Trans. ID", help: "A short reference for this row — the full ID appears in the detail pop-up." },
   { label: "Date", help: "When this sale or payout happened." },
+  { label: "Time", help: "The exact time this sale or payout happened, same timestamp as the Date column." },
   { label: "Type", help: "Whether this row is a book Sale or a Payout." },
   { label: "Party", help: "For a sale, the buyer. For a payout, who received it." },
   { label: "Details", help: "The book and format sold, or the payout's earnings type." },
@@ -58,7 +59,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={10} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
+                <td colSpan={11} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
                   No transactions recorded yet — this table will fill in as sales and payouts happen.
                 </td>
               </tr>
@@ -77,6 +78,9 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                     <td style={{ ...TD, fontFamily: "monospace", fontSize: 12 }}>{r.id.slice(0, 8).toUpperCase()}</td>
                     <td style={{ ...TD, whiteSpace: "nowrap" }}>
                       {new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </td>
+                    <td style={{ ...TD, whiteSpace: "nowrap" }}>
+                      {new Date(r.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
                     </td>
                     <td style={TD}><span className="age-pill">{r.type}</span></td>
                     <td style={TD}>{r.party}</td>

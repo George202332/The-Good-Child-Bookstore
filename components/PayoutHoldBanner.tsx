@@ -50,7 +50,7 @@ export function PayoutHoldBanner({ amount, status }: { amount: number; status: "
         </span>
         <div>
           <div style={{ fontSize: 13.5, fontWeight: 700, color: isPaid ? "#1F6B48" : "#8A5A0F" }}>
-            {isPaid ? "Last month's payout: Paid" : "Last month's payout: On Hold"}
+            {isPaid ? "Last month's payout: Paid" : "Next Payment"}
           </div>
           <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 2 }}>
             {isPaid ? "Sent to your payout destination on file." : "Released — due to be paid by the 15th of this month."}

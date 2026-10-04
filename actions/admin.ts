@@ -294,49 +294,65 @@ export async function rejectPayoutRequest(payoutId: string): Promise<{ ok: boole
  * confirmed/ready, but has no real PayoutRequest row behind it yet
  * (see actions/payout-ledger.ts getPendingUnqueuedRows — it's computed
  * fresh from real sale data on every load, not stored). Paying it
- * creates the real PayoutRequest — already in status PAID, since the
- * admin is confirming money that's already been sent manually outside
- * this system, same as approvePayoutRequest() — using the FULL
+ * creates the real PayoutRequest(s) — already in status PAID, since
+ * the admin is confirming money that's already been sent manually
+ * outside this system, same as approvePayoutRequest() — using the FULL
  * accumulated rollover amount (computeWalletForUserId's `available`),
  * so a balance that rolled over across several cycles goes out as one
- * single combined payment, never two.
+ * single combined payment per earnings type, never two.
  *
- * Re-checks the $30 minimum and recomputes the amount fresh at the
- * moment of paying (never trusts a client-supplied figure) — the
- * synthetic row's id encodes only who it's for (`pending-author-<id>`
- * / `pending-affiliate-<id>`), not an amount, by design.
+ * Amendment 5 (duplicate-row fix): the ledger now shows one merged row
+ * per account (royalties/referral/commission as columns on the SAME
+ * row — see getPendingUnqueuedRows), so the synthetic id is just
+ * `pending-<userId>`, no longer `pending-author-<id>` /
+ * `pending-affiliate-<id>`. But the real PayoutRequest model still
+ * requires one row per earningsType (that's how actual transfers are
+ * tracked), and the $30 minimum is still, correctly, checked
+ * independently per type — so paying a merged row creates a real
+ * PayoutRequest for EACH side (author wallet, affiliate wallet) that
+ * individually clears $30 right now, and silently leaves any side that
+ * doesn't yet clear it still accruing (it reappears next load as part
+ * of this same person's row, once it does). Re-checks the $30 minimum
+ * and recomputes both amounts fresh at the moment of paying — never
+ * trusts a client-supplied figure.
  */
 async function payScheduledBalance(syntheticId: string): Promise<{ ok: boolean; amount?: number; error?: string }> {
-  const authorMatch = syntheticId.match(/^pending-author-(.+)$/);
-  const affiliateMatch = syntheticId.match(/^pending-affiliate-(.+)$/);
-  if (!authorMatch && !affiliateMatch) return { ok: false, error: "Not a payable balance." };
-
-  const userId = (authorMatch ?? affiliateMatch)![1];
-  const view: "author" | "affiliate" = authorMatch ? "author" : "affiliate";
-  const earningsType = authorMatch ? "AUTHOR" : "AFFILIATE";
-
-  const wallet = await computeWalletForUserId(userId, view);
-  if (wallet.available < MIN_PAYOUT_AMOUNT) {
-    return { ok: false, error: "This balance is still under the $30 minimum — it isn't actually due yet." };
-  }
+  const match = syntheticId.match(/^pending-(.+)$/);
+  if (!match) return { ok: false, error: "Not a payable balance." };
+  const userId = match[1];
 
   const recipient = await prisma.wiseRecipient.findFirst({ where: { userId }, orderBy: { isDefault: "desc" } });
   if (!recipient) return { ok: false, error: "This recipient has no payout destination on file." };
 
   const now = new Date();
-  const payout = await prisma.payoutRequest.create({
-    data: {
-      userId,
-      recipientId: recipient.id,
-      amount: wallet.available,
-      currency: "USD",
-      earningsType,
-      status: "PAID",
-      resolvedAt: now,
-    },
-  });
-  await createNotification(userId, "Payout sent", `Your $${wallet.available.toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
-  return { ok: true, amount: wallet.available };
+  let paidTotal = 0;
+
+  for (const { view, earningsType } of [
+    { view: "author" as const, earningsType: "AUTHOR" },
+    { view: "affiliate" as const, earningsType: "AFFILIATE" },
+  ]) {
+    const wallet = await computeWalletForUserId(userId, view);
+    if (wallet.available < MIN_PAYOUT_AMOUNT) continue;
+
+    const payout = await prisma.payoutRequest.create({
+      data: {
+        userId,
+        recipientId: recipient.id,
+        amount: wallet.available,
+        currency: "USD",
+        earningsType,
+        status: "PAID",
+        resolvedAt: now,
+      },
+    });
+    await createNotification(userId, "Payout sent", `Your $${wallet.available.toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
+    paidTotal += wallet.available;
+  }
+
+  if (paidTotal <= 0) {
+    return { ok: false, error: "This balance is still under the $30 minimum — it isn't actually due yet." };
+  }
+  return { ok: true, amount: paidTotal };
 }
 
 /**
@@ -364,7 +380,7 @@ export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: bo
       return { ok: false, error: "No payouts were selected." };
     }
 
-    const scheduledIds = payoutIds.filter((id) => id.startsWith("pending-author-") || id.startsWith("pending-affiliate-"));
+    const scheduledIds = payoutIds.filter((id) => id.startsWith("pending-"));
     const realIds = payoutIds.filter((id) => !scheduledIds.includes(id));
 
     let updated = 0;

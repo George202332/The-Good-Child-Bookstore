@@ -95,8 +95,13 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
           r.accountNumber.toLowerCase().includes(q);
         if (!matches) return false;
       }
-      if (affiliateFilter === "AFFILIATE" && !r.isAffiliate) return false;
-      if (affiliateFilter === "BOOK_SALES" && r.isAffiliate) return false;
+      // Checked against each column's own amount, not a single
+      // isAffiliate flag — since Amendment 5's row-dedup fix, one row
+      // can legitimately carry BOTH royalties and affiliate earnings
+      // (an author who's also an affiliate), so it should show up
+      // under either filter rather than being forced into just one.
+      if (affiliateFilter === "AFFILIATE" && r.referralEarnings + r.commissionEarnings <= 0) return false;
+      if (affiliateFilter === "BOOK_SALES" && r.bookSalesEarnings <= 0) return false;
       const d = new Date(r.requestedAt);
       if (month !== "ALL" && d.getMonth() !== Number(month)) return false;
       if (year !== "ALL" && d.getFullYear() !== Number(year)) return false;
