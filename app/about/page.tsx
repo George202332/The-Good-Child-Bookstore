@@ -32,7 +32,7 @@ const TEAM = [
   { name: "Theo Marchetti", role: "Customer stories", palette: PALETTES[9] },
 ];
 
-const VALUE_BG = ["var(--pink)", "var(--mint)", "var(--lavender)", "#FBE6B8"];
+const VALUE_BG = ["var(--pink)", "var(--mint)", "var(--lavender)", "#F5D98F"];
 
 export default async function AboutPage() {
   const { about } = await getPagesContent();
@@ -60,7 +60,7 @@ export default async function AboutPage() {
       <div className="value-grid">
         {VALUES.map((v, i) => (
           <div className="value-card" style={{ background: VALUE_BG[i % 4] }} key={v.title}>
-            <svg viewBox="0 0 100 100"><Motif kind={v.motif} color="#3F3350" /></svg>
+            <svg viewBox="0 0 100 100"><Motif kind={v.motif} color="#2E2442" /></svg>
             <h4>{v.title}</h4>
             <p>{v.text}</p>
           </div>

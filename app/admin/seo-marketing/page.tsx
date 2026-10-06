@@ -59,15 +59,15 @@ export default async function SeoMarketingPage() {
       <div className="map-card" style={{ padding: "6px 16px", marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
           <span>Published books missing an ISBN</span>
-          <span className="age-pill" style={overview.booksWithoutIsbn > 0 ? { background: "var(--admin-danger, #EF6262)", color: "#fff" } : undefined}>{overview.booksWithoutIsbn}</span>
+          <span className="age-pill" style={overview.booksWithoutIsbn > 0 ? { background: "var(--admin-danger, #EF6262)", color: "#1B0A0A" } : undefined}>{overview.booksWithoutIsbn}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
           <span>Published books missing a cover image</span>
-          <span className="age-pill" style={overview.booksWithoutCover > 0 ? { background: "var(--admin-danger, #EF6262)", color: "#fff" } : undefined}>{overview.booksWithoutCover}</span>
+          <span className="age-pill" style={overview.booksWithoutCover > 0 ? { background: "var(--admin-danger, #EF6262)", color: "#1B0A0A" } : undefined}>{overview.booksWithoutCover}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0" }}>
           <span>Published posts with empty content</span>
-          <span className="age-pill" style={overview.blogsWithoutExcerpt > 0 ? { background: "var(--admin-danger, #EF6262)", color: "#fff" } : undefined}>{overview.blogsWithoutExcerpt}</span>
+          <span className="age-pill" style={overview.blogsWithoutExcerpt > 0 ? { background: "var(--admin-danger, #EF6262)", color: "#1B0A0A" } : undefined}>{overview.blogsWithoutExcerpt}</span>
         </div>
       </div>
 

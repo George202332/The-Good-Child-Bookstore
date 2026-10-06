@@ -740,7 +740,7 @@ export function EbookSubmissionForm({
         <SectionHeader n={11} title="Submission checklist" sub="Everything below must be complete before submitting." />
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {checklist.map((c) => (
-            <div key={c.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: c.ok ? "#1F6B48" : "var(--coral-deep)" }}>
+            <div key={c.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: c.ok ? "#165236" : "var(--coral-deep)" }}>
               {c.ok ? (
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
               ) : (

@@ -29,18 +29,20 @@ function navItemsForRole(role: Role, hasAffiliateAccess: boolean): NavItem[] {
       { key: "orders", label: "Orders", href: "/account/orders", section: "Details" },
       { key: "wishlist", label: "Wishlist", href: "/wishlist", section: "Details" },
       { key: "transaction-history", label: "Transactions", href: "/account/transaction-history", section: "Details" },
+      // Blogging is open to every Reader, with or without affiliate access.
+      { key: "blog", label: "My Blogs", href: "/account/blog", section: "Publishing" },
     ];
     if (hasAffiliateAccess) {
       items.push(
-        { key: "blog", label: "My Blogs", href: "/account/blog", section: "Publishing" },
         { key: "referrals", label: "Referrals", href: "/account/referrals", section: "Affiliate" },
         { key: "active-campaigns", label: "Promotions", href: "/account/active-campaigns", section: "Affiliate" },
         { key: "performance", label: "Affiliate", href: "/account/performance", section: "Analytics" },
-        { key: "blog-analytics", label: "Blogs", href: "/account/blog-analytics", section: "Analytics" },
         { key: "revenue", label: "Commissions", href: "/account/revenue", section: "Financial" },
         { key: "payout-settings", label: "Payouts", href: "/account/payout-settings", section: "Financial" }
       );
     }
+    // Blog analytics is also available to every Reader (their own posts).
+    items.push({ key: "blog-analytics", label: "Blogs", href: "/account/blog-analytics", section: "Analytics" });
     // Account always comes last — added after the conditional affiliate
     // sections above so it renders as the final section whenever they're
     // present, and it's still the final (and only remaining) section

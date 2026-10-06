@@ -91,7 +91,7 @@ export default async function BlogListPage() {
                       // eslint-disable-next-line @next/next/no-img-element -- real uploaded blog cover, arbitrary aspect ratio
                       <img src={p.coverImageUrl} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
                     ) : (
-                      <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#3F3350" /></svg>
+                      <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#2E2442" /></svg>
                     )}
                   </div>
                 </Link>

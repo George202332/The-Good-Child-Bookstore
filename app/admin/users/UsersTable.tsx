@@ -76,7 +76,7 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
                 <td style={TD}>
                   <span style={{ fontWeight: 700 }}>{u.name}</span>
                   {u.suspended && (
-                    <span className="age-pill" style={{ marginLeft: 8, background: "var(--admin-danger)", color: "#fff" }}>Suspended</span>
+                    <span className="age-pill" style={{ marginLeft: 8, background: "var(--admin-danger)", color: "#1B0A0A" }}>Suspended</span>
                   )}
                   {u.id === currentUserId && <span className="age-pill" style={{ marginLeft: 8 }}>You</span>}
                 </td>

@@ -167,7 +167,7 @@ export function DashboardOverview({
                       </td>
                       <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{r.companyShare !== null ? `$${r.companyShare.toFixed(2)}` : "—"}</td>
                       <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{r.authorShare !== null ? `$${r.authorShare.toFixed(2)}` : "—"}</td>
-                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", color: r.affiliateShare ? "#1F6B48" : "var(--ink-faint)", fontWeight: r.affiliateShare ? 700 : 400 }}>
+                      <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", color: r.affiliateShare ? "#165236" : "var(--ink-faint)", fontWeight: r.affiliateShare ? 700 : 400 }}>
                         {r.affiliateShare !== null ? `$${r.affiliateShare.toFixed(2)}` : "—"}
                       </td>
                     </tr>

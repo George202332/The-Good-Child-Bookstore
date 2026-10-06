@@ -99,7 +99,7 @@ export function KeywordsField({
       </div>
 
       {keywords.length >= MAX_KEYWORDS ? (
-        <p style={{ fontSize: 12.5, color: "#1F6B48", fontWeight: 600, margin: 0 }}>
+        <p style={{ fontSize: 12.5, color: "#165236", fontWeight: 600, margin: 0 }}>
           🎉 You&apos;ve reached the maximum of 7 keywords.
         </p>
       ) : (

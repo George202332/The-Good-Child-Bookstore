@@ -216,7 +216,7 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
       )}
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
-      {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved — live on the site now.</div>}
+      {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved — live on the site now.</div>}
       <button type="submit" className="btn btn-primary btn-small" style={{ marginTop: 16 }} disabled={submitting}>
         {submitting ? "Saving…" : "Save page content"}
       </button>

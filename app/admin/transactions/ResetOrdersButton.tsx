@@ -40,7 +40,7 @@ export function ResetOrdersButton() {
         Reset all orders
       </button>
       {done && (
-        <p className="field-hint" style={{ color: "#1F6B48", marginTop: 6 }}>
+        <p className="field-hint" style={{ color: "#165236", marginTop: 6 }}>
           Cleared {done.orders} order(s) and {done.saleLines} sale line(s).
         </p>
       )}
@@ -53,7 +53,7 @@ export function ResetOrdersButton() {
               analytics, and every author&apos;s own account all recompute from what&apos;s left, which after this is
               nothing. This cannot be undone.
             </p>
-            {error && <p style={{ fontSize: 12.5, color: "var(--admin-danger, #B7472A)", marginBottom: 12 }}>{error}</p>}
+            {error && <p style={{ fontSize: 12.5, color: "var(--admin-danger, #8C2F16)", marginBottom: 12 }}>{error}</p>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => setOpen(false)}>Cancel</button>
               <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={handleConfirm}>

@@ -141,7 +141,7 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
           {testing ? "Testing…" : "Test Paystack connection"}
         </button>
         {testResult && (
-          <div className="field-hint" style={{ color: testResult.ok ? "#1F6B48" : "var(--coral-deep)", marginTop: 8 }}>
+          <div className="field-hint" style={{ color: testResult.ok ? "#165236" : "var(--coral-deep)", marginTop: 8 }}>
             {testResult.message}
           </div>
         )}
@@ -213,7 +213,7 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
               marginTop: 12, padding: "14px 16px", borderRadius: 10, fontSize: 14, fontWeight: 600,
               background: emailTestResult.ok ? "#E4F5EC" : "#FBEAEA",
               color: emailTestResult.ok ? "#0F4B2E" : "#7A1F1F",
-              border: `2px solid ${emailTestResult.ok ? "#1F6B48" : "var(--coral-deep)"}`,
+              border: `2px solid ${emailTestResult.ok ? "#165236" : "var(--coral-deep)"}`,
             }}
           >
             {emailTestResult.ok ? "✅ " : "❌ "}{emailTestResult.message}
@@ -222,8 +222,8 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
       </div>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
-      {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved — live on the site now.</div>}
-      {warning && <div className="field-hint" style={{ color: "#8A5A0B" }}>{warning}</div>}
+      {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved — live on the site now.</div>}
+      {warning && <div className="field-hint" style={{ color: "#6B4503" }}>{warning}</div>}
       <button type="submit" className="btn btn-primary btn-small" style={{ marginTop: 10 }} disabled={submitting}>
         {submitting ? "Saving…" : "Save changes"}
       </button>

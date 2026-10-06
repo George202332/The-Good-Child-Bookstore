@@ -87,7 +87,7 @@ export function CommissionSettingsForm({ initial }: { initial: CommissionRates }
       </div>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
-      {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved — this applies to every new sale from now on.</div>}
+      {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved — this applies to every new sale from now on.</div>}
       <button type="submit" className="btn btn-primary btn-small" style={{ marginTop: 16 }} disabled={submitting}>
         {submitting ? "Saving…" : "Save changes"}
       </button>

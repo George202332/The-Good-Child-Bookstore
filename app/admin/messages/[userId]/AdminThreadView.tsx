@@ -50,14 +50,14 @@ export function AdminThreadView({ counterpartId, initial }: { counterpartId: str
               )}
               <div
                 style={{
-                  background: m.fromSupport ? "var(--admin-accent)" : "var(--admin-panel-hover)",
+                  background: m.fromSupport ? "var(--admin-accent-fill, #2F62CF)" : "var(--admin-panel-hover)",
                   color: m.fromSupport ? "#fff" : "var(--admin-text)",
                   borderRadius: 12,
                   padding: "8px 14px",
                 }}
               >
                 <div style={{ fontSize: 13.5 }}>{m.body}</div>
-                <div style={{ fontSize: 10, opacity: 0.75, marginTop: 4 }}>
+                <div style={{ fontSize: 10, opacity: 0.92, marginTop: 4 }}>
                   {new Date(m.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                 </div>
               </div>

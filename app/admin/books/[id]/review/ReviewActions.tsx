@@ -52,9 +52,9 @@ export function ReviewActions({
 
   if (pendingAction) {
     return (
-      <div className="map-card" style={{ padding: 18, background: "#FBE6B8" }}>
-        <h3 style={{ fontSize: 14, marginBottom: 8, color: "#8A5A0B" }}>Awaiting ratification</h3>
-        <p style={{ fontSize: 13, color: "#8A5A0B", marginBottom: 12 }}>
+      <div className="map-card" style={{ padding: 18, background: "#F5D98F" }}>
+        <h3 style={{ fontSize: 14, marginBottom: 8, color: "#6B4503" }}>Awaiting ratification</h3>
+        <p style={{ fontSize: 13, color: "#6B4503", marginBottom: 12 }}>
           {pendingActionBy ?? "An editor"} proposed to <strong>{pendingAction === "SUSPEND" ? "Suspend" : "Withdraw"}</strong> this book — Chief Editor and Admin have been notified.
         </p>
         {canRatify ? (
@@ -67,7 +67,7 @@ export function ReviewActions({
             </button>
           </div>
         ) : (
-          <p style={{ fontSize: 12.5, color: "#8A5A0B" }}>Only an Admin or Chief Editor can finalize this.</p>
+          <p style={{ fontSize: 12.5, color: "#6B4503" }}>Only an Admin or Chief Editor can finalize this.</p>
         )}
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginTop: 8 }}>{error}</div>}
       </div>

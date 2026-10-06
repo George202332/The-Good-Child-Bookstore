@@ -6,7 +6,7 @@ import { BarChart } from "@/components/charts/BarChart";
 import { PieChart } from "@/components/charts/PieChart";
 import { ColHelp } from "@/components/ColHelp";
 
-const REGION_COLORS = ["#2451B7", "#B7472A", "#1F6B48", "#8A5A0B", "#7A5FB5", "#C6437E", "#3F8F8A", "#9A93A8"];
+const REGION_COLORS = ["#1B3C8F", "#8C2F16", "#165236", "#6B4503", "#7A5FB5", "#C6437E", "#3F8F8A", "#7C7490"];
 
 /**
  * Blogs — pure-numbers analytics for this account's own blog posts:
@@ -57,7 +57,7 @@ export default async function BlogAnalyticsPage() {
 
       <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
         <h3 style={{ fontSize: 15, marginBottom: 16 }}>Reads by month</h3>
-        <BarChart data={data.monthlyReads.map((m) => ({ label: m.month, value: m.reads }))} color="#2451B7" />
+        <BarChart data={data.monthlyReads.map((m) => ({ label: m.month, value: m.reads }))} color="#1B3C8F" />
       </div>
 
       <div className="dash-grid-2" style={{ marginBottom: 24 }}>
@@ -67,7 +67,7 @@ export default async function BlogAnalyticsPage() {
         </div>
         <div className="map-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 16 }}>Top posts by reads</h3>
-          <BarChart data={data.topPosts.map((p) => ({ label: p.title, value: p.reads }))} color="#B7472A" />
+          <BarChart data={data.topPosts.map((p) => ({ label: p.title, value: p.reads }))} color="#8C2F16" />
         </div>
       </div>
 

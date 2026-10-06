@@ -39,7 +39,7 @@ export function SettingsForm({ initial }: { initial: MySettings }) {
           <span>{t.label}</span>
         </div>
       ))}
-      {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved.</div>}
+      {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved.</div>}
       <button type="submit" className="btn btn-primary btn-small" disabled={submitting} style={{ marginTop: 10 }}>
         {submitting ? "Saving…" : "Save changes"}
       </button>

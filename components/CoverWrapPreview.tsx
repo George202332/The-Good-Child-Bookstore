@@ -78,7 +78,7 @@ export function CoverWrapPreview({
   }, [coverImageUrl]);
 
   const toggles: { label: string; value: boolean; set: (v: boolean) => void; color: string }[] = [
-    { label: "Margin", value: showMargin, set: setShowMargin, color: "#E8956B" },
+    { label: "Margin", value: showMargin, set: setShowMargin, color: "#D9743F" },
     { label: "Bleed", value: showBleed, set: setShowBleed, color: "#37B7E0" },
     { label: "Folds", value: showFolds, set: setShowFolds, color: "#E24BC4" },
     { label: "Trim", value: showTrim, set: setShowTrim, color: "#222" },
@@ -223,8 +223,8 @@ export function CoverWrapPreview({
           {/* Guides */}
           {showMargin && (
             <>
-              <rect x={backX + margin} y={bleed + margin} width={trimW - margin * 2} height={trimH - margin * 2} fill="none" stroke="#E8956B" strokeWidth={1.5} strokeDasharray="4 3" />
-              <rect x={frontX + margin} y={bleed + margin} width={trimW - margin * 2} height={trimH - margin * 2} fill="none" stroke="#E8956B" strokeWidth={1.5} strokeDasharray="4 3" />
+              <rect x={backX + margin} y={bleed + margin} width={trimW - margin * 2} height={trimH - margin * 2} fill="none" stroke="#D9743F" strokeWidth={1.5} strokeDasharray="4 3" />
+              <rect x={frontX + margin} y={bleed + margin} width={trimW - margin * 2} height={trimH - margin * 2} fill="none" stroke="#D9743F" strokeWidth={1.5} strokeDasharray="4 3" />
             </>
           )}
           {showBleed && (

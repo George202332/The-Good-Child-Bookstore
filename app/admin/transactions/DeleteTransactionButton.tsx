@@ -35,7 +35,7 @@ export function DeleteTransactionButton({ id, type, detail }: { id: string; type
               commission share tied to it. It&apos;s removed from every view that reads it, including the author&apos;s own
               Transactions/Revenue page. This cannot be undone.
             </p>
-            {error && <p style={{ fontSize: 12.5, color: "var(--admin-danger, #B7472A)", marginBottom: 12 }}>{error}</p>}
+            {error && <p style={{ fontSize: 12.5, color: "var(--admin-danger, #8C2F16)", marginBottom: 12 }}>{error}</p>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => setOpen(false)}>Cancel</button>
               <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={handleConfirm}>{isPending ? "Deleting…" : "Confirm delete"}</button>

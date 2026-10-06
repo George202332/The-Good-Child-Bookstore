@@ -9,9 +9,9 @@ import { WorldMap } from "@/components/charts/WorldMap";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
-const FORMAT_COLORS: Record<string, string> = { eBook: "#2451B7", Paperback: "#B7472A", Hardcover: "#1F6B48", Audiobook: "#8A5A0B", Unspecified: "#9A93A8" };
-const SALE_TYPE_COLORS: Record<string, string> = { "Organic": "#2451B7", "Via affiliate link": "#B7472A" };
-const REGION_COLORS = ["#2451B7", "#B7472A", "#1F6B48", "#8A5A0B", "#7A5FB5"];
+const FORMAT_COLORS: Record<string, string> = { eBook: "#1B3C8F", Paperback: "#8C2F16", Hardcover: "#165236", Audiobook: "#6B4503", Unspecified: "#7C7490" };
+const SALE_TYPE_COLORS: Record<string, string> = { "Organic": "#1B3C8F", "Via affiliate link": "#8C2F16" };
+const REGION_COLORS = ["#1B3C8F", "#8C2F16", "#165236", "#6B4503", "#7A5FB5"];
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
 const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
@@ -65,11 +65,11 @@ export default async function AuthorAnalyticsPage() {
       <div className="dash-grid-2" style={{ marginBottom: 24 }}>
         <div className="map-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by month: {new Date().getFullYear()}</h3>
-          <BarChart data={data.monthlySales.map((m) => ({ label: m.month, value: m.units }))} color="#2451B7" />
+          <BarChart data={data.monthlySales.map((m) => ({ label: m.month, value: m.units }))} color="#1B3C8F" />
         </div>
         <div className="map-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by format</h3>
-          <PieChart data={data.formatBreakdown.map((f) => ({ label: f.format, value: f.count, color: FORMAT_COLORS[f.format] ?? "#9A93A8" }))} />
+          <PieChart data={data.formatBreakdown.map((f) => ({ label: f.format, value: f.count, color: FORMAT_COLORS[f.format] ?? "#7C7490" }))} />
         </div>
       </div>
 
@@ -97,7 +97,7 @@ export default async function AuthorAnalyticsPage() {
         </div>
         <div className="map-card" style={{ padding: 20 }}>
           <h3 style={{ fontSize: 15, marginBottom: 16 }}>Organic vs affiliate</h3>
-          <PieChart data={data.saleTypeBreakdown.map((s) => ({ label: s.type, value: s.count, color: SALE_TYPE_COLORS[s.type] ?? "#9A93A8" }))} />
+          <PieChart data={data.saleTypeBreakdown.map((s) => ({ label: s.type, value: s.count, color: SALE_TYPE_COLORS[s.type] ?? "#7C7490" }))} />
         </div>
       </div>
 

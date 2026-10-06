@@ -172,7 +172,7 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
 
       <div className="profile-save-row">
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
-        {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved.</div>}
+        {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved.</div>}
         <button type="submit" className="btn btn-primary btn-small" disabled={submitting} style={{ marginTop: 6 }}>
           {submitting ? "Saving…" : "Save changes"}
         </button>

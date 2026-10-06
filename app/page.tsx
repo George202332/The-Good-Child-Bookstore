@@ -4,6 +4,7 @@ import { Motif } from "@/components/Motif";
 import type { MotifKind } from "@/lib/data/catalog";
 import { prisma } from "@/lib/prisma";
 import { hashStr } from "@/lib/hash";
+import { selectHomeBlogs } from "@/lib/blog-ranking";
 import { NewsletterForm } from "@/components/NewsletterForm";
 import { getPagesContent } from "@/actions/page-content";
 import { getRealPublishedBooks } from "@/lib/data/real-books-adapter";
@@ -23,8 +24,10 @@ import { LiveRefresher } from "@/components/LiveRefresher";
 
 /**
  * Converted from homeHTML() (the-good-child-bookstore_54_1.html:3651+).
- * Remaining: "From the Journal" blog preview (needs the blog seed data
- * ported) and the newsletter signup band — next unit of work.
+ * The "From the Journal" preview is dynamic: it shows only real
+ * published posts, chosen by lib/blog-ranking.ts (newest 6 until at
+ * least 6 posts have enough reads/comments, then the 6 most engaged),
+ * with a link through to the full blog at /blog.
  */
 
 // Ranges/labels only here — counts are computed per-request in HomePage
@@ -77,6 +80,8 @@ interface HomeBlogPost {
   authorLastName: string | null;
   publishAt: Date | null;
   createdAt: Date;
+  reads: number;
+  comments: number;
   author: { name: string };
 }
 
@@ -100,13 +105,31 @@ export default async function HomePage() {
   const platformStats = await getPlatformStats();
   let blogPosts: HomeBlogPost[] = [];
   try {
+    // Bounded candidate set (newest 200 live posts) with an explicit
+    // select — only the author's name, never the full User row.
     const result = await prisma.blog.findMany({
       where: { status: "PUBLISHED", OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }] },
       orderBy: { publishAt: "desc" },
-      take: 6,
-      include: { author: true },
+      take: 200,
+      select: {
+        slug: true, title: true, content: true, shortSummary: true,
+        coverImageUrl: true, imageAltText: true,
+        authorFirstName: true, authorLastName: true,
+        publishAt: true, createdAt: true,
+        author: { select: { name: true } },
+        _count: { select: { comments: true, reads: true } },
+      },
     });
-    if (Array.isArray(result)) blogPosts = result as HomeBlogPost[];
+    if (Array.isArray(result)) {
+      const candidates: HomeBlogPost[] = result.map((r: HomeBlogPost & { _count: { comments: number; reads: number } }) => ({
+        slug: r.slug, title: r.title, content: r.content, shortSummary: r.shortSummary,
+        coverImageUrl: r.coverImageUrl, imageAltText: r.imageAltText,
+        authorFirstName: r.authorFirstName, authorLastName: r.authorLastName,
+        publishAt: r.publishAt, createdAt: r.createdAt, author: r.author,
+        reads: r._count.reads, comments: r._count.comments,
+      }));
+      blogPosts = selectHomeBlogs(candidates);
+    }
   } catch {
     // Degrade to no preview section rather than a 500 if the database is
     // unreachable — the rest of the homepage should still render.
@@ -184,7 +207,7 @@ export default async function HomePage() {
           <PromoBanner
             tone="lavender"
             icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="#4B3B75" strokeWidth={2}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="#3A2C62" strokeWidth={2}>
                 <path d="M20 7h-9m0 10h9M4 7h1m-1 10h1m5-14v18" />
                 <rect x={4} y={7} width={4} height={10} rx={1} />
               </svg>
@@ -348,12 +371,11 @@ export default async function HomePage() {
         </div>
       </FadeInSection>
 
-      <FadeInSection style={{ paddingTop: 0 }}>
-        <div className="wrap">
-          <div className="blog-grid">
-            {Array.from({ length: 6 }).map((_, i) => {
-              const p = blogPosts[i];
-              if (p) {
+      {blogPosts.length > 0 && (
+        <FadeInSection style={{ paddingTop: 0 }}>
+          <div className="wrap">
+            <div className="blog-grid">
+              {blogPosts.map((p) => {
                 const motif = BLOG_MOTIFS[hashStr(p.slug) % BLOG_MOTIFS.length];
                 return (
                   <div key={p.slug} className="blog-card-v2">
@@ -363,7 +385,7 @@ export default async function HomePage() {
                           // eslint-disable-next-line @next/next/no-img-element -- real uploaded blog cover
                           <img src={p.coverImageUrl} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", display: "block" }} />
                         ) : (
-                          <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#3F3350" /></svg>
+                          <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#2E2442" /></svg>
                         )}
                         <span className="blog-cover-badge">{readTimeMinutes(p.content)} min read</span>
                       </div>
@@ -379,26 +401,14 @@ export default async function HomePage() {
                     </div>
                   </div>
                 );
-              }
-              const motif = BLOG_MOTIFS[i % BLOG_MOTIFS.length];
-              return (
-                <div key={`journal-template-${i}`} className="blog-card-v2">
-                  <Link href="/blog">
-                    <div className="blog-cover">
-                      <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#3F3350" /></svg>
-                    </div>
-                  </Link>
-                  <div className="blog-body">
-                    <Link href="/blog"><h3>More from the journal, coming soon</h3></Link>
-                    <p>New stories, reading tips, and author interviews land here regularly — check back soon.</p>
-                    <Link className="blog-read-more" href="/blog">Read more →</Link>
-                  </div>
-                </div>
-              );
-            })}
+              })}
+            </div>
+            <div style={{ textAlign: "center", marginTop: 24 }}>
+              <Link href="/blog" className="see-all">Read the journal →</Link>
+            </div>
           </div>
-        </div>
-      </FadeInSection>
+        </FadeInSection>
+      )}
 
       <FadeInSection style={{ paddingTop: 0 }}>
         <div className="wrap">

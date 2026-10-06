@@ -47,7 +47,7 @@ export function ChangePasswordForm() {
       <label className="field-label" htmlFor="cp-confirm">Confirm new password</label>
       <PasswordField id="cp-confirm" name="confirm-password" required minLength={6} value={confirmPassword} onChange={setConfirmPassword} autoComplete="new-password" />
       {error && <p className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</p>}
-      {saved && <p className="field-hint" style={{ color: "#1F6B48" }}>Password changed.</p>}
+      {saved && <p className="field-hint" style={{ color: "#165236" }}>Password changed.</p>}
       <button type="submit" className="btn btn-primary btn-small" disabled={submitting} style={{ marginTop: 8 }}>
         {submitting ? "Saving…" : "Change password"}
       </button>

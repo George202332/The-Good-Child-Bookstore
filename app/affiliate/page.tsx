@@ -27,7 +27,7 @@ export default async function AffiliateMarketingPage() {
             className="promo-banner promo-mint"
             style={{
               height: 352, overflow: "hidden", boxSizing: "border-box",
-              ...(affiliateMarketing.heroImage ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.4), rgba(20,14,26,0.4)), url(${affiliateMarketing.heroImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+              ...(affiliateMarketing.heroImage ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.58), rgba(20,14,26,0.58)), url(${affiliateMarketing.heroImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
             }}
           >
             <div className="promo-banner-text">
@@ -83,7 +83,7 @@ export default async function AffiliateMarketingPage() {
           >
             <div className="promo-banner-text">
               <div className="promo-banner-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#4B3B75" strokeWidth={2}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="#3A2C62" strokeWidth={2}>
                   <path d="M9 15l6-6" /><path d="M10 6.5h-.5A4.5 4.5 0 0 0 5 11v.5" /><path d="M14 17.5h.5A4.5 4.5 0 0 0 19 13v-.5" />
                 </svg>
               </div>

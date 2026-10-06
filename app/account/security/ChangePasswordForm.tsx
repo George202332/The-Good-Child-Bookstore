@@ -42,7 +42,7 @@ export function ChangePasswordForm() {
       <label className="field-label" htmlFor="sec-confirm">Confirm new password</label>
       <PasswordField id="sec-confirm" required minLength={6} value={confirmPassword} onChange={setConfirmPassword} />
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
-      {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Password changed.</div>}
+      {saved && <div className="field-hint" style={{ color: "#165236" }}>Password changed.</div>}
       <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
         {submitting ? "Saving…" : "Change password"}
       </button>

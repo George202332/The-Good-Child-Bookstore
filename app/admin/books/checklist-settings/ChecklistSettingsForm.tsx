@@ -67,7 +67,7 @@ export function ChecklistSettingsForm({ initial }: { initial: ChecklistGroup[] }
       <button type="button" className="btn btn-ghost btn-small" onClick={addGroup}>+ Add group</button>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginTop: 12 }}>{error}</div>}
-      {saved && <div className="field-hint" style={{ color: "#1F6B48", marginTop: 12 }}>Saved.</div>}
+      {saved && <div className="field-hint" style={{ color: "#165236", marginTop: 12 }}>Saved.</div>}
       <div style={{ marginTop: 16 }}>
         <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
           {submitting ? "Saving…" : "Save changes"}

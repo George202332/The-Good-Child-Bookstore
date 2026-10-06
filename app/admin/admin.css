@@ -9,18 +9,38 @@
  */
 
 .admin-shell {
-  --admin-bg: #0F1420;
-  --admin-panel: #171D2B;
-  --admin-panel-hover: #1D2536;
-  --admin-border: rgba(255, 255, 255, 0.08);
-  --admin-text: #E8EBF2;
-  --admin-text-soft: #9BA3B7;
-  --admin-text-faint: #6B7385;
-  --admin-accent: #5B8DEF;
-  --admin-accent-soft: rgba(91, 141, 239, 0.14);
-  --admin-success: #3FBF7F;
-  --admin-danger: #EF6262;
-  --admin-warning: #E8B339;
+  --admin-bg: #0C111C;
+  --admin-panel: #182033;
+  --admin-panel-hover: #222C42;
+  --admin-border: rgba(255, 255, 255, 0.22);
+  --admin-border-field: rgba(255, 255, 255, 0.45);
+  --admin-text: #F4F6FA;
+  --admin-text-soft: #C5CCDB;
+  --admin-text-faint: #A6AEC2;
+  --admin-accent: #7CA4F7;
+  --admin-accent-fill: #2F62CF;
+  --admin-accent-soft: rgba(124, 164, 247, 0.2);
+  --admin-success: #4FD08F;
+  --admin-danger: #FF7B7B;
+  --admin-warning: #F0C04D;
+
+  /* The shared storefront color tokens, re-pointed at their dark-theme
+     equivalents so every inline style / shared class that reads
+     var(--ink-faint), var(--line), var(--paper)... inside the admin and
+     investor areas resolves to a color that is readable on the dark
+     panels (previously these resolved to the light storefront values,
+     i.e. dark text and faint dark borders on a dark background). */
+  --ink: var(--admin-text);
+  --ink-soft: var(--admin-text-soft);
+  --ink-faint: var(--admin-text-faint);
+  --line: var(--admin-border);
+  --line-strong: var(--admin-border-field);
+  --paper: var(--admin-panel);
+  --cream: var(--admin-panel);
+  --coral-deep: #FF9F85;
+  --gold-deep: #F0C060;
+  --lavender-deep: #A892E6;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 
   min-height: 100vh;
   background: var(--admin-bg);
@@ -42,6 +62,7 @@
   color: var(--admin-text);
 }
 .admin-shell p { color: var(--admin-text-soft); }
+.admin-shell ::placeholder { color: var(--admin-text-faint); opacity: 1; }
 .admin-shell a { color: inherit; }
 
 .admin-sidebar {
@@ -72,7 +93,7 @@
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  background: var(--admin-accent);
+  background: var(--admin-accent-fill);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -212,20 +233,20 @@
 
 .admin-shell .field, .admin-shell select, .admin-shell textarea, .admin-shell input {
   background: var(--admin-bg);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-border-field);
   color: var(--admin-text);
 }
 .admin-shell .field-label { color: var(--admin-text-soft); }
 .admin-shell .field-hint { color: var(--admin-text-faint); }
 
 .admin-shell .btn-primary {
-  background: var(--admin-accent);
+  background: var(--admin-accent-fill);
   color: #fff;
 }
 .admin-shell .btn-ghost {
   background: transparent;
   color: var(--admin-text-soft);
-  border: 1px solid var(--admin-border);
+  border: 1px solid var(--admin-border-field);
 }
 .admin-shell .age-pill {
   background: var(--admin-accent-soft);
@@ -243,6 +264,21 @@
 .admin-shell [style*="color:var(--ink-soft)"] { color: var(--admin-text-soft) !important; }
 .admin-shell [style*="background: var(--cream)"],
 .admin-shell [style*="background:var(--cream)"] { background: var(--admin-panel) !important; }
+
+/* Fixed-color status text used inline across the admin pages (written for
+   the light storefront) re-colored to light equivalents so it reads on the
+   dark panels and on the translucent status pills sitting over them. */
+.admin-shell [style*="color:#165236" i], .admin-shell [style*="color: #165236" i],
+.admin-shell [style*="color: rgb(22, 82, 54)"] { color: #5FD39A !important; }
+.admin-shell [style*="color:#8C2F16" i], .admin-shell [style*="color: #8C2F16" i],
+.admin-shell [style*="color: rgb(140, 47, 22)"] { color: #FF9C84 !important; }
+.admin-shell [style*="color:#6B4503" i], .admin-shell [style*="color: #6B4503" i],
+.admin-shell [style*="color: rgb(107, 69, 3)"] { color: #F0C060 !important; }
+.admin-shell [style*="color:#1B3C8F" i], .admin-shell [style*="color: #1B3C8F" i],
+.admin-shell [style*="color: rgb(27, 60, 143)"] { color: #8FB1FA !important; }
+.admin-shell .stat-card-due .stat-label,
+.admin-shell .stat-card-promotion .stat-label,
+.admin-shell .stat-card-referral .stat-label { color: var(--admin-text-faint); }
 
 @media (max-width: 900px) {
   .admin-shell { flex-direction: column; }
@@ -286,9 +322,9 @@
   padding: 3px 10px;
   border-radius: 999px;
 }
-.admin-shell .health-pill.health-ok { background: rgba(63, 191, 127, 0.14); color: var(--admin-success); }
-.admin-shell .health-pill.health-warning { background: rgba(232, 179, 57, 0.14); color: var(--admin-warning); }
-.admin-shell .health-pill.health-error { background: rgba(239, 98, 98, 0.14); color: var(--admin-danger); }
+.admin-shell .health-pill.health-ok { background: rgba(79, 208, 143, 0.2); color: var(--admin-success); }
+.admin-shell .health-pill.health-warning { background: rgba(240, 192, 77, 0.2); color: var(--admin-warning); }
+.admin-shell .health-pill.health-error { background: rgba(255, 123, 123, 0.2); color: var(--admin-danger); }
 
 .admin-shell .health-check-row {
   padding: 10px 0;

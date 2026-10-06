@@ -41,6 +41,9 @@ export function BackNavigationGuard({ isAdmin = false }: { isAdmin?: boolean }) 
   }, [pathname, loginPath]);
 
   useEffect(() => {
+    // Skipped inside an iframe (Responsive Preview tool) so the
+    // embedded page never shows logout prompts or rewrites history.
+    if (window.self !== window.top) return;
     function onPopState() {
       const landedOnLogin =
         window.location.pathname === loginPath || window.location.pathname.startsWith(`${loginPath}?`);

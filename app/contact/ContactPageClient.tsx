@@ -151,7 +151,7 @@ export function ContactPageClient({ eyebrow, heading, introText, bodyHtml }: { e
           {error ? (
             <p className="contact-form-note" style={{ color: "var(--coral-deep)" }}>{error}</p>
           ) : submitted ? (
-            <p className="contact-form-note" style={{ color: "#1F6B48" }}>Your message has been sent successfully.</p>
+            <p className="contact-form-note" style={{ color: "#165236" }}>Your message has been sent successfully.</p>
           ) : (
             <p className="contact-form-note">We typically reply within one business day.</p>
           )}

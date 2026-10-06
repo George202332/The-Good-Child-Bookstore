@@ -82,7 +82,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#3F3350",
+  themeColor: "#2E2442",
 };
 
 const JSON_LD = {

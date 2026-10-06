@@ -89,7 +89,7 @@ export default async function MyBooksPage() {
                     <td style={TABLE_CELL_STYLE}>
                       <strong>{b.title}</strong>
                       {b.status === "REJECTED" && b.revisionNotes && (
-                        <div style={{ fontSize: 12, color: "#8A2432", marginTop: 4, maxWidth: 260 }}>
+                        <div style={{ fontSize: 12, color: "#6F1A28", marginTop: 4, maxWidth: 260 }}>
                           &quot;{b.revisionNotes}&quot;
                         </div>
                       )}

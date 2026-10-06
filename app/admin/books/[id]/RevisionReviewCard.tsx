@@ -44,7 +44,7 @@ export function RevisionReviewCard({ bookId, revision }: { bookId: string; revis
         <strong>Proposed description:</strong>
         <p style={{ fontSize: 13.5, color: "var(--admin-text-faint, #6B7385)", marginTop: 4 }}>{revision.description}</p>
       </div>
-      {error && <p style={{ fontSize: 12.5, color: "var(--admin-danger, #B7472A)", marginBottom: 10 }}>{error}</p>}
+      {error && <p style={{ fontSize: 12.5, color: "var(--admin-danger, #8C2F16)", marginBottom: 10 }}>{error}</p>}
       <div style={{ display: "flex", gap: 8 }}>
         <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={handleApprove}>
           {isPending ? "…" : "Approve revision"}

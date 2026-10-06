@@ -72,7 +72,7 @@ export function ShopPageClient({ books }: { books: Book[] }) {
             <span
               style={{
                 background: "var(--coral)",
-                color: "#fff",
+                color: "#1F1630",
                 borderRadius: "50%",
                 width: 18,
                 height: 18,

@@ -39,7 +39,7 @@ export function ResetPasswordForm() {
   }
 
   if (done) {
-    return <p style={{ color: "#1F6B48", marginTop: 12 }}>Password changed — redirecting you to sign in…</p>;
+    return <p style={{ color: "#165236", marginTop: 12 }}>Password changed — redirecting you to sign in…</p>;
   }
 
   return (

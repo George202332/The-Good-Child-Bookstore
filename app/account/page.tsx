@@ -103,8 +103,8 @@ export default async function AccountPage() {
           <PayoutHoldBanner amount={payoutStatCards.pendingPayout} />
         )}
         {user?.mustChangePassword && (
-          <div className="map-card" style={{ padding: "12px 16px", marginBottom: 16, background: "#FBE6B8" }}>
-            <p style={{ fontSize: 13, color: "#8A5A0B", margin: 0 }}>
+          <div className="map-card" style={{ padding: "12px 16px", marginBottom: 16, background: "#F5D98F" }}>
+            <p style={{ fontSize: 13, color: "#6B4503", margin: 0 }}>
               You&apos;re signed in with a temporary password from your order confirmation email.{" "}
               <Link href="/account/settings" style={{ fontWeight: 700, textDecoration: "underline" }}>Set a real password →</Link>
             </p>
@@ -346,17 +346,17 @@ export default async function AccountPage() {
         <div className="dash-grid-main" style={{ marginBottom: 20 }}>
           <div className="map-card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales trend: {now.getFullYear()}</h3>
-            <BarChart data={monthBuckets.map((m) => ({ label: m.label, value: m.count }))} color="#1F6B48" />
+            <BarChart data={monthBuckets.map((m) => ({ label: m.label, value: m.count }))} color="#165236" />
           </div>
 
           <div className="map-card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: 15, marginBottom: 16 }}>Format split</h3>
             <PieChart
               data={[
-                { label: "eBook", value: formatCounts.ebook, color: "#2451B7" },
+                { label: "eBook", value: formatCounts.ebook, color: "#1B3C8F" },
                 { label: "Paperback", value: formatCounts.paperback, color: "#8A5B9E" },
-                { label: "Hardcover", value: formatCounts.hardcover, color: "#B7472A" },
-                { label: "Audiobook", value: formatCounts.audiobook, color: "#1F6B48" },
+                { label: "Hardcover", value: formatCounts.hardcover, color: "#8C2F16" },
+                { label: "Audiobook", value: formatCounts.audiobook, color: "#165236" },
               ]}
             />
           </div>
@@ -396,7 +396,7 @@ export default async function AccountPage() {
                       style={{
                         flexShrink: 0,
                         background: b.status === "PUBLISHED" ? "rgba(31,107,72,0.15)" : "rgba(107,115,133,0.15)",
-                        color: b.status === "PUBLISHED" ? "#1F6B48" : "#6B7385",
+                        color: b.status === "PUBLISHED" ? "#165236" : "#4F5668",
                       }}
                     >
                       {b.status === "PUBLISHED" ? "Live" : b.status.charAt(0) + b.status.slice(1).toLowerCase()}

@@ -68,7 +68,7 @@ export default async function CheckoutConfirmationPage({
                 </p>
               )}
               {it.isPrint && order.printJobStatus === "SUBMITTED" && (
-                <p style={{ fontSize: 12, color: "#1F6B48", margin: 0, fontWeight: 600 }}>
+                <p style={{ fontSize: 12, color: "#165236", margin: 0, fontWeight: 600 }}>
                   ✓ Sent to our print partner for production — this copy will ship to the address you provided.
                 </p>
               )}

@@ -85,7 +85,7 @@ export function LibraryClient({ items }: { items: LibraryItem[] }) {
             style={{
               padding: "6px 16px", borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap",
               border: `2px solid ${active === f.key ? "var(--admin-accent, #5B8DEF)" : "var(--admin-border, #2A3244)"}`,
-              background: active === f.key ? "var(--admin-accent, #5B8DEF)" : "var(--admin-panel, #171D2B)",
+              background: active === f.key ? "var(--admin-accent-fill, #2F62CF)" : "var(--admin-panel, #171D2B)",
               color: active === f.key ? "#fff" : "var(--admin-text, #E8EBF2)",
             }}
           >

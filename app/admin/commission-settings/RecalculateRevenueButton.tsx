@@ -43,7 +43,7 @@ export function RecalculateRevenueButton() {
         </div>
       )}
       {result && (
-        <div className="field-hint" style={{ marginTop: 10, color: result.ok ? "#1F6B48" : "var(--coral-deep)" }}>
+        <div className="field-hint" style={{ marginTop: 10, color: result.ok ? "#165236" : "var(--coral-deep)" }}>
           {result.ok ? `Done — ${result.updated} sale line${result.updated === 1 ? "" : "s"} updated.` : result.error}
         </div>
       )}

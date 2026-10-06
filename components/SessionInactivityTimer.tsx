@@ -130,6 +130,10 @@ export function SessionInactivityTimer({ isAdmin = false }: { isAdmin?: boolean 
   const loggedOutRef = useRef(false);
 
   useEffect(() => {
+    // Skipped when this page is shown inside an iframe (the admin
+    // Responsive Preview tool): the embedded copy must never sign
+    // anyone out or redirect the frame on its own.
+    if (window.self !== window.top) return;
     const storageKey = isAdmin ? "gcb-admin-last-activity" : "gcb-last-activity";
 
     function readLastActivity(): number {

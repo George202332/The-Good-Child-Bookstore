@@ -77,7 +77,7 @@ export function EditUserForm({ user, isSelf }: { user: UserDetail; isSelf: boole
         )}
 
         {error && <div className="field-hint" style={{ color: "var(--coral-deep, var(--admin-danger))" }}>{error}</div>}
-        {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved.</div>}
+        {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved.</div>}
         <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
           {submitting ? "Saving…" : "Save changes"}
         </button>

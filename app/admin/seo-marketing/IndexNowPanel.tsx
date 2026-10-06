@@ -35,7 +35,7 @@ export function IndexNowPanel({ log, keyFileUrl }: { log: IndexNowLogRow[]; keyF
         <input className="field" style={{ margin: 0 }} type="text" placeholder="https://thegoodchildbookstore.com/book/..." value={url} onChange={(e) => setUrl(e.target.value)} />
         <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>{submitting ? "Sending…" : "Submit"}</button>
       </form>
-      {message && <div className="field-hint" style={{ color: message.ok ? "#1F6B48" : "var(--coral-deep)", marginBottom: 12 }}>{message.text}</div>}
+      {message && <div className="field-hint" style={{ color: message.ok ? "#165236" : "var(--coral-deep)", marginBottom: 12 }}>{message.text}</div>}
 
       {log.length > 0 && (
         <div>
@@ -43,7 +43,7 @@ export function IndexNowPanel({ log, keyFileUrl }: { log: IndexNowLogRow[]; keyF
           {log.slice(0, 10).map((l) => (
             <div key={l.id} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--line)", fontSize: 12.5 }}>
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 420 }}>{l.url}</span>
-              <span style={{ color: l.ok ? "#1F6B48" : "var(--coral-deep)" }}>{l.ok ? "Accepted" : `Failed${l.statusCode ? ` (${l.statusCode})` : ""}`}</span>
+              <span style={{ color: l.ok ? "#165236" : "var(--coral-deep)" }}>{l.ok ? "Accepted" : `Failed${l.statusCode ? ` (${l.statusCode})` : ""}`}</span>
             </div>
           ))}
         </div>

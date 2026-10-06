@@ -35,7 +35,7 @@ export default async function NotificationsPage() {
                 gap: 12,
                 padding: "12px 0",
                 borderBottom: "1px solid var(--line)",
-                opacity: n.read ? 0.65 : 1,
+                opacity: n.read ? 0.85 : 1,
               }}
             >
               <div>

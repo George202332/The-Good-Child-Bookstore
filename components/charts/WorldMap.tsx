@@ -30,7 +30,7 @@ export function WorldMap({ highlightedCountryCodes }: { highlightedCountryCodes:
         <path
           key={loc.id}
           d={loc.path}
-          fill={highlightedCountryCodes.has(loc.id.toUpperCase()) ? "#2451B7" : "var(--line)"}
+          fill={highlightedCountryCodes.has(loc.id.toUpperCase()) ? "#1B3C8F" : "var(--line)"}
           stroke="var(--paper)"
           strokeWidth={0.5}
         >

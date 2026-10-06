@@ -154,7 +154,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         )}
         <div className="blog-detail-cover-scrim" />
         <div className="wrap blog-detail-cover-overlay">
-          <Link href="/blog" className="see-all" style={{ marginBottom: 18, display: "inline-block", color: "rgba(255,255,255,0.85)" }}>← Back to the journal</Link>
+          <Link href="/blog" className="see-all" style={{ marginBottom: 18, display: "inline-block", color: "rgba(255,255,255,0.95)" }}>← Back to the journal</Link>
           {post.categories[0] && <div><span className="blog-detail-cover-badge">{post.categories[0]}</span></div>}
           <h1>{post.title}</h1>
           {post.subtitle && <p className="subtitle">{post.subtitle}</p>}

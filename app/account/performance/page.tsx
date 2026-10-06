@@ -8,7 +8,7 @@ import { WorldMap } from "@/components/charts/WorldMap";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
-const REGION_COLORS = ["#2451B7", "#B7472A", "#1F6B48", "#8A5A0B", "#7A5FB5", "#C6437E", "#3F8F8A", "#9A93A8"];
+const REGION_COLORS = ["#1B3C8F", "#8C2F16", "#165236", "#6B4503", "#7A5FB5", "#C6437E", "#3F8F8A", "#7C7490"];
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11.5, letterSpacing: undefined, whiteSpace: undefined };
 const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
 
@@ -73,7 +73,7 @@ export default async function PerformancePage() {
               <div key={m.month} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <span style={{ width: 34, fontSize: 12, color: "var(--ink-faint)", flexShrink: 0 }}>{m.month}</span>
                 <div style={{ flex: 1, background: "var(--cream)", borderRadius: 6, overflow: "hidden", height: 16 }}>
-                  <div style={{ width: `${(m.clicks / maxMonthlyClicks) * 100}%`, background: "#2451B7", height: "100%", borderRadius: 6 }} />
+                  <div style={{ width: `${(m.clicks / maxMonthlyClicks) * 100}%`, background: "#1B3C8F", height: "100%", borderRadius: 6 }} />
                 </div>
                 <span style={{ width: 30, fontSize: 12, fontWeight: 700, textAlign: "right", flexShrink: 0 }}>{m.clicks}</span>
               </div>

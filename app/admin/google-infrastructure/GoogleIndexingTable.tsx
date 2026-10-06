@@ -16,9 +16,9 @@ const HEALTH_LABEL: Record<GoogleIndexingRow["health"], string> = {
   excluded: "Intentionally excluded",
 };
 const HEALTH_COLOR: Record<GoogleIndexingRow["health"], { bg: string; fg: string }> = {
-  healthy: { bg: "rgba(31,107,72,0.15)", fg: "#1F6B48" },
-  warning: { bg: "rgba(183,71,42,0.15)", fg: "#B7472A" },
-  excluded: { bg: "rgba(107,115,133,0.15)", fg: "#6B7385" },
+  healthy: { bg: "rgba(31,107,72,0.15)", fg: "#165236" },
+  warning: { bg: "rgba(183,71,42,0.15)", fg: "#8C2F16" },
+  excluded: { bg: "rgba(107,115,133,0.15)", fg: "#A6AEC2" },
 };
 
 /**

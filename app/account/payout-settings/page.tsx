@@ -142,9 +142,9 @@ export default async function PayoutSettingsPage() {
                         className="age-pill"
                         style={
                           r.status === "Live"
-                            ? { background: "rgba(36,81,183,0.14)", color: "#2451B7" }
+                            ? { background: "rgba(36,81,183,0.14)", color: "#1B3C8F" }
                             : r.status === "Paid"
-                              ? { background: "rgba(31,107,72,0.15)", color: "#1F6B48" }
+                              ? { background: "rgba(31,107,72,0.15)", color: "#165236" }
                               : undefined
                         }
                       >

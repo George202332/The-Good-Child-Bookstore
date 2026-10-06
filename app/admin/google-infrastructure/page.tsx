@@ -22,12 +22,12 @@ const STATUS_LABEL: Record<GoogleServiceRow["status"], string> = {
   not_configured: "Not configured",
 };
 const STATUS_COLOR: Record<GoogleServiceRow["status"], { bg: string; fg: string }> = {
-  healthy: { bg: "rgba(31,107,72,0.15)", fg: "#1F6B48" },
-  connected: { bg: "rgba(31,107,72,0.15)", fg: "#1F6B48" },
-  configured: { bg: "rgba(31,107,72,0.15)", fg: "#1F6B48" },
-  needs_verification: { bg: "rgba(212,160,23,0.18)", fg: "#8A5A0B" },
-  warning: { bg: "rgba(212,160,23,0.18)", fg: "#8A5A0B" },
-  not_configured: { bg: "rgba(107,115,133,0.15)", fg: "#6B7385" },
+  healthy: { bg: "rgba(31,107,72,0.15)", fg: "#165236" },
+  connected: { bg: "rgba(31,107,72,0.15)", fg: "#165236" },
+  configured: { bg: "rgba(31,107,72,0.15)", fg: "#165236" },
+  needs_verification: { bg: "rgba(212,160,23,0.18)", fg: "#6B4503" },
+  warning: { bg: "rgba(212,160,23,0.18)", fg: "#6B4503" },
+  not_configured: { bg: "rgba(107,115,133,0.15)", fg: "#A6AEC2" },
 };
 
 function StatusPill({ status }: { status: GoogleServiceRow["status"] }) {
@@ -132,7 +132,7 @@ export default async function GoogleInfrastructurePage() {
           marketing analysis and never determines or overrides a financial figure anywhere in this app.
         </p>
         {!gaDiag.configured && (
-          <p className="field-hint" style={{ marginTop: 10, color: "#8A5A0B" }}>
+          <p className="field-hint" style={{ marginTop: 10, color: "#6B4503" }}>
             To connect: set <code>NEXT_PUBLIC_GA_MEASUREMENT_ID</code> to the existing property&apos;s Measurement
             ID (starts with &quot;G-&quot;) in your environment variables and redeploy.
           </p>

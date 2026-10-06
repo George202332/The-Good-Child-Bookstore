@@ -30,7 +30,7 @@ type MethodType = "email" | "bank" | "mpesa";
 
 function Toggle({ type, on, locked, savingType, onActivate }: { type: MethodType; on: boolean; locked: boolean; savingType: string | null; onActivate: (t: MethodType) => void }) {
   return (
-    <label className="toggle-row" style={{ marginBottom: 0, opacity: locked && !on ? 0.6 : 1 }}>
+    <label className="toggle-row" style={{ marginBottom: 0, opacity: locked && !on ? 0.8 : 1 }}>
       <span className="toggle-switch">
         <input type="checkbox" checked={on} disabled={savingType === type || (locked && !on)} onChange={() => { if (!on) onActivate(type); }} />
         <span className="toggle-slider" />

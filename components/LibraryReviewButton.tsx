@@ -46,7 +46,7 @@ export function LibraryReviewButton({ bookId, bookTitle }: { bookId: string; boo
         style={{ marginBottom: 8 }}
       />
       {result && (
-        <p style={{ fontSize: 12, color: result.ok ? "#1F6B48" : "var(--coral-deep)", margin: "0 0 8px" }}>{result.message}</p>
+        <p style={{ fontSize: 12, color: result.ok ? "#165236" : "var(--coral-deep)", margin: "0 0 8px" }}>{result.message}</p>
       )}
       <div style={{ display: "flex", gap: 8 }}>
         <button type="button" className="btn btn-primary btn-small" disabled={submitting || !content.trim()} onClick={handleSubmit}>

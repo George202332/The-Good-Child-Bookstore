@@ -15,10 +15,10 @@ const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px
 const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
 
 const TIER_ACCENT: Record<string, string> = {
-  Hawk: "#2451B7",
-  Falcon: "#6B3FA0",
+  Hawk: "#1B3C8F",
+  Falcon: "#55307F",
   Eagle: "#5B5B5B",
-  Phoenix: "#8A2432",
+  Phoenix: "#6F1A28",
 };
 const TIER_CARD_CLASS: Record<string, string> = {
   Hawk: "class-card-blue",
@@ -143,7 +143,7 @@ export default async function ReferralsPage() {
             </p>
           </>
         ) : (
-          <p style={{ fontSize: 13, color: "#1F6B48", fontWeight: 700 }}>You&apos;ve reached the top tier — thank you for everything you&apos;ve brought to this platform.</p>
+          <p style={{ fontSize: 13, color: "#165236", fontWeight: 700 }}>You&apos;ve reached the top tier — thank you for everything you&apos;ve brought to this platform.</p>
         )}
       </div>
 

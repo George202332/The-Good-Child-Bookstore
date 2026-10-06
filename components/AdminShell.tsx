@@ -30,6 +30,7 @@ function navItemsForRole(role: Role) {
     { key: "google-infrastructure", label: "Google Infrastructure", href: "/admin/google-infrastructure" },
     { key: "blog", label: "Blog Moderation", href: "/admin/blog" },
     { key: "analytics", label: "Sales Analytics", href: "/admin/analytics" },
+    { key: "responsive-preview", label: "Responsive Preview", href: "/admin/responsive-preview" },
   ];
   if (role === "ADMIN") {
     return [

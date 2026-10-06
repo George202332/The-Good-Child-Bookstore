@@ -88,7 +88,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                     <td style={{ ...TD, fontWeight: 700 }}>{r.type === "Payout" ? "-" : ""}${r.amount.toFixed(2)}</td>
                     <td style={TD}>{r.companyShare !== null ? `$${r.companyShare.toFixed(2)}` : "—"}</td>
                     <td style={TD}>{r.authorShare !== null ? `$${r.authorShare.toFixed(2)}` : "—"}</td>
-                    <td style={{ ...TD, color: r.affiliateShare ? "#1F6B48" : "var(--ink-faint)", fontWeight: r.affiliateShare ? 700 : 400 }}>
+                    <td style={{ ...TD, color: r.affiliateShare ? "#165236" : "var(--ink-faint)", fontWeight: r.affiliateShare ? 700 : 400 }}>
                       {r.affiliateShare !== null ? `$${r.affiliateShare.toFixed(2)}${r.affiliateName ? ` (${r.affiliateName})` : ""}` : "—"}
                     </td>
                     <td style={TD} onClick={(e) => e.stopPropagation()}>

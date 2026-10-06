@@ -33,7 +33,7 @@ export function DeleteBookButton({ bookId, bookTitle }: { bookId: string; bookTi
             <p style={{ fontSize: 13.5, color: "var(--admin-text-faint, #6B7385)", marginBottom: 16 }}>
               This permanently removes the book from the catalog. This can&apos;t be undone.
             </p>
-            {error && <p style={{ fontSize: 12.5, color: "var(--coral-deep, #B7472A)", marginBottom: 12 }}>{error}</p>}
+            {error && <p style={{ fontSize: 12.5, color: "var(--coral-deep, #8C2F16)", marginBottom: 12 }}>{error}</p>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => setOpen(false)}>
                 Cancel

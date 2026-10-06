@@ -104,9 +104,9 @@ export default async function BlogReviewPage({ params }: { params: Promise<{ id:
         </div>
 
         {post.revisionNotes && (
-          <div className="map-card" style={{ padding: 20, marginBottom: 20, background: "#FBE6B8" }}>
-            <h3 style={{ fontSize: 15, marginBottom: 8, color: "#8A5A0B" }}>Existing revision notes</h3>
-            <p style={{ fontSize: 13.5, color: "#8A5A0B", lineHeight: 1.6 }}>{post.revisionNotes}</p>
+          <div className="map-card" style={{ padding: 20, marginBottom: 20, background: "#F5D98F" }}>
+            <h3 style={{ fontSize: 15, marginBottom: 8, color: "#6B4503" }}>Existing revision notes</h3>
+            <p style={{ fontSize: 13.5, color: "#6B4503", lineHeight: 1.6 }}>{post.revisionNotes}</p>
           </div>
         )}
 

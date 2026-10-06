@@ -83,7 +83,7 @@ export function TwoFactorSettings({ initial }: { initial: TwoFactorStatus }) {
         Adds a second step at login — a 6-digit code sent to your email or phone, in addition to your password.
       </p>
 
-      {info && <p style={{ color: "#1F6B48", fontSize: 13, marginBottom: 12 }}>{info}</p>}
+      {info && <p style={{ color: "#165236", fontSize: 13, marginBottom: 12 }}>{info}</p>}
       {error && <p style={{ color: "var(--coral-deep)", fontSize: 13, marginBottom: 12 }}>{error}</p>}
 
       {view === "status" && (

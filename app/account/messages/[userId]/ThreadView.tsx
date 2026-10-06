@@ -36,14 +36,14 @@ export function ThreadView({ counterpartId, initial }: { counterpartId: string; 
               style={{
                 alignSelf: m.fromMe ? "flex-end" : "flex-start",
                 background: m.fromMe ? "var(--coral)" : "var(--cream)",
-                color: m.fromMe ? "#fff" : "var(--ink)",
+                color: m.fromMe ? "#1F1630" : "var(--ink)",
                 borderRadius: 12,
                 padding: "8px 14px",
                 maxWidth: "75%",
               }}
             >
               <div style={{ fontSize: 13.5 }}>{m.body}</div>
-              <div style={{ fontSize: 10, opacity: 0.75, marginTop: 4 }}>
+              <div style={{ fontSize: 10, opacity: 0.9, marginTop: 4 }}>
                 {new Date(m.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
               </div>
             </div>

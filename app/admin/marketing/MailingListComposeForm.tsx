@@ -166,7 +166,7 @@ export function MailingListComposeForm({ counts }: { counts: MailingAudienceCoun
 
       {error && <p className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</p>}
       {result && (
-        <p className="field-hint" style={{ color: "#1F6B48" }}>
+        <p className="field-hint" style={{ color: "#165236" }}>
           Sent to {result.sent} recipient{result.sent === 1 ? "" : "s"}{result.failed > 0 ? ` (${result.failed} failed)` : ""}.
         </p>
       )}

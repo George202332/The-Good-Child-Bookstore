@@ -201,7 +201,7 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
           <div className="detail-isbn">ISBN {b.isbn}</div>
           <div className="detail-tags">
             <span className="age-pill">Ages {b.age}</span>
-            <span className="age-pill" style={{ background: "var(--mint)", color: "#1F6B48" }}>{b.genre}</span>
+            <span className="age-pill" style={{ background: "var(--mint)", color: "#165236" }}>{b.genre}</span>
           </div>
 
           <div className="az-desc">

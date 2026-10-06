@@ -23,7 +23,7 @@ export function PromoBanner({
   return (
     <div
       className={`promo-banner promo-${tone}`}
-      style={imageUrl ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.35), rgba(20,14,26,0.35)), url(${imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+      style={imageUrl ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.55), rgba(20,14,26,0.55)), url(${imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
     >
       <div className="promo-banner-text">
         <div className="promo-banner-icon">{icon}</div>

@@ -34,10 +34,10 @@ function statusLabel(p: PayoutLedgerRow): string {
 }
 
 function statusPillStyle(p: PayoutLedgerRow) {
-  if (p.status === "LIVE") return { background: "rgba(36,81,183,0.14)", color: "#2451B7" }; // On Hold (unreleased)
-  if (p.paid) return { background: "rgba(31,107,72,0.15)", color: "#1F6B48" }; // Paid
-  if (p.status === "REJECTED") return { background: "rgba(107,115,133,0.15)", color: "#6B7385" };
-  if (p.status === "ON_HOLD") return { background: "rgba(138,90,15,0.12)", color: "#8A5A0F" }; // Category A, under $30
+  if (p.status === "LIVE") return { background: "rgba(36,81,183,0.14)", color: "#1B3C8F" }; // On Hold (unreleased)
+  if (p.paid) return { background: "rgba(31,107,72,0.15)", color: "#165236" }; // Paid
+  if (p.status === "REJECTED") return { background: "rgba(107,115,133,0.15)", color: "#A6AEC2" };
+  if (p.status === "ON_HOLD") return { background: "rgba(138,90,15,0.12)", color: "#6B4503" }; // Category A, under $30
   if (p.status === "SCHEDULED") return { background: "rgba(180,101,15,0.16)", color: "#B4650F" }; // Category B, ready
   return { background: "rgba(196,120,20,0.18)", color: "#B4650F" }; // Queued, awaiting payment
 }

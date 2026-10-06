@@ -113,7 +113,7 @@ export function EditBookForm({ initial }: { initial: UpdateBookInput }) {
       </div>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
-      {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved — resubmitted for review.</div>}
+      {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved — resubmitted for review.</div>}
       <button type="submit" className="btn btn-primary btn-small" style={{ marginTop: 16 }} disabled={submitting}>
         {submitting ? "Saving…" : "Save and resubmit for review"}
       </button>

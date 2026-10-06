@@ -137,7 +137,7 @@ export default async function AuthorProfilePage({
           {author.user.emailVerifiedAt && (
             <span
               title="Verified author"
-              style={{ fontSize: 12, fontWeight: 700, padding: "2px 10px", borderRadius: 999, background: "rgba(31,107,72,0.12)", color: "#1F6B48" }}
+              style={{ fontSize: 12, fontWeight: 700, padding: "2px 10px", borderRadius: 999, background: "rgba(31,107,72,0.12)", color: "#165236" }}
             >
               ✓ Verified
             </span>

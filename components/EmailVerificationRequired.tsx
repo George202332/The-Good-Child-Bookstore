@@ -36,7 +36,7 @@ export function EmailVerificationRequired({ email }: { email: string }) {
           <strong>Activate account</strong> before you can access your dashboard.
         </p>
         {status === "sent" && (
-          <p style={{ color: "#1F6B48", fontSize: 13.5, textAlign: "center", marginBottom: 16 }}>
+          <p style={{ color: "#165236", fontSize: 13.5, textAlign: "center", marginBottom: 16 }}>
             Verification email sent — check your inbox (and spam folder).
           </p>
         )}

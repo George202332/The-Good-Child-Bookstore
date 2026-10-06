@@ -76,7 +76,7 @@ export default async function IndexingPage() {
                       style={{
                         fontSize: 11.5, fontWeight: 700, padding: "3px 10px", borderRadius: 999,
                         background: r.status === "SUBMITTED" ? "rgba(31,107,72,0.15)" : r.status === "FAILED" ? "rgba(183,71,42,0.15)" : "rgba(107,115,133,0.15)",
-                        color: r.status === "SUBMITTED" ? "#1F6B48" : r.status === "FAILED" ? "#B7472A" : "#6B7385",
+                        color: r.status === "SUBMITTED" ? "#165236" : r.status === "FAILED" ? "#8C2F16" : "#A6AEC2",
                       }}
                     >
                       {r.status === "SUBMITTED" ? "Submitted" : r.status === "FAILED" ? "Failed" : "Not yet submitted"}

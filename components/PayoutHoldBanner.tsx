@@ -63,7 +63,7 @@ export function PayoutHoldBanner({ amount }: { amount: number }) {
           </svg>
         </span>
         <div>
-          <div style={{ fontSize: 13.5, fontWeight: 700, color: "#8A5A0F" }}>
+          <div style={{ fontSize: 13.5, fontWeight: 700, color: "#6B4503" }}>
             Next Payout
           </div>
           <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 2 }}>
@@ -71,7 +71,7 @@ export function PayoutHoldBanner({ amount }: { amount: number }) {
           </div>
         </div>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: "#8A5A0F" }}>${amount.toFixed(2)}</div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: "#6B4503" }}>${amount.toFixed(2)}</div>
     </div>
   );
 }
