@@ -7,7 +7,9 @@ import { ColHelp } from "@/components/ColHelp";
 import { Modal } from "@/components/Modal";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
-import { bulkMarkPayoutsPaid } from "@/actions/admin";
+import { approvePayoutRequest, bulkMarkPayoutsPaid } from "@/actions/admin";
+import { ledgerStatusLabel, isRolledLedgerStatus, isLedgerRowPayable, ROLLED_PILL_STYLE, ROLLED_HELP } from "@/lib/payout-status";
+import { actionableIds, ledgerPeriodLabel, payableNowAmount, unreleasedPortion, isSyntheticLedgerRow } from "@/lib/payout-ledger-dedupe";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -25,19 +27,17 @@ const ROW_HEIGHT_PX = 42;
  * these collapsed into one ambiguous "Pending" pill, which is exactly
  * what made held-back money look the same as money already due. */
 function statusLabel(p: PayoutLedgerRow): string {
-  if (p.status === "LIVE") return "On Hold";
-  if (p.paid) return "Paid";
-  if (p.status === "REJECTED") return "Rejected";
-  if (p.status === "ON_HOLD") return "On Hold";
-  if (p.status === "SCHEDULED") return "Scheduled";
-  return "Queued"; // REQUESTED / APPROVED — a real PayoutRequest, awaiting manual payment by the 15th.
+  // One shared label function (lib/payout-status.ts) so this table, the
+  // exports and the author-facing pages can't word the same state
+  // differently. Category A (ON_HOLD) rows now read "Rolled".
+  return ledgerStatusLabel(p.status, p.paid);
 }
 
 function statusPillStyle(p: PayoutLedgerRow) {
   if (p.status === "LIVE") return { background: "rgba(36,81,183,0.14)", color: "#1B3C8F" }; // On Hold (unreleased)
   if (p.paid) return { background: "rgba(31,107,72,0.15)", color: "#165236" }; // Paid
   if (p.status === "REJECTED") return { background: "rgba(107,115,133,0.15)", color: "#A6AEC2" };
-  if (p.status === "ON_HOLD") return { background: "rgba(138,90,15,0.12)", color: "#6B4503" }; // Category A, under $30
+  if (isRolledLedgerStatus(p.status)) return ROLLED_PILL_STYLE; // Category A, under $30 — Rolled
   if (p.status === "SCHEDULED") return { background: "rgba(180,101,15,0.16)", color: "#B4650F" }; // Category B, ready
   return { background: "rgba(196,120,20,0.18)", color: "#B4650F" }; // Queued, awaiting payment
 }
@@ -51,7 +51,10 @@ function statusPillStyle(p: PayoutLedgerRow) {
  * Category A/ON_HOLD — still under $30 and rolling over) rows are
  * never selectable here, since they aren't actually due yet. */
 function isBulkPayable(p: PayoutLedgerRow): boolean {
-  return p.status === "REQUESTED" || p.status === "SCHEDULED";
+  // Rolled (ON_HOLD) rows are under the $30 minimum, so they are never
+  // payable — see isLedgerRowPayable in lib/payout-status.ts. Paid and
+  // Rejected rows are not payable either.
+  return isLedgerRowPayable(p.status);
 }
 
 /**
@@ -79,6 +82,9 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isBulkPending, startBulkTransition] = useTransition();
   const [bulkMessage, setBulkMessage] = useState<string | null>(null);
+  const [isRowPending, startRowTransition] = useTransition();
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [rowMessage, setRowMessage] = useState<{ id: string; text: string } | null>(null);
 
   const years = useMemo(() => {
     const set = new Set(rows.map((r) => new Date(r.requestedAt).getFullYear()));
@@ -136,8 +142,11 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
   // rows, see isBulkPayable() above.
   const payableFiltered = useMemo(() => filtered.filter(isBulkPayable), [filtered]);
   const allPayableSelected = payableFiltered.length > 0 && payableFiltered.every((r) => selected.has(r.id));
+  const somePayableSelected = payableFiltered.some((r) => selected.has(r.id));
+  // What the selection will actually send now (a Scheduled row never
+  // includes its unreleased current-month part).
   const selectedTotal = useMemo(
-    () => filtered.filter((r) => selected.has(r.id)).reduce((s, r) => s + r.combinedTotal, 0),
+    () => filtered.filter((r) => selected.has(r.id) && isBulkPayable(r)).reduce((s, r) => s + payableNowAmount(r), 0),
     [filtered, selected]
   );
 
@@ -163,14 +172,52 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
     });
   }
 
+  // The per-row "Paid" button. Goes through the same guarded server
+  // actions as everything else: a queued (REQUESTED) payout is claimed
+  // by approvePayoutRequest (atomic, status-guarded, twin-checked); a
+  // Scheduled row has no PayoutRequest yet, so it goes through
+  // bulkMarkPayoutsPaid -> payScheduledBalance, which creates the
+  // request exactly once (createPayoutOnce) already PAID. Every
+  // component id of a merged row is sent, minus any already paid.
+  function runRowPaid(p: PayoutLedgerRow) {
+    if (!isBulkPayable(p)) return;
+    const ids = actionableIds(p);
+    if (ids.length === 0) return;
+    const amount = payableNowAmount(p);
+    if (!window.confirm(`Mark the $${amount.toFixed(2)} payout to ${p.accountHolderName} as paid? This sends a "Payout sent" notification to the recipient.`)) return;
+    setRowMessage(null);
+    setPayingId(p.id);
+    startRowTransition(async () => {
+      const res = p.status === "REQUESTED" ? await approvePayoutRequest(ids) : await bulkMarkPayoutsPaid(ids);
+      setPayingId(null);
+      if (!res.ok) {
+        setRowMessage({ id: p.id, text: res.error ?? "Something went wrong." });
+        return;
+      }
+      if ("updated" in res && !res.updated) {
+        setRowMessage({ id: p.id, text: "Nothing was paid: it is no longer due, or was already paid. Refresh to see its status." });
+        router.refresh();
+        return;
+      }
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(p.id);
+        return next;
+      });
+      router.refresh();
+    });
+  }
+
   function runBulkMarkPaid() {
     // A row's own `id` is what's tracked in `selected` (it's unique and
     // is what the checkboxes key off), but a merged row (see
-    // actions/payout-ledger.ts mergeSameBatchHistoricalRows) carries 2
-    // real PayoutRequest ids behind that one row — both have to be sent
-    // to the server or the second one is left behind, un-resolved.
+    // lib/payout-ledger-dedupe.ts consolidateLedgerRows) carries 2 or more
+    // real PayoutRequest ids behind that one row — all of them have to
+    // be sent to the server or the others are left behind, un-resolved
+    // (actionableIds leaves out any component already paid inside a
+    // mixed row, so nothing is ever paid twice).
     const selectedRows = rows.filter((r) => selected.has(r.id) && isBulkPayable(r));
-    const ids = selectedRows.flatMap((r) => r.componentIds ?? [r.id]);
+    const ids = selectedRows.flatMap((r) => actionableIds(r));
     if (ids.length === 0) return;
     if (!window.confirm(`Mark ${selectedRows.length} payout${selectedRows.length === 1 ? "" : "s"} as paid? This sends a "Payout sent" notification to each recipient.`)) return;
     setBulkMessage(null);
@@ -244,21 +291,14 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
         )}
       </div>
 
-      {/* A bulk "Mark paid" bar — only ever shown to Admins (Accountant
-          stays view-only, same restriction as the per-row action), and
-          only for real queued (REQUESTED) rows; On Hold/Released-Not-
-          Queued/Paid/Rejected rows are never selectable (isBulkPayable). */}
+      {/* The bulk "Mark selected as paid" bar — only ever shown to Admins
+          (Accountant and Investor stay view-only, same as the per-row
+          action). Every row has a checkbox in the leftmost column, the
+          header one selects all selectable rows, and only payable rows
+          (Queued / Scheduled) can be ticked: Rolled/On Hold/Paid/
+          Rejected are disabled (isBulkPayable). */}
       {canModerate && (
         <div className="map-card" style={{ padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: payableFiltered.length > 0 ? "pointer" : "default" }}>
-            <input
-              type="checkbox"
-              checked={allPayableSelected}
-              disabled={payableFiltered.length === 0}
-              onChange={toggleAllPayable}
-            />
-            Select all due{month !== "ALL" || year !== "ALL" || query || affiliateFilter !== "ALL" ? " (filtered)" : ""}
-          </label>
           <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
             {selected.size > 0 ? `${selected.size} selected — $${selectedTotal.toFixed(2)}` : "No payouts selected"}
           </span>
@@ -268,7 +308,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
             disabled={selected.size === 0 || isBulkPending}
             onClick={runBulkMarkPaid}
           >
-            {isBulkPending ? "Marking…" : `Mark ${selected.size || ""} as Paid`.trim()}
+            {isBulkPending ? "Marking…" : "Mark selected as paid"}
           </button>
           {selected.size > 0 && (
             <button type="button" className="btn btn-ghost btn-small" onClick={() => setSelected(new Set())} disabled={isBulkPending}>
@@ -294,7 +334,21 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                {canModerate && <th style={{ ...TH_STYLE, width: 36 }} />}
+                {canModerate && (
+                  <th style={{ ...TH_STYLE, width: 36, textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      aria-label="Select all payable rows"
+                      title="Select or deselect every payable row"
+                      checked={allPayableSelected}
+                      disabled={payableFiltered.length === 0}
+                      ref={(el) => {
+                        if (el) el.indeterminate = somePayableSelected && !allPayableSelected;
+                      }}
+                      onChange={toggleAllPayable}
+                    />
+                  </th>
+                )}
                 <th style={TH_STYLE}>Account #<ColHelp text="This recipient's account number on the platform." /></th>
                 <th style={TH_STYLE}>Account holder<ColHelp text="The name on file for this payout — who the money is actually sent to." /></th>
                 <th style={TH_STYLE}>Email<ColHelp text="The recipient's account email." /></th>
@@ -302,20 +356,23 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 <th style={TH_STYLE}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>
                 <th style={TH_STYLE}>Commission<ColHelp text="Commission from copies sold through this person's own affiliate promotional links." /></th>
                 <th style={TH_STYLE}>Total<ColHelp text="Royalties plus referral plus commission — the full amount of this payout." /></th>
-                <th style={TH_STYLE}>Status<ColHelp text="On Hold means this money hasn't been released yet (the current month is still in progress, or a past rejected payout rolled back into the balance), or has been released but is still under the $30 minimum and is rolling over. Scheduled means it's crossed $30, is confirmed, and is ready to be paid by the 15th. Queued means a real payout request exists, awaiting manual payment by the 15th. Paid means the transfer has gone out. Rejected means it was declined." /></th>
+                <th style={TH_STYLE}>Status<ColHelp text="On Hold means this money hasn't been released yet (the current month is still in progress, or a past rejected payout rolled back into the balance). Rolled means it has been released but is still under the $30 minimum, so it rolls into next month's payout cycle. Scheduled means it's crossed $30, is confirmed, and is ready to be paid by the 15th. Queued means a real payout request exists, awaiting manual payment by the 15th. Paid means the transfer has gone out. Rejected means it was declined." /></th>
+                {canModerate && (
+                  <th style={TH_STYLE}>Action<ColHelp text="Paid marks this payout as paid once you have sent the money. It is available only for payouts that are due: Queued, or Scheduled (crossed $30). A Scheduled payout with no request yet has its request created once, already paid. Rolled, On Hold, Paid and Rejected rows show a dash. Everything it pays is re-checked on the server, so clicking twice never pays twice." /></th>
+                )}
                 <th style={TH_STYLE}>Report<ColHelp text="Download this payout's month as a full PDF statement — the same report available to that account holder on their own Payouts page." /></th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={canModerate ? 10 : 9} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                  <td colSpan={canModerate ? 11 : 9} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
                     No payouts have been queued yet — this table fills in as soon as one is.
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={canModerate ? 10 : 9} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                  <td colSpan={canModerate ? 11 : 9} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
                     No payouts match your search or filters.
                   </td>
                 </tr>
@@ -329,27 +386,60 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                   >
                     {canModerate && (
                       <td style={{ ...TD_STYLE, textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
-                        {isBulkPayable(p) && (
-                          <input type="checkbox" checked={selected.has(p.id)} onChange={() => toggleOne(p.id)} />
-                        )}
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${p.accountHolderName}`}
+                          checked={isBulkPayable(p) && selected.has(p.id)}
+                          disabled={!isBulkPayable(p)}
+                          title={isBulkPayable(p) ? undefined : "Only Queued or Scheduled payouts can be marked paid"}
+                          onChange={() => toggleOne(p.id)}
+                        />
                       </td>
                     )}
                     <td style={{ ...TD_STYLE, fontFamily: "monospace" }}>{p.accountNumber}</td>
                     <td style={TD_STYLE}>
                       {p.accountHolderName}
                       <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{p.role}</div>
+                      <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{ledgerPeriodLabel(p)}</div>
                     </td>
                     <td style={TD_STYLE}>{p.email}</td>
                     <td style={TD_STYLE}>${p.bookSalesEarnings.toFixed(2)}</td>
                     <td style={TD_STYLE}>${p.referralEarnings.toFixed(2)}</td>
                     <td style={TD_STYLE}>${p.commissionEarnings.toFixed(2)}</td>
-                    <td style={{ ...TD_STYLE, fontWeight: 700 }}>${p.combinedTotal.toFixed(2)}</td>
+                    <td style={{ ...TD_STYLE, fontWeight: 700 }}>
+                      ${p.combinedTotal.toFixed(2)}
+                      {isSyntheticLedgerRow(p) && p.unreleasedAmount !== undefined && p.unreleasedAmount > 0 && (
+                        <div style={{ fontSize: 10.5, fontWeight: 400, color: "var(--ink-faint)" }}>
+                          incl. ${unreleasedPortion(p).toFixed(2)} not yet released
+                        </div>
+                      )}
+                    </td>
                     <td style={TD_STYLE}>
-                      <span className="age-pill" style={statusPillStyle(p)}>
+                      <span className="age-pill" style={statusPillStyle(p)} title={isRolledLedgerStatus(p.status) ? ROLLED_HELP : undefined}>
                         {statusLabel(p)}
                         {p.paid && " ✓"}
                       </span>
                     </td>
+                    {canModerate && (
+                      <td style={TD_STYLE} onClick={(e) => e.stopPropagation()}>
+                        {isBulkPayable(p) ? (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-small"
+                            disabled={isRowPending || isBulkPending}
+                            title={`Mark this $${payableNowAmount(p).toFixed(2)} payout as paid`}
+                            onClick={() => runRowPaid(p)}
+                          >
+                            {payingId === p.id ? "Paying…" : "Paid"}
+                          </button>
+                        ) : (
+                          <span style={{ color: "var(--ink-faint)" }} title="Not due, or already settled">—</span>
+                        )}
+                        {rowMessage?.id === p.id && (
+                          <div style={{ fontSize: 11, color: "var(--coral-deep)", maxWidth: 220 }}>{rowMessage.text}</div>
+                        )}
+                      </td>
+                    )}
                     <td style={TD_STYLE}>
                       <a
                         className="btn btn-ghost btn-small"
@@ -403,7 +493,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 <td style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", fontWeight: 700, position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }}>${totals.referral.toFixed(2)}</td>
                 <td style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", fontWeight: 700, position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }}>${totals.commission.toFixed(2)}</td>
                 <td style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", fontWeight: 700, position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }}>${totals.combined.toFixed(2)}</td>
-                <td style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }} colSpan={2} />
+                <td style={{ ...TD_STYLE, borderBottom: "none", borderTop: "2px solid var(--line)", position: "sticky", bottom: 0, background: "var(--admin-panel, #F7F8FB)" }} colSpan={canModerate ? 3 : 2} />
               </tr>
             </tbody>
           </table>
@@ -427,7 +517,11 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
               { label: "Referral earnings", value: `$${detailRow.referralEarnings.toFixed(2)}` },
               { label: "Commission earnings", value: `$${detailRow.commissionEarnings.toFixed(2)}` },
               { label: "Combined total", value: `$${detailRow.combinedTotal.toFixed(2)}` },
+              ...(isSyntheticLedgerRow(detailRow) && detailRow.unreleasedAmount
+                ? [{ label: "Of which not yet released (current month)", value: `$${detailRow.unreleasedAmount.toFixed(2)}` }]
+                : []),
               { label: "Currency", value: detailRow.currency },
+              ...(detailRow.paidAmount ? [{ label: "Already paid within this row", value: `$${detailRow.paidAmount.toFixed(2)}` }] : []),
               {
                 label: "Resolved",
                 value: detailRow.resolvedAt ? new Date(detailRow.resolvedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—",
@@ -440,7 +534,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
             ))}
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 18, gap: 10, flexWrap: "wrap" }}>
-              <span className="age-pill" style={statusPillStyle(detailRow)}>
+              <span className="age-pill" style={statusPillStyle(detailRow)} title={isRolledLedgerStatus(detailRow.status) ? ROLLED_HELP : undefined}>
                 {statusLabel(detailRow)}
               </span>
               <div style={{ display: "flex", gap: 8 }}>
@@ -451,7 +545,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 >
                   Download report
                 </a>
-                {detailRow.status === "REQUESTED" && canModerate && <ModerationActions payoutId={detailRow.componentIds ?? detailRow.id} />}
+                {detailRow.status === "REQUESTED" && canModerate && <ModerationActions payoutId={actionableIds(detailRow)} />}
               </div>
             </div>
         </Modal>

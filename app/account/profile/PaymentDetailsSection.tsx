@@ -8,6 +8,7 @@ import {
   setActivePayoutMethod,
   type PayoutMethodRow,
 } from "@/actions/payout-methods";
+import { isPayoutMethodTypeAvailable, PAYOUT_METHOD_UNAVAILABLE_MESSAGE, type PayoutMethodToggles } from "@/lib/payout-method-availability";
 import { isPayoutMethodLocked, payoutLockMessage } from "@/lib/payout-lock";
 import { isPayoutRestrictedCountry, payoutRestrictionMessage } from "@/lib/payout-country-restriction";
 
@@ -28,19 +29,39 @@ import { isPayoutRestrictedCountry, payoutRestrictionMessage } from "@/lib/payou
 
 type MethodType = "email" | "bank" | "mpesa";
 
-function Toggle({ type, on, locked, savingType, onActivate }: { type: MethodType; on: boolean; locked: boolean; savingType: string | null; onActivate: (t: MethodType) => void }) {
+function Toggle({ type, on, locked, unavailable, savingType, onActivate, onBlocked }: { type: MethodType; on: boolean; locked: boolean; unavailable: boolean; savingType: string | null; onActivate: (t: MethodType) => void; onBlocked: () => void }) {
+  // An unavailable method (PayPal / M-Pesa while the admin toggle is off)
+  // stays visible and clickable only to explain why it can't be chosen:
+  // the checkbox never changes state, it shows the message instead.
   return (
-    <label className="toggle-row" style={{ marginBottom: 0, opacity: locked && !on ? 0.8 : 1 }}>
+    <label className="toggle-row" style={{ marginBottom: 0, opacity: unavailable ? 0.6 : locked && !on ? 0.8 : 1, cursor: unavailable ? "not-allowed" : undefined }} aria-disabled={unavailable}>
       <span className="toggle-switch">
-        <input type="checkbox" checked={on} disabled={savingType === type || (locked && !on)} onChange={() => { if (!on) onActivate(type); }} />
+        <input
+          type="checkbox"
+          checked={on}
+          disabled={!unavailable && (savingType === type || (locked && !on))}
+          onChange={() => {
+            if (unavailable) { onBlocked(); return; }
+            if (!on) onActivate(type);
+          }}
+        />
         <span className="toggle-slider" />
       </span>
-      <span style={{ fontWeight: 700, fontSize: 13.5 }}>{on ? "Active for payouts" : "Use this method"}</span>
+      <span style={{ fontWeight: 700, fontSize: 13.5 }}>{unavailable ? (on ? "Active (currently unavailable)" : "Unavailable") : on ? "Active for payouts" : "Use this method"}</span>
     </label>
   );
 }
 
-export function PaymentDetailsSection({ initial, country }: { initial: PayoutMethodRow[]; country: string | null }) {
+function UnavailableNote({ hasSaved }: { hasSaved: boolean }) {
+  return (
+    <div className="field-hint" style={{ marginBottom: 10, color: "var(--ink-soft)" }}>
+      {PAYOUT_METHOD_UNAVAILABLE_MESSAGE}
+      {hasSaved ? " Your saved details are kept as they are, but this method is currently unavailable." : ""}
+    </div>
+  );
+}
+
+export function PaymentDetailsSection({ initial, country, toggles }: { initial: PayoutMethodRow[]; country: string | null; toggles: PayoutMethodToggles }) {
   const router = useRouter();
   const paypal = initial.find((r) => r.type === "email");
   const bank = initial.find((r) => r.type === "bank");
@@ -49,6 +70,9 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
   const hasActiveMethod = !!active;
   const locked = hasActiveMethod && isPayoutMethodLocked();
   const restricted = isPayoutRestrictedCountry(country);
+  const paypalUnavailable = !isPayoutMethodTypeAvailable("email", toggles);
+  const mpesaUnavailable = !isPayoutMethodTypeAvailable("mpesa", toggles);
+  const unavailableFor = (type: MethodType) => (type === "email" ? paypalUnavailable : type === "mpesa" ? mpesaUnavailable : false);
 
   const [savingType, setSavingType] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +85,7 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
   const [bankInstitution, setBankInstitution] = useState((bank?.details.bankName as string) ?? "");
   const [bankAccountNumber, setBankAccountNumber] = useState((bank?.details.accountNumber as string) ?? "");
   const [bankSwiftCode, setBankSwiftCode] = useState((bank?.details.swiftOrRoutingCode as string) ?? "");
+  const [bankIntermediary, setBankIntermediary] = useState((bank?.details.intermediaryBank as string) ?? "");
   const [bankCurrency, setBankCurrency] = useState(bank?.currency ?? "USD");
 
   const [mpesaName, setMpesaName] = useState(mpesa?.accountHolderName ?? "");
@@ -72,6 +97,7 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
 
   async function activate(type: MethodType) {
     setError(null);
+    if (unavailableFor(type)) { setError(PAYOUT_METHOD_UNAVAILABLE_MESSAGE); return; }
     const existing = type === "email" ? paypal : type === "bank" ? bank : mpesa;
 
     if (existing) {
@@ -103,7 +129,7 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
         type: "bank",
         currency: bankCurrency || "USD",
         accountHolderName: bankName,
-        details: { bankName: bankInstitution, accountNumber: bankAccountNumber, swiftOrRoutingCode: bankSwiftCode, country: bankCountry },
+        details: { bankName: bankInstitution, accountNumber: bankAccountNumber, swiftOrRoutingCode: bankSwiftCode, country: bankCountry, ...(bankIntermediary.trim() ? { intermediaryBank: bankIntermediary.trim() } : {}) },
       });
       setSavingType(null);
       if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
@@ -119,6 +145,7 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
 
   async function saveDetails(type: MethodType) {
     setError(null);
+    if (unavailableFor(type)) { setError(PAYOUT_METHOD_UNAVAILABLE_MESSAGE); return; }
     const existing = type === "email" ? paypal : type === "bank" ? bank : mpesa;
     if (!existing) return activate(type);
 
@@ -132,7 +159,7 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
       res = await updatePayoutMethod(existing.id, {
         accountHolderName: bankName,
         currency: bankCurrency || "USD",
-        details: { bankName: bankInstitution, accountNumber: bankAccountNumber, swiftOrRoutingCode: bankSwiftCode, country: bankCountry },
+        details: { bankName: bankInstitution, accountNumber: bankAccountNumber, swiftOrRoutingCode: bankSwiftCode, country: bankCountry, ...(bankIntermediary.trim() ? { intermediaryBank: bankIntermediary.trim() } : {}) },
       });
     } else {
       res = await updatePayoutMethod(existing.id, { accountHolderName: mpesaName, currency: "KES", details: { phoneNumber: mpesaPhone } });
@@ -167,13 +194,14 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
         <div className="form-section" style={{ background: "var(--cream)", marginBottom: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <strong style={{ fontSize: 14 }}>PayPal</strong>
-            <Toggle type="email" on={active === "email"} locked={restricted ? !paypal : locked} savingType={savingType} onActivate={activate} />
+            <Toggle type="email" on={active === "email"} locked={restricted ? !paypal : locked} unavailable={paypalUnavailable} savingType={savingType} onActivate={activate} onBlocked={() => setError(PAYOUT_METHOD_UNAVAILABLE_MESSAGE)} />
           </div>
+          {paypalUnavailable && <UnavailableNote hasSaved={!!paypal} />}
           <label className="field-label">Account holder name</label>
-          <input className="field" type="text" value={paypalName} disabled={editLockedFor("email")} onChange={(e) => setPaypalName(e.target.value)} />
+          <input className="field" type="text" value={paypalName} disabled={editLockedFor("email") || paypalUnavailable} onChange={(e) => setPaypalName(e.target.value)} />
           <label className="field-label">PayPal email</label>
-          <input className="field" type="email" value={paypalEmail} disabled={editLockedFor("email")} onChange={(e) => setPaypalEmail(e.target.value)} />
-          <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "email" || editLockedFor("email") || (restricted && !paypal)} onClick={() => saveDetails("email")}>
+          <input className="field" type="email" value={paypalEmail} disabled={editLockedFor("email") || paypalUnavailable} onChange={(e) => setPaypalEmail(e.target.value)} />
+          <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "email" || paypalUnavailable || editLockedFor("email") || (restricted && !paypal)} onClick={() => saveDetails("email")}>
             {paypal ? "Save changes" : "Add method"}
           </button>
         </div>
@@ -182,7 +210,7 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
         <div className="form-section" style={{ background: "var(--cream)", marginBottom: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <strong style={{ fontSize: 14 }}>Bank transfer</strong>
-            <Toggle type="bank" on={active === "bank"} locked={restricted ? !bank : locked} savingType={savingType} onActivate={activate} />
+            <Toggle type="bank" on={active === "bank"} locked={restricted ? !bank : locked} unavailable={false} savingType={savingType} onActivate={activate} onBlocked={() => undefined} />
           </div>
           <label className="field-label">Account holder name</label>
           <input className="field" type="text" value={bankName} disabled={editLockedFor("bank")} onChange={(e) => setBankName(e.target.value)} />
@@ -208,6 +236,8 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
               <input className="field" type="text" maxLength={3} value={bankCurrency} disabled={editLockedFor("bank")} onChange={(e) => setBankCurrency(e.target.value.toUpperCase())} />
             </div>
           </div>
+          <label className="field-label">Intermediary bank (for international wires) — optional</label>
+          <input className="field" type="text" value={bankIntermediary} disabled={editLockedFor("bank")} onChange={(e) => setBankIntermediary(e.target.value)} />
           <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "bank" || editLockedFor("bank") || (restricted && !bank)} onClick={() => saveDetails("bank")}>
             {bank ? "Save changes" : "Add method"}
           </button>
@@ -217,13 +247,14 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
         <div className="form-section" style={{ background: "var(--cream)", marginBottom: 0 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <strong style={{ fontSize: 14 }}>M-Pesa</strong>
-            <Toggle type="mpesa" on={active === "mpesa"} locked={restricted ? !mpesa : locked} savingType={savingType} onActivate={activate} />
+            <Toggle type="mpesa" on={active === "mpesa"} locked={restricted ? !mpesa : locked} unavailable={mpesaUnavailable} savingType={savingType} onActivate={activate} onBlocked={() => setError(PAYOUT_METHOD_UNAVAILABLE_MESSAGE)} />
           </div>
+          {mpesaUnavailable && <UnavailableNote hasSaved={!!mpesa} />}
           <label className="field-label">Account holder name</label>
-          <input className="field" type="text" value={mpesaName} disabled={editLockedFor("mpesa")} onChange={(e) => setMpesaName(e.target.value)} />
+          <input className="field" type="text" value={mpesaName} disabled={editLockedFor("mpesa") || mpesaUnavailable} onChange={(e) => setMpesaName(e.target.value)} />
           <label className="field-label">M-Pesa phone number</label>
-          <input className="field" type="tel" placeholder="+254 7XX XXX XXX" value={mpesaPhone} disabled={editLockedFor("mpesa")} onChange={(e) => setMpesaPhone(e.target.value)} />
-          <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "mpesa" || editLockedFor("mpesa") || (restricted && !mpesa)} onClick={() => saveDetails("mpesa")}>
+          <input className="field" type="tel" placeholder="+254 7XX XXX XXX" value={mpesaPhone} disabled={editLockedFor("mpesa") || mpesaUnavailable} onChange={(e) => setMpesaPhone(e.target.value)} />
+          <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "mpesa" || mpesaUnavailable || editLockedFor("mpesa") || (restricted && !mpesa)} onClick={() => saveDetails("mpesa")}>
             {mpesa ? "Save changes" : "Add method"}
           </button>
         </div>

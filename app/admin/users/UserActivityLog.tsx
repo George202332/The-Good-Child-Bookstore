@@ -45,17 +45,36 @@ function describeMetadata(action: string, metadata: Record<string, unknown> | nu
  * UsersTable.tsx. Read-only — this is a history, nothing here is
  * editable.
  */
-export function UserActivityLog({ entries }: { entries: UserActivityLogEntry[] }) {
+export function UserActivityLog({ entries, userId }: { entries: UserActivityLogEntry[]; userId?: string }) {
+  // When a userId is given, a Download CSV button is shown. It calls the
+  // admin-only route handler, which exports the FULL log (up to 5,000
+  // rows), not just the entries shown here.
+  const download = userId ? (
+    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+      <a
+        className="btn btn-ghost btn-small"
+        href={`/api/admin/users/${encodeURIComponent(userId)}/activity-log`}
+        download
+      >
+        Download CSV
+      </a>
+    </div>
+  ) : null;
+
   if (entries.length === 0) {
     return (
-      <div style={{ padding: "20px 0", color: "var(--admin-text-faint)", fontSize: 13, textAlign: "center" }}>
-        No recorded activity yet for this account.
+      <div>
+        {download}
+        <div style={{ padding: "20px 0", color: "var(--admin-text-faint)", fontSize: 13, textAlign: "center" }}>
+          No recorded activity yet for this account.
+        </div>
       </div>
     );
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+      {download}
       {entries.map((entry) => {
         const detail = describeMetadata(entry.action, entry.metadata);
         return (

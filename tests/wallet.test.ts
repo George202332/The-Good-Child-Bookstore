@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { computeWallet, nextReleaseDate, releaseDateFor } from "../lib/wallet";
+import { computeWallet, nextReleaseDate, releaseDateFor, summarizePayouts } from "../lib/wallet";
 
 /**
  * Regression coverage for the on-hold/available wallet math shared by
@@ -88,5 +88,32 @@ describe("nextReleaseDate", () => {
     // Both lines fall in the current still-open month, so both share
     // the same release date — the 15th of next month.
     assert.deepEqual(result, releaseDateFor(earlierThisPeriod));
+  });
+});
+
+describe("summarizePayouts", () => {
+  test("nets only the wallet's own earnings type, so an affiliate payout never reduces the author wallet", () => {
+    const payouts = [
+      { status: "PAID", amount: 50, earningsType: "AUTHOR" },
+      { status: "PAID", amount: 40, earningsType: "AFFILIATE" },
+      { status: "REQUESTED", amount: 10, earningsType: "AFFILIATE" },
+    ];
+    assert.deepEqual(summarizePayouts(payouts, "AUTHOR"), { paidOut: 50, pending: 0 });
+    assert.deepEqual(summarizePayouts(payouts, "AFFILIATE"), { paidOut: 40, pending: 10 });
+  });
+
+  test("REQUESTED, APPROVED and legacy PROCESSING count as pending; REJECTED counts as nothing", () => {
+    const payouts = [
+      { status: "REQUESTED", amount: 1 },
+      { status: "APPROVED", amount: 2 },
+      { status: "PROCESSING", amount: 4 },
+      { status: "REJECTED", amount: 100 },
+    ];
+    assert.deepEqual(summarizePayouts(payouts, "AUTHOR"), { paidOut: 0, pending: 7 });
+  });
+
+  test("a row with no earningsType is treated as AUTHOR, matching the database default", () => {
+    assert.deepEqual(summarizePayouts([{ status: "PAID", amount: 9 }], "AFFILIATE"), { paidOut: 0, pending: 0 });
+    assert.deepEqual(summarizePayouts([{ status: "PAID", amount: 9 }], "AUTHOR"), { paidOut: 9, pending: 0 });
   });
 });

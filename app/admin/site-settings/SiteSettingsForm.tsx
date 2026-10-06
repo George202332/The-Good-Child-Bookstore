@@ -6,6 +6,7 @@ import Link from "next/link";
 import { updateSiteSettings } from "@/actions/site-settings";
 import type { SiteSettings } from "@/lib/site-settings";
 import { ImageUploadField } from "@/components/ImageUploadField";
+import { PayoutMethodToggles } from "./PayoutMethodToggles";
 import { SOCIAL_PLATFORM_LABELS, type SocialPlatform } from "@/components/SocialIcon";
 
 const SOCIAL_FIELDS: SocialPlatform[] = ["facebook", "instagram", "pinterest", "youtube", "twitter", "tiktok"];
@@ -100,6 +101,8 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
           />
         ))}
       </div>
+
+      <PayoutMethodToggles initial={{ paypalPayoutsEnabled: settings.paypalPayoutsEnabled, mpesaPayoutsEnabled: settings.mpesaPayoutsEnabled }} />
 
       <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Social media icons (footer)</h3>
       <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>

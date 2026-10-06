@@ -8,6 +8,7 @@ import type { Role } from "@/lib/roles";
 import { generateAccountNumber } from "@/lib/account-number";
 import { generateUniqueReferralCode } from "@/lib/referral-code";
 import { logAuditEvent, type AuditAction } from "@/lib/audit-log";
+import { resolveUserCountry } from "@/lib/user-country";
 
 /**
  * Admin-side account creation and management — "Admin can manage all
@@ -81,6 +82,12 @@ export interface UserListRow {
    * nothing's been entered yet (e.g. a backend-only Editor/Admin
    * account, or an author/reader who hasn't filled that in). */
   location: string | null;
+  /** Full country name for the Country column, resolved across every
+   * place a country can be stored (see lib/user-country.ts). Null means
+   * it was never collected for this account. */
+  country: string | null;
+  /** Which stored value `country` came from; null when `country` is null. */
+  countrySource: string | null;
 }
 
 type UserListQueryRow = {
@@ -91,8 +98,12 @@ type UserListQueryRow = {
   role: Role;
   suspended: boolean;
   createdAt: Date;
+  country: string | null;
   authorProfile: { country: string | null } | null;
-  readerProfile: { addresses: { city: string; country: string }[] } | null;
+  readerProfile: {
+    addresses: { city: string; country: string }[];
+    orders: { shipCountry: string | null; country: string | null }[];
+  } | null;
 };
 
 function deriveLocation(u: UserListQueryRow): string | null {
@@ -100,6 +111,17 @@ function deriveLocation(u: UserListQueryRow): string | null {
   const address = u.readerProfile?.addresses[0];
   if (address) return `${address.city}, ${address.country}`;
   return null;
+}
+
+function deriveCountry(u: UserListQueryRow): { country: string | null; countrySource: string | null } {
+  const order = u.readerProfile?.orders[0];
+  const resolved = resolveUserCountry({
+    userCountry: u.country,
+    authorCountry: u.authorProfile?.country ?? null,
+    addressCountry: u.readerProfile?.addresses[0]?.country ?? null,
+    orderCountry: order?.shipCountry || order?.country || null,
+  });
+  return { country: resolved?.name ?? null, countrySource: resolved?.source ?? null };
 }
 
 /** role: "ALL" or a specific Role — the query-by-type tabs at the top of
@@ -113,9 +135,14 @@ export async function listUsers(role: Role | "ALL"): Promise<UserListRow[]> {
     orderBy: { createdAt: "desc" },
     take: 300,
     select: {
-      id: true, accountNumber: true, name: true, email: true, role: true, suspended: true, createdAt: true,
+      id: true, accountNumber: true, name: true, email: true, role: true, suspended: true, createdAt: true, country: true,
       authorProfile: { select: { country: true } },
-      readerProfile: { select: { addresses: { where: { isDefault: true }, take: 1, select: { city: true, country: true } } } },
+      readerProfile: {
+        select: {
+          addresses: { where: { isDefault: true }, take: 1, select: { city: true, country: true } },
+          orders: { orderBy: { createdAt: "desc" }, take: 1, select: { shipCountry: true, country: true } },
+        },
+      },
     },
   })) as UserListQueryRow[];
 
@@ -128,6 +155,7 @@ export async function listUsers(role: Role | "ALL"): Promise<UserListRow[]> {
     suspended: u.suspended,
     createdAt: u.createdAt,
     location: deriveLocation(u),
+    ...deriveCountry(u),
   }));
 }
 
@@ -146,7 +174,12 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
     include: {
       authorProfile: true,
       affiliateProfile: true,
-      readerProfile: { include: { addresses: { where: { isDefault: true }, take: 1 } } },
+      readerProfile: {
+        include: {
+          addresses: { where: { isDefault: true }, take: 1 },
+          orders: { orderBy: { createdAt: "desc" }, take: 1, select: { shipCountry: true, country: true } },
+        },
+      },
     },
   })) as
     | (UserListQueryRow & {
@@ -165,6 +198,7 @@ export async function getUserDetail(userId: string): Promise<UserDetail | null> 
     suspended: user.suspended,
     createdAt: user.createdAt,
     location: deriveLocation(user),
+    ...deriveCountry(user),
     authorBio: user.authorProfile?.bio ?? null,
     authorPrimaryGenre: user.authorProfile?.primaryGenre ?? null,
     affiliateReferralCode: user.affiliateProfile?.referralCode ?? null,

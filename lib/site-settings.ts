@@ -78,6 +78,10 @@ export interface SiteSettings {
    * it does not affect books already submitted in that format. */
   publishingFormatsEnabled: PublishingFormatsEnabled;
   apiKeys: ApiKeys;
+  /** Whether PayPal may be chosen as a PAYOUT method (not checkout). Default OFF. */
+  paypalPayoutsEnabled: boolean;
+  /** Whether M-Pesa may be chosen as a PAYOUT method (not checkout). Default OFF. */
+  mpesaPayoutsEnabled: boolean;
 }
 
 /**
@@ -109,4 +113,6 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   },
   publishingFormatsEnabled: { ebook: true, print: false, audiobook: true },
   apiKeys: { paymentMode: "test" },
+  paypalPayoutsEnabled: false,
+  mpesaPayoutsEnabled: false,
 };

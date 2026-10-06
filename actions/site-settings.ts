@@ -4,6 +4,7 @@ import { cache } from "react";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
+import { resolvePayoutMethodToggles, type PayoutMethodToggles } from "@/lib/payout-method-availability";
 import { DEFAULT_SITE_SETTINGS, type SiteSettings, type ApiKeys, type PublishingFormatsEnabled } from "@/lib/site-settings";
 
 /**
@@ -49,6 +50,8 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
         },
         apiKeys: { ...DEFAULT_SITE_SETTINGS.apiKeys, ...(stored.apiKeys ?? {}) },
         publishingFormatsEnabled: { ...DEFAULT_SITE_SETTINGS.publishingFormatsEnabled, ...(stored.publishingFormatsEnabled ?? {}) },
+        // Payout-method toggles: only a literal true counts as ON.
+        ...resolvePayoutMethodToggles(stored),
       };
     }
   } catch {
@@ -217,7 +220,17 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
       paystackPublicKey: settings.apiKeys.paystackPublicKey?.trim() || existing.apiKeys.paystackPublicKey,
     };
 
-    const value = JSON.parse(JSON.stringify({ ...settings, apiKeys }));
+    // The payout-method toggles have their own action
+    // (updatePayoutMethodToggles). Always keep the saved values here so a
+    // stale copy of this form (or the API Management form) can't undo them.
+    const value = JSON.parse(
+      JSON.stringify({
+        ...settings,
+        apiKeys,
+        paypalPayoutsEnabled: existing.paypalPayoutsEnabled,
+        mpesaPayoutsEnabled: existing.mpesaPayoutsEnabled,
+      })
+    );
     await prisma.setting.upsert({
       where: { key: SITE_SETTINGS_KEY },
       update: { value },
@@ -228,5 +241,38 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save settings — please try again." };
+  }
+}
+
+/**
+ * Admin-only: switch PayPal / M-Pesa on or off as selectable PAYOUT
+ * methods (separate from the checkout payment settings). Saved in the
+ * same Setting JSON row as the rest of the site settings; no schema change.
+ */
+export async function updatePayoutMethodToggles(toggles: PayoutMethodToggles): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") {
+    return { ok: false, error: "Only Admins can change payout method availability." };
+  }
+  try {
+    const existing = await getSiteSettings();
+    const value = JSON.parse(
+      JSON.stringify({
+        ...existing,
+        paypalPayoutsEnabled: toggles.paypalPayoutsEnabled === true,
+        mpesaPayoutsEnabled: toggles.mpesaPayoutsEnabled === true,
+      })
+    );
+    await prisma.setting.upsert({
+      where: { key: SITE_SETTINGS_KEY },
+      update: { value },
+      create: { key: SITE_SETTINGS_KEY, value },
+    });
+    revalidatePath("/admin/site-settings");
+    revalidatePath("/account/profile");
+    revalidatePath("/account/payout-settings");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save — please try again." };
   }
 }

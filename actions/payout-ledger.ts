@@ -5,8 +5,11 @@ import { authAdmin } from "@/lib/auth-admin";
 import type { Role } from "@/lib/roles";
 import { payoutMethodLabel, formatAccountDetails } from "@/lib/payout-method-label";
 import { fetchEarningsBreakdown, linesForView, sumLines } from "@/lib/earnings-lines";
-import { computeWallet, releaseDateFor } from "@/lib/wallet";
+import { computeWallet, releaseDateFor, summarizePayouts } from "@/lib/wallet";
 import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
+import { extractBankDetails, EMPTY_BANK_DETAILS, type PayoutBankDetails } from "@/lib/recipient-bank-details";
+import { consolidateLedgerRows } from "@/lib/payout-ledger-dedupe";
+import { reportSystemError } from "@/lib/site-health/alert";
 
 /**
  * The full admin payout ledger — every payout ever queued, whatever its
@@ -74,6 +77,11 @@ export interface PayoutLedgerRow {
   userId: string;
   accountNumber: string;
   accountHolderName: string;
+  /** The registered User.name (the "Account" name in the payout exports). */
+  userName: string;
+  /** Bank-transfer fields from the user's DEFAULT payout recipient; all
+   * blank when none is on file or it is not a bank recipient. */
+  bank: PayoutBankDetails;
   email: string;
   role: string;
   paymentMethod: string;
@@ -107,7 +115,7 @@ export interface PayoutLedgerRow {
    * filter. */
   isAffiliate: boolean;
   /** Set only on a historical row that actually represents TWO real
-   * PayoutRequest ids merged for display (see mergeSameBatchRows below)
+   * PayoutRequest ids merged for display (see consolidateLedgerRows in lib/payout-ledger-dedupe.ts)
    * — an account that's both an author and an affiliate gets one real
    * PayoutRequest per earnings type from the SAME queueDuePayouts click,
    * same person, same moment, which used to render as two separate rows
@@ -116,6 +124,21 @@ export interface PayoutLedgerRow {
    * selection); moderation/bulk-pay actions must act on every id here,
    * not just `id`, or the second real payout is left stranded. */
   componentIds?: string[];
+  /** Only on a consolidated row that mixes paid and unpaid real
+   * payouts (see lib/payout-ledger-dedupe.ts): the component ids that
+   * are ALREADY paid. Mark paid / Reject must never act on these —
+   * use actionableIds() from that file to get the ids they may act on. */
+  paidComponentIds?: string[];
+  /** Total of the already-paid part of such a mixed row (counted in the
+   * Paid Total on the page even though the row itself is not fully paid). */
+  paidAmount?: number;
+  /** Only on a merged open-balance row (rolled + current month): the
+   * part that is still the in-progress month (never payable yet). */
+  unreleasedAmount?: number;
+  /** Only on a merged SCHEDULED open-balance row: what may be sent now. */
+  payableAmount?: number;
+  /** Only on a merged open-balance row, e.g. "Oct 2026 and earlier". */
+  periodLabel?: string;
 }
 
 /** Shared by getLiveMonthRows and getPendingUnqueuedRows below — looks
@@ -162,6 +185,7 @@ async function recipientFieldsFor(userId: string, fallbackName: string) {
     accountHolderName: recipientName || fallbackName || "Not set yet",
     paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
     accountDetails: recipient ? formatAccountDetails(recipient.details) : "—",
+    bank: extractBankDetails(recipient),
   };
 }
 
@@ -280,6 +304,8 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
       userId,
       accountNumber: info.accountNumber,
       accountHolderName: fields.accountHolderName,
+      userName: info.name,
+      bank: fields.bank,
       email: info.email,
       role: info.role,
       paymentMethod: fields.paymentMethod,
@@ -406,11 +432,13 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     return lines.filter((l) => now.getTime() >= releaseDateFor(l.createdAt).getTime()).reduce((s, l) => s + l.amount, 0);
   }
 
-  async function paidAndPendingFor(userId: string, earningsType: string): Promise<{ paidOut: number; pending: number }> {
-    const payouts = (await prisma.payoutRequest.findMany({ where: { userId, earningsType } })) as { status: string; amount: unknown }[];
-    const paidOut = payouts.filter((p) => p.status === "PAID").reduce((s, p) => s + Number(p.amount), 0);
-    const pending = payouts.filter((p) => p.status === "REQUESTED" || p.status === "APPROVED").reduce((s, p) => s + Number(p.amount), 0);
-    return { paidOut, pending };
+  // Same shared netting as every wallet screen and the pay actions
+  // (lib/wallet.ts summarizePayouts) — typed by earnings type, and
+  // counting a legacy PROCESSING payout as pending so its money isn't
+  // shown a second time as a synthetic row.
+  async function paidAndPendingFor(userId: string, earningsType: "AUTHOR" | "AFFILIATE"): Promise<{ paidOut: number; pending: number }> {
+    const payouts = await prisma.payoutRequest.findMany({ where: { userId } });
+    return summarizePayouts(payouts, earningsType);
   }
 
   type PersonInfo = { accountNumber: string; email: string; role: string; name: string };
@@ -472,6 +500,8 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
       userId,
       accountNumber: info.accountNumber,
       accountHolderName: fields.accountHolderName,
+      userName: info.name,
+      bank: fields.bank,
       email: info.email,
       role: info.role,
       paymentMethod: fields.paymentMethod,
@@ -482,6 +512,11 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
       commissionEarnings,
       combinedTotal: bookSalesEarnings + referralEarnings + commissionEarnings,
       reportMonthKey: prevMonthKey,
+      // "ON_HOLD" is the ledger's internal name for the Rolled state
+      // (lib/payout-status.ts isRolledLedgerStatus): released, unpaid,
+      // and still under $30 on EVERY wallet involved — the $30 test is
+      // per wallet (a $20 royalty plus a $15 referral are two separately
+      // sub-$30 wallets, not one payable $35 balance).
       status: authorEligible || affiliateEligible ? "SCHEDULED" : "ON_HOLD",
       paid: false,
       requestedAt: now.toISOString(),
@@ -535,6 +570,16 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
     })) as { id: string; accountHolderName: string; type: string; details: unknown }[];
     const recipientById = new Map(recipients.map((r) => [r.id, r]));
 
+    // Bank details for the payout exports come from each user's DEFAULT
+    // recipient (not necessarily the one a past request was queued to).
+    const userIds = [...new Set(payouts.map((p) => p.userId))];
+    const defaultRecipients = (await prisma.wiseRecipient.findMany({
+      where: { userId: { in: userIds } },
+      orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+    })) as { userId: string; accountHolderName: string; type: string; details: unknown }[];
+    const bankByUser = new Map<string, PayoutBankDetails>();
+    for (const r of defaultRecipients) if (!bankByUser.has(r.userId)) bankByUser.set(r.userId, extractBankDetails(r));
+
     const historicalRows: PayoutLedgerRow[] = await Promise.all(
       payouts.map(async (p) => {
         const amount = Number(p.amount);
@@ -557,6 +602,8 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
           userId: p.userId,
           accountNumber: p.user.accountNumber,
           accountHolderName,
+          userName: p.user.name,
+          bank: bankByUser.get(p.userId) ?? EMPTY_BANK_DETAILS,
           email: p.user.email,
           role: p.user.role,
           paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
@@ -576,96 +623,43 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
       })
     );
 
-    // FIX (Amendment 5, 3rd+ report — "duplicate account rows", the
-    // ACTUAL remaining source): the previous round's fix de-duplicated
-    // the two SYNTHETIC row builders (getLiveMonthRows /
-    // getPendingUnqueuedRows) so an author-and-affiliate account gets
-    // one computed row each for "this month" and "released but not yet
-    // queued". That fix never touched the REAL historical rows built
-    // just above — and queueDuePayouts (actions/payouts.ts) has always
-    // created one PayoutRequest per earnings type per person, per run:
-    // an account that is both an author and an affiliate gets TWO real
-    // PayoutRequest rows the moment an Admin clicks "Queue this month's
-    // due payouts", same account number, same holder name, same email,
-    // same requestedAt run — which is exactly what still looked like a
-    // duplicate row every single time that button was used, completely
-    // unaffected by last round's fix (which only ever touched the
-    // not-yet-queued/current-month rows, not real queued history).
-    //
-    // The fix: merge the two real PayoutRequest rows from the SAME
-    // queueDuePayouts run (same userId, same calendar day, same
-    // status) into one display row — royalties and affiliate
-    // earnings as separate columns on that one row, exactly like every
-    // other row in this ledger — while keeping BOTH real ids around
-    // (componentIds) so moderation/bulk actions still resolve and act
-    // on each real PayoutRequest independently. Rows whose statuses
-    // have since diverged (one approved/paid, the other still queued —
-    // possible once an admin starts moderating them separately) are
-    // deliberately left UNMERGED: that's two genuinely different,
-    // currently-true states for the same cycle, not one duplicate
-    // entry, and merging them would hide which one still needs action.
-    function mergeSameBatchHistoricalRows(input: PayoutLedgerRow[]): PayoutLedgerRow[] {
-      const byKey = new Map<string, PayoutLedgerRow[]>();
-      for (const r of input) {
-        const dayKey = r.requestedAt.slice(0, 10); // YYYY-MM-DD, local to requestedAt's own ISO string
-        const key = `${r.userId}|${dayKey}|${r.status}`;
-        const bucket = byKey.get(key);
-        if (bucket) bucket.push(r);
-        else byKey.set(key, [r]);
-      }
-
-      const merged: PayoutLedgerRow[] = [];
-      for (const bucket of byKey.values()) {
-        if (bucket.length === 1) {
-          merged.push(bucket[0]);
-          continue;
-        }
-        // Only ever 2 real rows can share (userId, day, status): one
-        // AUTHOR-type and one AFFILIATE-type PayoutRequest from the
-        // same run (queueDuePayouts only ever creates at most one of
-        // each per person per run). If more than 2 land in the same
-        // bucket, something else is going on — don't merge, so nothing
-        // is ever silently hidden; just pass them through as-is.
-        if (bucket.length !== 2 || bucket[0].isAffiliate === bucket[1].isAffiliate) {
-          merged.push(...bucket);
-          continue;
-        }
-        const [a, b] = bucket;
-        const authorSide = a.isAffiliate ? b : a;
-        const affiliateSide = a.isAffiliate ? a : b;
-        merged.push({
-          ...authorSide,
-          id: authorSide.id,
-          componentIds: [authorSide.id, affiliateSide.id],
-          bookSalesEarnings: authorSide.bookSalesEarnings,
-          referralEarnings: affiliateSide.referralEarnings,
-          commissionEarnings: affiliateSide.commissionEarnings,
-          combinedTotal: authorSide.combinedTotal + affiliateSide.combinedTotal,
-          isAffiliate: true,
-          resolvedAt: authorSide.resolvedAt && affiliateSide.resolvedAt
-            ? (authorSide.resolvedAt > affiliateSide.resolvedAt ? authorSide.resolvedAt : affiliateSide.resolvedAt)
-            : null,
-        });
-      }
-      // Keep the same most-recent-first ordering the ledger promises.
-      merged.sort((x, y) => new Date(y.requestedAt).getTime() - new Date(x.requestedAt).getTime());
-      return merged;
-    }
-
-    const mergedHistoricalRows = mergeSameBatchHistoricalRows(historicalRows);
-
     // Live rows (current, still-open month) lead the ledger, then any
     // released-but-not-yet-queued balances split into "ON_HOLD"
-    // (Category A, still under the $30 minimum) and "SCHEDULED"
-    // (Category B, crossed $30 and ready) — see getPendingUnqueuedRows,
-    // this is what closes the "a real payout is missing" gap — then
-    // every real payout ever queued, most recent first — the same
-    // rolling live → pending → paid pattern as the author-facing
-    // Payout Settings page, just across every account instead of just
-    // one.
+    // (Category A — shown as "Rolled", still under the $30 minimum) and
+    // "SCHEDULED" (Category B, crossed $30 and ready) — see
+    // getPendingUnqueuedRows, this is what closes the "a real payout is
+    // missing" gap — then every real payout ever queued, most recent
+    // first — the same rolling live → pending → paid pattern as the
+    // author-facing Payout Settings page, just across every account
+    // instead of just one.
     const liveRows = await getLiveMonthRows();
     const pendingRows = await getPendingUnqueuedRows();
-    return [...liveRows, ...pendingRows, ...mergedHistoricalRows];
+
+    // ROOT-CAUSE FIX + FINAL GUARANTEE (Amendment 4, the duplicate
+    // "otieno29" rows). This used to merge only same-day, same-status
+    // AUTHOR+AFFILIATE pairs of REAL rows, and nothing at all across the
+    // three row sources, so an account could still appear twice with
+    // identical figures: (1) two real payouts of the same type (a double
+    // click / race / repeated run — only a pair of DIFFERENT types was
+    // ever merged, and a third row blocked even that); (2) a REJECTED
+    // payout next to the synthetic row carrying the very money that
+    // rolled back from it; (3) a legacy PROCESSING payout next to a
+    // synthetic row for the same money; (4) rows whose statuses had
+    // diverged. consolidateLedgerRows (lib/payout-ledger-dedupe.ts) now
+    // runs over EVERYTHING and guarantees at most one row per
+    // (userId, period); if it ever has to collapse a genuine duplicate it
+    // is reported, so the underlying data problem is not silently
+    // papered over.
+    const { rows, events } = consolidateLedgerRows([...liveRows, ...pendingRows, ...historicalRows]);
+    const suspicious = events.filter((e) => e.suspicious);
+    if (suspicious.length > 0) {
+      await reportSystemError("PAYOUT", new Error("Payout ledger had to collapse duplicate rows for the same account and period"), {
+        action: "getPayoutLedger",
+        duplicates: suspicious.slice(0, 20),
+        totalDuplicateGroups: suspicious.length,
+      });
+    }
+    return rows;
   } catch (e) {
     // Surfaced on the page as a readable message instead of a generic
     // Next.js crash screen — see app/admin/payouts/page.tsx. Most

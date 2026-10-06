@@ -1,8 +1,11 @@
 import { redirect, notFound } from "next/navigation";
 import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
-import { getUserDetail } from "@/actions/users-admin";
+import { getUserDetail, getUserActivityLog } from "@/actions/users-admin";
+import { getUserAdminProfile } from "@/actions/users-admin-details";
 import { EditUserForm } from "./EditUserForm";
+import { UserAdminDetails } from "./UserAdminDetails";
+import { UserActivityLog } from "../UserActivityLog";
 
 export default async function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await authAdmin();
@@ -12,6 +15,8 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const user = await getUserDetail(id);
   if (!user) notFound();
+  const adminProfile = await getUserAdminProfile(id);
+  const activity = await getUserActivityLog(id);
 
   return (
     <AdminShell role="ADMIN" activeKey="users" displayName={session.user.name ?? ""}>
@@ -25,7 +30,15 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
           </p>
         </div>
       </div>
+      {adminProfile && <UserAdminDetails profile={adminProfile} country={{ name: user.country, source: user.countrySource }} />}
       <EditUserForm user={user} isSelf={user.id === session.user.id} />
+      <div className="map-card" style={{ padding: 20, marginTop: 20 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 400, marginBottom: 4 }}>Activity log</h3>
+        <p style={{ fontSize: 12.5, color: "var(--admin-text-faint)", marginBottom: 14 }}>
+          Latest 200 events shown. The CSV download contains the full log (up to 5,000 events).
+        </p>
+        <UserActivityLog entries={activity} userId={user.id} />
+      </div>
     </AdminShell>
   );
 }

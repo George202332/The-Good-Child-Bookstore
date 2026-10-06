@@ -76,3 +76,45 @@ export function nextReleaseDate(lines: WalletShareLine[]): Date | null {
   }
   return earliest;
 }
+
+/** The minimal shape of a PayoutRequest this file needs. */
+export interface PayoutAmountLike {
+  status: string;
+  amount: unknown;
+  /** "AUTHOR" or "AFFILIATE" — rows created before this field existed
+   * default to "AUTHOR" in the database, so a missing value is treated
+   * the same way here. */
+  earningsType?: string;
+}
+
+/**
+ * How much of ONE wallet (author royalties, or affiliate earnings) has
+ * already been paid out, and how much is queued/in flight, for the
+ * payout requests of a single user.
+ *
+ * Every wallet screen, queueDuePayouts, payScheduledBalance and the
+ * admin ledger now share this one function. Before it existed, three of
+ * those four netted EVERY payout of the user against EACH wallet
+ * regardless of earningsType (so for an account that is both an author
+ * and an affiliate, a payout from one wallet reduced the other wallet
+ * too), while the admin ledger filtered by type — the two disagreed,
+ * which is how the ledger could show a "Scheduled" balance that the pay
+ * action then refused as "under $30". PROCESSING (a legacy in-flight
+ * status, see the PayoutStatus enum) counts as pending, not as nothing:
+ * leaving it out let the same money show up a second time as a
+ * synthetic Scheduled row next to the real queued one.
+ */
+export function summarizePayouts(
+  payouts: PayoutAmountLike[],
+  earningsType: "AUTHOR" | "AFFILIATE"
+): { paidOut: number; pending: number } {
+  let paidOut = 0;
+  let pending = 0;
+  for (const p of payouts) {
+    if ((p.earningsType ?? "AUTHOR") !== earningsType) continue;
+    const amount = Number(p.amount);
+    if (p.status === "PAID") paidOut += amount;
+    else if (p.status === "REQUESTED" || p.status === "APPROVED" || p.status === "PROCESSING") pending += amount;
+  }
+  return { paidOut, pending };
+}

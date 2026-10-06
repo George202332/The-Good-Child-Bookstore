@@ -9,7 +9,7 @@ import { buildPayoutStatementPdf } from "@/lib/pdf/payout-statement";
  * Downloads a single month's payout statement as a PDF, matching the
  * reference statement format exactly (see lib/pdf/payout-statement.ts).
  * ?month=YYYY-MM identifies which month; defaults to the signed-in
- * reader/author/affiliate's own data. An Admin or Accountant (signed in
+ * reader/author/affiliate's own data. An Admin, Accountant or Investor (signed in
  * through the separate backend session — see lib/auth-admin.ts) may
  * instead pass ?userId= to pull a SPECIFIC other account's statement —
  * this is what powers the "Report" download button on the admin Payout
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const requestedUserId = req.nextUrl.searchParams.get("userId");
   if (requestedUserId && requestedUserId !== session.user.id) {
     const role = adminSession?.user?.role;
-    if (role !== "ADMIN" && role !== "ACCOUNTANT") {
+    if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "INVESTOR") {
       return NextResponse.json({ error: "Not authorized to view another account's payout report." }, { status: 403 });
     }
     targetUserId = requestedUserId;

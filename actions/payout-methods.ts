@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { isPayoutMethodLocked, payoutLockMessage } from "@/lib/payout-lock";
+import { getSiteSettings } from "@/actions/site-settings";
+import { isPayoutMethodTypeAvailable, PAYOUT_METHOD_UNAVAILABLE_MESSAGE } from "@/lib/payout-method-availability";
 import { isPayoutRestrictedCountry, payoutRestrictionMessage } from "@/lib/payout-country-restriction";
 
 /**
@@ -37,6 +39,13 @@ async function requirePayoutEligibleUser(): Promise<{ userId: string; country: s
   }
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { country: true } });
   return { userId: session.user.id, country: user?.country ?? null };
+}
+
+/** Server-side check that a method type is currently selectable (admin
+ * toggles in Site Settings; bank transfer is always allowed). */
+async function isMethodTypeAvailableNow(type: string): Promise<boolean> {
+  const settings = await getSiteSettings();
+  return isPayoutMethodTypeAvailable(type, settings);
 }
 
 export async function listMyPayoutMethods(): Promise<PayoutMethodRow[]> {
@@ -90,6 +99,7 @@ export async function addPayoutMethod(input: AddPayoutMethodInput): Promise<{ ok
   if (!input.accountHolderName.trim()) return { ok: false, error: "Account holder name is required." };
   if (!input.currency.trim()) return { ok: false, error: "Currency is required." };
   if (!input.type.trim()) return { ok: false, error: "Account type is required." };
+  if (!(await isMethodTypeAvailableNow(input.type))) return { ok: false, error: PAYOUT_METHOD_UNAVAILABLE_MESSAGE };
 
   const existingCount = await prisma.wiseRecipient.count({ where: { userId } });
   await prisma.wiseRecipient.create({
@@ -153,6 +163,10 @@ export async function setActivePayoutMethod(recipientId: string): Promise<{ ok: 
   const recipient = await prisma.wiseRecipient.findUnique({ where: { id: recipientId } });
   if (!recipient || recipient.userId !== userId) return { ok: false, error: "Not found." };
 
+  // Saved PayPal / M-Pesa records are kept, but can't be switched to
+  // while that method is turned off.
+  if (!(await isMethodTypeAvailableNow(recipient.type))) return { ok: false, error: PAYOUT_METHOD_UNAVAILABLE_MESSAGE };
+
   const hasActiveAlready = await prisma.wiseRecipient.findFirst({ where: { userId, isDefault: true } });
   if (hasActiveAlready && hasActiveAlready.id !== recipientId && isPayoutMethodLocked()) {
     return { ok: false, error: payoutLockMessage() };
@@ -205,6 +219,8 @@ export async function updatePayoutMethod(recipientId: string, input: UpdatePayou
 
   const recipient = await prisma.wiseRecipient.findUnique({ where: { id: recipientId } });
   if (!recipient || recipient.userId !== userId) return { ok: false, error: "Not found." };
+
+  if (!(await isMethodTypeAvailableNow(recipient.type))) return { ok: false, error: PAYOUT_METHOD_UNAVAILABLE_MESSAGE };
 
   if (recipient.isDefault && isPayoutMethodLocked()) {
     return { ok: false, error: payoutLockMessage() };

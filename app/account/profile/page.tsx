@@ -6,6 +6,7 @@ import { getMyProfile } from "@/actions/profile";
 import { ProfileForm } from "./ProfileForm";
 import { PaymentDetailsSection } from "./PaymentDetailsSection";
 import { listMyPayoutMethods } from "@/actions/payout-methods";
+import { getSiteSettings } from "@/actions/site-settings";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 
 export default async function ProfilePage() {
@@ -21,6 +22,12 @@ export default async function ProfilePage() {
   const recipients = isPayoutEligible ? await listMyPayoutMethods() : [];
   const user = isPayoutEligible ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { country: true } }) : null;
 
+  const siteSettings = await getSiteSettings();
+  const payoutToggles = {
+    paypalPayoutsEnabled: siteSettings.paypalPayoutsEnabled,
+    mpesaPayoutsEnabled: siteSettings.mpesaPayoutsEnabled,
+  };
+
   return (
     <DashboardShell role={role} activeKey="profile" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
@@ -32,7 +39,7 @@ export default async function ProfilePage() {
       <ProfileForm initial={profile} />
       {isPayoutEligible && (
         <div style={{ marginTop: 20 }}>
-          <PaymentDetailsSection initial={recipients} country={user?.country ?? null} />
+          <PaymentDetailsSection initial={recipients} country={user?.country ?? null} toggles={payoutToggles} />
         </div>
       )}
     </DashboardShell>
