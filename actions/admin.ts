@@ -278,7 +278,7 @@ export async function approvePayoutRequest(payoutId: string | string[]): Promise
     const { payable, blocked } = await splitOutPaidTwins(ids);
     const resolvedAt = new Date();
     const claim = await prisma.payoutRequest.updateMany({
-      where: { id: { in: payable }, status: "REQUESTED" },
+      where: { id: { in: payable }, status: { in: ["REQUESTED", "APPROVED"] } },
       data: { status: "PAID", resolvedAt },
     });
     if (claim.count === 0) {
@@ -308,7 +308,7 @@ export async function approvePayoutRequest(payoutId: string | string[]): Promise
  * returned as `blocked` so the caller can say why nothing was paid.
  */
 async function splitOutPaidTwins(ids: string[]): Promise<{ payable: string[]; blocked: string[] }> {
-  const candidates = await prisma.payoutRequest.findMany({ where: { id: { in: ids }, status: "REQUESTED" } });
+  const candidates = await prisma.payoutRequest.findMany({ where: { id: { in: ids }, status: { in: ["REQUESTED", "APPROVED"] } } });
   const payable: string[] = [];
   const blocked: string[] = [];
   for (const c of candidates) {
@@ -468,7 +468,7 @@ export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: bo
       const { payable } = await splitOutPaidTwins(realIds);
       const resolvedAt = new Date();
       const claim = await prisma.payoutRequest.updateMany({
-        where: { id: { in: payable }, status: "REQUESTED" },
+        where: { id: { in: payable }, status: { in: ["REQUESTED", "APPROVED"] } },
         data: { status: "PAID", resolvedAt },
       });
       if (claim.count > 0) {

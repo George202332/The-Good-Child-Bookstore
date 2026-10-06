@@ -122,7 +122,7 @@ async function getDatabaseHealth(): Promise<HealthCategory> {
       detail:
         unqueuedCount === null
           ? "Couldn't load the payout ledger to check."
-          : `${unqueuedCount} account(s) with a released balance not yet queued into a PayoutRequest — already surfaced on the Payout Requests page as \"Rolled\" (still under the $30 minimum, rolling into next month's cycle) or \"Scheduled\" (crossed $30, ready and waiting to be paid), not a bug by itself.`,
+          : `${unqueuedCount} account(s) with a released balance not yet queued into a PayoutRequest — already surfaced on the Payout Requests page as \"Rolled\" (still under the $30 minimum, rolling into next month's cycle) or \"Pending\" (crossed $30, ready and waiting to be paid), not a bug by itself.`,
     });
   } catch (e) {
     checks.push({ id: "unqueued-balances", label: "Released-but-unqueued payout balances (live)", status: "warning", detail: e instanceof Error ? e.message : "Couldn't check." });

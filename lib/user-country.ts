@@ -59,3 +59,15 @@ export function resolveUserCountry(s: CountrySources): ResolvedCountry | null {
   }
   return null;
 }
+
+/** Turns what a user typed or picked ("Kenya", "ke") into the ISO 3166-1
+ * alpha-2 code stored in User.country. Null when it is not a recognised
+ * country, so callers never overwrite a good code with free text. */
+export function countryToIso2(value: string | null | undefined): string | null {
+  const v = value?.trim();
+  if (!v) return null;
+  const byCode = COUNTRIES.find((c) => c.iso2 === v.toUpperCase());
+  if (byCode) return byCode.iso2;
+  const byName = COUNTRIES.find((c) => c.name.toLowerCase() === v.toLowerCase());
+  return byName ? byName.iso2 : null;
+}

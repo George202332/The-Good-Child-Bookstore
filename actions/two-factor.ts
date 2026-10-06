@@ -13,6 +13,8 @@ import {
   type TwoFactorMethod,
   type TwoFactorStatus,
 } from "@/lib/two-factor";
+import { logSelfServiceEvent, type AuditAction } from "@/lib/audit-log";
+import { TWO_FACTOR_FIELDS, buildChangeMetadata, diffFields } from "@/lib/activity-diff";
 
 /**
  * Server actions for two-factor authentication — the boundary that
@@ -37,7 +39,21 @@ export async function confirmMyTwoFactorSetup(code: string): Promise<{ ok: boole
   const session = await auth();
   if (!session?.user) return { ok: false, error: "Not authorized." };
   if (!code.trim()) return { ok: false, error: "Enter the code from your email or phone." };
-  return confirmTwoFactorSetup(session.user.id, code);
+  const before = await prisma.twoFactorConfig.findUnique({ where: { userId: session.user.id } });
+  const result = await confirmTwoFactorSetup(session.user.id, code);
+  if (result.ok) {
+    const after = await prisma.twoFactorConfig.findUnique({ where: { userId: session.user.id } });
+    const snap = (c: typeof before) => ({ enabled: !!c?.enabled, method: c?.enabled ? c.method : null, phoneNumber: c?.enabled ? c.phoneNumber : null });
+    const wasEnabled = !!before?.enabled;
+    const changes = diffFields(snap(before), snap(after), TWO_FACTOR_FIELDS);
+    const action: AuditAction = wasEnabled ? "TWO_FACTOR_UPDATED" : "TWO_FACTOR_ENABLED";
+    await logSelfServiceEvent(
+      session.user.id,
+      action,
+      buildChangeMetadata(wasEnabled ? "Updated two-factor settings" : "Enabled two-factor authentication", changes)
+    );
+  }
+  return result;
 }
 
 /** Requires the current password, exactly like changing a password —
@@ -53,7 +69,12 @@ export async function disableMyTwoFactor(currentPassword: string): Promise<{ ok:
   const valid = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!valid) return { ok: false, error: "Current password is incorrect." };
 
+  const before = await prisma.twoFactorConfig.findUnique({ where: { userId: session.user.id } });
   await disableTwoFactor(session.user.id);
+  // Only an enabled -> disabled transition is an event.
+  if (before?.enabled) {
+    await logSelfServiceEvent(session.user.id, "TWO_FACTOR_DISABLED", { summary: "Disabled two-factor authentication" });
+  }
   return { ok: true };
 }
 

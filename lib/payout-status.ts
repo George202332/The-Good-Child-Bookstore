@@ -24,13 +24,69 @@ import { releaseDateFor } from "./wallet";
  */
 
 export const ROLLED_LABEL = "Rolled";
+export const LIVE_LABEL = "Live";
+export const PENDING_LABEL = "Pending";
+export const PAID_LABEL = "Paid";
+export const REJECTED_LABEL = "Rejected";
 
 export const ROLLED_HELP = `Under $${MIN_PAYOUT_AMOUNT}, so this balance rolls into next month's payout cycle`;
+export const LIVE_HELP = "The current cycle's accumulating total, including any amount rolled over from earlier months. It keeps growing as sales land.";
+export const PENDING_HELP = `The cycle has closed and the balance is at least $${MIN_PAYOUT_AMOUNT}. It is released and waiting to be paid, due by the 15th.`;
 
-/** Pill colours for "Rolled" — a muted violet, deliberately distinct
- * from Live (blue), Paid (green) and Pending/Queued (amber). Shared so
- * the table pill and the PDF/author page can't disagree. */
-export const ROLLED_PILL_STYLE = { background: "rgba(108,84,160,0.16)", color: "#4B3A85" } as const;
+/**
+ * THE payout lifecycle, as users see it:
+ *
+ *   Rolled  -> a closed balance under $30, carried into the next cycle
+ *   Live    -> the current cycle's accumulating total, always including
+ *              anything rolled in, updating in real time
+ *   Pending -> the cycle has closed (and the balance is $30 or more):
+ *              released, awaiting actual payment
+ *   Paid / Rejected -> settled
+ *
+ * These are USER-FACING words only. The internal ledger statuses
+ * (LIVE, ON_HOLD, SCHEDULED, REQUESTED, APPROVED, PROCESSING, PAID,
+ * REJECTED — and the database PayoutStatus enum) are unchanged; every
+ * surface maps them to a PayoutStatusKey through ledgerStatusKey() or
+ * authorStatusKey() below and takes its label, help text and colours
+ * from the ONE table here.
+ */
+export type PayoutStatusKey = "live" | "rolled" | "pending" | "paid" | "rejected";
+
+export const PAYOUT_STATUS_LABELS: Record<PayoutStatusKey, string> = {
+  live: LIVE_LABEL,
+  rolled: ROLLED_LABEL,
+  pending: PENDING_LABEL,
+  paid: PAID_LABEL,
+  rejected: REJECTED_LABEL,
+};
+
+export const PAYOUT_STATUS_HELP: Record<PayoutStatusKey, string> = {
+  live: LIVE_HELP,
+  rolled: ROLLED_HELP,
+  pending: PENDING_HELP,
+  paid: "The transfer has gone out.",
+  rejected: "This payout was declined. Its money rolls back into the balance.",
+};
+
+/** One pill style per status. Rolled is a solid bright cyan with dark
+ * text (about 9:1 contrast), deliberately not purple and not shared
+ * with any other status: Live is blue, Paid green, Pending amber,
+ * Rejected grey. A solid fill keeps it legible on both the light
+ * author pages and the dark admin theme. */
+export const PAYOUT_STATUS_PILL_STYLES: Record<PayoutStatusKey, { background: string; color: string }> = {
+  live: { background: "rgba(36,81,183,0.14)", color: "#1B3C8F" },
+  rolled: { background: "#22D3EE", color: "#083344" },
+  pending: { background: "rgba(196,120,20,0.18)", color: "#B4650F" },
+  paid: { background: "rgba(31,107,72,0.15)", color: "#165236" },
+  rejected: { background: "rgba(107,115,133,0.15)", color: "#A6AEC2" },
+};
+
+/** The Rolled pill, kept as its own export for existing imports. */
+export const ROLLED_PILL_STYLE = PAYOUT_STATUS_PILL_STYLES.rolled;
+
+/** The same Rolled colour for PDFs, as 0-1 RGB components (a darker
+ * cyan than the pill so the text stays readable on the cream page). */
+export const ROLLED_PDF_RGB: readonly [number, number, number] = [0.03, 0.41, 0.52];
 
 function cents(n: number): number {
   return Math.round(n * 100);
@@ -57,23 +113,83 @@ export function isRolledLedgerStatus(status: string): boolean {
   return status === "ON_HOLD";
 }
 
-/** One label function for the admin ledger table (and anything that
- * wants the same words). Mirrors the historic wording exactly, with
- * Category A rows now reading "Rolled". */
+/** Maps an internal ledger status to the user-facing lifecycle key.
+ *   LIVE                          -> live
+ *   ON_HOLD                       -> rolled
+ *   SCHEDULED, REQUESTED, APPROVED
+ *   and any other open request     -> pending
+ *   PAID                          -> paid
+ *   REJECTED                      -> rejected */
+export function ledgerStatusKey(status: string, paid: boolean): PayoutStatusKey {
+  if (status === "LIVE") return "live";
+  if (paid || status === "PAID") return "paid";
+  if (status === "REJECTED") return "rejected";
+  if (isRolledLedgerStatus(status)) return "rolled";
+  return "pending"; // SCHEDULED, or a real PayoutRequest awaiting manual payment.
+}
+
+/** One label function for the admin ledger table, its filters and
+ * anything that wants the same words. */
 export function ledgerStatusLabel(status: string, paid: boolean): string {
-  if (status === "LIVE") return "On Hold";
-  if (paid) return "Paid";
-  if (status === "REJECTED") return "Rejected";
-  if (isRolledLedgerStatus(status)) return ROLLED_LABEL;
-  if (status === "SCHEDULED") return "Scheduled";
-  return "Queued"; // REQUESTED / APPROVED — a real PayoutRequest awaiting manual payment.
+  return PAYOUT_STATUS_LABELS[ledgerStatusKey(status, paid)];
+}
+
+export function ledgerStatusHelp(status: string, paid: boolean): string {
+  return PAYOUT_STATUS_HELP[ledgerStatusKey(status, paid)];
+}
+
+export function ledgerStatusPillStyle(status: string, paid: boolean): { background: string; color: string } {
+  return PAYOUT_STATUS_PILL_STYLES[ledgerStatusKey(status, paid)];
+}
+
+/** The author-facing monthly history statuses (lib/payout-monthly.ts)
+ * mapped to the same lifecycle keys. */
+export type AuthorMonthStatus = "Live" | "Paid" | "Pending payout" | "Rolled";
+export function authorStatusKey(status: AuthorMonthStatus): PayoutStatusKey {
+  if (status === "Live") return "live";
+  if (status === "Paid") return "paid";
+  if (status === "Rolled") return "rolled";
+  return "pending";
+}
+export function authorStatusLabel(status: AuthorMonthStatus): string {
+  return PAYOUT_STATUS_LABELS[authorStatusKey(status)];
+}
+export function authorStatusHelp(status: AuthorMonthStatus): string {
+  return PAYOUT_STATUS_HELP[authorStatusKey(status)];
+}
+export function authorStatusPillStyle(status: AuthorMonthStatus): { background: string; color: string } {
+  return PAYOUT_STATUS_PILL_STYLES[authorStatusKey(status)];
+}
+
+/** The status filter options shared by every status dropdown. `value`
+ * is the lifecycle key; use ledgerStatusKey() to test a row. */
+export const PAYOUT_STATUS_FILTER_OPTIONS: { value: PayoutStatusKey; label: string }[] = [
+  { value: "live", label: LIVE_LABEL },
+  { value: "rolled", label: ROLLED_LABEL },
+  { value: "pending", label: PENDING_LABEL },
+  { value: "paid", label: PAID_LABEL },
+  { value: "rejected", label: REJECTED_LABEL },
+];
+
+/** The ColHelp text for the admin Status column. */
+export const STATUS_COLUMN_HELP =
+  `Rolled means a closed balance is still under the $${MIN_PAYOUT_AMOUNT} minimum, so it is carried into the next cycle. ` +
+  `Live means the current cycle is still accumulating; its total always includes anything rolled in and keeps growing as sales land. ` +
+  `Pending means the cycle has closed with $${MIN_PAYOUT_AMOUNT} or more, so the money is released and waiting to be paid (due by the 15th), whether or not a payout request has been queued yet. ` +
+  `Paid means the transfer has gone out. Rejected means it was declined.`;
+
+/** The unpaid, payable internal statuses: an unqueued released balance
+ * (SCHEDULED) or a real queued request (REQUESTED / APPROVED). Both read
+ * "Pending" to users. */
+export function isPendingPaymentStatus(status: string): boolean {
+  return status === "SCHEDULED" || status === "REQUESTED" || status === "APPROVED";
 }
 
 /** Whether a ledger row may ever be picked for "Mark as Paid" or put in
  * the payout export. A Rolled row is NOT payable — it is
  * under the minimum, so paying it would break the $30 rule. */
 export function isLedgerRowPayable(status: string): boolean {
-  return status === "REQUESTED" || status === "SCHEDULED";
+  return isPendingPaymentStatus(status);
 }
 
 // ---------------------------------------------------------------------------
@@ -156,4 +272,79 @@ export function resolveMonthlyRollover(months: MonthlyAmounts[], now: Date): Map
     }
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// The author's LIVE total = current cycle + rolled-over balance
+// ---------------------------------------------------------------------------
+
+export interface LiveTotal {
+  /** What the still-open cycle has accumulated on its own. */
+  currentCycle: number;
+  /** Released, unpaid balances that are still under $30 (the Rolled
+   * amount), folded into the live figure. */
+  rolledOver: number;
+  /** currentCycle + rolledOver: the ONE live figure shown to the author. */
+  total: number;
+}
+
+/**
+ * The amount of a wallet that counts as "rolled over": its released,
+ * unpaid, unqueued balance (lib/wallet.ts `available`) when it is
+ * still under the $30 minimum. At $30 or more the balance is Pending
+ * (it will be paid), not rolled; at 0 there is nothing to roll. The $30
+ * test is per wallet, exactly as in actions/payouts.ts.
+ *
+ * Because `available` is already net of everything paid or queued,
+ * paying a balance drops it to 0 here, so a paid amount is never
+ * counted again in the live total.
+ */
+export function rolledOverOf(walletAvailable: number): number {
+  return isUnderMinimum(walletAvailable) ? Math.round(walletAvailable * 100) / 100 : 0;
+}
+
+/** Live total for an author/affiliate: the current cycle's accumulating
+ * amount plus the rolled-over balance of every wallet involved. Pure. */
+export function computeLiveTotal(input: { currentCycle: number; walletAvailables: number[] }): LiveTotal {
+  const currentCycle = Math.round(input.currentCycle * 100) / 100;
+  const rolledOver = Math.round(input.walletAvailables.reduce((sum, a) => sum + rolledOverOf(a) * 100, 0)) / 100;
+  return { currentCycle, rolledOver, total: Math.round((currentCycle + rolledOver) * 100) / 100 };
+}
+
+/** The small note under the live figure, or null when nothing rolled. */
+export function rolledOverNote(rolledOver: number): string | null {
+  return cents(rolledOver) > 0 ? `includes $${rolledOver.toFixed(2)} rolled over from earlier months` : null;
+}
+
+/**
+ * How much balance rolled over INTO a given month's payout statement:
+ * the amounts of the earlier months carried into it.
+ *   - the current (Live) month: every earlier closed month that is
+ *     still Rolled (they fold into the live total);
+ *   - a closed month released together with earlier rolled months: those
+ *     earlier months (their releasedWithMonthKey is this month);
+ *   - a closed month that is itself still Rolled: the earlier months
+ *     still Rolled alongside it (the running balance it carries);
+ *   - otherwise 0.
+ * Pure: `now` is a parameter. Uses resolveMonthlyRollover, so it follows
+ * exactly the same rule as the Rolled status everywhere else.
+ */
+export function rolloverIntoMonth(targetMonthKey: string, months: MonthlyAmounts[], now: Date): number {
+  const resolution = resolveMonthlyRollover(months, now);
+  const target = months.find((m) => m.monthKey === targetMonthKey);
+  if (!target) return 0;
+  const targetIsLive = !resolution.has(targetMonthKey);
+  const targetResolution = resolution.get(targetMonthKey);
+  let sum = 0;
+  for (const m of months) {
+    if (m.monthKey >= targetMonthKey) continue;
+    const r = resolution.get(m.monthKey);
+    if (!r) continue;
+    const carried =
+      (targetIsLive && r.rolled) ||
+      (!targetIsLive && r.releasedWithMonthKey === targetMonthKey) ||
+      (!targetIsLive && targetResolution?.rolled === true && r.rolled);
+    if (carried) sum += cents(m.author) + cents(m.affiliate);
+  }
+  return sum / 100;
 }

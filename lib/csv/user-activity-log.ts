@@ -12,6 +12,8 @@
  * the cell when it holds a comma, quote or line break.
  */
 
+import { changeEventLines } from "../activity-diff";
+
 export interface ActivityLogCsvRow {
   id: string;
   action: string;
@@ -32,6 +34,19 @@ export const ACTIVITY_LOG_ACTION_LABELS: Record<string, string> = {
   ACCOUNT_REACTIVATED: "Account reactivated",
   DELETE_TRANSACTION: "Deleted a transaction",
   RESET_ALL_ORDERS: "Reset all orders",
+  PROFILE_UPDATED: "Updated profile",
+  AUTHOR_PROFILE_UPDATED: "Updated author profile",
+  ADDRESS_ADDED: "Added an address",
+  ADDRESS_REMOVED: "Removed an address",
+  ADDRESS_DEFAULT_CHANGED: "Changed default address",
+  PASSWORD_CHANGED: "Changed password",
+  TWO_FACTOR_ENABLED: "Enabled two-factor authentication",
+  TWO_FACTOR_UPDATED: "Updated two-factor settings",
+  TWO_FACTOR_DISABLED: "Disabled two-factor authentication",
+  PAYOUT_METHOD_ADDED: "Added a payout method",
+  PAYOUT_METHOD_UPDATED: "Updated payout details",
+  PAYOUT_METHOD_REMOVED: "Removed a payout method",
+  PAYOUT_METHOD_ACTIVATED: "Changed active payout method",
 };
 
 export const ACTIVITY_LOG_CSV_HEADER = [
@@ -65,10 +80,16 @@ function text(v: unknown): string {
 
 function describe(action: string, m: Record<string, unknown>): string {
   if (action === "ROLE_CHANGED" && m.fromRole && m.toRole) return `${String(m.fromRole)} -> ${String(m.toRole)}`;
+  // Self-service edits: the summary line followed by one "field: old -> new"
+  // per changed field (account numbers / SWIFT / phones already masked,
+  // passwords etc. never carry values — see lib/activity-diff.ts).
+  const lines = changeEventLines(m);
+  if (lines.length) return lines.join(" | ");
+  if (typeof m.summary === "string") return m.summary;
   return "";
 }
 
-const KNOWN_KEYS = new Set(["ip", "userAgent", "fromRole", "toRole", "performedBy"]);
+const KNOWN_KEYS = new Set(["ip", "userAgent", "fromRole", "toRole", "performedBy", "summary"]);
 
 function safeTimestamp(d: Date): string {
   return Number.isNaN(d.getTime()) ? "" : d.toISOString();

@@ -1,18 +1,10 @@
 "use client";
 
 import type { UserActivityLogEntry } from "@/actions/users-admin";
+import { ACTIVITY_LOG_ACTION_LABELS } from "@/lib/csv/user-activity-log";
+import { changeEventLines } from "@/lib/activity-diff";
 
-const ACTION_LABELS: Record<string, string> = {
-  LOGIN: "Signed in",
-  LOGIN_FAILED: "Failed sign-in attempt",
-  PASSWORD_RESET_REQUESTED: "Requested a password reset",
-  PASSWORD_RESET_COMPLETED: "Completed a password reset",
-  ROLE_CHANGED: "Role changed",
-  ACCOUNT_SUSPENDED: "Account suspended",
-  ACCOUNT_REACTIVATED: "Account reactivated",
-  DELETE_TRANSACTION: "Deleted a transaction",
-  RESET_ALL_ORDERS: "Reset all orders",
-};
+const ACTION_LABELS = ACTIVITY_LOG_ACTION_LABELS;
 
 const ACTION_COLOR: Record<string, string> = {
   LOGIN: "var(--mint-deep, #2f9e6b)",
@@ -22,6 +14,13 @@ const ACTION_COLOR: Record<string, string> = {
   ROLE_CHANGED: "var(--coral-deep, #d9662f)",
   ACCOUNT_SUSPENDED: "var(--admin-danger, #d9534f)",
   ACCOUNT_REACTIVATED: "var(--mint-deep, #2f9e6b)",
+  PASSWORD_CHANGED: "var(--coral-deep, #d9662f)",
+  TWO_FACTOR_DISABLED: "var(--admin-danger, #d9534f)",
+  TWO_FACTOR_ENABLED: "var(--mint-deep, #2f9e6b)",
+  PAYOUT_METHOD_REMOVED: "var(--admin-danger, #d9534f)",
+  PAYOUT_METHOD_UPDATED: "var(--coral-deep, #d9662f)",
+  PAYOUT_METHOD_ADDED: "var(--coral-deep, #d9662f)",
+  PAYOUT_METHOD_ACTIVATED: "var(--coral-deep, #d9662f)",
 };
 
 function describeMetadata(action: string, metadata: Record<string, unknown> | null): string | null {
@@ -77,6 +76,10 @@ export function UserActivityLog({ entries, userId }: { entries: UserActivityLogE
       {download}
       {entries.map((entry) => {
         const detail = describeMetadata(entry.action, entry.metadata);
+        const changeLines = changeEventLines(entry.metadata);
+        // Self-service entries: summary + field lines. Fall back to a plain
+        // summary for events that carry no field diff (e.g. password change).
+        const summary = changeLines.length === 0 && typeof entry.metadata?.summary === "string" ? entry.metadata.summary : null;
         return (
           <div
             key={entry.id}
@@ -93,6 +96,10 @@ export function UserActivityLog({ entries, userId }: { entries: UserActivityLogE
               <div style={{ fontSize: 13.5, fontWeight: 700, color: ACTION_COLOR[entry.action] ?? "var(--admin-text)" }}>
                 {ACTION_LABELS[entry.action] ?? entry.action}
               </div>
+              {changeLines.map((line, i) => (
+                <div key={i} style={{ fontSize: 12.5, color: i === 0 ? "var(--admin-text)" : "var(--admin-text-faint)", marginTop: 2, wordBreak: "break-word" }}>{line}</div>
+              ))}
+              {summary && <div style={{ fontSize: 12.5, color: "var(--admin-text)", marginTop: 2 }}>{summary}</div>}
               {detail && <div style={{ fontSize: 12, color: "var(--admin-text-faint)", marginTop: 2 }}>{detail}</div>}
             </div>
             <div style={{ fontSize: 12, color: "var(--admin-text-faint)", whiteSpace: "nowrap" }}>

@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { fetchEarningsBreakdown } from "@/lib/earnings-lines";
-import { resolveMonthlyRollover } from "@/lib/payout-status";
+import { resolveMonthlyRollover, rolloverIntoMonth, computeLiveTotal, type LiveTotal, type MonthlyAmounts } from "@/lib/payout-status";
+import { computeWallet, summarizePayouts } from "@/lib/wallet";
+import type { EarningsBreakdown } from "@/lib/earnings-lines-core";
 
 /**
  * The real monthly payout ledger — one row per calendar month that has
@@ -35,6 +37,33 @@ export interface MonthlyPayoutRow {
   // rolls into next month's payout cycle. See lib/payout-status.ts for
   // the one shared definition used by every surface that shows this.
   status: "Live" | "Paid" | "Pending payout" | "Rolled";
+  /** The balance rolled over from earlier months into THIS month's
+   * cycle (see rolloverIntoMonth in lib/payout-status.ts). On the Live
+   * row it is the wallet-based figure folded into the live total; the
+   * earlier months keep their own "Rolled" rows unchanged. The monthly
+   * statement PDF shows it as its first "Rollover" line. */
+  rolloverIn: number;
+  /** Only on the Live row: amount (this cycle) + rolloverIn, the one
+   * combined live figure. */
+  liveTotal?: number;
+}
+
+/**
+ * The live figure for one user: this cycle's accumulating amount plus
+ * whatever is rolled over, per wallet (author = organic royalties,
+ * affiliate = referral + promotion), using the same wallet math as the
+ * wallet cards (lib/wallet.ts) so the two can never disagree.
+ */
+export function liveTotalFor(
+  breakdown: Pick<EarningsBreakdown, "organic" | "referral" | "commission">,
+  payoutRequests: { status: string; amount: unknown; earningsType?: string }[],
+  currentCycle: number
+): LiveTotal {
+  const authorPayouts = summarizePayouts(payoutRequests, "AUTHOR");
+  const affiliatePayouts = summarizePayouts(payoutRequests, "AFFILIATE");
+  const author = computeWallet(breakdown.organic, authorPayouts.paidOut, authorPayouts.pending);
+  const affiliate = computeWallet([...breakdown.referral, ...breakdown.commission], affiliatePayouts.paidOut, affiliatePayouts.pending);
+  return computeLiveTotal({ currentCycle, walletAvailables: [author.available, affiliate.available] });
 }
 
 function monthKeyOf(d: Date): string {
@@ -60,7 +89,8 @@ function currentMonthRange(now: Date): { start: Date; end: Date } {
 export async function computeMonthlyPayoutRows(userId: string): Promise<MonthlyPayoutRow[]> {
   // Same shared fetch used by actions/wallet.ts, lib/compute-wallet-for-user.ts,
   // and actions/payout-ledger.ts — see lib/earnings-lines.ts.
-  const { organic, referral, commission: promotion } = await fetchEarningsBreakdown(userId);
+  const breakdown = await fetchEarningsBreakdown(userId);
+  const { organic, referral, commission: promotion } = breakdown;
   const now = new Date();
   const currentKey = monthKeyOf(now);
 
@@ -85,9 +115,16 @@ export async function computeMonthlyPayoutRows(userId: string): Promise<MonthlyP
   // Which closed months are still under the $30 minimum (Rolled), and
   // which later month's payout carried an earlier rolled month out with
   // it — see resolveMonthlyRollover (lib/payout-status.ts).
-  const rollover = resolveMonthlyRollover(
-    Array.from(months.entries()).map(([key, b]) => ({ monthKey: key, year: b.year, month: b.month, author: b.organic, affiliate: b.referral + b.promotion })),
-    now
+  const monthAmounts: MonthlyAmounts[] = Array.from(months.entries()).map(([key, b]) => ({
+    monthKey: key, year: b.year, month: b.month, author: b.organic, affiliate: b.referral + b.promotion,
+  }));
+  const rollover = resolveMonthlyRollover(monthAmounts, now);
+
+  const currentBucket = months.get(currentKey);
+  const live = liveTotalFor(
+    breakdown,
+    payoutRequests,
+    currentBucket ? currentBucket.organic + currentBucket.referral + currentBucket.promotion : 0
   );
 
   const rows: MonthlyPayoutRow[] = Array.from(months.entries())
@@ -123,6 +160,8 @@ export async function computeMonthlyPayoutRows(userId: string): Promise<MonthlyP
         promotionRevenue: b.promotion,
         payoutDate,
         status,
+        rolloverIn: key === currentKey ? live.rolledOver : rolloverIntoMonth(key, monthAmounts, now),
+        ...(key === currentKey ? { liveTotal: live.total } : {}),
       };
     })
     // Most recent month first — the live, still-accruing row is the one
@@ -136,12 +175,17 @@ export interface PayoutStatCards {
   lifetimePayout: number;
   lastMonth: number;
   nextMonth: number;
+  /** Balance rolled over from earlier months (under $30), included in liveTotal. */
+  rolledOver: number;
+  /** nextMonth + rolledOver: the one combined live figure. */
+  liveTotal: number;
   pendingPayout: number;
   pendingStatus: "Pending" | "Paid";
 }
 
 export async function computePayoutStatCards(userId: string): Promise<PayoutStatCards> {
-  const { organic, referral, commission } = await fetchEarningsBreakdown(userId);
+  const breakdown = await fetchEarningsBreakdown(userId);
+  const { organic, referral, commission } = breakdown;
   const all = [...organic, ...referral, ...commission];
   const now = new Date();
 
@@ -185,5 +229,7 @@ export async function computePayoutStatCards(userId: string): Promise<PayoutStat
     pendingStatus = "Pending";
   }
 
-  return { lifetimePayout, lastMonth: lastMonthPayout, nextMonth, pendingPayout, pendingStatus };
+  const live = liveTotalFor(breakdown, payoutRequests, nextMonth);
+
+  return { lifetimePayout, lastMonth: lastMonthPayout, nextMonth, rolledOver: live.rolledOver, liveTotal: live.total, pendingPayout, pendingStatus };
 }

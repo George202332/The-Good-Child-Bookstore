@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { logSelfServiceEvent } from "@/lib/audit-log";
 
 /** Real password change — Security page, all roles. */
 export async function changeMyPassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
@@ -18,5 +19,7 @@ export async function changeMyPassword(currentPassword: string, newPassword: str
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
   await prisma.user.update({ where: { id: session.user.id }, data: { passwordHash, mustChangePassword: false } });
+  // Event only — never any password value or hash.
+  await logSelfServiceEvent(session.user.id, "PASSWORD_CHANGED", { summary: "Changed account password" });
   return { ok: true };
 }

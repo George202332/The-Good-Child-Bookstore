@@ -8,6 +8,9 @@ import { isPayoutMethodLocked, payoutLockMessage } from "@/lib/payout-lock";
 import { getSiteSettings } from "@/actions/site-settings";
 import { isPayoutMethodTypeAvailable, PAYOUT_METHOD_UNAVAILABLE_MESSAGE } from "@/lib/payout-method-availability";
 import { isPayoutRestrictedCountry, payoutRestrictionMessage } from "@/lib/payout-country-restriction";
+import { logSelfServiceEvent } from "@/lib/audit-log";
+import { payoutMethodLabel } from "@/lib/payout-method-label";
+import { PAYOUT_METHOD_FIELDS, buildChangeMetadata, diffFields, payoutSnapshot } from "@/lib/activity-diff";
 
 /**
  * Manage payout destinations — PayPal, bank transfer, or M-Pesa. Every
@@ -102,7 +105,7 @@ export async function addPayoutMethod(input: AddPayoutMethodInput): Promise<{ ok
   if (!(await isMethodTypeAvailableNow(input.type))) return { ok: false, error: PAYOUT_METHOD_UNAVAILABLE_MESSAGE };
 
   const existingCount = await prisma.wiseRecipient.count({ where: { userId } });
-  await prisma.wiseRecipient.create({
+  const created = await prisma.wiseRecipient.create({
     data: {
       userId,
       type: input.type,
@@ -111,6 +114,16 @@ export async function addPayoutMethod(input: AddPayoutMethodInput): Promise<{ ok
       details: input.details,
       isDefault: existingCount === 0,
     },
+  });
+
+  const addedLabel = payoutMethodLabel(created.type);
+  const addedChanges = diffFields({}, payoutSnapshot(created), PAYOUT_METHOD_FIELDS);
+  await logSelfServiceEvent(userId, "PAYOUT_METHOD_ADDED", {
+    ...(buildChangeMetadata(`Added payout method: ${addedLabel} (${created.currency})`, addedChanges) ?? { summary: `Added payout method: ${addedLabel} (${created.currency})` }),
+    recipientId: created.id,
+    methodType: created.type,
+    methodLabel: addedLabel,
+    isDefault: created.isDefault,
   });
 
   revalidatePath("/account/payout-settings");
@@ -141,6 +154,14 @@ export async function deletePayoutMethod(recipientId: string): Promise<{ ok: boo
   }
 
   await prisma.wiseRecipient.delete({ where: { id: recipientId } });
+  const removedLabel = payoutMethodLabel(recipient.type);
+  await logSelfServiceEvent(userId, "PAYOUT_METHOD_REMOVED", {
+    summary: `Removed payout method: ${removedLabel} (${recipient.currency})`,
+    recipientId,
+    methodType: recipient.type,
+    methodLabel: removedLabel,
+    wasDefault: recipient.isDefault,
+  });
   revalidatePath("/account/payout-settings");
   revalidatePath("/account/profile");
   return { ok: true };
@@ -185,6 +206,18 @@ export async function setActivePayoutMethod(recipientId: string): Promise<{ ok: 
     prisma.wiseRecipient.updateMany({ where: { userId }, data: { isDefault: false } }),
     prisma.wiseRecipient.update({ where: { id: recipientId }, data: { isDefault: true } }),
   ]);
+  // Re-activating the method that is already active changes nothing — no entry.
+  if (!hasActiveAlready || hasActiveAlready.id !== recipientId) {
+    const toLabel = payoutMethodLabel(recipient.type);
+    const fromLabel = hasActiveAlready ? payoutMethodLabel(hasActiveAlready.type) : null;
+    await logSelfServiceEvent(userId, "PAYOUT_METHOD_ACTIVATED", {
+      summary: fromLabel ? `Switched active payout method: ${fromLabel} -> ${toLabel}` : `Set active payout method: ${toLabel}`,
+      recipientId,
+      methodType: recipient.type,
+      methodLabel: toLabel,
+      previousMethodType: hasActiveAlready?.type ?? null,
+    });
+  }
   revalidatePath("/account/payout-settings");
   revalidatePath("/account/profile");
   return { ok: true };
@@ -226,7 +259,7 @@ export async function updatePayoutMethod(recipientId: string, input: UpdatePayou
     return { ok: false, error: payoutLockMessage() };
   }
 
-  await prisma.wiseRecipient.update({
+  const updated = await prisma.wiseRecipient.update({
     where: { id: recipientId },
     data: {
       accountHolderName: input.accountHolderName.trim(),
@@ -234,6 +267,19 @@ export async function updatePayoutMethod(recipientId: string, input: UpdatePayou
       details: input.details,
     },
   });
+
+  // Field-level diff (account numbers / SWIFT / phone are masked inside
+  // diffFields); nothing is written when nothing actually changed.
+  const updatedLabel = payoutMethodLabel(updated.type);
+  await logSelfServiceEvent(
+    userId,
+    "PAYOUT_METHOD_UPDATED",
+    buildChangeMetadata(
+      `Updated payout details (${updatedLabel})`,
+      diffFields(payoutSnapshot(recipient), payoutSnapshot(updated), PAYOUT_METHOD_FIELDS),
+      { recipientId, methodType: updated.type, methodLabel: updatedLabel, isDefault: updated.isDefault }
+    )
+  );
 
   revalidatePath("/account/payout-settings");
   revalidatePath("/account/profile");

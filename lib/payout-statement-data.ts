@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { computeMonthlyPayoutRows } from "@/lib/payout-monthly";
+import { buildRevenueBreakdown } from "@/lib/payout-statement-breakdown";
 
 /**
  * Deliberately does NOT use lib/earnings-lines.ts's shared
@@ -40,6 +41,11 @@ export interface PayoutStatementData {
   affiliateChannelRevenue: number;
   referralCommission: number;
   promotionCommission: number;
+  /** Balance (under $30) carried over from earlier months into this
+   * month's cycle; 0 when there is none. Listed first in the Revenue
+   * Breakdown and included in totalPayout. */
+  rolloverAmount: number;
+  /** Everything above added up, rollover included. */
   totalPayout: number;
   /** Direct Sales: Organic — one row per title, reader found it directly. */
   organicRows: PayoutStatementFormatRow[];
@@ -184,6 +190,7 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
   // table can never disagree — including the "Rolled" status for a
   // closed month whose balance was still under $30 (lib/payout-status.ts).
   const monthlyRow = (await computeMonthlyPayoutRows(userId)).find((r) => r.monthKey === monthKey);
+  const rolloverAmount = monthlyRow?.rolloverIn ?? 0;
   const status: PayoutStatementData["status"] =
     monthlyRow?.status ?? (isCurrentMonth ? "Live" : matching?.status === "PAID" ? "Paid" : "Pending payout");
 
@@ -196,7 +203,8 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
     affiliateChannelRevenue,
     referralCommission,
     promotionCommission,
-    totalPayout: organicRevenue + affiliateChannelRevenue + referralCommission + promotionCommission,
+    rolloverAmount,
+    totalPayout: buildRevenueBreakdown({ organicRevenue, affiliateChannelRevenue, referralCommission, promotionCommission, rolloverAmount }).total,
     organicRows: Array.from(organicByTitle.values()),
     affiliateRows: Array.from(affiliateByTitle.values()),
     referralRows: Array.from(referralByAuthor.values()),

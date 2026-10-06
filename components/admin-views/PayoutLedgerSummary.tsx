@@ -41,12 +41,12 @@ export function PayoutStatCards({ rows }: { rows: PayoutLedgerRow[] }) {
       <div className="stat-card stat-card-total">
         <div className="stat-label">Scheduled</div>
         <div className="stat-value">${totals.categoryB.toFixed(2)}</div>
-        <div className="stat-sub">Crossed $30 — due by the 15th ({totals.categoryBCount})</div>
+        <div className="stat-sub">Pending, due by the 15th ({totals.categoryBCount}): scheduled ${totals.categoryBScheduled.toFixed(2)} + queued ${totals.categoryBQueued.toFixed(2)}</div>
       </div>
       <div className="stat-card stat-card-promotion">
         <div className="stat-label">This Cycle&apos;s New Earnings</div>
         <div className="stat-value">${totals.liveTotal.toFixed(2)}</div>
-        <div className="stat-sub">Current month, not yet released</div>
+        <div className="stat-sub">Live: current month, not yet released</div>
       </div>
       <div className="stat-card stat-card-referral">
         <div className="stat-label">Average Payout</div>

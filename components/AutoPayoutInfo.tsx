@@ -1,3 +1,5 @@
+import { rolledOverNote } from "@/lib/payout-status";
+
 /**
  * Replaces the old "click to request a payout" button — nothing needs
  * to be manually requested. Everything earned in a calendar month is
@@ -19,11 +21,20 @@ export function AutoPayoutInfo({
   onHold,
   available,
   hasRecipient,
+  rolledOver = 0,
 }: {
+  /** The current cycle's accumulating amount. */
   onHold: number;
+  /** Released, unpaid money (Pending, or Rolled while under $30). */
   available: number;
   hasRecipient: boolean;
+  /** The part of `available` that is Rolled (under $30). It is folded
+   * into the live figure and so is not counted again as available. */
+  rolledOver?: number;
 }) {
+  const liveTotal = onHold + rolledOver;
+  const note = rolledOverNote(rolledOver);
+  const pendingAvailable = Math.max(0, available - rolledOver);
   return (
     <div className="form-section" style={{ background: "var(--cream)" }}>
       <h3 style={{ fontSize: 15, marginBottom: 8 }}>How payouts work now</h3>
@@ -38,17 +49,18 @@ export function AutoPayoutInfo({
         </p>
       ) : (
         <>
-          {onHold > 0 && (
+          {liveTotal > 0 && (
             <div style={{ fontSize: 13.5, marginBottom: 6 }}>
-              <strong>${onHold.toFixed(2)}</strong> is still on hold.
+              <strong>${liveTotal.toFixed(2)}</strong> is live and still growing.
+              {note && <span style={{ color: "var(--ink-faint)" }}> ({note})</span>}
             </div>
           )}
-          {available > 0 ? (
+          {pendingAvailable > 0 ? (
             <div style={{ fontSize: 13.5 }}>
-              <strong>${available.toFixed(2)}</strong> is confirmed and will be released by the 15th.
+              <strong>${pendingAvailable.toFixed(2)}</strong> is pending and will be released by the 15th.
             </div>
           ) : (
-            <div style={{ fontSize: 13.5, color: "var(--ink-faint)" }}>Nothing is available for payout yet.</div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-faint)" }}>Nothing is pending payout yet.</div>
           )}
         </>
       )}

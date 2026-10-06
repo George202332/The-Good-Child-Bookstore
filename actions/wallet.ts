@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { computeWallet, nextReleaseDate, summarizePayouts, type Wallet } from "@/lib/wallet";
 import { fetchEarningsBreakdown, linesForView } from "@/lib/earnings-lines";
+import { computeLiveTotal } from "@/lib/payout-status";
 
 /**
  * Real wallet balance (On Hold / Available) for the signed-in author or
@@ -19,9 +20,15 @@ export interface WalletResult extends Wallet {
   /** The earliest date any of this wallet's on-hold earnings become
    * available — null if nothing is currently on hold. */
   nextReleaseDate: string | null;
+  /** Released, unpaid balance still under the $30 minimum (the Rolled
+   * amount) — folded into liveTotal below, never shown twice. */
+  rolledOver: number;
+  /** The live figure: the current cycle's accumulating amount (onHold)
+   * PLUS rolledOver. See computeLiveTotal in lib/payout-status.ts. */
+  liveTotal: number;
 }
 
-const EMPTY_WALLET: WalletResult = { totalEarned: 0, onHold: 0, available: 0, saleCount: 0, nextReleaseDate: null };
+const EMPTY_WALLET: WalletResult = { totalEarned: 0, onHold: 0, available: 0, saleCount: 0, nextReleaseDate: null, rolledOver: 0, liveTotal: 0 };
 
 /**
  * Real wallet balance (On Hold / Available) for the signed-in user's
@@ -47,7 +54,14 @@ export async function getMyWallet(perspective?: "author" | "affiliate"): Promise
 
     const wallet = computeWallet(lines, paidOut, pending);
     const releaseDate = nextReleaseDate(lines);
-    return { ...wallet, saleCount: lines.length, nextReleaseDate: releaseDate ? releaseDate.toISOString() : null };
+    const live = computeLiveTotal({ currentCycle: wallet.onHold, walletAvailables: [wallet.available] });
+    return {
+      ...wallet,
+      saleCount: lines.length,
+      nextReleaseDate: releaseDate ? releaseDate.toISOString() : null,
+      rolledOver: live.rolledOver,
+      liveTotal: live.total,
+    };
   } catch {
     return EMPTY_WALLET;
   }
