@@ -121,7 +121,7 @@ export default async function HomePage() {
       },
     });
     if (Array.isArray(result)) {
-      const candidates: HomeBlogPost[] = result.map((r: HomeBlogPost & { _count: { comments: number; reads: number } }) => ({
+      const candidates: HomeBlogPost[] = result.map((r) => ({
         slug: r.slug, title: r.title, content: r.content, shortSummary: r.shortSummary,
         coverImageUrl: r.coverImageUrl, imageAltText: r.imageAltText,
         authorFirstName: r.authorFirstName, authorLastName: r.authorLastName,
