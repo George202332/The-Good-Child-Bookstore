@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
+import { ROLLED_LABEL, ROLLED_HELP } from "@/lib/payout-status";
 import { readFile } from "fs/promises";
 import path from "path";
 import type { PayoutStatementData, PayoutStatementFormatRow } from "../payout-statement-data";
@@ -25,6 +26,7 @@ const CREAM = rgb(0.980, 0.965, 0.941); // report background, per explicit instr
 const PAID_GREEN = rgb(0.12, 0.42, 0.28);
 const PENDING_AMBER = rgb(0.54, 0.35, 0.04);
 const LIVE_BLUE = rgb(0.14, 0.32, 0.72);
+const ROLLED_VIOLET = rgb(0.294, 0.227, 0.522); // matches ROLLED_PILL_STYLE in lib/payout-status.ts
 
 function money(n: number): string {
   return `$${n.toFixed(2)}`;
@@ -187,8 +189,8 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
   text(data.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), col3, y - 30, { size: 10 });
   text("STATUS", col2, y - 52, { font: bold, size: 8, color: INK_SOFT });
   text("AUTHOR", col3, y - 52, { font: bold, size: 8, color: INK_SOFT });
-  const statusLabel = data.status === "Live" ? "Live" : data.status === "Paid" ? "Paid" : "Pending";
-  const statusColor = data.status === "Live" ? LIVE_BLUE : data.status === "Paid" ? PAID_GREEN : PENDING_AMBER;
+  const statusLabel = data.status === "Live" ? "Live" : data.status === "Paid" ? "Paid" : data.status === "Rolled" ? ROLLED_LABEL : "Pending";
+  const statusColor = data.status === "Live" ? LIVE_BLUE : data.status === "Paid" ? PAID_GREEN : data.status === "Rolled" ? ROLLED_VIOLET : PENDING_AMBER;
   text(statusLabel, col2, y - 66, { font: bold, size: 10, color: statusColor });
   text(data.authorName, col3, y - 66, { size: 10 });
   y -= boxH + 26;
@@ -207,7 +209,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
       ["Referral commission", "Your tiered commission on the company's revenue from authors you referred", money(data.referralCommission)],
       ["Promotion commission", "Commission on copies sold via your promotional links", money(data.promotionCommission)],
     ],
-    [{ label: "TOTAL PAYOUT", sub: `Payable on ${data.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, value: money(data.totalPayout) }]
+    [{ label: "TOTAL PAYOUT", sub: data.status === "Rolled" ? ROLLED_HELP : `Payable on ${data.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, value: money(data.totalPayout) }]
   );
 
   // ---- Four independent sections ----

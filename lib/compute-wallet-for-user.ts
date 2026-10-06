@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { computeWallet } from "@/lib/wallet";
+import { computeWallet, summarizePayouts } from "@/lib/wallet";
 import { fetchEarningsBreakdown, linesForView } from "@/lib/earnings-lines";
 
 /**
@@ -16,12 +16,9 @@ export async function computeWalletForUserId(userId: string, view: "author" | "a
     const lines = linesForView(breakdown, view);
 
     const payouts = await prisma.payoutRequest.findMany({ where: { userId } });
-    const paidOut = payouts
-      .filter((p: { status: string }) => p.status === "PAID")
-      .reduce((sum: number, p: { amount: unknown }) => sum + Number(p.amount), 0);
-    const pending = payouts
-      .filter((p: { status: string }) => p.status === "REQUESTED" || p.status === "APPROVED")
-      .reduce((sum: number, p: { amount: unknown }) => sum + Number(p.amount), 0);
+    // Only THIS wallet's own payouts are netted against it (see
+    // summarizePayouts in lib/wallet.ts for why).
+    const { paidOut, pending } = summarizePayouts(payouts, view === "author" ? "AUTHOR" : "AFFILIATE");
 
     return { available: computeWallet(lines, paidOut, pending).available };
   } catch {

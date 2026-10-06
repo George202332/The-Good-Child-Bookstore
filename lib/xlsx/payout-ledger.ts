@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
+import { ROLLED_LABEL, isRolledLedgerStatus } from "@/lib/payout-status";
 
 /**
  * Excel (.xlsx) export of the admin payout ledger — item 14's "add
@@ -66,7 +67,7 @@ export async function buildPayoutLedgerXlsx(rows: PayoutLedgerRow[]): Promise<Bu
       referralEarnings: r.referralEarnings,
       commissionEarnings: r.commissionEarnings,
       combinedTotal: r.combinedTotal,
-      status: r.status === "LIVE" ? "Live" : r.paid ? "Paid" : r.status === "REJECTED" ? "Rejected" : r.status === "ON_HOLD" ? "On Hold" : r.status === "SCHEDULED" ? "Scheduled" : "Pending",
+      status: r.status === "LIVE" ? "Live" : r.paid ? "Paid" : r.status === "REJECTED" ? "Rejected" : isRolledLedgerStatus(r.status) ? ROLLED_LABEL : r.status === "SCHEDULED" ? "Scheduled" : "Pending",
       reportMonthKey: r.reportMonthKey,
       requestedAt: r.status === "LIVE" || r.status === "ON_HOLD" || r.status === "SCHEDULED" ? "Not yet queued" : new Date(r.requestedAt).toLocaleDateString("en-US"),
       resolvedAt: r.resolvedAt ? new Date(r.resolvedAt).toLocaleDateString("en-US") : "",

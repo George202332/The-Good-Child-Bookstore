@@ -61,6 +61,7 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
   const [bankInstitution, setBankInstitution] = useState((bank?.details.bankName as string) ?? "");
   const [bankAccountNumber, setBankAccountNumber] = useState((bank?.details.accountNumber as string) ?? "");
   const [bankSwiftCode, setBankSwiftCode] = useState((bank?.details.swiftOrRoutingCode as string) ?? "");
+  const [bankIntermediary, setBankIntermediary] = useState((bank?.details.intermediaryBank as string) ?? "");
   const [bankCurrency, setBankCurrency] = useState(bank?.currency ?? "USD");
 
   const [mpesaName, setMpesaName] = useState(mpesa?.accountHolderName ?? "");
@@ -103,7 +104,7 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
         type: "bank",
         currency: bankCurrency || "USD",
         accountHolderName: bankName,
-        details: { bankName: bankInstitution, accountNumber: bankAccountNumber, swiftOrRoutingCode: bankSwiftCode, country: bankCountry },
+        details: { bankName: bankInstitution, accountNumber: bankAccountNumber, swiftOrRoutingCode: bankSwiftCode, country: bankCountry, ...(bankIntermediary.trim() ? { intermediaryBank: bankIntermediary.trim() } : {}) },
       });
       setSavingType(null);
       if (!res.ok) { setError(res.error ?? "Something went wrong."); return; }
@@ -132,7 +133,7 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
       res = await updatePayoutMethod(existing.id, {
         accountHolderName: bankName,
         currency: bankCurrency || "USD",
-        details: { bankName: bankInstitution, accountNumber: bankAccountNumber, swiftOrRoutingCode: bankSwiftCode, country: bankCountry },
+        details: { bankName: bankInstitution, accountNumber: bankAccountNumber, swiftOrRoutingCode: bankSwiftCode, country: bankCountry, ...(bankIntermediary.trim() ? { intermediaryBank: bankIntermediary.trim() } : {}) },
       });
     } else {
       res = await updatePayoutMethod(existing.id, { accountHolderName: mpesaName, currency: "KES", details: { phoneNumber: mpesaPhone } });
@@ -208,6 +209,8 @@ export function PaymentDetailsSection({ initial, country }: { initial: PayoutMet
               <input className="field" type="text" maxLength={3} value={bankCurrency} disabled={editLockedFor("bank")} onChange={(e) => setBankCurrency(e.target.value.toUpperCase())} />
             </div>
           </div>
+          <label className="field-label">Intermediary bank (for international wires) — optional</label>
+          <input className="field" type="text" value={bankIntermediary} disabled={editLockedFor("bank")} onChange={(e) => setBankIntermediary(e.target.value)} />
           <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "bank" || editLockedFor("bank") || (restricted && !bank)} onClick={() => saveDetails("bank")}>
             {bank ? "Save changes" : "Add method"}
           </button>

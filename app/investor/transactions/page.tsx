@@ -21,7 +21,8 @@ export default async function InvestorTransactionsPage() {
         <div>
           <h2 style={{ fontSize: 20 }}>Transactions</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            Every individual book sale and every payout, most recent first, read-only.
+            Every individual book sale and every payout, most recent first — including which affiliate, if any,
+            earned a commission on each sale. Click a row for full details.
           </p>
         </div>
       </div>

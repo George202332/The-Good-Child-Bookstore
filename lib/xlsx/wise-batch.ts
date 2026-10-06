@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
+import { outstandingAmount } from "@/lib/payout-ledger-dedupe";
 import { isWiseBatchEligible } from "@/lib/csv/wise-batch";
 
 /**
@@ -40,7 +41,7 @@ export async function buildWiseBatchXlsx(rows: PayoutLedgerRow[]): Promise<Buffe
       email: r.email,
       details: r.accountDetails,
       currency: r.currency,
-      amount: r.combinedTotal,
+      amount: outstandingAmount(r),
       reference: `GCB-${r.id.slice(0, 8).toUpperCase()}`,
     });
     row.getCell("amount").numFmt = '"$"#,##0.00';

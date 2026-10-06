@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { fetchEarningsBreakdown } from "@/lib/earnings-lines";
+import { resolveMonthlyRollover } from "@/lib/payout-status";
 
 /**
  * The real monthly payout ledger — one row per calendar month that has
@@ -27,7 +28,13 @@ export interface MonthlyPayoutRow {
   // page loads, so there's nothing to migrate) becomes "Pending payout"
   // for the now-closed month, and a brand new "Live" row appears for the
   // new current month — a rolling pattern with no stored per-row state.
-  status: "Live" | "Paid" | "Pending payout";
+  //
+  // "Rolled" — the month is closed and its release date has passed, but
+  // the user's payable balance (running total including earlier rolled
+  // months) is still under the $30 minimum and nothing was paid, so it
+  // rolls into next month's payout cycle. See lib/payout-status.ts for
+  // the one shared definition used by every surface that shows this.
+  status: "Live" | "Paid" | "Pending payout" | "Rolled";
 }
 
 function monthKeyOf(d: Date): string {
@@ -75,14 +82,34 @@ export async function computeMonthlyPayoutRows(userId: string): Promise<MonthlyP
 
   const payoutRequests = await prisma.payoutRequest.findMany({ where: { userId } });
 
+  // Which closed months are still under the $30 minimum (Rolled), and
+  // which later month's payout carried an earlier rolled month out with
+  // it — see resolveMonthlyRollover (lib/payout-status.ts).
+  const rollover = resolveMonthlyRollover(
+    Array.from(months.entries()).map(([key, b]) => ({ monthKey: key, year: b.year, month: b.month, author: b.organic, affiliate: b.referral + b.promotion })),
+    now
+  );
+
   const rows: MonthlyPayoutRow[] = Array.from(months.entries())
     .map(([key, b]) => {
       const payoutDate = new Date(b.year, b.month + 1, 15);
       let status: MonthlyPayoutRow["status"];
       if (key === currentKey) {
         status = "Live";
+      } else if (
+        rollover.get(key)?.rolled &&
+        // "Rolled" requires that it was NOT paid — e.g. a payout that
+        // went out for this exact month before the $30 minimum existed
+        // still reads Paid.
+        !payoutRequests.some((p: { requestedAt: Date; status: string }) => p.status === "PAID" && monthKeyOf(p.requestedAt) === monthKeyOf(payoutDate))
+      ) {
+        status = "Rolled";
       } else {
-        const payoutMonthKey = monthKeyOf(payoutDate);
+        // A month whose money rolled earlier and was released together
+        // with a later month is paid (or pending) with THAT month's batch.
+        const cycleKey = rollover.get(key)?.releasedWithMonthKey ?? key;
+        const [cy, cm] = cycleKey.split("-").map(Number);
+        const payoutMonthKey = monthKeyOf(new Date(cy, cm, 15)); // cm is 1-based, so this is the following month
         const matchingPayout = payoutRequests.find((p: { requestedAt: Date; status: string }) => monthKeyOf(p.requestedAt) === payoutMonthKey);
         status = matchingPayout?.status === "PAID" ? "Paid" : "Pending payout";
       }

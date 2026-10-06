@@ -1,5 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont } from "pdf-lib";
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
+import { ROLLED_LABEL, isRolledLedgerStatus } from "@/lib/payout-status";
 
 /**
  * The admin's internal payout ledger, as a PDF for record-keeping —
@@ -20,6 +21,7 @@ const LINE = rgb(0.906, 0.878, 0.937);
 const CREAM = rgb(0.980, 0.965, 0.941);
 const PAID_GREEN = rgb(0.12, 0.42, 0.28);
 const PENDING_AMBER = rgb(0.54, 0.35, 0.04);
+const ROLLED_VIOLET = rgb(0.294, 0.227, 0.522); // matches ROLLED_PILL_STYLE in lib/payout-status.ts
 
 function money(n: number): string {
   return `$${n.toFixed(2)}`;
@@ -118,8 +120,8 @@ export async function buildPayoutLedgerPdf(rows: PayoutLedgerRow[]): Promise<Uin
     rightText(r.bookSalesEarnings > 0 ? money(r.bookSalesEarnings) : "—", colX[4] + colWidths[4] - 4, y - 13, { size: 7.5 });
     rightText(affiliateTotal > 0 ? money(affiliateTotal) : "—", colX[5] + colWidths[5] - 4, y - 13, { size: 7.5 });
     rightText(money(r.combinedTotal), colX[6] + colWidths[6] - 4, y - 13, { font: bold, size: 7.5 });
-    text(r.paid ? "Paid" : r.status === "REJECTED" ? "Rejected" : "Not paid", colX[7] + 4, y - 13, {
-      size: 7.5, font: bold, color: r.paid ? PAID_GREEN : r.status === "REJECTED" ? INK_SOFT : PENDING_AMBER,
+    text(r.paid ? "Paid" : r.status === "REJECTED" ? "Rejected" : isRolledLedgerStatus(r.status) ? ROLLED_LABEL : "Not paid", colX[7] + 4, y - 13, {
+      size: 7.5, font: bold, color: r.paid ? PAID_GREEN : r.status === "REJECTED" ? INK_SOFT : isRolledLedgerStatus(r.status) ? ROLLED_VIOLET : PENDING_AMBER,
     });
     text(new Date(r.requestedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" }), colX[8] + 4, y - 13, { size: 7.5 });
 

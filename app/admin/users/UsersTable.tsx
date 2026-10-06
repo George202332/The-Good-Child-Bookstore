@@ -58,7 +58,7 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
               <th style={TH}>Name<ColHelp text="The name on the account." /></th>
               <th style={TH}>Email<ColHelp text="The email address this account signs in and receives notifications with." /></th>
               <th style={TH}>Date joined<ColHelp text="When this account was created." /></th>
-              <th style={TH}>Country<ColHelp text="The country on file for this account, from their profile or default shipping address." /></th>
+              <th style={TH}>Country<ColHelp text="The country on file for this account, from sign-up, their profile, default address, or latest order. Shows Not collected when none was ever provided." /></th>
               <th style={TH}>Account type<ColHelp text="This account's role — Reader, Author, Editor, Chief Editor, Admin, or Accountant. Change it from the dropdown in this column." /></th>
               <th style={TH}></th>
             </tr>
@@ -82,7 +82,7 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
                 </td>
                 <td style={TD}>{u.email}</td>
                 <td style={TD}>{u.createdAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                <td style={TD}>{u.location ?? "—"}</td>
+                <td style={TD}>{u.country ?? "Not collected"}</td>
                 <td style={TD} onClick={(e) => e.stopPropagation()}>
                   {u.id === currentUserId ? (
                     u.role
@@ -109,7 +109,8 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
                 <p style={{ fontSize: 12.5, color: "var(--admin-text-faint)", marginBottom: 20 }}>#{detail.accountNumber} · {detail.role}{detail.suspended ? " · Suspended" : ""}</p>
                 <DetailRow label="Email" value={detail.email} />
                 <DetailRow label="Date joined" value={detail.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} />
-                <DetailRow label="Country" value={detail.location ?? "—"} />
+                <DetailRow label="Country" value={detail.country ?? "Not collected"} />
+                {detail.location && <DetailRow label="Location" value={detail.location} />}
                 {detail.role === "AUTHOR" && (
                   <>
                     <DetailRow label="Author bio" value={detail.authorBio ?? "—"} />

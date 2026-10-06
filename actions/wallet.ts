@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { computeWallet, nextReleaseDate, type Wallet } from "@/lib/wallet";
+import { computeWallet, nextReleaseDate, summarizePayouts, type Wallet } from "@/lib/wallet";
 import { fetchEarningsBreakdown, linesForView } from "@/lib/earnings-lines";
 
 /**
@@ -43,12 +43,7 @@ export async function getMyWallet(perspective?: "author" | "affiliate"): Promise
     const lines = linesForView(breakdown, view);
 
     const payouts = await prisma.payoutRequest.findMany({ where: { userId: session.user.id } });
-    const paidOut = payouts
-      .filter((p: { status: string }) => p.status === "PAID")
-      .reduce((sum: number, p: { amount: unknown }) => sum + Number(p.amount), 0);
-    const pending = payouts
-      .filter((p: { status: string }) => p.status === "REQUESTED" || p.status === "APPROVED")
-      .reduce((sum: number, p: { amount: unknown }) => sum + Number(p.amount), 0);
+    const { paidOut, pending } = summarizePayouts(payouts, view === "author" ? "AUTHOR" : "AFFILIATE");
 
     const wallet = computeWallet(lines, paidOut, pending);
     const releaseDate = nextReleaseDate(lines);

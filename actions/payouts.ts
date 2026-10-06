@@ -6,6 +6,7 @@ import { authEither as auth } from "@/lib/auth-either";
 import { computeWalletForUserId } from "@/lib/compute-wallet-for-user";
 import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
 import { reportSystemError } from "@/lib/site-health/alert";
+import { createPayoutOnce } from "@/lib/payout-guard";
 
 async function requireAdminRole() {
   const session = await auth();
@@ -36,46 +37,38 @@ export async function queueDuePayouts(): Promise<{ ok: boolean; queued?: number;
   }
 
   try {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     let queued = 0;
+
+    // One loop body for both wallets, so the "never a second request for
+    // the same user + same earnings type + same month" guard is applied
+    // identically to each (see createPayoutOnce in lib/payout-guard.ts,
+    // which re-checks inside the same serializable transaction as the
+    // insert — a double click or two tabs can no longer both create one).
+    async function queueFor(userId: string, view: "author" | "affiliate", earningsType: "AUTHOR" | "AFFILIATE") {
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const alreadyQueued = await prisma.payoutRequest.findFirst({
+        where: { userId, earningsType, requestedAt: { gte: monthStart, lt: nextMonthStart } },
+      });
+      if (alreadyQueued) return;
+
+      const wallet = await computeWalletForUserId(userId, view);
+      if (wallet.available < MIN_PAYOUT_AMOUNT) return;
+      const recipient = await prisma.wiseRecipient.findFirst({ where: { userId }, orderBy: { isDefault: "desc" } });
+      if (!recipient) return;
+      const outcome = await createPayoutOnce({ userId, recipientId: recipient.id, amount: wallet.available, earningsType, now });
+      if (outcome.created) queued++;
+    }
 
     const authors = await prisma.user.findMany({
       where: { role: "AUTHOR", authorProfile: { isNot: null } },
       select: { id: true },
     });
-    for (const u of authors) {
-      const alreadyQueued = await prisma.payoutRequest.findFirst({
-        where: { userId: u.id, earningsType: "AUTHOR", requestedAt: { gte: monthStart } },
-      });
-      if (alreadyQueued) continue;
-
-      const wallet = await computeWalletForUserId(u.id, "author");
-      if (wallet.available < MIN_PAYOUT_AMOUNT) continue;
-      const recipient = await prisma.wiseRecipient.findFirst({ where: { userId: u.id }, orderBy: { isDefault: "desc" } });
-      if (!recipient) continue;
-      await prisma.payoutRequest.create({
-        data: { userId: u.id, recipientId: recipient.id, amount: wallet.available, currency: "USD", earningsType: "AUTHOR" },
-      });
-      queued++;
-    }
+    for (const u of authors) await queueFor(u.id, "author", "AUTHOR");
 
     const affiliateProfiles = await prisma.affiliateProfile.findMany({ select: { userId: true } });
-    for (const a of affiliateProfiles) {
-      const alreadyQueued = await prisma.payoutRequest.findFirst({
-        where: { userId: a.userId, earningsType: "AFFILIATE", requestedAt: { gte: monthStart } },
-      });
-      if (alreadyQueued) continue;
-
-      const wallet = await computeWalletForUserId(a.userId, "affiliate");
-      if (wallet.available < MIN_PAYOUT_AMOUNT) continue;
-      const recipient = await prisma.wiseRecipient.findFirst({ where: { userId: a.userId }, orderBy: { isDefault: "desc" } });
-      if (!recipient) continue;
-      await prisma.payoutRequest.create({
-        data: { userId: a.userId, recipientId: recipient.id, amount: wallet.available, currency: "USD", earningsType: "AFFILIATE" },
-      });
-      queued++;
-    }
+    for (const a of affiliateProfiles) await queueFor(a.userId, "affiliate", "AFFILIATE");
 
     revalidatePath("/admin/payouts");
     return { ok: true, queued };

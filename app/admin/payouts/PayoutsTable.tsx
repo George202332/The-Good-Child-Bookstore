@@ -8,6 +8,8 @@ import { Modal } from "@/components/Modal";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
 import { bulkMarkPayoutsPaid } from "@/actions/admin";
+import { ledgerStatusLabel, isRolledLedgerStatus, isLedgerRowPayable, ROLLED_PILL_STYLE, ROLLED_HELP } from "@/lib/payout-status";
+import { actionableIds, ledgerPeriodLabel, outstandingAmount } from "@/lib/payout-ledger-dedupe";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -25,19 +27,17 @@ const ROW_HEIGHT_PX = 42;
  * these collapsed into one ambiguous "Pending" pill, which is exactly
  * what made held-back money look the same as money already due. */
 function statusLabel(p: PayoutLedgerRow): string {
-  if (p.status === "LIVE") return "On Hold";
-  if (p.paid) return "Paid";
-  if (p.status === "REJECTED") return "Rejected";
-  if (p.status === "ON_HOLD") return "On Hold";
-  if (p.status === "SCHEDULED") return "Scheduled";
-  return "Queued"; // REQUESTED / APPROVED — a real PayoutRequest, awaiting manual payment by the 15th.
+  // One shared label function (lib/payout-status.ts) so this table, the
+  // exports and the author-facing pages can't word the same state
+  // differently. Category A (ON_HOLD) rows now read "Rolled".
+  return ledgerStatusLabel(p.status, p.paid);
 }
 
 function statusPillStyle(p: PayoutLedgerRow) {
   if (p.status === "LIVE") return { background: "rgba(36,81,183,0.14)", color: "#1B3C8F" }; // On Hold (unreleased)
   if (p.paid) return { background: "rgba(31,107,72,0.15)", color: "#165236" }; // Paid
   if (p.status === "REJECTED") return { background: "rgba(107,115,133,0.15)", color: "#A6AEC2" };
-  if (p.status === "ON_HOLD") return { background: "rgba(138,90,15,0.12)", color: "#6B4503" }; // Category A, under $30
+  if (isRolledLedgerStatus(p.status)) return ROLLED_PILL_STYLE; // Category A, under $30 — Rolled
   if (p.status === "SCHEDULED") return { background: "rgba(180,101,15,0.16)", color: "#B4650F" }; // Category B, ready
   return { background: "rgba(196,120,20,0.18)", color: "#B4650F" }; // Queued, awaiting payment
 }
@@ -51,7 +51,10 @@ function statusPillStyle(p: PayoutLedgerRow) {
  * Category A/ON_HOLD — still under $30 and rolling over) rows are
  * never selectable here, since they aren't actually due yet. */
 function isBulkPayable(p: PayoutLedgerRow): boolean {
-  return p.status === "REQUESTED" || p.status === "SCHEDULED";
+  // Rolled (ON_HOLD) rows are under the $30 minimum, so they are never
+  // payable — see isLedgerRowPayable in lib/payout-status.ts, the same
+  // rule the Wise/Payoneer batch export uses.
+  return isLedgerRowPayable(p.status);
 }
 
 /**
@@ -137,7 +140,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
   const payableFiltered = useMemo(() => filtered.filter(isBulkPayable), [filtered]);
   const allPayableSelected = payableFiltered.length > 0 && payableFiltered.every((r) => selected.has(r.id));
   const selectedTotal = useMemo(
-    () => filtered.filter((r) => selected.has(r.id)).reduce((s, r) => s + r.combinedTotal, 0),
+    () => filtered.filter((r) => selected.has(r.id)).reduce((s, r) => s + outstandingAmount(r), 0),
     [filtered, selected]
   );
 
@@ -166,11 +169,13 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
   function runBulkMarkPaid() {
     // A row's own `id` is what's tracked in `selected` (it's unique and
     // is what the checkboxes key off), but a merged row (see
-    // actions/payout-ledger.ts mergeSameBatchHistoricalRows) carries 2
-    // real PayoutRequest ids behind that one row — both have to be sent
-    // to the server or the second one is left behind, un-resolved.
+    // lib/payout-ledger-dedupe.ts consolidateLedgerRows) carries 2 or more
+    // real PayoutRequest ids behind that one row — all of them have to
+    // be sent to the server or the others are left behind, un-resolved
+    // (actionableIds leaves out any component already paid inside a
+    // mixed row, so nothing is ever paid twice).
     const selectedRows = rows.filter((r) => selected.has(r.id) && isBulkPayable(r));
-    const ids = selectedRows.flatMap((r) => r.componentIds ?? [r.id]);
+    const ids = selectedRows.flatMap((r) => actionableIds(r));
     if (ids.length === 0) return;
     if (!window.confirm(`Mark ${selectedRows.length} payout${selectedRows.length === 1 ? "" : "s"} as paid? This sends a "Payout sent" notification to each recipient.`)) return;
     setBulkMessage(null);
@@ -302,7 +307,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 <th style={TH_STYLE}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>
                 <th style={TH_STYLE}>Commission<ColHelp text="Commission from copies sold through this person's own affiliate promotional links." /></th>
                 <th style={TH_STYLE}>Total<ColHelp text="Royalties plus referral plus commission — the full amount of this payout." /></th>
-                <th style={TH_STYLE}>Status<ColHelp text="On Hold means this money hasn't been released yet (the current month is still in progress, or a past rejected payout rolled back into the balance), or has been released but is still under the $30 minimum and is rolling over. Scheduled means it's crossed $30, is confirmed, and is ready to be paid by the 15th. Queued means a real payout request exists, awaiting manual payment by the 15th. Paid means the transfer has gone out. Rejected means it was declined." /></th>
+                <th style={TH_STYLE}>Status<ColHelp text="On Hold means this money hasn't been released yet (the current month is still in progress, or a past rejected payout rolled back into the balance). Rolled means it has been released but is still under the $30 minimum, so it rolls into next month's payout cycle. Scheduled means it's crossed $30, is confirmed, and is ready to be paid by the 15th. Queued means a real payout request exists, awaiting manual payment by the 15th. Paid means the transfer has gone out. Rejected means it was declined." /></th>
                 <th style={TH_STYLE}>Report<ColHelp text="Download this payout's month as a full PDF statement — the same report available to that account holder on their own Payouts page." /></th>
               </tr>
             </thead>
@@ -338,6 +343,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                     <td style={TD_STYLE}>
                       {p.accountHolderName}
                       <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{p.role}</div>
+                      <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{ledgerPeriodLabel(p)}</div>
                     </td>
                     <td style={TD_STYLE}>{p.email}</td>
                     <td style={TD_STYLE}>${p.bookSalesEarnings.toFixed(2)}</td>
@@ -345,7 +351,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                     <td style={TD_STYLE}>${p.commissionEarnings.toFixed(2)}</td>
                     <td style={{ ...TD_STYLE, fontWeight: 700 }}>${p.combinedTotal.toFixed(2)}</td>
                     <td style={TD_STYLE}>
-                      <span className="age-pill" style={statusPillStyle(p)}>
+                      <span className="age-pill" style={statusPillStyle(p)} title={isRolledLedgerStatus(p.status) ? ROLLED_HELP : undefined}>
                         {statusLabel(p)}
                         {p.paid && " ✓"}
                       </span>
@@ -428,6 +434,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
               { label: "Commission earnings", value: `$${detailRow.commissionEarnings.toFixed(2)}` },
               { label: "Combined total", value: `$${detailRow.combinedTotal.toFixed(2)}` },
               { label: "Currency", value: detailRow.currency },
+              ...(detailRow.paidAmount ? [{ label: "Already paid within this row", value: `$${detailRow.paidAmount.toFixed(2)}` }] : []),
               {
                 label: "Resolved",
                 value: detailRow.resolvedAt ? new Date(detailRow.resolvedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—",
@@ -440,7 +447,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
             ))}
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 18, gap: 10, flexWrap: "wrap" }}>
-              <span className="age-pill" style={statusPillStyle(detailRow)}>
+              <span className="age-pill" style={statusPillStyle(detailRow)} title={isRolledLedgerStatus(detailRow.status) ? ROLLED_HELP : undefined}>
                 {statusLabel(detailRow)}
               </span>
               <div style={{ display: "flex", gap: 8 }}>
@@ -451,7 +458,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 >
                   Download report
                 </a>
-                {detailRow.status === "REQUESTED" && canModerate && <ModerationActions payoutId={detailRow.componentIds ?? detailRow.id} />}
+                {detailRow.status === "REQUESTED" && canModerate && <ModerationActions payoutId={actionableIds(detailRow)} />}
               </div>
             </div>
         </Modal>

@@ -8,6 +8,7 @@ import { computeMonthlyPayoutRows, computePayoutStatCards } from "@/lib/payout-m
 import { getMyWallet } from "@/actions/wallet";
 import { ColHelp } from "@/components/ColHelp";
 import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
+import { ROLLED_LABEL, ROLLED_HELP, ROLLED_PILL_STYLE } from "@/lib/payout-status";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
@@ -117,7 +118,7 @@ export default async function PayoutSettingsPage() {
                 <th style={TABLE_HEAD_STYLE}>Referral<ColHelp text="A percentage of company revenue from authors you personally referred onto the platform, earned this month." /></th>
                 <th style={TABLE_HEAD_STYLE}>Promotion<ColHelp text="Commission earned this month from copies sold through your own affiliate promotional links." /></th>
                 <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="Once this month's earnings are confirmed and the total due has reached the $30 minimum, they're released by the 15th of the following month." /></th>
-                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Live means the month is still in progress and this row keeps growing as sales happen. Pending payout means the month closed and it hasn't been paid yet (due by the 15th). Paid means the transfer for this month has gone out." /></th>
+                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Live means the month is still in progress and this row keeps growing as sales happen. Pending payout means the month closed and it hasn't been paid yet (due by the 15th). Paid means the transfer for this month has gone out. Rolled means the month closed but your balance was still under $30, so it rolls into next month's payout cycle and is paid out together with it once your total reaches $30." /></th>
                 <th style={TABLE_HEAD_STYLE}>Amount<ColHelp text="Your total earnings for the month: book sales plus referral and promotion commissions combined." /></th>
                 <th style={TABLE_HEAD_STYLE}>Report<ColHelp text="Download this month's full payout statement as a PDF, itemized the same way as your account's statements are always formatted." /></th>
               </tr>
@@ -145,10 +146,13 @@ export default async function PayoutSettingsPage() {
                             ? { background: "rgba(36,81,183,0.14)", color: "#1B3C8F" }
                             : r.status === "Paid"
                               ? { background: "rgba(31,107,72,0.15)", color: "#165236" }
-                              : undefined
+                              : r.status === "Rolled"
+                                ? ROLLED_PILL_STYLE
+                                : undefined
                         }
+                        title={r.status === "Rolled" ? ROLLED_HELP : undefined}
                       >
-                        {r.status === "Live" ? "Live" : r.status === "Paid" ? "Paid" : "Pending"}
+                        {r.status === "Live" ? "Live" : r.status === "Paid" ? "Paid" : r.status === "Rolled" ? ROLLED_LABEL : "Pending"}
                       </span>
                     </td>
                     <td style={TABLE_CELL_STYLE}>${r.amount.toFixed(2)}</td>

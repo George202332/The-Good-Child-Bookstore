@@ -1,4 +1,6 @@
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
+import { outstandingAmount } from "@/lib/payout-ledger-dedupe";
+import { isLedgerRowPayable } from "@/lib/payout-status";
 
 /**
  * Amendment 6 — a Wise-batch-payment-template-compatible file (also
@@ -37,7 +39,9 @@ function csvEscape(value: string): string {
 }
 
 export function isWiseBatchEligible(r: PayoutLedgerRow): boolean {
-  return r.status === "SCHEDULED" || r.status === "REQUESTED" || r.status === "APPROVED";
+  // Rolled (ON_HOLD, under $30) is never eligible — isLedgerRowPayable
+  // (lib/payout-status.ts) is the same rule the Mark as Paid checkboxes use.
+  return isLedgerRowPayable(r.status) || r.status === "APPROVED";
 }
 
 export function buildWiseBatchCsv(rows: PayoutLedgerRow[]): string {
@@ -49,7 +53,7 @@ export function buildWiseBatchCsv(rows: PayoutLedgerRow[]): string {
       r.email,
       r.accountDetails,
       r.currency,
-      r.combinedTotal.toFixed(2),
+      outstandingAmount(r).toFixed(2),
       `GCB-${r.id.slice(0, 8).toUpperCase()}`,
     ]
       .map(csvEscape)

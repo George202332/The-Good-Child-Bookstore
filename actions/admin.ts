@@ -10,6 +10,7 @@ import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
 import { reportSystemError } from "@/lib/site-health/alert";
 import { computeWalletForUserId } from "@/lib/compute-wallet-for-user";
+import { createPayoutOnce } from "@/lib/payout-guard";
 import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
 
 /** True for the "Not authorized."/"Only Admins can..." errors
@@ -250,27 +251,44 @@ export async function saveReviewChecklist(bookId: string, checklist: Record<stri
  */
 /**
  * Accepts either a single real PayoutRequest id, or (see
- * actions/payout-ledger.ts's mergeSameBatchHistoricalRows) the 2 real
+ * lib/payout-ledger-dedupe.ts consolidateLedgerRows) the 2 real
  * ids behind one merged "both an author and an affiliate, same
  * queueDuePayouts run" display row — approving that row has to resolve
  * BOTH real payouts, or the second one is left stranded as a
  * still-REQUESTED row the next time the ledger loads, right back to
  * looking like an unresolved duplicate.
  */
+/**
+ * Idempotent against double payment: only a payout still in status
+ * REQUESTED is ever flipped to PAID (an atomic, status-guarded
+ * `updateMany`), so a payout that is already PAID, REJECTED or anything
+ * else is never paid again — whether the id arrives alone, twice, from a
+ * second tab, or as one of a merged row's component ids. The "Payout
+ * sent" notification goes only to the payouts THIS call actually
+ * claimed, never to an already-paid component that happens to share the
+ * merged row. A REQUESTED payout that is the exact twin (same person,
+ * same earnings type, same amount, same month) of one already PAID is
+ * refused rather than paid a second time — see splitOutPaidTwins.
+ */
 export async function approvePayoutRequest(payoutId: string | string[]): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminRole();
-    const ids = Array.isArray(payoutId) ? payoutId : [payoutId];
+    const ids = [...new Set(Array.isArray(payoutId) ? payoutId : [payoutId])];
 
+    const { payable, blocked } = await splitOutPaidTwins(ids);
+    const resolvedAt = new Date();
     const claim = await prisma.payoutRequest.updateMany({
-      where: { id: { in: ids }, status: "REQUESTED" },
-      data: { status: "PAID", resolvedAt: new Date() },
+      where: { id: { in: payable }, status: "REQUESTED" },
+      data: { status: "PAID", resolvedAt },
     });
     if (claim.count === 0) {
+      if (blocked.length > 0) {
+        return { ok: false, error: "This looks like a duplicate of a payout that is already marked paid, so it was NOT paid a second time. Reject it instead." };
+      }
       return { ok: false, error: "This payout has already been processed (or is no longer pending) — refresh to see its current status." };
     }
 
-    const payouts = await prisma.payoutRequest.findMany({ where: { id: { in: ids }, status: "PAID" } });
+    const payouts = await prisma.payoutRequest.findMany({ where: { id: { in: payable }, status: "PAID", resolvedAt } });
     for (const payout of payouts) {
       await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
     }
@@ -282,16 +300,49 @@ export async function approvePayoutRequest(payoutId: string | string[]): Promise
   }
 }
 
+/**
+ * Of these payout ids, which may still be paid: only ones currently
+ * REQUESTED, minus any that is the exact twin (same user, same earnings
+ * type, same amount, same calendar month of requestedAt) of a payout
+ * that is already PAID — the signature of a duplicate row. Those are
+ * returned as `blocked` so the caller can say why nothing was paid.
+ */
+async function splitOutPaidTwins(ids: string[]): Promise<{ payable: string[]; blocked: string[] }> {
+  const candidates = await prisma.payoutRequest.findMany({ where: { id: { in: ids }, status: "REQUESTED" } });
+  const payable: string[] = [];
+  const blocked: string[] = [];
+  for (const c of candidates) {
+    const start = new Date(c.requestedAt.getFullYear(), c.requestedAt.getMonth(), 1);
+    const end = new Date(c.requestedAt.getFullYear(), c.requestedAt.getMonth() + 1, 1);
+    const twin = await prisma.payoutRequest.findFirst({
+      where: { id: { not: c.id }, userId: c.userId, earningsType: c.earningsType, status: "PAID", amount: c.amount, requestedAt: { gte: start, lt: end } },
+      select: { id: true },
+    });
+    if (twin) blocked.push(c.id);
+    else payable.push(c.id);
+  }
+  return { payable, blocked };
+}
+
 /** See approvePayoutRequest above re: accepting a merged row's 2 real ids. */
 export async function rejectPayoutRequest(payoutId: string | string[]): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminRole();
-    const ids = Array.isArray(payoutId) ? payoutId : [payoutId];
-    const payouts = await prisma.payoutRequest.findMany({ where: { id: { in: ids } } });
-    await prisma.payoutRequest.updateMany({
-      where: { id: { in: ids } },
-      data: { status: "REJECTED", resolvedAt: new Date() },
+    const ids = [...new Set(Array.isArray(payoutId) ? payoutId : [payoutId])];
+    // Only a payout that is still open can be rejected. Rejecting one
+    // that is already PAID would flip money that really went out back to
+    // REJECTED, which rolls it into the balance and invites paying it a
+    // second time — so PAID/REJECTED rows are never touched here.
+    const resolvedAt = new Date();
+    const open = ["REQUESTED", "APPROVED", "PROCESSING"] as ("REQUESTED" | "APPROVED" | "PROCESSING")[];
+    const claim = await prisma.payoutRequest.updateMany({
+      where: { id: { in: ids }, status: { in: open } },
+      data: { status: "REJECTED", resolvedAt },
     });
+    if (claim.count === 0) {
+      return { ok: false, error: "This payout has already been processed (or is no longer pending) — refresh to see its current status." };
+    }
+    const payouts = await prisma.payoutRequest.findMany({ where: { id: { in: ids }, status: "REJECTED", resolvedAt } });
     for (const payout of payouts) {
       await createNotification(payout.userId, "Payout rejected", `Your $${Number(payout.amount).toFixed(2)} payout request was not approved.`, "PAYOUT", payout.id);
     }
@@ -341,30 +392,39 @@ async function payScheduledBalance(syntheticId: string): Promise<{ ok: boolean; 
 
   const now = new Date();
   let paidTotal = 0;
+  let alreadyPaidThisCycle = false;
 
   for (const { view, earningsType } of [
-    { view: "author" as const, earningsType: "AUTHOR" },
-    { view: "affiliate" as const, earningsType: "AFFILIATE" },
+    { view: "author" as const, earningsType: "AUTHOR" as const },
+    { view: "affiliate" as const, earningsType: "AFFILIATE" as const },
   ]) {
     const wallet = await computeWalletForUserId(userId, view);
     if (wallet.available < MIN_PAYOUT_AMOUNT) continue;
 
-    const payout = await prisma.payoutRequest.create({
-      data: {
-        userId,
-        recipientId: recipient.id,
-        amount: wallet.available,
-        currency: "USD",
-        earningsType,
-        status: "PAID",
-        resolvedAt: now,
-      },
+    // One payout per wallet per cycle, enforced inside a single
+    // serializable transaction (lib/payout-guard.ts) — paying the same
+    // balance twice (double click, two tabs, two admins) can create at
+    // most one PAID row; the second call finds it and skips.
+    const outcome = await createPayoutOnce({
+      userId,
+      recipientId: recipient.id,
+      amount: wallet.available,
+      earningsType,
+      status: "PAID",
+      resolvedAt: now,
+      ignoreRejected: true,
+      now,
     });
-    await createNotification(userId, "Payout sent", `Your $${wallet.available.toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
+    if (!outcome.created) {
+      alreadyPaidThisCycle = true;
+      continue;
+    }
+    await createNotification(userId, "Payout sent", `Your $${wallet.available.toFixed(2)} payout has been sent.`, "PAYOUT", outcome.id);
     paidTotal += wallet.available;
   }
 
   if (paidTotal <= 0) {
+    if (alreadyPaidThisCycle) return { ok: false, error: "This balance already has a payout for this cycle — it was NOT paid again. Refresh to see its current status." };
     return { ok: false, error: "This balance is still under the $30 minimum — it isn't actually due yet." };
   }
   return { ok: true, amount: paidTotal };
@@ -395,20 +455,25 @@ export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: bo
       return { ok: false, error: "No payouts were selected." };
     }
 
-    const scheduledIds = payoutIds.filter((id) => id.startsWith("pending-"));
-    const realIds = payoutIds.filter((id) => !scheduledIds.includes(id));
+    const uniqueIds = [...new Set(payoutIds)];
+    const scheduledIds = uniqueIds.filter((id) => id.startsWith("pending-"));
+    const realIds = uniqueIds.filter((id) => !scheduledIds.includes(id));
 
     let updated = 0;
 
     if (realIds.length > 0) {
+      // Idempotent: only REQUESTED payouts are claimed (an already-PAID
+      // component of a merged row is silently left alone), and an exact
+      // twin of an already-PAID payout is never paid again.
+      const { payable } = await splitOutPaidTwins(realIds);
       const resolvedAt = new Date();
       const claim = await prisma.payoutRequest.updateMany({
-        where: { id: { in: realIds }, status: "REQUESTED" },
+        where: { id: { in: payable }, status: "REQUESTED" },
         data: { status: "PAID", resolvedAt },
       });
       if (claim.count > 0) {
         const paid = await prisma.payoutRequest.findMany({
-          where: { id: { in: realIds }, status: "PAID", resolvedAt },
+          where: { id: { in: payable }, status: "PAID", resolvedAt },
         });
         for (const payout of paid) {
           await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);

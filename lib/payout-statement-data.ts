@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { computeMonthlyPayoutRows } from "@/lib/payout-monthly";
 
 /**
  * Deliberately does NOT use lib/earnings-lines.ts's shared
@@ -34,7 +35,7 @@ export interface PayoutStatementData {
   authorName: string;
   monthLabel: string;
   payoutDate: Date;
-  status: "Live" | "Paid" | "Pending payout";
+  status: "Live" | "Paid" | "Pending payout" | "Rolled";
   organicRevenue: number;
   affiliateChannelRevenue: number;
   referralCommission: number;
@@ -178,7 +179,13 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
     const k = `${p.requestedAt.getFullYear()}-${String(p.requestedAt.getMonth() + 1).padStart(2, "0")}`;
     return k === payoutMonthKey;
   });
-  const status: PayoutStatementData["status"] = isCurrentMonth ? "Live" : matching?.status === "PAID" ? "Paid" : "Pending payout";
+  // Take the status from the same function the author's Monthly Payout
+  // History table uses (computeMonthlyPayoutRows), so the PDF and the
+  // table can never disagree — including the "Rolled" status for a
+  // closed month whose balance was still under $30 (lib/payout-status.ts).
+  const monthlyRow = (await computeMonthlyPayoutRows(userId)).find((r) => r.monthKey === monthKey);
+  const status: PayoutStatementData["status"] =
+    monthlyRow?.status ?? (isCurrentMonth ? "Live" : matching?.status === "PAID" ? "Paid" : "Pending payout");
 
   return {
     authorName: user.name,

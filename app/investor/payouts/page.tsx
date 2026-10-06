@@ -3,6 +3,7 @@ import { authAdmin } from "@/lib/auth-admin";
 import { InvestorShell } from "@/components/InvestorShell";
 import { PayoutsTable } from "@/app/admin/payouts/PayoutsTable";
 import { getPayoutLedger } from "@/actions/payout-ledger";
+import { PayoutStatCards, PayoutExportLinks } from "@/components/admin-views/PayoutLedgerSummary";
 
 /**
  * Investor's read-only mirror of the admin Payout Requests table
@@ -18,23 +19,33 @@ export default async function InvestorPayoutsPage() {
   if (role !== "INVESTOR" && role !== "ADMIN") redirect("/admin");
 
   const ledger = await getPayoutLedger();
+  const ledgerError = "error" in ledger ? ledger.error : null;
+  const rows = ledgerError ? [] : (ledger as Exclude<typeof ledger, { error: string }>);
 
   return (
     <InvestorShell activeKey="payouts" displayName={session.user.name ?? ""}>
-      <div className="section-head" style={{ marginBottom: 16 }}>
+      <div className="section-head" style={{ marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h2 style={{ fontSize: 20 }}>Payout Requests</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            Every payout ever queued, read-only.
+            Every payout ever queued — completed, rejected, or still owed. Payouts are sent manually; use the exports
+            below to drive that.
           </p>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <PayoutExportLinks />
         </div>
       </div>
 
-      {"error" in ledger ? (
-        <div className="map-card" style={{ padding: 16, color: "var(--coral-deep)", fontSize: 13 }}>{ledger.error}</div>
-      ) : (
-        <PayoutsTable rows={ledger} canModerate={false} />
+      <PayoutStatCards rows={rows} />
+
+      {ledgerError && (
+        <div className="map-card" style={{ padding: 16, marginBottom: 16, color: "var(--coral-deep)", fontSize: 13 }}>
+          Couldn&apos;t load the payout ledger: {ledgerError}
+        </div>
       )}
+
+      <PayoutsTable rows={rows} canModerate={false} />
     </InvestorShell>
   );
 }

@@ -122,7 +122,7 @@ async function getDatabaseHealth(): Promise<HealthCategory> {
       detail:
         unqueuedCount === null
           ? "Couldn't load the payout ledger to check."
-          : `${unqueuedCount} account(s) with a released balance not yet queued into a PayoutRequest — already surfaced on the Payout Requests page as \"On Hold\" (still under the $30 minimum, rolling over) or \"Scheduled\" (crossed $30, ready and waiting to be paid), not a bug by itself.`,
+          : `${unqueuedCount} account(s) with a released balance not yet queued into a PayoutRequest — already surfaced on the Payout Requests page as \"Rolled\" (still under the $30 minimum, rolling into next month's cycle) or \"Scheduled\" (crossed $30, ready and waiting to be paid), not a bug by itself.`,
     });
   } catch (e) {
     checks.push({ id: "unqueued-balances", label: "Released-but-unqueued payout balances (live)", status: "warning", detail: e instanceof Error ? e.message : "Couldn't check." });
@@ -311,6 +311,36 @@ async function getPayoutSystemHealth(): Promise<HealthCategory> {
     status: stuck.length > 0 ? "error" : "ok",
     detail: stuck.length > 0 ? `${stuck.length} payout request(s) still ${stuck.map((s: { status: string }) => s.status).join("/")} after 14+ days.` : "None found.",
   });
+
+  // (a2) Duplicate payout rows — the same account with more than one
+  // live (non-rejected) PayoutRequest of the same earnings type in the
+  // same calendar month. queueDuePayouts only ever creates one per type
+  // per month and payScheduledBalance is guarded the same way (see
+  // lib/payout-guard.ts), so any hit here is a genuine duplicate — a
+  // double-payment risk the admin ledger would otherwise just collapse
+  // into one row (lib/payout-ledger-dedupe.ts). Checked on the RAW table,
+  // not the ledger, precisely because the ledger hides duplicates.
+  try {
+    const dupes = await prisma.$queryRaw<{ userId: string; earningsType: string; period: string; count: bigint }[]>`
+      SELECT p."userId" as "userId", p."earningsType" as "earningsType", to_char(p."requestedAt", 'YYYY-MM') as period, COUNT(*)::bigint as count
+      FROM "PayoutRequest" p
+      WHERE p.status::text <> 'REJECTED'
+      GROUP BY p."userId", p."earningsType", to_char(p."requestedAt", 'YYYY-MM')
+      HAVING COUNT(*) > 1
+      LIMIT 20
+    `;
+    checks.push({
+      id: "duplicate-payout-rows",
+      label: "Duplicate payout rows — same account, same earnings type, same month (live)",
+      status: dupes.length > 0 ? "error" : "ok",
+      detail:
+        dupes.length > 0
+          ? `${dupes.length} account/period combination(s) have more than one non-rejected PayoutRequest (account ids: ${dupes.slice(0, 5).map((d) => `${d.userId} ${d.earningsType} ${d.period} x${Number(d.count)}`).join("; ")}). The admin ledger shows each account once, but the extra row(s) still exist and count against that person's balance — check them before paying anything, and reject the stray one.`
+          : "None found.",
+    });
+  } catch (e) {
+    checks.push({ id: "duplicate-payout-rows", label: "Duplicate payout rows — same account, same earnings type, same month (live)", status: "warning", detail: e instanceof Error ? e.message : "Couldn't check." });
+  }
 
   // (b) Recent sales with a nonzero earner share but no matching
   // REVENUE_* notification — the exact class of bug notify-earners.ts
