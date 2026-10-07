@@ -15,6 +15,27 @@ const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px
 const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
 
 /**
+ * The per-row statement download button. It used to be a bare "↓" sized by
+ * .btn-small (padding 9px 18px, 13.5px text, 2px border) which came to about
+ * 54 x 38px. Now 30% wider and 30% shorter (70 x 27px), explicit border-box
+ * dimensions, labelled "Download". Padding is trimmed and the font is 13px so
+ * the word (about 54px wide) fits inside the 70px box (66px inside borders)
+ * without wrapping. Colours and hover come from btn-ghost, unchanged.
+ */
+const DOWNLOAD_BTN_STYLE: React.CSSProperties = {
+  boxSizing: "border-box",
+  width: 70,
+  height: 27,
+  padding: "0 4px",
+  fontSize: 13,
+  fontWeight: 400,
+  lineHeight: 1,
+  justifyContent: "center",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
+};
+
+/**
  * Payout Settings — where earnings are sent now lives on Profile (see
  * PaymentDetailsSection there) per explicit instruction; this page is
  * now purely about the payout schedule and history: 4 rolling stat
@@ -157,8 +178,10 @@ export default async function PayoutSettingsPage() {
                         className="btn btn-ghost btn-small"
                         href={`/api/payout-report?month=${r.monthKey}`}
                         title={`Download the ${r.monthLabel} statement as a PDF`}
+                        aria-label={`Download statement for ${r.monthLabel}`}
+                        style={DOWNLOAD_BTN_STYLE}
                       >
-                        ↓
+                        Download
                       </a>
                     </td>
                   </tr>

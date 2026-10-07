@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { CATS, PRICE_RANGES, type Book } from "@/lib/data/catalog";
-import { categoryFromSlug } from "@/lib/taxonomy";
+import { categoryFromSlug, subcategoriesFor } from "@/lib/taxonomy";
 import { parseShopFilters, filteredSortedBooks, SHOP_PAGE_SIZE } from "@/lib/shop-filters";
 import { BookCard } from "@/components/BookCard";
 import { ShopSidebar } from "@/components/ShopSidebar";
@@ -47,7 +47,20 @@ export function ShopPageClient({ books }: { books: Book[] }) {
     chips.push({ label: c ? c.name : v, remove: () => goTo(paramsWithout("cat", v)) });
   });
   filters.series.forEach((v) => {
-    chips.push({ label: categoryFromSlug(v) ?? v, remove: () => goTo(paramsWithout("series", v)) });
+    // Removing a category chip also drops that category's ticked subcategories.
+    const name = categoryFromSlug(v);
+    chips.push({
+      label: name ?? v,
+      remove: () => {
+        const params = paramsWithout("series", v);
+        const own = subcategoriesFor(name);
+        const keep = [...params.getAll("sub"), ...params.getAll("genre")].filter((x) => !own.includes(x));
+        params.delete("sub");
+        params.delete("genre");
+        keep.forEach((x) => params.append("sub", x));
+        goTo(params);
+      },
+    });
   });
   filters.subs.forEach((v) => chips.push({ label: v, remove: () => goTo(paramsWithout("genre", v, paramsWithout("sub", v))) }));
   filters.ages.forEach((v) => chips.push({ label: `${v} yrs`, remove: () => goTo(paramsWithout("age", v)) }));

@@ -1,5 +1,5 @@
 import { BOOKS, PRICE_RANGES, type Book } from "@/lib/data/catalog";
-import { categoryFromSlug } from "@/lib/taxonomy";
+import { categoryFromSlug, subcategoriesFor } from "@/lib/taxonomy";
 
 /**
  * Converted from filters/filteredSortedBooks() (the-good-child-bookstore_54_1.html:
@@ -41,6 +41,24 @@ export function parseShopFilters(params: URLSearchParams): ShopFilters {
   };
 }
 
+/**
+ * Category + Subcategory matching.
+ * - With ?series= selected, a book must belong to one of those categories and,
+ *   when subcategories OF ITS OWN category are ticked, its subcategory must be
+ *   one of them. A category with none ticked matches all of its books, so
+ *   several categories can each have their own subcategory narrowing.
+ *   Ticked subs belonging to a category that is not selected are ignored.
+ * - Without ?series=, ?sub= (and legacy ?genre=) filters globally by name.
+ */
+function matchesSeriesAndSubs(b: Book, filters: ShopFilters, seriesNames: Set<string>): boolean {
+  if (!filters.series.size) {
+    return !filters.subs.size || !!(b.subcategory && filters.subs.has(b.subcategory));
+  }
+  if (!(b.series && seriesNames.has(b.series))) return false;
+  const own = subcategoriesFor(b.series).filter((s) => filters.subs.has(s));
+  return own.length === 0 || !!(b.subcategory && own.includes(b.subcategory));
+}
+
 export function filteredSortedBooks(filters: ShopFilters, books: Book[] = BOOKS): Book[] {
   // Unknown slugs resolve to nothing, so a bad ?series= matches no books.
   const seriesNames = new Set<string>();
@@ -50,8 +68,7 @@ export function filteredSortedBooks(filters: ShopFilters, books: Book[] = BOOKS)
   }
   let list = books.filter((b) => {
     if (filters.cats.size && !filters.cats.has(b.category)) return false;
-    if (filters.series.size && !(b.series && seriesNames.has(b.series))) return false;
-    if (filters.subs.size && !(b.subcategory && filters.subs.has(b.subcategory))) return false;
+    if (!matchesSeriesAndSubs(b, filters, seriesNames)) return false;
     if (filters.ages.size && !filters.ages.has(b.age)) return false;
     if (filters.formats.size && !filters.formats.has(b.format)) return false;
     if (filters.minRatings.size) {
