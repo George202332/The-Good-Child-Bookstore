@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { CATS, PRICE_RANGES, type Book } from "@/lib/data/catalog";
+import { categoryFromSlug } from "@/lib/taxonomy";
 import { parseShopFilters, filteredSortedBooks, SHOP_PAGE_SIZE } from "@/lib/shop-filters";
 import { BookCard } from "@/components/BookCard";
 import { ShopSidebar } from "@/components/ShopSidebar";
@@ -24,8 +25,8 @@ export function ShopPageClient({ books }: { books: Book[] }) {
   const pageList = list.slice((page - 1) * SHOP_PAGE_SIZE, page * SHOP_PAGE_SIZE);
 
   const chips: { label: string; remove: () => void }[] = [];
-  function paramsWithout(key: string, value?: string) {
-    const params = new URLSearchParams(searchParams.toString());
+  function paramsWithout(key: string, value?: string, base?: URLSearchParams) {
+    const params = new URLSearchParams((base ?? searchParams).toString());
     if (value === undefined) {
       params.delete(key);
     } else {
@@ -45,7 +46,10 @@ export function ShopPageClient({ books }: { books: Book[] }) {
     const c = CATS.find((x) => x.id === v);
     chips.push({ label: c ? c.name : v, remove: () => goTo(paramsWithout("cat", v)) });
   });
-  filters.genres.forEach((v) => chips.push({ label: v, remove: () => goTo(paramsWithout("genre", v)) }));
+  filters.series.forEach((v) => {
+    chips.push({ label: categoryFromSlug(v) ?? v, remove: () => goTo(paramsWithout("series", v)) });
+  });
+  filters.subs.forEach((v) => chips.push({ label: v, remove: () => goTo(paramsWithout("genre", v, paramsWithout("sub", v))) }));
   filters.ages.forEach((v) => chips.push({ label: `${v} yrs`, remove: () => goTo(paramsWithout("age", v)) }));
   filters.formats.forEach((v) => chips.push({ label: v, remove: () => goTo(paramsWithout("format", v)) }));
   filters.minRatings.forEach((v) => chips.push({ label: `${v}★ & up`, remove: () => goTo(paramsWithout("rating", v)) }));

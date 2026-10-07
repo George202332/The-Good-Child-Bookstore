@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canModerateContent } from "@/lib/roles";
+import { isCategory, isGenre, isSubcategoryOf } from "@/lib/taxonomy";
+import { parseRestrictedCountries } from "@/lib/book-country-restriction";
 
 export interface AuthorAliasRow {
   id: string;
@@ -240,8 +242,19 @@ export interface SubmitBookInput {
   description: string;
   price: number;
   ageGroup: string;
+  /** Book "Category" — one of the eight series in lib/taxonomy.ts
+   * (stored in Book.category). */
   category: string;
+  /** Book "Genre" — one of the five shelves in lib/taxonomy.ts. Stored
+   * on the legacy Category join (CategoryOnBook, by name) that the shelf
+   * logic reads. */
   genre: string;
+  /** Book "Subcategory" — must belong to `category` (Book.subcategory;
+   * also written to the legacy Genre join, GenreOnBook, by name). */
+  subcategory: string;
+  /** Countries where this book may NOT be sold, ISO-2 (Book.restrictedCountries).
+   * Ignored (stored as []) when metadata.worldwideRights is true. */
+  restrictedCountries?: string[];
   language: string;
   coverImageUrl?: string;
   coverAltText?: string;
@@ -255,6 +268,72 @@ export interface SubmitBookInput {
   formats: { ebook: boolean; print: boolean; audiobook: boolean };
   metadata: SubmissionMetadata;
   submitForReview: boolean;
+}
+
+/** Validated, normalised view of a submission — shared by submitBook,
+ * updateBookFull and approveBookRevision so the three never drift. */
+interface PreparedSubmission {
+  category: string;
+  genre: string;
+  subcategory: string;
+  /** False only for a pre-taxonomy pending revision approved after the
+   * taxonomy change — those carry legacy names and are written to the
+   * legacy joins only, never into Book.category/subcategory. */
+  taxonomyColumns: boolean;
+  restrictedCountries: string[];
+  metadata: SubmissionMetadata;
+  hasAudiobook: boolean;
+  audiobookPrice: number | null;
+}
+
+function prepareSubmission(input: SubmitBookInput, opts: { lenient?: boolean } = {}): { ok: true; value: PreparedSubmission } | { ok: false; error: string } {
+  let taxonomyColumns = true;
+  if (!isCategory(input.category) || !isGenre(input.genre) || !input.subcategory) {
+    const legacy = opts.lenient && !input.subcategory && !!input.category && !!input.genre;
+    if (!legacy) {
+      if (!isCategory(input.category)) return { ok: false, error: "Please choose a Category." };
+      if (!isGenre(input.genre)) return { ok: false, error: "Please choose a Genre." };
+      return { ok: false, error: "Please choose a Subcategory." };
+    }
+    taxonomyColumns = false;
+  } else if (!isSubcategoryOf(input.category, input.subcategory)) {
+    return { ok: false, error: "That Subcategory doesn't belong to the selected Category — please choose it again." };
+  }
+
+  const meta = input.metadata;
+  const worldwide = meta.worldwideRights !== false;
+  const restrictedCountries = worldwide ? [] : parseRestrictedCountries(input.restrictedCountries ?? meta.countryRestrictions);
+  if (!worldwide && restrictedCountries.length === 0 && !opts.lenient) {
+    return { ok: false, error: "Choose at least one country where this book may not be sold, or turn on worldwide distribution rights." };
+  }
+
+  // The audiobook price is only meaningful with an uploaded audiobook
+  // file, and must be a real price whenever a file is attached.
+  const hasAudiobook = !!input.audiobookFileId;
+  let audiobookPrice: number | null = null;
+  if (hasAudiobook) {
+    const p = Number(meta.audiobookRetailPrice);
+    if (!Number.isFinite(p) || p <= 0) return { ok: false, error: "Audiobook price must be greater than $0 when an audiobook file is attached." };
+    audiobookPrice = p;
+  }
+
+  const metadata: SubmissionMetadata = {
+    ...meta,
+    worldwideRights: worldwide,
+    countryRestrictions: restrictedCountries.length > 0 ? restrictedCountries.join(", ") : undefined,
+    // All books are sold on the store; featured placement is not yet available.
+    sellOnStore: true,
+    featuredRequest: false,
+    audiobookEnabled: hasAudiobook,
+    audiobookRetailPrice: audiobookPrice ?? undefined,
+  };
+
+  // Legacy payloads: input.category was the shelf name and input.genre the
+  // legacy genre, so map them straight onto the two legacy joins.
+  const names = taxonomyColumns
+    ? { category: input.category, genre: input.genre, subcategory: input.subcategory }
+    : { category: "", genre: input.category, subcategory: input.genre };
+  return { ok: true, value: { ...names, taxonomyColumns, restrictedCountries, metadata, hasAudiobook, audiobookPrice } };
 }
 
 export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
@@ -271,6 +350,10 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   if (!input.formats.ebook && !input.formats.print && !input.formats.audiobook) {
     return { ok: false, error: "Select at least one format (eBook, print, or audiobook)." };
   }
+
+  const prepared = prepareSubmission(input);
+  if (!prepared.ok) return { ok: false, error: prepared.error };
+  const prep = prepared.value;
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
   if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
@@ -302,9 +385,11 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   if (input.audiobookFileId) bookFiles.push({ kind: "AUDIOBOOK", url: `/api/files/${input.audiobookFileId}` });
   for (const url of input.promotionalImageUrls ?? []) bookFiles.push({ kind: "PROMOTIONAL", url });
 
+  // Legacy joins: the Category relation holds the GENRE shelf name, the
+  // Genre relation holds the subcategory name (what the storefront reads).
   const [category, genre, siteMode] = await Promise.all([
-    prisma.category.upsert({ where: { name: input.category }, update: {}, create: { name: input.category } }),
-    prisma.genre.upsert({ where: { name: input.genre }, update: {}, create: { name: input.genre } }),
+    prisma.category.upsert({ where: { name: prep.genre }, update: {}, create: { name: prep.genre } }),
+    prisma.genre.upsert({ where: { name: prep.subcategory }, update: {}, create: { name: prep.subcategory } }),
     import("@/actions/test-data").then((m) => m.getSiteDataMode()),
   ]);
 
@@ -325,7 +410,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       coverAltText: input.coverAltText?.trim() || null,
       hasEbook: input.formats.ebook,
       hasPrint: input.formats.print,
-      hasAudiobook: input.formats.audiobook,
+      hasAudiobook: prep.hasAudiobook,
       paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
         ? input.metadata.paperbackRetailPrice
         : null,
@@ -334,13 +419,13 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
         : null,
       // Audiobook is only ever a purchasable, visible format once BOTH
       // an audio file has actually been uploaded AND a price has been
-      // set (see formatAvailable.audiobook in lib/data/real-books-adapter.ts,
-      // which also requires the AUDIOBOOK BookFile to exist) — this is
+      // set (prepareSubmission rejects a file without a price) — this is
       // the real per-format price the storefront and checkout read.
-      audiobookPrice: input.formats.audiobook && input.audiobookFileId && input.metadata.audiobookEnabled && input.metadata.audiobookRetailPrice
-        ? input.metadata.audiobookRetailPrice
-        : null,
-      submissionMetadata: JSON.parse(JSON.stringify(input.metadata)),
+      audiobookPrice: prep.audiobookPrice,
+      category: prep.category,
+      subcategory: prep.subcategory,
+      restrictedCountries: prep.restrictedCountries,
+      submissionMetadata: JSON.parse(JSON.stringify(prep.metadata)),
       files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
       categories: { create: [{ categoryId: category.id }] },
       genres: { create: [{ genreId: genre.id }] },
@@ -369,6 +454,9 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
     return { ok: false, error: `The description is over the ${DESCRIPTION_WORD_LIMIT}-word limit — please shorten it.` };
   }
   if (input.price <= 0) return { ok: false, error: "Price must be greater than $0." };
+  const prepared = prepareSubmission(input);
+  if (!prepared.ok) return { ok: false, error: prepared.error };
+  const prep = prepared.value;
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
   if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
@@ -405,7 +493,10 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
     await prisma.book.update({
       where: { id: bookId },
       data: {
-        pendingRevisionData: JSON.parse(JSON.stringify({ input, bookFiles })),
+        pendingRevisionData: JSON.parse(JSON.stringify({
+          input: { ...input, restrictedCountries: prep.restrictedCountries, metadata: prep.metadata },
+          bookFiles,
+        })),
       },
     });
     revalidatePath("/account/books");
@@ -414,8 +505,8 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   }
 
   const [category, genre] = await Promise.all([
-    prisma.category.upsert({ where: { name: input.category }, update: {}, create: { name: input.category } }),
-    prisma.genre.upsert({ where: { name: input.genre }, update: {}, create: { name: input.genre } }),
+    prisma.category.upsert({ where: { name: prep.genre }, update: {}, create: { name: prep.genre } }),
+    prisma.genre.upsert({ where: { name: prep.subcategory }, update: {}, create: { name: prep.subcategory } }),
   ]);
 
   await prisma.$transaction([
@@ -437,14 +528,18 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
         coverAltText: input.coverAltText?.trim() || null,
         hasEbook: input.formats.ebook,
         hasPrint: input.formats.print,
-        hasAudiobook: input.formats.audiobook,
+        hasAudiobook: prep.hasAudiobook,
         paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
           ? input.metadata.paperbackRetailPrice
           : null,
         hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice
           ? input.metadata.hardcoverRetailPrice
           : null,
-        submissionMetadata: JSON.parse(JSON.stringify(input.metadata)),
+        audiobookPrice: prep.audiobookPrice,
+        category: prep.category,
+        subcategory: prep.subcategory,
+        restrictedCountries: prep.restrictedCountries,
+        submissionMetadata: JSON.parse(JSON.stringify(prep.metadata)),
         files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
         categories: { create: [{ categoryId: category.id }] },
         genres: { create: [{ genreId: genre.id }] },
@@ -473,9 +568,15 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
 
   const { input, bookFiles } = book.pendingRevisionData as unknown as { input: SubmitBookInput; bookFiles: { kind: string; url: string }[] };
 
+  // Revisions saved before the taxonomy change carry legacy names and are
+  // approved leniently (legacy joins only, Book.category/subcategory untouched).
+  const prepared = prepareSubmission(input, { lenient: true });
+  if (!prepared.ok) return { ok: false, error: prepared.error };
+  const prep = prepared.value;
+
   const [category, genre] = await Promise.all([
-    prisma.category.upsert({ where: { name: input.category }, update: {}, create: { name: input.category } }),
-    prisma.genre.upsert({ where: { name: input.genre }, update: {}, create: { name: input.genre } }),
+    prisma.category.upsert({ where: { name: prep.genre }, update: {}, create: { name: prep.genre } }),
+    prisma.genre.upsert({ where: { name: prep.subcategory }, update: {}, create: { name: prep.subcategory } }),
   ]);
 
   await prisma.$transaction([
@@ -497,14 +598,17 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
         coverAltText: input.coverAltText?.trim() || null,
         hasEbook: input.formats.ebook,
         hasPrint: input.formats.print,
-        hasAudiobook: input.formats.audiobook,
+        hasAudiobook: prep.hasAudiobook,
         paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
           ? input.metadata.paperbackRetailPrice
           : null,
         hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice
           ? input.metadata.hardcoverRetailPrice
           : null,
-        submissionMetadata: JSON.parse(JSON.stringify(input.metadata)),
+        audiobookPrice: prep.audiobookPrice,
+        ...(prep.taxonomyColumns ? { category: prep.category, subcategory: prep.subcategory } : {}),
+        restrictedCountries: prep.restrictedCountries,
+        submissionMetadata: JSON.parse(JSON.stringify(prep.metadata)),
         pendingRevisionData: null as unknown as object,
         files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
         categories: { create: [{ categoryId: category.id }] },

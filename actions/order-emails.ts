@@ -25,11 +25,20 @@ export async function sendOrderReceiptEmail(orderId: string): Promise<void> {
 
     const siteUrl = getSiteUrl();
     const itemsHtml = order.lines
-      .map((l: { book: { title: string; hasEbook: boolean; files: { kind: string; url: string }[] }; grossAmount: unknown }) => {
-        const downloadUrl = l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url;
-        const downloadLine = downloadUrl
-          ? `<p style="margin:4px 0"><a href="${siteUrl}${downloadUrl}">Download "${l.book.title}"</a></p>`
-          : "";
+      .map((l) => {
+        // Each line links the file for the format actually bought: the
+        // audiobook line the AUDIOBOOK file (through the purchase-checked
+        // download route), eBook (and older, format-less lines) the
+        // manuscript, and print lines nothing at all — they are shipped.
+        let downloadLine = "";
+        if (l.format === "audiobook") {
+          if (l.book.files.some((f) => f.kind === "AUDIOBOOK")) {
+            downloadLine = `<p style="margin:4px 0"><a href="${siteUrl}/api/downloads/${l.bookId}?format=audiobook">Download the audiobook "${l.book.title}"</a></p>`;
+          }
+        } else if (l.format !== "paperback" && l.format !== "hardcover") {
+          const downloadUrl = l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url;
+          if (downloadUrl) downloadLine = `<p style="margin:4px 0"><a href="${siteUrl}${downloadUrl}">Download "${l.book.title}"</a></p>`;
+        }
         return `<tr><td style="padding:6px 0">${l.book.title}${downloadLine}</td><td style="padding:6px 0;text-align:right">$${Number(l.grossAmount).toFixed(2)}</td></tr>`;
       })
       .join("");

@@ -1,6 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { hashStr } from "@/lib/hash";
 import { BOOKS, PALETTES, type Book, type MotifKind } from "@/lib/data/catalog";
+import { categoryOfSubcategory, isCategory } from "@/lib/taxonomy";
+import { genreLabelFromShelfId, shelfIdFromGenreLabel } from "@/lib/shelf-mapping";
+import {
+  effectiveRestrictedCountries,
+  isBookVisibleToVisitor,
+  isFormatPurchasable,
+  isRestrictedForCountries,
+  isSellOnStoreDisabled,
+  resolveFormatPrice,
+} from "@/lib/book-visibility";
 
 /**
  * Converts real, published Book rows (created through the actual
@@ -28,15 +38,6 @@ const MOTIF_KINDS: MotifKind[] = [
   "rainbow", "tree", "owl", "cloud", "umbrella", "train", "heart", "dragon",
 ];
 
-function categoryIdFromLabel(label: string | null | undefined): string {
-  const lower = (label ?? "").toLowerCase();
-  if (lower.includes("bedtime")) return "bedtime";
-  if (lower.includes("early")) return "early";
-  if (lower.includes("middle")) return "middle";
-  if (lower.includes("activity")) return "activity";
-  return "picture";
-}
-
 function ageFromAgeGroup(ageGroup: string | null | undefined): string {
   const digits = (ageGroup ?? "").match(/[\d-]+/);
   return digits ? digits[0] : "3-5";
@@ -53,6 +54,9 @@ interface RealBookRow {
   coverAltText: string | null;
   files: { kind: string; url: string }[];
   ageGroup: string | null;
+  category: string | null;
+  subcategory: string | null;
+  restrictedCountries: string[];
   createdAt: Date;
   hasEbook: boolean;
   hasPrint: boolean;
@@ -94,10 +98,15 @@ function toCatalogBook(row: RealBookRow): Book {
   const submittedAuthorName = meta?.authorFirstName || meta?.authorLastName
     ? `${meta.authorFirstName ?? ""} ${meta.authorLastName ?? ""}`.trim()
     : null;
-  const paperbackPrice = row.paperbackPrice != null ? Number(row.paperbackPrice) : (meta?.paperbackEnabled && meta.paperbackRetailPrice ? meta.paperbackRetailPrice : null);
-  const hardcoverPrice = row.hardcoverPrice != null ? Number(row.hardcoverPrice) : (meta?.hardcoverEnabled && meta.hardcoverRetailPrice ? meta.hardcoverRetailPrice : null);
+  // Same price rules as checkout (lib/book-visibility.ts resolveFormatPrice) so
+  // what the product page shows is exactly what createPendingOrder charges.
+  const paperbackPrice = resolveFormatPrice(row, "paperback");
+  const hardcoverPrice = resolveFormatPrice(row, "hardcover");
   const audiobookUrl = row.files.find((f) => f.kind === "AUDIOBOOK")?.url;
-  const audiobookPrice = row.audiobookPrice != null ? Number(row.audiobookPrice) : null;
+  const audiobookPrice = resolveFormatPrice(row, "audiobook");
+  const legacyTheme = row.genres[0]?.genre.name;
+  const subcategory = row.subcategory?.trim() || (legacyTheme && categoryOfSubcategory(legacyTheme) ? legacyTheme : undefined);
+  const shelfId = shelfIdFromGenreLabel(row.categories[0]?.category.name);
 
   return {
     id: row.id,
@@ -112,8 +121,11 @@ function toCatalogBook(row: RealBookRow): Book {
     authorId: row.authorId,
     motif: MOTIF_KINDS[seed % MOTIF_KINDS.length],
     palette: PALETTES[seed % PALETTES.length],
-    category: categoryIdFromLabel(row.categories[0]?.category.name),
-    genre: row.genres[0]?.genre.name ?? "Adventure",
+    category: shelfId,
+    genre: genreLabelFromShelfId(shelfId),
+    series: isCategory(row.category) ? row.category : undefined,
+    subcategory,
+    restrictedCountries: effectiveRestrictedCountries(row),
     age: ageFromAgeGroup(row.ageGroup),
     price,
     formats: {
@@ -124,14 +136,14 @@ function toCatalogBook(row: RealBookRow): Book {
     },
     formatAvailable: {
       ebook: row.hasEbook,
-      paperback: row.hasPrint && paperbackPrice != null,
-      hardcover: row.hasPrint && hardcoverPrice != null,
+      paperback: isFormatPurchasable(row, "paperback"),
+      hardcover: isFormatPurchasable(row, "hardcover"),
       // Per explicit instruction: the Audiobook format is only ever
       // shown/purchasable once BOTH an audio file has been uploaded AND
       // a price has been set for it — missing either one, and the
       // Audiobook option is entirely absent from the product page, not
       // shown disabled/unavailable.
-      audiobook: row.hasAudiobook && !!audiobookUrl && audiobookPrice != null,
+      audiobook: isFormatPurchasable(row, "audiobook"),
     },
     manuscriptUrl: row.files.find((f) => f.kind === "MANUSCRIPT")?.url,
     audiobookUrl,
@@ -161,25 +173,39 @@ function toCatalogBook(row: RealBookRow): Book {
   };
 }
 
+const BOOK_INCLUDE = {
+  author: { include: { user: true } },
+  categories: { include: { category: true } },
+  genres: { include: { genre: true } },
+  files: true,
+  reviews: true,
+  ratings: true,
+} as const;
+
+/** Visitor-specific countries (account country + request geo), as returned
+ * by lib/visitor-country.ts getVisitorCountries(). Omit it for the
+ * non-request-scoped path (sitemaps, jobs): every country-restricted book is
+ * then still returned, since there is no visitor to hide it from. */
+export type VisitorCountries = readonly (string | null | undefined)[];
+
 /** All real, published books, in catalog shape — empty array if the
  * database is unreachable, so the storefront degrades to the demo
- * catalog rather than erroring. */
-export async function getRealPublishedBooks(): Promise<Book[]> {
+ * catalog rather than erroring. Books an admin/old data withheld from the
+ * store (submissionMetadata.sellOnStore === false) are never returned, and
+ * when `visitorCountries` is given, books restricted in any of those
+ * countries are hidden too. */
+export async function getRealPublishedBooks(visitorCountries?: VisitorCountries): Promise<Book[]> {
   try {
     const rows = await prisma.book.findMany({
       where: { status: "PUBLISHED" },
-      include: {
-        author: { include: { user: true } },
-        categories: { include: { category: true } },
-        genres: { include: { genre: true } },
-        files: true,
-        reviews: true,
-        ratings: true,
-      },
+      include: BOOK_INCLUDE,
       orderBy: { createdAt: "desc" },
     });
     if (!Array.isArray(rows)) return [];
-    return rows.map((r: RealBookRow) => toCatalogBook(r));
+    return rows
+      .filter((r) => !isSellOnStoreDisabled(r.submissionMetadata))
+      .map((r) => toCatalogBook(r))
+      .filter((b) => isBookVisibleToVisitor(b, visitorCountries ?? []));
   } catch {
     return [];
   }
@@ -188,24 +214,25 @@ export async function getRealPublishedBooks(): Promise<Book[]> {
 /** Resolves a specific list of book ids for the cart/checkout — checks
  * real database books first, then falls back to the static demo catalog
  * for any ids not found there (this is how a cart holding both a real
- * submitted book and a demo book resolves correctly). Previously the
- * cart and checkout pages only ever checked the static catalog, so a
- * real book silently vanished from the cart at checkout. */
-export async function getBooksByIds(ids: string[]): Promise<Book[]> {
+ * submitted book and a demo book resolves correctly). Only PUBLISHED,
+ * on-sale books resolve. With `visitorCountries`, books restricted for
+ * the visitor are still returned but flagged `restricted: true` so the
+ * cart/checkout can show the message and block payment. */
+export async function getBooksByIds(ids: string[], visitorCountries?: VisitorCountries): Promise<Book[]> {
   if (ids.length === 0) return [];
   try {
     const rows = await prisma.book.findMany({
-      where: { id: { in: ids } },
-      include: {
-        author: { include: { user: true } },
-        categories: { include: { category: true } },
-        genres: { include: { genre: true } },
-        files: true,
-        reviews: true,
-        ratings: true,
-      },
+      where: { id: { in: ids }, status: "PUBLISHED" },
+      include: BOOK_INCLUDE,
     });
-    const found = Array.isArray(rows) ? rows.map((r: RealBookRow) => toCatalogBook(r)) : [];
+    const found = Array.isArray(rows)
+      ? rows
+          .filter((r) => !isSellOnStoreDisabled(r.submissionMetadata))
+          .map((r) => {
+            const b = toCatalogBook(r);
+            return visitorCountries ? { ...b, restricted: isRestrictedForCountries(b.restrictedCountries, visitorCountries) } : b;
+          })
+      : [];
     const foundIds = new Set(found.map((b) => b.id));
     const demoFallback = BOOKS.filter((b) => ids.includes(b.id) && !foundIds.has(b.id));
     return [...found, ...demoFallback];
@@ -215,22 +242,14 @@ export async function getBooksByIds(ids: string[]): Promise<Book[]> {
 }
 
 /** A single real book by id, in catalog shape — null if not found (or
- * not published) or the database is unreachable. */
+ * not published / withheld from the store) or the database is
+ * unreachable. Restriction is NOT applied here: the caller decides what a
+ * restricted visitor sees (see app/[slug]/page.tsx). */
 export async function getRealPublishedBookById(id: string): Promise<Book | null> {
   try {
-    const row = await prisma.book.findUnique({
-      where: { id },
-      include: {
-        author: { include: { user: true } },
-        categories: { include: { category: true } },
-        genres: { include: { genre: true } },
-        files: true,
-        reviews: true,
-        ratings: true,
-      },
-    });
-    if (!row || row.status !== "PUBLISHED") return null;
-    return toCatalogBook(row as RealBookRow);
+    const row = await prisma.book.findUnique({ where: { id }, include: BOOK_INCLUDE });
+    if (!row || row.status !== "PUBLISHED" || isSellOnStoreDisabled(row.submissionMetadata)) return null;
+    return toCatalogBook(row);
   } catch {
     return null;
   }
@@ -238,19 +257,9 @@ export async function getRealPublishedBookById(id: string): Promise<Book | null>
 
 export async function getRealPublishedBookBySlug(slug: string): Promise<Book | null> {
   try {
-    const row = await prisma.book.findUnique({
-      where: { slug },
-      include: {
-        author: { include: { user: true } },
-        categories: { include: { category: true } },
-        genres: { include: { genre: true } },
-        files: true,
-        reviews: true,
-        ratings: true,
-      },
-    });
-    if (!row || row.status !== "PUBLISHED") return null;
-    return toCatalogBook(row as RealBookRow);
+    const row = await prisma.book.findUnique({ where: { slug }, include: BOOK_INCLUDE });
+    if (!row || row.status !== "PUBLISHED" || isSellOnStoreDisabled(row.submissionMetadata)) return null;
+    return toCatalogBook(row);
   } catch {
     return null;
   }

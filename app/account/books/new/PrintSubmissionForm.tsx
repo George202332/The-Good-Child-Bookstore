@@ -13,8 +13,7 @@ import { computePrintPricing } from "@/lib/lulu-pricing";
 import { computeCoverGeometry } from "@/lib/cover-preview";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 
-const CATEGORIES = ["Picture books", "Bedtime stories", "Middle grade", "Educational"];
-const GENRES = ["Adventure", "Fantasy", "Animal Story", "Fairy Tale", "Poetry", "Educational"];
+import { CATEGORIES, GENRES, subcategoriesFor } from "@/lib/taxonomy";
 const AGE_RANGES = ["0-2 years", "3-5 years", "6-8 years", "9-12 years", "12-15 years"];
 const READING_LEVELS = ["Pre-reader", "Beginner", "Early Reader", "Independent Reader", "Fluent Reader"];
 const LANGUAGES = ["English", "Spanish", "French", "Swahili"];
@@ -50,8 +49,9 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
   const [isbn, setIsbn] = useState("978-1-59299-541-7");
   const [language, setLanguage] = useState(prefill?.language || LANGUAGES[0]);
   const [publicationDate, setPublicationDate] = useState(prefill?.publicationDate ?? "");
-  const [category, setCategory] = useState(prefill?.category || CATEGORIES[0]);
-  const [genre, setGenre] = useState(prefill?.genre || GENRES[0]);
+  const [category, setCategory] = useState(prefill?.category ?? "");
+  const [genre, setGenre] = useState(prefill?.genre ?? "");
+  const [subcategory, setSubcategory] = useState(prefill?.subcategory ?? "");
   const [ageGroup, setAgeGroup] = useState(prefill?.ageGroup || AGE_RANGES[0]);
   const [readingLevel, setReadingLevel] = useState(prefill?.readingLevel || READING_LEVELS[0]);
   const [description, setDescription] = useState(prefill?.description ?? "");
@@ -109,7 +109,8 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
 
 
   // Section 8
-  const [sellThroughWebsite, setSellThroughWebsite] = useState(true);
+  // Every book is sold on the store, so "Sell through website" is no
+  // longer a choice here (metadata always stores true for both flags).
   const [luluGlobalDistribution, setLuluGlobalDistribution] = useState(true);
   const [privatePrinting, setPrivatePrinting] = useState(false);
   const [affiliateEligiblePrint, setAffiliateEligiblePrint] = useState(false);
@@ -142,6 +143,7 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
       ageGroup,
       category,
       genre,
+      subcategory,
       language,
       coverImageUrl: frontCoverImageUrl,
       manuscriptFileId: printReadyPdfFileId,
@@ -164,7 +166,7 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
         taxSetting: "Calculate automatically by customer location",
         worldwideRights: true,
         licenseType: "All rights reserved",
-        sellOnStore: sellThroughWebsite,
+        sellOnStore: true,
         includeInPromotions: promotionalCampaignEligible,
         featuredRequest: false,
         allowDiscounts: true,
@@ -180,7 +182,7 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
         frontCoverImageUrl,
         customBackCoverPdfFileId,
         backCoverMode,
-        sellThroughWebsite,
+        sellThroughWebsite: true,
         luluGlobalDistribution,
         privatePrinting,
         affiliateEligiblePrint,
@@ -243,16 +245,27 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
         <div className="form-grid-3">
           <div>
             <label className="field-label" htmlFor="p-category">Category</label>
-            <select className="field" id="p-category" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select className="field" id="p-category" value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(""); }}>
+              <option value="">Select a category</option>
               {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
             <label className="field-label" htmlFor="p-genre">Genre</label>
             <select className="field" id="p-genre" value={genre} onChange={(e) => setGenre(e.target.value)}>
+              <option value="">Select a genre</option>
               {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
+          <div>
+            <label className="field-label" htmlFor="p-subcategory">Subcategory</label>
+            <select className="field" id="p-subcategory" value={subcategory} onChange={(e) => setSubcategory(e.target.value)} disabled={!category}>
+              <option value="">{category ? "Select a subcategory" : "Choose a category first"}</option>
+              {subcategoriesFor(category).map((x) => <option key={x} value={x}>{x}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="form-grid-3">
           <div>
             <label className="field-label" htmlFor="p-age">Age group</label>
             <select className="field" id="p-age" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)}>
@@ -567,10 +580,6 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
         <SectionHeader n={7} title="Distribution" sub="Where this print edition can be sold." />
         <div className="form-grid-2">
           <div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={sellThroughWebsite} onChange={(e) => setSellThroughWebsite(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Sell through website</span>
-            </div>
             <div className="toggle-row">
               <label className="toggle-switch"><input type="checkbox" checked={privatePrinting} onChange={(e) => setPrivatePrinting(e.target.checked)} /><span className="toggle-slider" /></label>
               <span>Private printing (author copies only)</span>

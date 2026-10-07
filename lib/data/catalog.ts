@@ -122,8 +122,27 @@ export interface Book {
   authorId?: string;
   motif: MotifKind;
   palette: [string, string];
+  /** The Genre SHELF id (picture | bedtime | early | middle | activity), as
+   * used by `/bookshelf?cat=` and the Shop by Shelf tiles. "unknown" for a
+   * real book whose genre maps to no shelf (it then matches no shelf). The
+   * name is historical: in the taxonomy this dimension is the book's Genre. */
   category: string;
+  /** The Genre shelf's display name (e.g. "Picture Books"); "" when the
+   * book has no recognised shelf. */
   genre: string;
+  /** The Category series (Book.category, e.g. "Adventure Series") — real
+   * submitted books only, undefined when unset. */
+  series?: string;
+  /** The Subcategory (Book.subcategory; for older books the legacy theme
+   * name, only when it is a known subcategory). */
+  subcategory?: string;
+  /** Effective ISO-2 country restrictions of a real book (the array, or the
+   * legacy free-text field of older books). Used server-side and by the
+   * checkout's ship-to check. */
+  restrictedCountries?: string[];
+  /** Set by resolveCartBooks: true when this book is restricted for the
+   * current visitor (account country or request geo). */
+  restricted?: boolean;
   age: string;
   price: number;
   formats: { ebook: number; print: number; paperback: number; audiobook: number };

@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
 import { EbookSubmissionForm } from "../../new/EbookSubmissionForm";
+import { isCategory, categoryOfSubcategory, normalizeGenre, isSubcategoryOf } from "@/lib/taxonomy";
+import { parseRestrictedCountries } from "@/lib/book-country-restriction";
 
 /**
  * Edit an existing book — genuinely the same page used to submit a new
@@ -31,6 +33,18 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
   const audiobookFile = book.files.find((f: { kind: string; url: string }) => f.kind === "AUDIOBOOK");
   const audiobookFileId = audiobookFile?.url.split("/").pop();
   const meta = (book.submissionMetadata as Record<string, unknown> | null) ?? {};
+
+  // Classification prefill. New columns win; books from before the taxonomy
+  // change fall back to the legacy joins (Category join = genre shelf, Genre
+  // join = subcategory). Nothing is invented: anything that can't be mapped
+  // stays empty so the author has to choose it.
+  const legacyShelf = book.categories[0]?.category.name;
+  const legacySub = book.genres[0]?.genre.name;
+  const categoryValue = isCategory(book.category) ? book.category : categoryOfSubcategory(legacySub) ?? "";
+  const subcategoryCandidate = book.subcategory ?? legacySub;
+  const subcategoryValue = categoryValue && isSubcategoryOf(categoryValue, subcategoryCandidate) ? (subcategoryCandidate as string) : "";
+  const genreValue = normalizeGenre(legacyShelf) ?? "";
+  const restrictedCountries = book.restrictedCountries.length > 0 ? book.restrictedCountries : parseRestrictedCountries(meta.countryRestrictions as string | undefined);
 
   return (
     <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
@@ -63,8 +77,9 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
           authorFirstName: (meta.authorFirstName as string) ?? "",
           authorLastName: (meta.authorLastName as string) ?? "",
           authorBio: (meta.authorBio as string) ?? "",
-          category: book.categories[0]?.category.name ?? "",
-          genre: book.genres[0]?.genre.name ?? "",
+          category: categoryValue,
+          genre: genreValue,
+          subcategory: subcategoryValue,
           ageGroup: book.ageGroup ?? "",
           readingLevel: (meta.readingLevel as string) ?? "",
           pages: meta.pages != null ? Number(meta.pages) : undefined,
@@ -75,11 +90,9 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
           keywords: typeof meta.keywords === "string" ? (meta.keywords as string).split(",").map((k) => k.trim()).filter(Boolean) : [],
           price: String(Number(book.price)),
           taxSetting: (meta.taxSetting as string) ?? "",
-          sellOnStore: (meta.sellOnStore as boolean) ?? true,
-          featuredRequest: (meta.featuredRequest as boolean) ?? false,
           affiliateEnabled: (meta.affiliateEnabled as boolean) ?? false,
-          worldwideRights: (meta.worldwideRights as boolean) ?? true,
-          countryRestrictions: (meta.countryRestrictions as string) ?? "",
+          worldwideRights: restrictedCountries.length > 0 ? false : ((meta.worldwideRights as boolean) ?? true),
+          restrictedCountries,
           copyrightHolder: (meta.copyrightHolder as string) ?? "",
           licenseType: (meta.licenseType as string) ?? "",
         }}

@@ -9,6 +9,17 @@ import { calculateSplits, applyAuthorReferralCarveOut } from "@/lib/revenue";
 import { getCommissionRates, tierForReferralCount } from "@/lib/commission-settings";
 import { generateAccountNumber } from "@/lib/account-number";
 import { getRequestGeo } from "@/lib/geo";
+import { getAccountCountry } from "@/lib/visitor-country";
+import { countryToIso2 } from "@/lib/user-country";
+import { restrictionMessage } from "@/lib/book-country-restriction";
+import {
+  effectiveRestrictedCountries,
+  isFormatPurchasable,
+  isLineRestricted,
+  isSellOnStoreDisabled,
+  resolveFormatPrice,
+  type SaleFormat,
+} from "@/lib/book-visibility";
 
 /**
  * Runtime shape validation for checkout input — a Server Action is a
@@ -19,7 +30,7 @@ import { getRequestGeo } from "@/lib/geo";
  *
  * Note this only validates *shape* (right types, sane ranges) — the
  * price itself is never trusted from the client at all; see
- * priceForFormat() below, which always looks the real price up fresh
+ * resolveFormatPrice() (lib/book-visibility.ts), which always looks the real price up fresh
  * from the database by bookId, ignoring anything the client sent for it.
  */
 const orderItemSchema = z.object({
@@ -170,32 +181,44 @@ export async function createPendingOrder(input: {
   }
   input = parsed.data;
 
+  // Validate every line BEFORE any account is created or order written, so a
+  // rejected checkout leaves nothing behind (no stray guest account).
+  const bookIds = input.items.map((i) => i.bookId);
+  const books = await prisma.book.findMany({ where: { id: { in: bookIds } }, include: { author: true, files: true } });
+  if (input.items.length === 0) return { ok: false, error: "Your cart is empty." };
+
+  const geo = await getRequestGeo();
+  const accountCountry = await getAccountCountry();
+  const shipIso = countryToIso2(input.shipCountry);
+  const FORMAT_NAME: Record<SaleFormat, string> = { ebook: "eBook", paperback: "Paperback", hardcover: "Hardcover", audiobook: "Audiobook" };
+
+  const lines: { bookId: string; qty: number; format: SaleFormat; book: (typeof books)[number]; unitPrice: number }[] = [];
+  for (const item of input.items) {
+    const book = books.find((b) => b.id === item.bookId);
+    if (!book || book.status !== "PUBLISHED" || isSellOnStoreDisabled(book.submissionMetadata)) {
+      return { ok: false, error: `${book ? `"${book.title}"` : "A book in your cart"} is no longer available. Please remove it and try again.` };
+    }
+    // Authoritative country restriction: account country OR request geo, and
+    // the ship-to country for print lines. Unknown countries never restrict.
+    if (isLineRestricted(effectiveRestrictedCountries(book), { accountCountry, geoCountry: geo.country, shipCountry: shipIso }, item.format)) {
+      return { ok: false, error: `${book.title}: ${restrictionMessage}` };
+    }
+    // The requested format must really be on sale for this book — and an
+    // audiobook with no price of its own is rejected, never charged at the
+    // eBook (or base) price.
+    const unitPrice = resolveFormatPrice(book, item.format);
+    if (!isFormatPurchasable(book, item.format) || unitPrice === null) {
+      return { ok: false, error: `"${book.title}" isn't available as ${FORMAT_NAME[item.format]}. Please remove it from your cart and try again.` };
+    }
+    lines.push({ ...item, book, unitPrice });
+  }
+
   const { readerProfileId, error, tempPassword } = await resolveReaderProfileId(input.guestEmail, input.guestName);
   if (!readerProfileId) {
     return { ok: false, error: error ?? "Couldn't start checkout." };
   }
 
-  const bookIds = input.items.map((i) => i.bookId);
-  const books = await prisma.book.findMany({ where: { id: { in: bookIds } }, include: { author: true } });
-  const lines = input.items
-    .map((i) => ({ ...i, book: books.find((b: { id: string }) => b.id === i.bookId) }))
-    .filter((l): l is typeof l & { book: NonNullable<typeof l.book> } => !!l.book);
-
-  if (lines.length === 0) {
-    return { ok: false, error: "Your cart is empty." };
-  }
-
-  function priceForFormat(book: { price: unknown; ebookPrice: unknown; paperbackPrice: unknown; hardcoverPrice: unknown; audiobookPrice: unknown; submissionMetadata?: unknown }, format: string): number {
-    const meta = (book.submissionMetadata as { paperbackEnabled?: boolean; hardcoverEnabled?: boolean; paperbackRetailPrice?: number; hardcoverRetailPrice?: number } | null) ?? null;
-    const perFormat =
-      format === "ebook" ? book.ebookPrice :
-      format === "paperback" ? (book.paperbackPrice ?? (meta?.paperbackEnabled ? meta.paperbackRetailPrice : null)) :
-      format === "hardcover" ? (book.hardcoverPrice ?? (meta?.hardcoverEnabled ? meta.hardcoverRetailPrice : null)) :
-      book.audiobookPrice;
-    return perFormat !== null && perFormat !== undefined ? Number(perFormat) : Number(book.price);
-  }
-
-  const subtotal = lines.reduce((sum, l) => sum + priceForFormat(l.book, l.format) * l.qty, 0);
+  const subtotal = lines.reduce((sum, l) => sum + l.unitPrice * l.qty, 0);
 
   // Real affiliate attribution: the "which affiliate link was this visit
   // through" cookie is set directly in middleware (proxy.ts) — reliable
@@ -223,7 +246,6 @@ export async function createPendingOrder(input: {
 
   const totalAmount = +subtotal.toFixed(2);
   const commissionRates = await getCommissionRates();
-  const geo = await getRequestGeo();
 
   // Referral commission is tiered (Hawk/Falcon/Eagle/Phoenix — see
   // lib/commission-settings.ts): each referring affiliate's rate
@@ -258,7 +280,7 @@ export async function createPendingOrder(input: {
       shipAddress: input.shipAddress?.trim() || null,
       lines: {
         create: lines.map((l) => {
-          const lineGross = +(priceForFormat(l.book, l.format) * l.qty).toFixed(2);
+          const lineGross = +(l.unitPrice * l.qty).toFixed(2);
           const isAffiliateSale = affiliateBookId !== null && affiliateBookId === l.bookId;
           let split = calculateSplits(lineGross, isAffiliateSale, commissionRates.promotionPct);
           const referredById = l.book.author.referredById;
@@ -287,6 +309,35 @@ export async function createPendingOrder(input: {
  * payment gateway. Used when no Paystack credentials are
  * configured (see actions/payment-init.ts initiateGatewayCheckout). */
 export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: boolean }> {
+  // Guards for this demo-only path: it can never be used to mark an order
+  // paid while a real gateway is configured, never re-confirms an order, and
+  // re-checks country restrictions so it cannot be a way around
+  // createPendingOrder's authoritative block.
+  const { getPaystackCredentials } = await import("@/lib/api-keys");
+  if ((await getPaystackCredentials()).secretKey) return { ok: false };
+
+  const pending = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { lines: { include: { book: true } } },
+  });
+  if (!pending) return { ok: false };
+  if (pending.status !== "PENDING") return { ok: pending.status === "PAID" };
+
+  const geo = await getRequestGeo();
+  const accountCountry = await getAccountCountry();
+  const shipIso = countryToIso2(pending.shipCountry);
+  const blocked = pending.lines.some((l) =>
+    isLineRestricted(
+      effectiveRestrictedCountries(l.book),
+      { accountCountry, geoCountry: geo.country ?? pending.country, shipCountry: shipIso },
+      l.format,
+    )
+  );
+  if (blocked) {
+    await prisma.order.update({ where: { id: orderId }, data: { status: "CANCELLED" } });
+    return { ok: false };
+  }
+
   const order = await prisma.order.update({
     where: { id: orderId },
     data: { status: "PAID" },
@@ -354,21 +405,20 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary | n
       totalAmount: Number(order.totalAmount),
       printJobStatus: order.printJobStatus,
       printJobError: order.printJobError,
-      items: order.lines.map((l: {
-        book: { title: string; coverImageUrl: string | null; files: { kind: string; url: string }[] };
-        grossAmount: unknown;
-        format: string | null;
-      }) => {
+      items: order.lines.map((l) => {
         const isEbook = l.format === "ebook";
         const isAudiobook = l.format === "audiobook";
         const isPrint = l.format === "paperback" || l.format === "hardcover";
         return {
           title: l.book.title,
           price: Number(l.grossAmount),
+          // eBook: the manuscript (as before). Audiobook: its own AUDIOBOOK
+          // file, via the purchase-checked download route — the audio file
+          // is never served from a public URL.
           downloadUrl: isEbook
             ? (l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url ?? null)
             : isAudiobook
-            ? (l.book.files.find((f) => f.kind === "AUDIOBOOK")?.url ?? null)
+            ? (l.book.files.some((f) => f.kind === "AUDIOBOOK") ? `/api/downloads/${l.bookId}?format=audiobook` : null)
             : null,
           hasEbook: isEbook,
           hasAudiobook: isAudiobook,

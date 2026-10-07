@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { uploadGenericFile, type UploadFileResult } from "@/actions/files";
 
+/** Hard platform ceiling for uploads (mirrors MAX_UPLOAD_BYTES in
+ * actions/files.ts and serverActions.bodySizeLimit in next.config.ts —
+ * all three must stay in step). */
+const UPLOAD_LIMIT_BYTES = 4 * 1024 * 1024;
+
 /**
  * A file-upload card matching the exact 4-across "Files" section design
  * (Manuscript / Cover image / Sample pages / Promotional images) — same
@@ -25,6 +30,11 @@ export function FileUploadField({
   onUploaded,
   onFileMeta,
   fillWidth,
+  disabled = false,
+  disabledNote,
+  initialFileName,
+  onRemove,
+  checkSizeLimit = false,
 }: {
   label: string;
   sizeHint: string;
@@ -40,15 +50,37 @@ export function FileUploadField({
    * its parent's .upload-cards-row (grows/shrinks with its siblings,
    * min-width 160px) instead of growing unpredictably on its own. */
   fillWidth?: boolean;
+  /** Greys the card out and blocks picking/dropping a file. */
+  disabled?: boolean;
+  /** Short explanation shown under a disabled card. */
+  disabledNote?: string;
+  /** Shows the card as already uploaded (edit mode) with this label. */
+  initialFileName?: string;
+  /** When given, an uploaded card shows a "Remove file" button that
+   * clears the card and calls this. */
+  onRemove?: () => void;
+  /** Rejects a file over the 4MB platform limit in the browser, with a
+   * friendly message, before any upload is attempted (the server action
+   * body limit would otherwise refuse it with a generic error). */
+  checkSizeLimit?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fileNames, setFileNames] = useState<string[]>([]);
+  const [fileNames, setFileNames] = useState<string[]>(initialFileName ? [initialFileName] : []);
   const [isDragOver, setIsDragOver] = useState(false);
   const inputId = `file-upload-${label.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`;
 
   async function uploadFiles(files: File[]) {
-    if (files.length === 0) return;
+    if (files.length === 0 || disabled) return;
+
+    if (checkSizeLimit) {
+      const tooBig = files.find((f) => f.size > UPLOAD_LIMIT_BYTES);
+      if (tooBig) {
+        const mb = (tooBig.size / (1024 * 1024)).toFixed(1);
+        setError(`"${tooBig.name}" is ${mb}MB — files can be at most ${UPLOAD_LIMIT_BYTES / (1024 * 1024)}MB right now. Please compress the audio (for example a lower bitrate MP3) or choose a shorter file and try again.`);
+        return;
+      }
+    }
 
     setUploading(true);
     setError(null);
@@ -58,7 +90,15 @@ export function FileUploadField({
     for (const file of files) {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await uploadGenericFile(formData, allowedTypes);
+      let res: UploadFileResult;
+      try {
+        res = await uploadGenericFile(formData, allowedTypes);
+      } catch {
+        // A body over the platform limit is refused before our action runs.
+        setError(`The upload failed — the file may be larger than the ${UPLOAD_LIMIT_BYTES / (1024 * 1024)}MB limit. Please try a smaller file.`);
+        setUploading(false);
+        return;
+      }
       if (!res.ok || !res.fileId) {
         setError(res.error ?? "Upload failed.");
         setUploading(false);
@@ -94,7 +134,11 @@ export function FileUploadField({
 
   return (
     <div style={fillWidth ? { flex: 1, minWidth: 160 } : undefined}>
-      <div className={`upload-card ${hasFile ? "has-file" : ""} ${isDragOver ? "drag-over" : ""}`}>
+      <div
+        className={`upload-card ${hasFile ? "has-file" : ""} ${isDragOver ? "drag-over" : ""}`}
+        style={disabled ? { opacity: 0.55, pointerEvents: "none" } : undefined}
+        aria-disabled={disabled || undefined}
+      >
         <input
           type="file"
           id={inputId}
@@ -102,7 +146,7 @@ export function FileUploadField({
           multiple={multiple}
           style={{ display: "none" }}
           onChange={handleFileChange}
-          disabled={uploading}
+          disabled={uploading || disabled}
         />
         <label
           htmlFor={inputId}
@@ -128,6 +172,17 @@ export function FileUploadField({
           </div>
         </label>
       </div>
+      {disabled && disabledNote && <div className="field-hint">{disabledNote}</div>}
+      {onRemove && hasFile && !disabled && (
+        <button
+          type="button"
+          className="btn btn-ghost btn-small"
+          style={{ marginTop: 6 }}
+          onClick={() => { setFileNames([]); setError(null); onRemove(); }}
+        >
+          Remove file
+        </button>
+      )}
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
     </div>
   );

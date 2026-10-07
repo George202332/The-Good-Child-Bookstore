@@ -19,6 +19,9 @@ import { PromoBanner } from "@/components/PromoBanner";
 import { StatsBand } from "@/components/StatsBand";
 import { FeaturedAuthors } from "@/components/FeaturedAuthors";
 import { CATS, BOOKS } from "@/lib/data/catalog";
+import { CATEGORIES, categorySlug } from "@/lib/taxonomy";
+import { CATEGORY_BLURBS } from "@/lib/data/category-blurbs";
+import { getVisitorCountries } from "@/lib/visitor-country";
 import { getPlatformStats } from "@/lib/platform-stats";
 import { LiveRefresher } from "@/components/LiveRefresher";
 
@@ -86,7 +89,10 @@ interface HomeBlogPost {
 }
 
 export default async function HomePage() {
-  const realBooks = await getRealPublishedBooks();
+  // Books restricted in the visitor's country are hidden from every list on
+  // this page (best sellers, new arrivals, tile counts). The page is already
+  // force-dynamic, so reading the request adds no cacheability cost.
+  const realBooks = await getRealPublishedBooks(await getVisitorCountries());
   const allBooksForArrivals = [...realBooks, ...BOOKS].sort((a, b) => (a.pubDate < b.pubDate ? 1 : -1));
   const newArrivals = getRotatingBatch(allBooksForArrivals, 12, 20 * 60 * 1000);
   // Live per-category/per-age counts — the same combined real+demo set
@@ -95,8 +101,10 @@ export default async function HomePage() {
   // moment a new book is published under that category.
   const catCounts = new Map<string, number>();
   const ageCounts = new Map<string, number>();
+  const seriesCounts = new Map<string, number>();
   for (const b of allBooksForArrivals) {
     catCounts.set(b.category, (catCounts.get(b.category) ?? 0) + 1);
+    if (b.series) seriesCounts.set(b.series, (seriesCounts.get(b.series) ?? 0) + 1);
     ageCounts.set(b.age, (ageCounts.get(b.age) ?? 0) + 1);
   }
   const AGE_EXPLORER = AGE_EXPLORER_BASE.map((a) => ({ ...a, count: ageCounts.get(a.range) ?? 0 }));
@@ -154,16 +162,16 @@ export default async function HomePage() {
         <div className="wrap">
           <div className="section-head">
             <div>
-              <h2 className="home-section-heading">Shop by Shelf</h2>
-              <p>Five ways into the story, sorted by age and mood.</p>
+              <h2 className="home-section-heading">Shop by Category</h2>
+              <p>Eight series to explore, each one its own world of stories.</p>
             </div>
           </div>
-          <div className="cat-grid">
-            {CATS.map((c, i) => (
-              <Link key={c.id} href={`/bookshelf?cat=${c.id}`} className={`cat-tile ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
-                <span>{c.name}</span>
-                <small>{c.blurb}</small>
-                <span className="cat-count">{catCounts.get(c.id) ?? 0} books</span>
+          <div className="cat-grid cat-grid-8">
+            {CATEGORIES.map((c, i) => (
+              <Link key={c} href={`/bookshelf?series=${categorySlug(c)}`} className={`cat-tile ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
+                <span>{c}</span>
+                <small>{CATEGORY_BLURBS[c]}</small>
+                <span className="cat-count">{seriesCounts.get(c) ?? 0} books</span>
               </Link>
             ))}
           </div>
@@ -186,16 +194,16 @@ export default async function HomePage() {
         <div className="wrap">
           <div className="section-head">
             <div>
-              <h2 className="home-section-heading">Shop by Age</h2>
-              <p>Every title is age-tagged honestly, so you always know what you&apos;re handing over.</p>
+              <h2 className="home-section-heading">Shop by Shelf</h2>
+              <p>Five ways into the story, sorted by age and mood.</p>
             </div>
           </div>
-          <div className="age-grid">
-            {AGE_EXPLORER.map((a, i) => (
-              <Link key={a.range} href={`/bookshelf?age=${a.range}`} className={`age-card ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
-                <div className="age-range">{a.range}</div>
-                <div className="age-label">{a.label}</div>
-                <div className="age-count">{a.count} books</div>
+          <div className="cat-grid">
+            {CATS.map((c, i) => (
+              <Link key={c.id} href={`/bookshelf?cat=${c.id}`} className={`cat-tile ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
+                <span>{c.name}</span>
+                <small>{c.blurb}</small>
+                <span className="cat-count">{catCounts.get(c.id) ?? 0} books</span>
               </Link>
             ))}
           </div>
@@ -326,6 +334,26 @@ export default async function HomePage() {
             ctaHref="/signup/affiliate"
             ctaLabel="Become an affiliate"
           />
+        </div>
+      </FadeInSection>
+
+      <FadeInSection style={{ paddingTop: "calc(0.5in - 8mm)" }}>
+        <div className="wrap">
+          <div className="section-head">
+            <div>
+              <h2 className="home-section-heading">Shop by Age</h2>
+              <p>Every title is age-tagged honestly, so you always know what you&apos;re handing over.</p>
+            </div>
+          </div>
+          <div className="age-grid">
+            {AGE_EXPLORER.map((a, i) => (
+              <Link key={a.range} href={`/bookshelf?age=${a.range}`} className={`age-card ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
+                <div className="age-range">{a.range}</div>
+                <div className="age-label">{a.label}</div>
+                <div className="age-count">{a.count} books</div>
+              </Link>
+            ))}
+          </div>
         </div>
       </FadeInSection>
 

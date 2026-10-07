@@ -11,9 +11,9 @@ import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 import { AuthorAliasField } from "./AuthorAliasField";
 import { KeywordsField } from "./KeywordsField";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
-
-const CATEGORIES = ["Picture books", "Bedtime stories", "Middle grade", "Educational"];
-const GENRES = ["Adventure", "Fantasy", "Animal Story", "Fairy Tale", "Poetry", "Educational"];
+import { CountryRestrictionField } from "./CountryRestrictionField";
+import { CATEGORIES, GENRES, subcategoriesFor } from "@/lib/taxonomy";
+import { DIMENSION_OPTIONS, DEFAULT_DIMENSION, nearestDimensionOption } from "@/lib/book-dimensions";
 const AGE_RANGES = ["0-2 years", "3-5 years", "6-8 years", "9-12 years", "12-15 years"];
 const READING_LEVELS = ["Pre-reader", "Beginner", "Early Reader", "Independent Reader", "Fluent Reader"];
 const LANGUAGES = ["English", "Spanish", "French", "Swahili"];
@@ -53,8 +53,12 @@ export interface EbookSubmissionInitial {
   authorFirstName?: string;
   authorLastName?: string;
   authorBio?: string;
+  /** One of CATEGORIES (lib/taxonomy.ts), or empty when unknown. */
   category?: string;
+  /** One of GENRES, or empty when unknown. */
   genre?: string;
+  /** A subcategory of `category`, or empty when unknown. */
+  subcategory?: string;
   ageGroup?: string;
   readingLevel?: string;
   pages?: number;
@@ -65,11 +69,10 @@ export interface EbookSubmissionInitial {
   keywords?: string[];
   price?: string;
   taxSetting?: string;
-  sellOnStore?: boolean;
-  featuredRequest?: boolean;
   affiliateEnabled?: boolean;
   worldwideRights?: boolean;
-  countryRestrictions?: string;
+  /** ISO-2 codes where this book may NOT be sold. */
+  restrictedCountries?: string[];
   copyrightHolder?: string;
   licenseType?: string;
 }
@@ -95,9 +98,9 @@ export function EbookSubmissionForm({
 }: {
   initial?: EbookSubmissionInitial;
   /** Admin's "Formats open for submission" toggle for Audio book (see
-   * PublishingFormatToggles) — when off, the Audiobook upload field
-   * below doesn't render at all, same as it used to gate the whole
-   * separate Audiobook tab. */
+   * PublishingFormatToggles) — when off, the Audiobook upload slot is
+   * still shown (so nothing disappears silently) but disabled, with a
+   * note that audiobook uploads aren't open right now. */
   audiobookEnabled?: boolean;
   /** Reports this form's shared fields (title, author, description,
    * category, age range, etc) up to the parent wizard every time they
@@ -113,8 +116,8 @@ export function EbookSubmissionForm({
 
   // Audiobook — optional, lives on this same tab (relabeled "eBook /
   // Audiobook" by the parent wizard) rather than a separate Audiobook
-  // tab. Per explicit instruction, the price field below doesn't exist
-  // at all until a file has actually been uploaded here.
+  // tab. The audiobook price field (Pricing section) stays disabled
+  // until a file has actually been uploaded here.
   const [audiobookFileId, setAudiobookFileId] = useState<string | undefined>(initial?.audiobookFileId);
   const [audiobookPrice, setAudiobookPrice] = useState(initial?.audiobookPrice ?? "");
 
@@ -140,8 +143,11 @@ export function EbookSubmissionForm({
   const [authorBio, setAuthorBio] = useState(initial?.authorBio ?? "");
 
   // Book classification
-  const [category, setCategory] = useState(initial?.category || CATEGORIES[0]);
-  const [genre, setGenre] = useState(initial?.genre || GENRES[0]);
+  // Category, Genre and Subcategory are three independent, required
+  // dropdowns; Subcategory depends on Category and resets when it changes.
+  const [category, setCategory] = useState(initial?.category ?? "");
+  const [genre, setGenre] = useState(initial?.genre ?? "");
+  const [subcategory, setSubcategory] = useState(initial?.subcategory ?? "");
   const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || AGE_RANGES[0]);
   const [readingLevel, setReadingLevel] = useState(initial?.readingLevel || READING_LEVELS[0]);
   // Pages, Dimensions, and File size all auto-fill from the uploaded
@@ -154,8 +160,11 @@ export function EbookSubmissionForm({
   // product page's detail card.
   const [pages, setPages] = useState(initial?.pages ? String(initial.pages) : "");
   const [pagesAutoDetected, setPagesAutoDetected] = useState(false);
-  const [dimensions, setDimensions] = useState(initial?.dimensions ?? "5.5 x 8.5 in");
+  const [dimensions, setDimensions] = useState(initial?.dimensions || DEFAULT_DIMENSION);
   const [dimensionsAutoDetected, setDimensionsAutoDetected] = useState(false);
+  const [dimensionsUnmatched, setDimensionsUnmatched] = useState<string | null>(null);
+  // Stored value outside the standard list (edit mode) stays selectable.
+  const dimensionChoices = DIMENSION_OPTIONS.includes(dimensions) ? DIMENSION_OPTIONS : [...DIMENSION_OPTIONS, dimensions];
   const [fileSizeKB, setFileSizeKB] = useState(initial?.fileSizeKB ? String(initial.fileSizeKB) : "");
   const [fileSizeAutoDetected, setFileSizeAutoDetected] = useState(false);
 
@@ -177,13 +186,14 @@ export function EbookSubmissionForm({
   const [taxSetting, setTaxSetting] = useState(initial?.taxSetting || TAX_SETTINGS[0]);
 
   // Distribution
-  const [sellOnStore, setSellOnStore] = useState(initial?.sellOnStore ?? true);
-  const [featuredRequest, setFeaturedRequest] = useState(initial?.featuredRequest ?? false);
+  // "Sell on store" is no longer a choice (every book is sold on the
+  // store) and featured placement isn't available yet — both are fixed
+  // server side (sellOnStore: true, featuredRequest: false).
   const [affiliateEnabled, setAffiliateEnabled] = useState(initial?.affiliateEnabled ?? false);
 
   // Rights
   const [worldwideRights, setWorldwideRights] = useState(initial?.worldwideRights ?? true);
-  const [countryRestrictions, setCountryRestrictions] = useState(initial?.countryRestrictions ?? "");
+  const [restrictedCountries, setRestrictedCountries] = useState<string[]>(initial?.restrictedCountries ?? []);
   const [copyrightHolder, setCopyrightHolder] = useState(initial?.copyrightHolder ?? "");
   const [licenseType, setLicenseType] = useState(initial?.licenseType || LICENSE_TYPES[0]);
 
@@ -219,13 +229,13 @@ export function EbookSubmissionForm({
   useEffect(() => {
     onSharedFieldsChange?.({
       title, subtitle, edition, seriesName, language, publicationDate,
-      category, genre, ageGroup, readingLevel,
+      category, genre, subcategory, ageGroup, readingLevel,
       authorFirstName, authorLastName,
       description: plainTextFromHtml(descriptionHtml),
       aiDeclaration,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onSharedFieldsChange is expected to be a stable callback from the parent; including it would re-run this on every parent render for no reason.
-  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, aiDeclaration]);
+  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, aiDeclaration]);
 
   const [metadataCheck, setMetadataCheck] = useState<MetadataCheckResult>({ titleFound: true, authorFound: true, checked: false });
   useEffect(() => {
@@ -243,10 +253,14 @@ export function EbookSubmissionForm({
     { label: "Book title", ok: !!title.trim() },
     { label: "Author name", ok: !!authorFirstName.trim() && !!authorLastName.trim() },
     { label: "Category selected", ok: !!category },
+    { label: "Genre selected", ok: !!genre },
+    { label: "Subcategory selected", ok: !!subcategory },
     { label: "Age group selected", ok: !!ageGroup },
     { label: "Book description", ok: !!plainTextFromHtml(descriptionHtml) },
     { label: `Description within ${DESCRIPTION_WORD_LIMIT}-word limit`, ok: descriptionWordCount <= DESCRIPTION_WORD_LIMIT },
     { label: "List price set", ok: Number(price) > 0 },
+    ...(audiobookFileId ? [{ label: "Audiobook price set", ok: Number(audiobookPrice) > 0 }] : []),
+    ...(!worldwideRights ? [{ label: "Restricted countries chosen (or turn on worldwide rights)", ok: restrictedCountries.length > 0 }] : []),
     { label: "Copyright holder named", ok: !!copyrightHolder.trim() },
   ];
   const allChecksPass = checklist.every((c) => c.ok);
@@ -268,6 +282,8 @@ export function EbookSubmissionForm({
       ageGroup,
       category,
       genre,
+      subcategory,
+      restrictedCountries: worldwideRights ? [] : restrictedCountries,
       language,
       coverImageUrl,
       manuscriptFileId,
@@ -292,11 +308,11 @@ export function EbookSubmissionForm({
         aiDeclaration: aiDeclaration.trim() || undefined,
         taxSetting,
         worldwideRights,
-        countryRestrictions,
+        countryRestrictions: worldwideRights ? undefined : restrictedCountries.join(", "),
         copyrightHolder,
         licenseType,
-        sellOnStore,
-        featuredRequest,
+        sellOnStore: true,
+        featuredRequest: false,
         affiliateEnabled,
         seoTitle,
         seoDescription,
@@ -342,11 +358,17 @@ export function EbookSubmissionForm({
                 setPagesAutoDetected(false);
               }
 
-              if (result?.dimensions) {
-                setDimensions(result.dimensions);
+              // Only a detected size that matches a standard option (within
+              // 0.1in) is applied; a non-standard size never overwrites the
+              // author's own choice.
+              const matched = nearestDimensionOption(result?.dimensions);
+              if (matched) {
+                setDimensions(matched);
                 setDimensionsAutoDetected(true);
+                setDimensionsUnmatched(null);
               } else {
                 setDimensionsAutoDetected(false);
+                setDimensionsUnmatched(result?.dimensions ?? null);
               }
 
               if (typeof result?.fileSizeBytes === "number") {
@@ -359,45 +381,24 @@ export function EbookSubmissionForm({
             fillWidth
           />
           <ImageUploadField label="Cover image" recommendedSize="Any image format — Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} fillWidth />
+          <FileUploadField
+            label="Audiobook file (MP3 or M4A)"
+            sizeHint="Optional — max 4MB"
+            allowedTypes={["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/aac"]}
+            accept=".mp3,.m4a,.aac"
+            onUploaded={(ids) => setAudiobookFileId(ids[0])}
+            onRemove={() => { setAudiobookFileId(undefined); setAudiobookPrice(""); }}
+            initialFileName={initial?.audiobookFileId ? "Audiobook already uploaded" : undefined}
+            checkSizeLimit
+            disabled={!audiobookEnabled}
+            disabledNote="Audiobook uploads aren't open for submission right now."
+            fillWidth
+          />
         </div>
         <p className="field-hint" style={{ marginTop: 10 }}>
           Readers get a free preview of the first 10 pages from the &quot;Read Sample&quot; button on the book&apos;s
           page — there&apos;s nothing separate to upload for that.
         </p>
-
-        {audiobookEnabled && (
-          <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--line)" }}>
-            <label className="field-label" style={{ marginBottom: 2 }}>Audiobook (optional)</label>
-            <p className="field-hint" style={{ margin: "0 0 10px" }}>
-              Add an audiobook edition of this same title right here — there&apos;s no separate Audiobook submission
-              anymore. Uploading a file is entirely optional.
-            </p>
-            <div className="upload-cards-row">
-              <FileUploadField
-                label="Audiobook file (MP3 or M4A)"
-                sizeHint="Max 4MB"
-                allowedTypes={["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/aac"]}
-                accept=".mp3,.m4a,.aac"
-                onUploaded={(ids) => setAudiobookFileId(ids[0])}
-                fillWidth
-              />
-            </div>
-            {audiobookFileId ? (
-              <div style={{ marginTop: 14, maxWidth: 220 }}>
-                <label className="field-label" htmlFor="f-audiobook-price">Audiobook list price (USD)</label>
-                <input className="field" id="f-audiobook-price" type="number" step={0.01} value={audiobookPrice} onChange={(e) => setAudiobookPrice(e.target.value)} />
-                <div className="field-hint">
-                  The Audiobook format only appears on the book&apos;s page once both a file and a price are set.
-                </div>
-              </div>
-            ) : (
-              <p className="field-hint" style={{ marginTop: 10 }}>
-                Upload an audiobook file above to set its price — the Audiobook format won&apos;t show on the
-                book&apos;s page until both exist.
-              </p>
-            )}
-          </div>
-        )}
       </Card>
 
       {/* Section 2 — Book information */}
@@ -514,17 +515,37 @@ export function EbookSubmissionForm({
       {/* Section 4 — Book classification */}
       <Card>
         <SectionHeader n={4} title="Book classification" sub="How this title is categorized and shelved." />
-        <div className="form-grid-2">
+        <div className="form-grid-3">
           <div>
             <label className="field-label" htmlFor="f-category">Category</label>
-            <select className="field" id="f-category" value={category} onChange={(e) => setCategory(e.target.value)}>
+            <select
+              className="field"
+              id="f-category"
+              value={category}
+              onChange={(e) => { setCategory(e.target.value); setSubcategory(""); }}
+            >
+              <option value="">Select a category</option>
               {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
             <label className="field-label" htmlFor="f-genre">Genre</label>
             <select className="field" id="f-genre" value={genre} onChange={(e) => setGenre(e.target.value)}>
+              <option value="">Select a genre</option>
               {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="field-label" htmlFor="f-subcategory">Subcategory</label>
+            <select
+              className="field"
+              id="f-subcategory"
+              value={subcategory}
+              onChange={(e) => setSubcategory(e.target.value)}
+              disabled={!category}
+            >
+              <option value="">{category ? "Select a subcategory" : "Choose a category first"}</option>
+              {subcategoriesFor(category).map((x) => <option key={x} value={x}>{x}</option>)}
             </select>
           </div>
         </div>
@@ -560,16 +581,20 @@ export function EbookSubmissionForm({
           </div>
           <div>
             <label className="field-label" htmlFor="f-dimensions">Dimensions</label>
-            <input
+            <select
               className="field"
               id="f-dimensions"
-              type="text"
-              placeholder="5.5 x 8.5 in"
               value={dimensions}
-              onChange={(e) => { setDimensions(e.target.value); setDimensionsAutoDetected(false); }}
-            />
+              onChange={(e) => { setDimensions(e.target.value); setDimensionsAutoDetected(false); setDimensionsUnmatched(null); }}
+            >
+              {dimensionChoices.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
             <div className="field-hint">
-              {dimensionsAutoDetected ? "Auto-detected from your uploaded manuscript — edit if it's not quite right." : "Auto-fills once you upload a PDF/DOCX manuscript above; enter it yourself for EPUB/MOBI."}
+              {dimensionsAutoDetected
+                ? "Auto-detected from your uploaded manuscript — change it if it's not quite right."
+                : dimensionsUnmatched
+                ? `Your manuscript measures about ${dimensionsUnmatched}, which isn't a standard size — pick the closest option.`
+                : "Preselected when your PDF/DOCX manuscript matches a standard size; choose it yourself for EPUB/MOBI."}
             </div>
           </div>
         </div>
@@ -620,8 +645,30 @@ export function EbookSubmissionForm({
       {/* Section 6 — Pricing */}
       <Card>
         <SectionHeader n={6} title="Pricing" sub="What readers pay, in US dollars — any currency conversion happens at checkout, outside this site." />
-        <label className="field-label" htmlFor="f-price">List price (USD)</label>
-        <input className="field" id="f-price" type="number" step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} style={{ maxWidth: 220 }} />
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="f-price">List price (USD)</label>
+            <input className="field" id="f-price" type="number" step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="f-audiobook-price">Audiobook price (USD)</label>
+            <input
+              className="field"
+              id="f-audiobook-price"
+              type="number"
+              step={0.01}
+              min={0}
+              value={audiobookPrice}
+              onChange={(e) => setAudiobookPrice(e.target.value)}
+              disabled={!audiobookFileId}
+            />
+            <div className="field-hint">
+              {audiobookFileId
+                ? "The Audiobook format only appears on the book's page once both a file and a price are set."
+                : "Upload an audiobook file in the Files section to set its price."}
+            </div>
+          </div>
+        </div>
         <label className="field-label" htmlFor="f-tax">Tax settings</label>
         <select className="field" id="f-tax" value={taxSetting} onChange={(e) => setTaxSetting(e.target.value)}>
           {TAX_SETTINGS.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -631,13 +678,10 @@ export function EbookSubmissionForm({
       {/* Section 7 — Distribution */}
       <Card>
         <SectionHeader n={7} title="Distribution" sub="Where and how this title can be found and sold." />
-        <div className="toggle-row">
-          <label className="toggle-switch"><input type="checkbox" checked={sellOnStore} onChange={(e) => setSellOnStore(e.target.checked)} /><span className="toggle-slider" /></label>
-          <span>Sell on store</span>
-        </div>
-        <div className="toggle-row">
-          <label className="toggle-switch"><input type="checkbox" checked={featuredRequest} onChange={(e) => setFeaturedRequest(e.target.checked)} /><span className="toggle-slider" /></label>
+        <div className="toggle-row" style={{ opacity: 0.6 }}>
+          <label className="toggle-switch"><input type="checkbox" checked={false} disabled readOnly /><span className="toggle-slider" /></label>
           <span>Request featured placement</span>
+          <span className="field-hint" style={{ margin: "0 0 0 8px" }}>(This feature is not yet available. You will be notified when it becomes available.)</span>
         </div>
         <div className="toggle-row">
           <label className="toggle-switch"><input type="checkbox" checked={affiliateEnabled} onChange={(e) => setAffiliateEnabled(e.target.checked)} /><span className="toggle-slider" /></label>
@@ -670,10 +714,7 @@ export function EbookSubmissionForm({
           </div>
         </div>
         {!worldwideRights && (
-          <>
-            <label className="field-label" htmlFor="f-countryrestrict">Country restrictions</label>
-            <input className="field" id="f-countryrestrict" type="text" placeholder="e.g. US, CA, UK" value={countryRestrictions} onChange={(e) => setCountryRestrictions(e.target.value)} />
-          </>
+          <CountryRestrictionField value={restrictedCountries} onChange={setRestrictedCountries} />
         )}
       </Card>
 

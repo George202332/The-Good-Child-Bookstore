@@ -440,6 +440,19 @@ model Book {
   categories   CategoryOnBook[]
   genres       GenreOnBook[]
   ageGroup     String?
+  /** Top-level Category (one of the eight series, see lib/taxonomy.ts).
+   * Powers the home page "Shop by Category" section. Nullable: books
+   * submitted before this field existed have none. Plain string rather
+   * than a Postgres enum so the list can change without a risky
+   * ALTER TYPE; allowed values are validated in code. */
+  category     String?
+  /** Subcategory nested under `category` (see lib/taxonomy.ts). Nullable
+   * for older books. */
+  subcategory  String?
+  /** ISO-2 country codes where this book may NOT be sold or shown for
+   * sale. Empty = sold worldwide. Enforced at checkout and in listings
+   * (see lib/book-country-restriction.ts). */
+  restrictedCountries String[] @default([])
   language     String        @default("en")
   // Which formats this title is published in — an author can enable
   // any combination from the same submission (see actions/submissions.ts).

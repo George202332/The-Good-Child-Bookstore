@@ -2,8 +2,9 @@ import Link from "next/link";
 import { CATS, bookSlug, type Book } from "@/lib/data/catalog";
 import { hashStr } from "@/lib/hash";
 
+/** Genre shelf name for a shelf id; "" for a book on no shelf. */
 function catName(id: string): string {
-  return CATS.find((c) => c.id === id)?.name ?? id;
+  return CATS.find((c) => c.id === id)?.name ?? "";
 }
 
 /** Ported from computeHomeDiscount() (the-good-child-bookstore_54_1.html:3465-3471):
@@ -38,7 +39,7 @@ export function BookCard({ book }: { book: Book }) {
           )}
         </div>
       </Link>
-      <div className="cat-tag">{catName(book.category)}</div>
+      <div className="cat-tag">{catName(book.category) || book.series || ""}</div>
       <Link href={`/${bookSlug(book)}`}>
         <h3>{book.title}</h3>
       </Link>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { CATS, GENRES, AGE_RANGES, PRICE_RANGES, BOOKS } from "@/lib/data/catalog";
+import { CATS, AGE_RANGES, PRICE_RANGES, BOOKS } from "@/lib/data/catalog";
+import { CATEGORIES, categorySlug, subcategoriesFor } from "@/lib/taxonomy";
 
 /**
  * Converted from the `.shop-sidebar` filter-block markup in shopHTML()
@@ -39,6 +40,41 @@ export function ShopSidebar({
     return searchParams.getAll(key).includes(value);
   }
 
+  // Subcategory is `?sub=`; the retired thematic `?genre=` tag is read as a
+  // subcategory too, so old shared links still show their box ticked and
+  // untick cleanly.
+  function hasSub(value: string) {
+    return has("sub", value) || has("genre", value);
+  }
+
+  function toggleSub(value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    const active = hasSub(value);
+    const subs = [...params.getAll("sub"), ...params.getAll("genre")].filter((v) => v !== value);
+    params.delete("sub");
+    params.delete("genre");
+    (active ? subs : [...subs, value]).forEach((v) => params.append("sub", v));
+    params.delete("page");
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  // Unticking a Category also clears any of its subcategories.
+  function toggleSeries(slug: string, subs: readonly string[]) {
+    const params = new URLSearchParams(searchParams.toString());
+    const active = has("series", slug);
+    const others = params.getAll("series").filter((v) => v !== slug);
+    params.delete("series");
+    (active ? others : [...others, slug]).forEach((v) => params.append("series", v));
+    if (active) {
+      const keep = [...params.getAll("sub"), ...params.getAll("genre")].filter((v) => !subs.includes(v));
+      params.delete("sub");
+      params.delete("genre");
+      keep.forEach((v) => params.append("sub", v));
+    }
+    params.delete("page");
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
   function clearAll() {
     router.push(pathname, { scroll: false });
     onClose();
@@ -61,7 +97,7 @@ export function ShopSidebar({
         </button>
 
         <div className="filter-block">
-          <h4>Category</h4>
+          <h4>Genre</h4>
           {CATS.map((c) => (
             <label key={c.id} className="filter-option">
               <input type="checkbox" checked={has("cat", c.id)} onChange={() => toggle("cat", c.id)} />
@@ -70,13 +106,30 @@ export function ShopSidebar({
           ))}
         </div>
         <div className="filter-block">
-          <h4>Genre</h4>
-          {GENRES.map((g) => (
-            <label key={g} className="filter-option">
-              <input type="checkbox" checked={has("genre", g)} onChange={() => toggle("genre", g)} />
-              {g}
-            </label>
-          ))}
+          <h4>Category</h4>
+          {CATEGORIES.map((cat) => {
+            const slug = categorySlug(cat);
+            const subs = subcategoriesFor(cat);
+            const selected = has("series", slug);
+            return (
+              <div key={cat}>
+                <label className="filter-option">
+                  <input type="checkbox" checked={selected} onChange={() => toggleSeries(slug, subs)} />
+                  {cat}
+                </label>
+                {selected && (
+                  <div style={{ paddingLeft: 22 }} role="group" aria-label={`${cat} subcategories`}>
+                    {subs.map((sub) => (
+                      <label key={sub} className="filter-option">
+                        <input type="checkbox" checked={hasSub(sub)} onChange={() => toggleSub(sub)} />
+                        {sub}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
         <div className="filter-block">
           <h4>Age range</h4>

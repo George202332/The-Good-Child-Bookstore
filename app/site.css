@@ -2393,3 +2393,7 @@
   .page-body-content pre{max-width:100%;overflow-x:auto;}
   .page-body-content blockquote{border-left:3px solid var(--line);padding-left:16px;margin:14px 0;color:var(--ink-faint);}
   .page-body-content strong{font-weight:700;color:var(--ink);}
+
+  /* ---------- Shop by Category: eight tiles, laid out 4 x 2 ---------- */
+  .cat-grid.cat-grid-8{grid-template-columns:repeat(4,1fr);}
+  @media (max-width:980px){ .cat-grid.cat-grid-8{grid-template-columns:repeat(2,1fr);} }

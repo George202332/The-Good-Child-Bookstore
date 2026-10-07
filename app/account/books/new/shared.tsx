@@ -37,6 +37,7 @@ export interface SharedSubmissionFields {
   publicationDate: string;
   category: string;
   genre: string;
+  subcategory: string;
   ageGroup: string;
   readingLevel: string;
   authorFirstName: string;

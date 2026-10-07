@@ -17,6 +17,14 @@ import { bookAuthorDisplayName } from "@/lib/book-author-name";
  * infrastructure this platform doesn't have, and faking it would be
  * worse than not offering it.
  *
+ * ?format=audiobook serves the book's AUDIOBOOK file, and only to an
+ * account that owns a PAID sale line in the 'audiobook' format for that
+ * book (add &inline=1 to play it in the browser instead of downloading).
+ * The manuscript (PDF/ePub) is served only to owners of an 'ebook' line —
+ * or of an older line with no format recorded, so purchases made before
+ * formats were tracked keep working. A print or audiobook purchase alone
+ * does not unlock the manuscript.
+ *
  * Otherwise, for a PDF manuscript (a native PDF upload, or a DOCX
  * converted to PDF at upload time — see lib/docx-to-pdf.ts), the
  * book's cover image is merged in as page 1 using pdf-lib, so the
@@ -35,12 +43,40 @@ export async function GET(request: Request, { params }: { params: Promise<{ book
   });
   if (!user?.readerProfile) return new NextResponse("Not found", { status: 404 });
 
+  const wantsAudiobook = format === "audiobook";
   const ownsBook = await prisma.saleLine.findFirst({
-    where: { bookId, order: { readerId: user.readerProfile.id, status: "PAID" } },
+    where: {
+      bookId,
+      order: { readerId: user.readerProfile.id, status: "PAID" },
+      ...(wantsAudiobook ? { format: "audiobook" } : { OR: [{ format: "ebook" }, { format: null }] }),
+    },
   });
-  if (!ownsBook) return new NextResponse("You haven't purchased this book.", { status: 403 });
+  if (!ownsBook) {
+    return new NextResponse(
+      wantsAudiobook ? "You haven't purchased the audiobook of this book." : "You haven't purchased this book.",
+      { status: 403 },
+    );
+  }
 
   const book = await prisma.book.findUnique({ where: { id: bookId }, include: { files: true, author: { include: { user: true } } } });
+
+  if (wantsAudiobook) {
+    const audioFile = book?.files.find((f: { kind: string }) => f.kind === "AUDIOBOOK");
+    if (!audioFile) return new NextResponse("No audiobook file is available for this book yet.", { status: 404 });
+    const audioId = audioFile.url.startsWith("/api/files/") ? audioFile.url.split("/").pop() : undefined;
+    const audio = audioId ? await prisma.uploadedFile.findUnique({ where: { id: audioId } }) : null;
+    if (!audio) return NextResponse.redirect(new URL(audioFile.url, origin), { status: 302 });
+    const disposition = searchParams.get("inline") === "1" ? "inline" : "attachment";
+    return new NextResponse(new Uint8Array(audio.data), {
+      headers: {
+        "Content-Type": audio.mimeType,
+        "Content-Length": String(audio.data.length),
+        "Content-Disposition": `${disposition}; filename="${audio.originalName.replace(/"/g, "")}"`,
+        "Cache-Control": "private, no-store",
+      },
+    });
+  }
+
   const file = book?.files.find((f: { kind: string }) => f.kind === "MANUSCRIPT");
   if (!file) return new NextResponse("No downloadable file is available for this book yet.", { status: 404 });
 

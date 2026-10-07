@@ -35,14 +35,14 @@ export default async function LibraryPage() {
         include: {
           orders: {
             where: { status: "PAID" },
-            include: { lines: { include: { book: { include: { author: { include: { user: true } } } } } } },
+            include: { lines: { include: { book: { include: { author: { include: { user: true } }, files: true } } } } },
           },
         },
       },
     },
   });
 
-  interface LibraryItem { id: string; sn: string; title: string; author: string; format: string; copies: number; }
+  interface LibraryItem { id: string; sn: string; title: string; author: string; format: string; rawFormat: string | null; hasAudio: boolean; copies: number; }
   const items = new Map<string, LibraryItem>();
   for (const order of user?.readerProfile?.orders ?? []) {
     for (const line of order.lines) {
@@ -56,6 +56,8 @@ export default async function LibraryPage() {
           title: line.book.title,
           author: bookAuthorDisplayName(line.book),
           format: line.format ? line.format.charAt(0).toUpperCase() + line.format.slice(1) : "—",
+          rawFormat: line.format,
+          hasAudio: line.book.files.some((f) => f.kind === "AUDIOBOOK"),
           copies: 1,
         });
       }
@@ -86,7 +88,7 @@ export default async function LibraryPage() {
                 <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="Who wrote this book." /></th>
                 <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="Which format you bought — eBook, audiobook, paperback, or hardcover." /></th>
                 <th style={TABLE_HEAD_STYLE}>Copies<ColHelp text="How many copies of this book (in this format) you've purchased." /></th>
-                <th style={TABLE_HEAD_STYLE}>Download<ColHelp text="Download your copy as a PDF or ePub." /></th>
+                <th style={TABLE_HEAD_STYLE}>Download<ColHelp text="Download your copy: PDF or ePub for an eBook, the audio file for an audiobook. Print copies are shipped to you." /></th>
                 {role === "READER" && <th style={TABLE_HEAD_STYLE}>Review<ColHelp text="Write or edit your review for this book." /></th>}
               </tr>
             </thead>
@@ -99,10 +101,23 @@ export default async function LibraryPage() {
                   <td style={TABLE_CELL_STYLE}>{it.format}</td>
                   <td style={TABLE_CELL_STYLE}>{it.copies}</td>
                   <td style={TABLE_CELL_STYLE}>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <a href={`/api/downloads/${it.id}`} className="btn btn-ghost btn-small">PDF</a>
-                      <a href={`/api/downloads/${it.id}?format=epub`} className="btn btn-ghost btn-small">ePub</a>
-                    </div>
+                    {it.rawFormat === "audiobook" ? (
+                      it.hasAudio ? (
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <a href={`/api/downloads/${it.id}?format=audiobook&inline=1`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-small">Play</a>
+                          <a href={`/api/downloads/${it.id}?format=audiobook`} className="btn btn-ghost btn-small">Download audio</a>
+                        </div>
+                      ) : (
+                        <span style={{ color: "var(--ink-faint)", fontSize: 12.5 }}>Audio file not available yet</span>
+                      )
+                    ) : it.rawFormat === "paperback" || it.rawFormat === "hardcover" ? (
+                      <span style={{ color: "var(--ink-faint)", fontSize: 12.5 }}>Printed copy, shipped to you</span>
+                    ) : (
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <a href={`/api/downloads/${it.id}`} className="btn btn-ghost btn-small">PDF</a>
+                        <a href={`/api/downloads/${it.id}?format=epub`} className="btn btn-ghost btn-small">ePub</a>
+                      </div>
+                    )}
                   </td>
                   {role === "READER" && (
                     <td style={TABLE_CELL_STYLE}>

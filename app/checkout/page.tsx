@@ -13,6 +13,9 @@ import { resolveCartBooks } from "@/actions/cart-books";
 import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } from "@/actions/payment-methods";
 import { PaymentBadgeIcon } from "@/components/PaymentBadgeIcon";
 import { COUNTRIES } from "@/lib/countries";
+import { countryToIso2 } from "@/lib/user-country";
+import { restrictionMessage } from "@/lib/book-country-restriction";
+import { isLineRestricted } from "@/lib/book-visibility";
 import { getSiteSettings } from "@/actions/site-settings";
 import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-settings";
 
@@ -120,6 +123,29 @@ function CheckoutPageInner() {
   const subtotal = lines.reduce((sum, l) => sum + priceFor(l.book, l.format) * l.qty, 0);
   const hasPrintItem = lines.some((l) => l.format === "paperback" || l.format === "hardcover");
   const grandTotal = subtotal;
+  // Lines whose book is restricted for this visitor (account country / IP
+  // geo, flagged by resolveCartBooks) or — for print — for the ship-to
+  // country entered at step 2. Payment stays disabled until they are
+  // removed; createPendingOrder re-checks all of this on the server.
+  const shipIso = countryToIso2(data.country);
+  const restrictedLines = lines.filter(
+    (l) => l.book.restricted || isLineRestricted(l.book.restrictedCountries, { shipCountry: shipIso }, l.format)
+  );
+  const hasRestricted = restrictedLines.length > 0;
+  const restrictedNotice = hasRestricted ? (
+    <div className="field-hint" role="alert" style={{ color: "var(--coral-deep)", marginBottom: 14 }}>
+      {restrictedLines.map((l) => (
+        <div key={`${l.book.id}:${l.format}`} style={{ marginBottom: 4 }}>
+          <strong>{l.book.title}</strong>: {restrictionMessage}{" "}
+          {isDirectBuy ? (
+            <Link href="/bookshelf">Back to the bookshelf</Link>
+          ) : (
+            <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>
+          )}
+        </div>
+      ))}
+    </div>
+  ) : null;
 
   function goTo(n: number) {
     setStep(n);
@@ -127,6 +153,7 @@ function CheckoutPageInner() {
   }
 
   async function payWithSaved(savedMethodId: string) {
+    if (hasRestricted) return;
     setSubmitting(true);
     setPaymentError(null);
 
@@ -156,6 +183,7 @@ function CheckoutPageInner() {
 
   async function completeOrder() {
     setPaymentError(null);
+    if (hasRestricted) return;
 
     if (!data.cardName.trim()) { setPaymentError("Enter the name on your card."); return; }
     const digitsOnly = data.cardNumber.replace(/\s+/g, "");
@@ -281,7 +309,8 @@ function CheckoutPageInner() {
             <h3>Order summary</h3>
             <div className="summary-row"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
             <div className="summary-row total"><span>Total</span><span>${subtotal.toFixed(2)}</span></div>
-            <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 18 }} onClick={() => goTo(2)}>
+            {restrictedNotice}
+            <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 18 }} disabled={hasRestricted} onClick={() => goTo(2)}>
               Continue
             </button>
             <Link href="/bookshelf" className="see-all" style={{ display: "block", textAlign: "center", marginTop: 14 }}>
@@ -367,9 +396,10 @@ function CheckoutPageInner() {
             <div className="summary-row"><span>Taxes</span><span>Calculated at payment</span></div>
             <div className="summary-row total"><span>Grand total</span><span>${grandTotal.toFixed(2)}</span></div>
           </div>
+          {restrictedNotice && <div style={{ marginTop: 16 }}>{restrictedNotice}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 20 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(2)}>← Back</button>
-            <button className="btn btn-primary btn-small" onClick={() => goTo(4)}>Continue to payment</button>
+            <button className="btn btn-primary btn-small" disabled={hasRestricted} onClick={() => goTo(4)}>Continue to payment</button>
           </div>
         </div>
       )}
@@ -385,7 +415,7 @@ function CheckoutPageInner() {
                     <strong>{m.cardType ?? "Card"} •••• {m.last4}</strong>
                     <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{m.bank}</div>
                   </div>
-                  <button type="button" className="btn btn-primary btn-small" disabled={submitting} onClick={() => payWithSaved(m.id)}>
+                  <button type="button" className="btn btn-primary btn-small" disabled={submitting || hasRestricted} onClick={() => payWithSaved(m.id)}>
                     {submitting ? "Processing…" : `Pay $${grandTotal.toFixed(2)}`}
                   </button>
                 </div>
@@ -426,10 +456,11 @@ function CheckoutPageInner() {
             This is a demo checkout; card details are never sent anywhere or stored.
           </p>
 
+          {restrictedNotice}
           {paymentError && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{paymentError}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 16 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(3)}>← Back</button>
-            <button className="btn btn-primary btn-small" onClick={completeOrder} disabled={submitting}>
+            <button className="btn btn-primary btn-small" onClick={completeOrder} disabled={submitting || hasRestricted}>
               {submitting ? "Processing…" : "Complete purchase"}
             </button>
           </div>

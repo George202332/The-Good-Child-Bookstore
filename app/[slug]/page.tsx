@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BOOKS, bookSlug } from "@/lib/data/catalog";
 import { getRealPublishedBookBySlug, getRealPublishedBooks } from "@/lib/data/real-books-adapter";
+import { getVisitorCountries } from "@/lib/visitor-country";
+import { isRestrictedForCountries } from "@/lib/book-visibility";
 import { BookDetailClient } from "../book/[id]/BookDetailClient";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +34,19 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!resolved) return { title: "Book not found | The Good Child Bookstore" };
 
   const { book } = resolved;
+
+  // A visitor in a country this book is restricted in gets a noindex page
+  // (see the page component's restricted state). Crawlers from other
+  // countries still see — and may index — the book: country-based hiding
+  // from crawlers is best-effort only, and serving Googlebot something
+  // different by IP would be cloaking.
+  if (isRestrictedForCountries(book.restrictedCountries, await getVisitorCountries())) {
+    return {
+      title: `${book.title} | The Good Child Bookstore`,
+      robots: { index: false, follow: false },
+    };
+  }
+
   const title = `${book.title} by ${book.author} | The Good Child Bookstore`;
   const description = book.blurb;
 
@@ -46,13 +61,16 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function BookBySlugPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const [resolved, realBooks] = await Promise.all([resolveBookBySlug(slug), getRealPublishedBooks()]);
+  const visitorCountries = await getVisitorCountries();
+  const [resolved, realBooks] = await Promise.all([resolveBookBySlug(slug), getRealPublishedBooks(visitorCountries)]);
   if (!resolved) notFound();
+  const restricted = isRestrictedForCountries(resolved.book.restrictedCountries, visitorCountries);
   return (
     <BookDetailClient
       book={resolved.book}
       isRealBook={resolved.isRealBook}
       allBooks={[...realBooks, ...BOOKS]}
+      restricted={restricted}
     />
   );
 }

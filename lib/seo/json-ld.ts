@@ -17,6 +17,9 @@ export interface BookJsonLdInput {
   edition?: string;
   ageRange?: string;
   price: number;
+  /** One Offer per purchasable format (eBook, Audiobook, ...). When
+   * given and non-empty it replaces the single `price` offer. */
+  offers?: { name: string; price: number }[];
   currency?: string;
   inStock?: boolean;
   ratingValue?: string;
@@ -61,12 +64,21 @@ export function bookJsonLd(input: BookJsonLdInput) {
           })),
         }
       : {}),
-    offers: {
-      "@type": "Offer",
-      price: input.price.toFixed(2),
-      priceCurrency: input.currency ?? "USD",
-      availability: input.inStock === false ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
-    },
+    offers:
+      input.offers && input.offers.length > 0
+        ? input.offers.map((o) => ({
+            "@type": "Offer",
+            name: o.name,
+            price: o.price.toFixed(2),
+            priceCurrency: input.currency ?? "USD",
+            availability: input.inStock === false ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+          }))
+        : {
+            "@type": "Offer",
+            price: input.price.toFixed(2),
+            priceCurrency: input.currency ?? "USD",
+            availability: input.inStock === false ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+          },
   };
 }
 

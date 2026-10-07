@@ -153,7 +153,7 @@ export function LibraryClient({ items }: { items: LibraryItem[] }) {
 
       {visible.length === 0 ? (
         <p style={{ fontSize: 13, color: "var(--admin-text-faint, #6B7385)" }}>
-          {active === "audiobooks" ? "No audiobook files yet — audiobook file uploads aren't built yet, only pricing/availability." : "Nothing here yet."}
+          {active === "audiobooks" ? "No audiobook files yet — they appear here once an author uploads one with a book submission." : "Nothing here yet."}
         </p>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 14 }}>

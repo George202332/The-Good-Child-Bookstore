@@ -15,9 +15,12 @@ import { bookJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
+import { categorySlug, isCategory } from "@/lib/taxonomy";
+import { restrictionMessage } from "@/lib/book-country-restriction";
 
+/** Genre shelf name for a shelf id; "" for the "unknown" shelf. */
 function catName(id: string): string {
-  return CATS.find((c) => c.id === id)?.name ?? id;
+  return CATS.find((c) => c.id === id)?.name ?? "";
 }
 
 /** Renamed from "Weight" (which showed a made-up pounds figure that was
@@ -52,7 +55,7 @@ const FORMAT_LABELS: Record<FormatKey, string> = {
  * reviews come from LiveReviewSection, which is actually wired to a
  * working "Write a review" button and persists to the database.
  */
-export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; isRealBook: boolean; allBooks: Book[] }) {
+export function BookDetailClient({ book, isRealBook, allBooks, restricted = false }: { book: Book; isRealBook: boolean; allBooks: Book[]; restricted?: boolean }) {
   const b = book;
   const [format, setFormat] = useState<FormatKey>("print");
   const { addItem } = useCart();
@@ -86,7 +89,13 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
   // matches, the section renders nothing (see the `.length > 0` guard
   // below) rather than padding the row with unrelated books.
   const alsoSearchedBooks = allBooks
-    .filter((x) => x.id !== b.id && (x.category === b.category || x.genre === b.genre))
+    .filter(
+      (x) =>
+        x.id !== b.id &&
+        ((!!b.series && x.series === b.series) ||
+          (!!b.subcategory && x.subcategory === b.subcategory) ||
+          (b.category !== "unknown" && x.category === b.category))
+    )
     .slice(0, 6);
 
   const availableFormats = b.formatAvailable ?? { ebook: true, paperback: true, hardcover: true, audiobook: true };
@@ -116,30 +125,46 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
     authorName: b.author,
     authorId: b.authorId,
     isbn: b.isbn,
-    genre: b.genre,
+    genre: [b.genre, b.subcategory].filter(Boolean).join(", ") || undefined,
     ageRange: b.age,
     price: b.formats.ebook,
     ratingValue: b.rating,
     reviewCount: b.reviews,
     imageUrl: b.coverImage,
+    // One offer per format actually on sale (eBook, Audiobook, Paperback,
+    // Hardcover), so the audiobook price is declared next to the eBook's.
+    offers: (
+      [
+        isFormatAvailable.ebook && { name: "eBook", price: b.formats.ebook },
+        isFormatAvailable.audiobook && { name: "Audiobook", price: b.formats.audiobook },
+        isFormatAvailable.paperback && { name: "Paperback", price: b.formats.paperback },
+        isFormatAvailable.print && { name: "Hardcover", price: b.formats.print },
+      ] as ({ name: string; price: number } | false)[]
+    ).filter((o): o is { name: string; price: number } => !!o),
   });
+  const shelfName = catName(b.category);
+  const seriesHref = b.series && isCategory(b.series) ? `/bookshelf?series=${categorySlug(b.series)}` : null;
   const breadcrumbLd = breadcrumbJsonLd([
     { name: "Home", url: `${siteUrl}/` },
     { name: "Bookshelf", url: `${siteUrl}/bookshelf` },
-    { name: catName(b.category), url: `${siteUrl}/bookshelf?cat=${b.category}` },
+    ...(shelfName ? [{ name: shelfName, url: `${siteUrl}/bookshelf?cat=${b.category}` }] : []),
+    ...(b.series && seriesHref ? [{ name: b.series, url: `${siteUrl}${seriesHref}` }] : []),
     { name: b.title, url: `${siteUrl}/${bookSlug(b)}` },
   ]);
 
   return (
     <div className="wrap detail-wrap">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {/* A restricted visitor gets no Product/offer markup at all. */}
+      {!restricted && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <Suspense fallback={null}>
         <AffiliateClickTracker />
       </Suspense>
       <div className="breadcrumb">
         <Link href="/">Home</Link> › <Link href="/bookshelf">Bookshelf</Link> ›{" "}
-        <Link href={`/bookshelf?cat=${b.category}`}>{catName(b.category)}</Link> › {b.genre}
+        {shelfName && (<><Link href={`/bookshelf?cat=${b.category}`}>{shelfName}</Link> › </>)}
+        {b.series && seriesHref && (<><Link href={seriesHref}>{b.series}</Link> › </>)}
+        {b.subcategory ?? b.title}
       </div>
       <div className="az-grid">
         <div className="az-left">
@@ -178,7 +203,7 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
         </div>
 
         <div className="detail-info">
-          <div className="detail-cat-tag">{catName(b.category)}</div>
+          <div className="detail-cat-tag">{shelfName || b.series || ""}</div>
           <div className="az-title-row">
             <h1>{b.title}</h1>
             <button type="button" className="az-share-btn" title="Share">
@@ -201,7 +226,9 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
           <div className="detail-isbn">ISBN {b.isbn}</div>
           <div className="detail-tags">
             <span className="age-pill">Ages {b.age}</span>
-            <span className="age-pill" style={{ background: "var(--mint)", color: "#165236" }}>{b.genre}</span>
+            {b.subcategory && (
+              <span className="age-pill" style={{ background: "var(--mint)", color: "#165236" }}>{b.subcategory}</span>
+            )}
           </div>
 
           <div className="az-desc">
@@ -237,14 +264,24 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={12} r={9} /><path d="M3 12h18M12 3c2.2 2.4 3.5 5.5 3.5 9s-1.3 6.6-3.5 9c-2.2-2.4-3.5-5.5-3.5-9s1.3-6.6 3.5-9z" /></svg>
                   <strong>{b.language || "English"}</strong><span>Language</span>
                 </div>
-                <div className="az-detail-item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M20 12l-8 8-9-9V4h7l9 9z" /><circle cx={7.5} cy={7.5} r={1.3} fill="currentColor" /></svg>
-                  <strong>{b.genre}</strong><span>Genre</span>
-                </div>
-                <div className="az-detail-item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 3h12v18l-6-4-6 4V3z" /></svg>
-                  <strong>{catName(b.category)}</strong><span>Category</span>
-                </div>
+                {b.series && (
+                  <div className="az-detail-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 3h12v18l-6-4-6 4V3z" /></svg>
+                    <strong>{b.series}</strong><span>Category</span>
+                  </div>
+                )}
+                {shelfName && (
+                  <div className="az-detail-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M20 12l-8 8-9-9V4h7l9 9z" /><circle cx={7.5} cy={7.5} r={1.3} fill="currentColor" /></svg>
+                    <strong>{shelfName}</strong><span>Genre</span>
+                  </div>
+                )}
+                {b.subcategory && (
+                  <div className="az-detail-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M4 6h16M4 12h10M4 18h6" /></svg>
+                    <strong>{b.subcategory}</strong><span>Subcategory</span>
+                  </div>
+                )}
                 <div className="az-detail-item az-detail-item-wide">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={4} width={18} height={18} rx={2} /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
                   <strong>{b.pubDate}</strong><span>Published</span>
@@ -299,10 +336,15 @@ export function BookDetailClient({ book, isRealBook, allBooks }: { book: Book; i
             )}
           </div>
 
-          <button className="btn btn-primary btn-block btn-compact" onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to Cart</button>
+          {restricted && (
+            <div className="buybox-note" role="alert" style={{ marginBottom: 10, fontWeight: 600 }}>{restrictionMessage}</div>
+          )}
+          <button className="btn btn-primary btn-block btn-compact" disabled={restricted} title={restricted ? restrictionMessage : undefined} onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to Cart</button>
           <button
             className="btn btn-ghost btn-block btn-compact"
             style={{ marginTop: 8 }}
+            disabled={restricted}
+            title={restricted ? restrictionMessage : undefined}
             onClick={() => router.push(`/checkout?directBookId=${b.id}&directFormat=${effectiveFormat === "print" ? "hardcover" : effectiveFormat}`)}
           >
             Buy Direct
