@@ -390,3 +390,16 @@ describe("payableNowAmount", () => {
     assert.equal(payableNowAmount(author("a", 50, { status: "REJECTED" })), 0);
   });
 });
+
+describe("extra per-account fields survive consolidation", () => {
+  test("joinedAt and role (detail pop-up fields) are kept on a merged row", () => {
+    const extra = { joinedAt: "2025-01-02T00:00:00.000Z", role: "AUTHOR" };
+    const { rows } = consolidateLedgerRows([
+      { ...author("a", 50), ...extra },
+      { ...affiliate("b", 10, 5), ...extra },
+    ]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].joinedAt, extra.joinedAt);
+    assert.equal(rows[0].role, "AUTHOR");
+  });
+});

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { firstNameOnly } from "@/lib/first-name";
+import { maskAccountNumber } from "@/lib/mask-account-number";
 
 export interface ReferredAuthorRow {
   maskedAccountId: string;
@@ -8,13 +10,6 @@ export interface ReferredAuthorRow {
   published: number;
   company: number;
   commission: number;
-}
-
-function maskAccountId(accountNumber: string): string {
-  // Mask the middle 4 digits of an 8-digit account number, per
-  // explicit instruction — e.g. "30000001" becomes "30****01".
-  if (accountNumber.length < 8) return accountNumber;
-  return `${accountNumber.slice(0, 2)}****${accountNumber.slice(-2)}`;
 }
 
 /** For the signed-in affiliate: every author they've referred onto the
@@ -50,8 +45,8 @@ export async function getReferredAuthorsDetail(): Promise<ReferredAuthorRow[]> {
       }
     }
     return {
-      maskedAccountId: maskAccountId(a.user.accountNumber),
-      firstName: a.user.name.split(" ")[0] || a.user.name,
+      maskedAccountId: maskAccountNumber(a.user.accountNumber),
+      firstName: firstNameOnly(a.user.name),
       country: a.country,
       published,
       company,

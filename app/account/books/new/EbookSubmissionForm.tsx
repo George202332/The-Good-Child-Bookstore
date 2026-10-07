@@ -32,6 +32,9 @@ export interface EbookSubmissionInitial {
   bookId: string;
   manuscriptFileId?: string;
   coverImageUrl?: string;
+  /** Current status of the book being edited — a PUBLISHED book keeps its
+   * live listing; only a replaced manuscript or cover goes to review. */
+  bookStatus?: string;
   /** An optional audiobook file already uploaded on this title — see
    * the Audiobook upload field in the Files section below. */
   audiobookFileId?: string;
@@ -87,8 +90,9 @@ export interface EbookSubmissionInitial {
  *
  * When `initial` is provided, this is genuinely the same page in edit
  * mode — every field pre-filled from the existing book, saving calls
- * updateBookFull() instead of submitBook(), and the book is resent for
- * review on save. Not a separate, simplified edit form — the same
+ * updateBookFull() instead of submitBook(). A book that is not yet
+ * published is resent for review on save; a published book saves live,
+ * and only a replaced manuscript or cover goes to review. Not a separate, simplified edit form — the same
  * page, the same fields, per explicit instruction.
  */
 export function EbookSubmissionForm({
@@ -322,9 +326,19 @@ export function EbookSubmissionForm({
       },
       submitForReview,
     };
-    const res = initial?.bookId
-      ? await updateBookFull(initial.bookId, payload)
-      : await submitBook(payload);
+    if (initial?.bookId) {
+      const res = await updateBookFull(initial.bookId, payload);
+      setSubmitting(false);
+      if (!res.ok) {
+        setError(res.error ?? "Something went wrong.");
+        return;
+      }
+      if (res.outcome === "live") router.push("/account/books?saved=live");
+      else if (res.outcome === "live_files_pending") router.push(`/account/books?saved=files-review-${res.held ?? "manuscript"}`);
+      else router.push("/account/books");
+      return;
+    }
+    const res = await submitBook(payload);
     setSubmitting(false);
     if (!res.ok) {
       setError(res.error ?? "Something went wrong.");
@@ -332,6 +346,8 @@ export function EbookSubmissionForm({
     }
     router.push("/account/books");
   }
+
+  const editingPublished = !!initial?.bookId && initial.bookStatus === "PUBLISHED";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -804,11 +820,13 @@ export function EbookSubmissionForm({
         )}
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginTop: 12 }}>{error}</div>}
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-          <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={() => handleSubmit(false)}>
-            Save as draft
-          </button>
+          {!editingPublished && (
+            <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={() => handleSubmit(false)}>
+              Save as draft
+            </button>
+          )}
           <button type="button" className="btn btn-primary btn-small" disabled={submitting || !allChecksPass} onClick={() => handleSubmit(true)}>
-            {submitting ? (initial?.bookId ? "Saving…" : "Publishing…") : (initial?.bookId ? "Save and resubmit for review" : "Publish")}
+            {submitting ? (initial?.bookId ? "Saving…" : "Publishing…") : (initial?.bookId ? (editingPublished ? "Save changes" : "Save and resubmit for review") : "Publish")}
           </button>
         </div>
       </Card>

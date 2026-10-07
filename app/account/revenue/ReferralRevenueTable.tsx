@@ -6,7 +6,11 @@ import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import { useRevenueHighlightActive } from "@/components/RevenueHighlight";
 
 export interface ReferralRawRow {
+  /** Opaque per-referred-author key used only for grouping rows. */
+  groupKey: string;
+  /** Already masked on the server (e.g. "30****01"). */
   accountId: string;
+  /** Already reduced to the first name on the server. */
   name: string;
   dateJoined: string;
   saleDate: string;
@@ -39,18 +43,18 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
   }, [rows]);
 
   const grouped = useMemo(() => {
-    const byAuthor = new Map<string, { accountId: string; name: string; dateJoined: string; revenue: number; commission: number; isNew: boolean }>();
+    const byAuthor = new Map<string, { groupKey: string; accountId: string; name: string; dateJoined: string; revenue: number; commission: number; isNew: boolean }>();
     for (const r of rows) {
       const d = new Date(r.saleDate);
       if (month !== "all" && d.getMonth() !== Number(month)) continue;
       if (year !== "all" && d.getFullYear() !== Number(year)) continue;
-      const existing = byAuthor.get(r.accountId);
+      const existing = byAuthor.get(r.groupKey);
       if (existing) {
         existing.revenue += r.revenue;
         existing.commission += r.commission;
         existing.isNew = existing.isNew || !!r.isNew;
       } else {
-        byAuthor.set(r.accountId, { accountId: r.accountId, name: r.name, dateJoined: r.dateJoined, revenue: r.revenue, commission: r.commission, isNew: !!r.isNew });
+        byAuthor.set(r.groupKey, { groupKey: r.groupKey, accountId: r.accountId, name: r.name, dateJoined: r.dateJoined, revenue: r.revenue, commission: r.commission, isNew: !!r.isNew });
       }
     }
     return Array.from(byAuthor.values());
@@ -89,8 +93,8 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={TABLE_HEAD_STYLE}>Account ID<ColHelp text="The unique account number belonging to the author you referred — the same number shown on their own Profile page." /></th>
-                <th style={TABLE_HEAD_STYLE}>Name<ColHelp text="The referred author's name — their pen name if they've set one in their Profile, otherwise their real name." /></th>
+                <th style={TABLE_HEAD_STYLE}>Account ID<ColHelp text="The account number of the author you referred, partly hidden for their privacy." /></th>
+                <th style={TABLE_HEAD_STYLE}>Name<ColHelp text="The referred author's first name only — their pen name if they've set one in their Profile, otherwise their real name." /></th>
                 <th style={TABLE_HEAD_STYLE}>Date Joined<ColHelp text="The date this author created their account using your referral link." /></th>
                 <th style={TABLE_HEAD_STYLE}>Revenue<ColHelp text="The company's revenue from this author's book sales within the selected time window (its 30% share, before any referral commission is carved out)." /></th>
                 <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="Your earnings from referring this author within the selected time window: a percentage of the company revenue above." /></th>
@@ -98,7 +102,7 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
             </thead>
             <tbody>
               {grouped.map((r) => (
-                <tr key={r.accountId} className={highlightActive && r.isNew ? "revenue-row-new" : undefined}>
+                <tr key={r.groupKey} className={highlightActive && r.isNew ? "revenue-row-new" : undefined}>
                   <td style={{ ...TABLE_CELL_STYLE, fontFamily: "monospace" }}>{r.accountId}</td>
                   <td style={TABLE_CELL_STYLE}>{r.name}</td>
                   <td style={TABLE_CELL_STYLE}>{new Date(r.dateJoined).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>

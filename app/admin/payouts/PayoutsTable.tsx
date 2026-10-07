@@ -9,7 +9,7 @@ import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
 import { approvePayoutRequest, bulkMarkPayoutsPaid } from "@/actions/admin";
 import { ledgerStatusLabel, ledgerStatusKey, ledgerStatusHelp, ledgerStatusPillStyle, PAYOUT_STATUS_FILTER_OPTIONS, STATUS_COLUMN_HELP, type PayoutStatusKey } from "@/lib/payout-status";
-import { actionableIds, ledgerPeriodLabel, payableNowAmount, unreleasedPortion, isSyntheticLedgerRow } from "@/lib/payout-ledger-dedupe";
+import { actionableIds, ledgerPeriodLabel, payableNowAmount, isSyntheticLedgerRow } from "@/lib/payout-ledger-dedupe";
 import { isRowSelectable, unselectableReason, toggleRow, toggleAll, summarizeSelection } from "@/lib/payout-selection";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -23,6 +23,9 @@ const VISIBLE_ROWS = 15;
  * fields) can never make a checkbox look inert or its tick invisible. */
 const CHECKBOX_STYLE: React.CSSProperties = { width: 16, height: 16, margin: 0, cursor: "pointer", accentColor: "var(--admin-accent, #2451B7)" };
 const ROW_HEIGHT_PX = 42;
+/** Body cells never wrap, so every row is a single compact line (the
+ * table already scrolls sideways when it is wider than the screen). */
+const TD_NOWRAP: React.CSSProperties = { ...TD_STYLE, whiteSpace: "nowrap" };
 
 /** The user-facing lifecycle (lib/payout-status.ts): Rolled (under $30,
  * carried over), Live (current cycle, including anything rolled in),
@@ -42,6 +45,50 @@ function statusPillStyle(p: PayoutLedgerRow) {
  * Rolled, Live, Paid and Rejected rows are disabled, with a tooltip. */
 function isBulkPayable(p: PayoutLedgerRow): boolean {
   return isRowSelectable(p);
+}
+
+function formatDate(iso: string | null | undefined): string {
+  return iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
+}
+
+/** The detail pop-up's three columns: who the account is, where the money
+ * goes, and the amounts. Role, date joined and the period covered live here
+ * (not in the table row, which shows only the account holder's name). */
+function detailSections(d: PayoutLedgerRow): { title: string; items: { label: string; value: string }[] }[] {
+  return [
+    {
+      title: "Account",
+      items: [
+        { label: "Account #", value: d.accountNumber },
+        { label: "Email", value: d.email },
+        { label: "Role", value: d.role },
+        { label: "Date joined", value: formatDate(d.joinedAt) },
+        { label: "Period", value: ledgerPeriodLabel(d) },
+      ],
+    },
+    {
+      title: "Payment",
+      items: [
+        { label: "Payment method", value: d.paymentMethod },
+        { label: "Account / payment details", value: d.accountDetails },
+        { label: "Currency", value: d.currency },
+        { label: "Resolved", value: formatDate(d.resolvedAt) },
+      ],
+    },
+    {
+      title: "Amounts",
+      items: [
+        { label: "Royalties", value: `$${d.bookSalesEarnings.toFixed(2)}` },
+        { label: "Referral earnings", value: `$${d.referralEarnings.toFixed(2)}` },
+        { label: "Commission earnings", value: `$${d.commissionEarnings.toFixed(2)}` },
+        { label: "Combined total", value: `$${d.combinedTotal.toFixed(2)}` },
+        ...(isSyntheticLedgerRow(d) && d.unreleasedAmount
+          ? [{ label: "Of which not yet released (current month)", value: `$${d.unreleasedAmount.toFixed(2)}` }]
+          : []),
+        ...(d.paidAmount ? [{ label: "Already paid within this row", value: `$${d.paidAmount.toFixed(2)}` }] : []),
+      ],
+    },
+  ];
 }
 
 /**
@@ -383,32 +430,21 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                         />
                       </td>
                     )}
-                    <td style={{ ...TD_STYLE, fontFamily: "monospace" }}>{p.accountNumber}</td>
-                    <td style={TD_STYLE}>
-                      {p.accountHolderName}
-                      <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{p.role}</div>
-                      <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{ledgerPeriodLabel(p)}</div>
-                    </td>
-                    <td style={TD_STYLE}>{p.email}</td>
-                    <td style={TD_STYLE}>${p.bookSalesEarnings.toFixed(2)}</td>
-                    <td style={TD_STYLE}>${p.referralEarnings.toFixed(2)}</td>
-                    <td style={TD_STYLE}>${p.commissionEarnings.toFixed(2)}</td>
-                    <td style={{ ...TD_STYLE, fontWeight: 700 }}>
-                      ${p.combinedTotal.toFixed(2)}
-                      {isSyntheticLedgerRow(p) && p.unreleasedAmount !== undefined && p.unreleasedAmount > 0 && (
-                        <div style={{ fontSize: 10.5, fontWeight: 400, color: "var(--ink-faint)" }}>
-                          incl. ${unreleasedPortion(p).toFixed(2)} not yet released
-                        </div>
-                      )}
-                    </td>
-                    <td style={TD_STYLE}>
+                    <td style={{ ...TD_NOWRAP, fontFamily: "monospace" }}>{p.accountNumber}</td>
+                    <td style={TD_NOWRAP}>{p.accountHolderName}</td>
+                    <td style={TD_NOWRAP}>{p.email}</td>
+                    <td style={TD_NOWRAP}>${p.bookSalesEarnings.toFixed(2)}</td>
+                    <td style={TD_NOWRAP}>${p.referralEarnings.toFixed(2)}</td>
+                    <td style={TD_NOWRAP}>${p.commissionEarnings.toFixed(2)}</td>
+                    <td style={{ ...TD_NOWRAP, fontWeight: 700 }}>${p.combinedTotal.toFixed(2)}</td>
+                    <td style={TD_NOWRAP}>
                       <span className="age-pill" style={statusPillStyle(p)} title={ledgerStatusHelp(p.status, p.paid)}>
                         {statusLabel(p)}
                         {p.paid && " ✓"}
                       </span>
                     </td>
                     {canModerate && (
-                      <td style={TD_STYLE} onClick={(e) => e.stopPropagation()}>
+                      <td style={TD_NOWRAP} onClick={(e) => e.stopPropagation()}>
                         {isBulkPayable(p) ? (
                           <button
                             type="button"
@@ -427,7 +463,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                         )}
                       </td>
                     )}
-                    <td style={TD_STYLE}>
+                    <td style={TD_NOWRAP}>
                       <a
                         className="btn btn-ghost btn-small"
                         href={`/api/payout-report?month=${p.reportMonthKey}&userId=${p.userId}`}
@@ -488,53 +524,43 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
       </div>
 
       {detailRow && (
-        <Modal onClose={() => setDetailRow(null)}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-              <h3 style={{ fontSize: 16, margin: 0 }}>{detailRow.accountHolderName}</h3>
-              <button type="button" className="btn btn-ghost btn-small" onClick={() => setDetailRow(null)}>Close</button>
-            </div>
-            <p style={{ color: "var(--ink-faint)", fontSize: 12.5, marginTop: 2, marginBottom: 18 }}>{detailRow.role}</p>
+        <Modal onClose={() => setDetailRow(null)} maxWidth={940} cardClassName="payout-detail-modal">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+            <h3 style={{ fontSize: 16, margin: 0 }}>{detailRow.accountHolderName}</h3>
+            <button type="button" className="btn btn-ghost btn-small" onClick={() => setDetailRow(null)}>Close</button>
+          </div>
 
-            {[
-              { label: "Account #", value: detailRow.accountNumber },
-              { label: "Email", value: detailRow.email },
-              { label: "Payment method", value: detailRow.paymentMethod },
-              { label: "Account / payment details", value: detailRow.accountDetails },
-              { label: "Royalties", value: `$${detailRow.bookSalesEarnings.toFixed(2)}` },
-              { label: "Referral earnings", value: `$${detailRow.referralEarnings.toFixed(2)}` },
-              { label: "Commission earnings", value: `$${detailRow.commissionEarnings.toFixed(2)}` },
-              { label: "Combined total", value: `$${detailRow.combinedTotal.toFixed(2)}` },
-              ...(isSyntheticLedgerRow(detailRow) && detailRow.unreleasedAmount
-                ? [{ label: "Of which not yet released (current month)", value: `$${detailRow.unreleasedAmount.toFixed(2)}` }]
-                : []),
-              { label: "Currency", value: detailRow.currency },
-              ...(detailRow.paidAmount ? [{ label: "Already paid within this row", value: `$${detailRow.paidAmount.toFixed(2)}` }] : []),
-              {
-                label: "Resolved",
-                value: detailRow.resolvedAt ? new Date(detailRow.resolvedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—",
-              },
-            ].map((row) => (
-              <div key={row.label} style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "9px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}>
-                <span style={{ color: "var(--ink-faint)" }}>{row.label}</span>
-                <span style={{ fontWeight: 600, textAlign: "right", wordBreak: "break-word" }}>{row.value}</span>
+          <div className="payout-detail-grid">
+            {detailSections(detailRow).map((section) => (
+              <div key={section.title}>
+                <div style={{ fontSize: 10.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.02em", color: "var(--ink-faint)", paddingBottom: 4, borderBottom: "1px solid var(--line)" }}>
+                  {section.title}
+                </div>
+                {section.items.map((row) => (
+                  <div key={row.label} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: 12.5 }}>
+                    <span style={{ color: "var(--ink-faint)" }}>{row.label}</span>
+                    <span style={{ fontWeight: 600, textAlign: "right", wordBreak: "break-word" }}>{row.value}</span>
+                  </div>
+                ))}
               </div>
             ))}
+          </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 18, gap: 10, flexWrap: "wrap" }}>
-              <span className="age-pill" style={statusPillStyle(detailRow)} title={ledgerStatusHelp(detailRow.status, detailRow.paid)}>
-                {statusLabel(detailRow)}
-              </span>
-              <div style={{ display: "flex", gap: 8 }}>
-                <a
-                  className="btn btn-ghost btn-small"
-                  href={`/api/payout-report?month=${detailRow.reportMonthKey}&userId=${detailRow.userId}`}
-                  title={`Download the ${detailRow.reportMonthKey} statement as a PDF`}
-                >
-                  Download report
-                </a>
-                {(detailRow.status === "REQUESTED" || detailRow.status === "APPROVED") && canModerate && <ModerationActions payoutId={actionableIds(detailRow)} />}
-              </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, gap: 10, flexWrap: "wrap" }}>
+            <span className="age-pill" style={statusPillStyle(detailRow)} title={ledgerStatusHelp(detailRow.status, detailRow.paid)}>
+              {statusLabel(detailRow)}
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <a
+                className="btn btn-ghost btn-small"
+                href={`/api/payout-report?month=${detailRow.reportMonthKey}&userId=${detailRow.userId}`}
+                title={`Download the ${detailRow.reportMonthKey} statement as a PDF`}
+              >
+                Download report
+              </a>
+              {(detailRow.status === "REQUESTED" || detailRow.status === "APPROVED") && canModerate && <ModerationActions payoutId={actionableIds(detailRow)} />}
             </div>
+          </div>
         </Modal>
       )}
     </>

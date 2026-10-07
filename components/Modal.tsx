@@ -12,6 +12,7 @@ export function Modal({
   children,
   maxWidth = 480,
   hideScrollbar = false,
+  cardClassName,
 }: {
   onClose: () => void;
   children: ReactNode;
@@ -27,6 +28,9 @@ export function Modal({
    * showing up as "the scrollbar is still there" after only the inner
    * one had been addressed. */
   hideScrollbar?: boolean;
+  /** Extra class on the card (e.g. a landscape layout that manages its own
+   * overflow in CSS). Off by default, so existing modals are unchanged. */
+  cardClassName?: string;
 }) {
   return (
     <div
@@ -37,7 +41,7 @@ export function Modal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`map-card${hideScrollbar ? " no-scrollbar" : ""}`}
+        className={`map-card${hideScrollbar ? " no-scrollbar" : ""}${cardClassName ? ` ${cardClassName}` : ""}`}
         style={{ maxWidth, width: "100%", padding: 24, maxHeight: "85vh", overflowY: "auto" }}
       >
         {children}

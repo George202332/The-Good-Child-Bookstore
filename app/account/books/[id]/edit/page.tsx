@@ -10,8 +10,9 @@ import { parseRestrictedCountries } from "@/lib/book-country-restriction";
  * Edit an existing book — genuinely the same page used to submit a new
  * title (see app/account/books/new/EbookSubmissionForm.tsx), in edit
  * mode: every field pre-filled from the existing book, not a
- * separate, simplified form. Saving resubmits the book for review,
- * per explicit instruction.
+ * separate, simplified form. Saving resubmits an unpublished book for
+ * review; a published book saves live and only a replaced manuscript or
+ * cover goes to review.
  */
 export default async function EditBookPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -52,13 +53,16 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
         <div>
           <h2 style={{ fontSize: 15.5 }}>Edit: {book.title}</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            Saving these changes resubmits the book for review.
+            {book.status === "PUBLISHED"
+              ? "Changes to details such as price, description and categories go live as soon as you save. Replacing the manuscript or the cover sends the new file for review; your current file stays live until it is approved."
+              : "Saving these changes resubmits the book for review."}
           </p>
         </div>
       </div>
       <EbookSubmissionForm
         initial={{
           bookId: book.id,
+          bookStatus: book.status,
           manuscriptFileId,
           audiobookFileId,
           audiobookPrice: book.audiobookPrice != null ? String(Number(book.audiobookPrice)) : "",

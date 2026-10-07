@@ -16,6 +16,7 @@ interface AuthorBook {
   title: string;
   status: string;
   revisionNotes: string | null;
+  pendingRevisionData?: unknown;
   saleLines: SaleLineShare[];
   categories: { category: { name: string } }[];
 }
@@ -36,11 +37,20 @@ const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px
 /**
  * "My Books" — a real table: status (color-coded tab matching where the
  * book actually is in the review pipeline), category, units sold across
- * every format, total royalties, and two actions: Edit (which resubmits
- * the book for review once saved) and Suspend (pulls it off the store
+ * every format, total royalties, and two actions: Edit (a published
+ * book saves live; only a new manuscript or cover goes to review) and Suspend (pulls it off the store
  * shelf without deleting anything).
  */
-export default async function MyBooksPage() {
+const SAVED_NOTICES: Record<string, string> = {
+  live: "Your changes were saved and are live now.",
+  "files-review-manuscript": "Your changes were saved. Your new manuscript is under review and will go live once approved.",
+  "files-review-cover": "Your changes were saved. Your new cover is under review and will go live once approved.",
+  "files-review-both": "Your changes were saved. Your new manuscript and cover are under review and will go live once approved.",
+};
+
+export default async function MyBooksPage({ searchParams }: { searchParams?: Promise<{ saved?: string }> }) {
+  const savedKey = (await searchParams)?.saved;
+  const savedNotice = savedKey ? SAVED_NOTICES[savedKey] : undefined;
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (session.user.role !== "AUTHOR") redirect("/account");
@@ -60,6 +70,9 @@ export default async function MyBooksPage() {
         </div>
         <Link href="/account/books/new" className="btn btn-primary btn-small">Submit a new title</Link>
       </div>
+      {savedNotice && (
+        <div role="status" className="field-hint" style={{ marginBottom: 14 }}>{savedNotice}</div>
+      )}
       {books.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
           You haven&apos;t published any books yet — submit your first title above.
@@ -74,7 +87,7 @@ export default async function MyBooksPage() {
                 <th style={TABLE_HEAD_STYLE}>Category<ColHelp text="The book's primary category." /></th>
                 <th style={TABLE_HEAD_STYLE}>Units Sold<ColHelp text="Total copies sold across every format (eBook, print, audiobook) combined." /></th>
                 <th style={TABLE_HEAD_STYLE}>Royalties<ColHelp text="Your total lifetime earnings from this book's sales." /></th>
-                <th style={TABLE_HEAD_STYLE}>Edit<ColHelp text="Opens the submission form to update this book's details. Saving resubmits it for review." /></th>
+                <th style={TABLE_HEAD_STYLE}>Edit<ColHelp text="Opens the submission form to update this book's details. For a published book, changes go live on save; a new manuscript or cover is reviewed first." /></th>
                 <th style={TABLE_HEAD_STYLE}>Suspend<ColHelp text="Removes this book from the store shelf without deleting it. You can restore it any time." /></th>
                 <th style={TABLE_HEAD_STYLE}>Withdraw<ColHelp text="Removes this book from the catalog for good — its sales history stays on record, but it's no longer for sale." /></th>
               </tr>
@@ -88,6 +101,9 @@ export default async function MyBooksPage() {
                   <tr key={b.id}>
                     <td style={TABLE_CELL_STYLE}>
                       <strong>{b.title}</strong>
+                      {b.status === "PUBLISHED" && b.pendingRevisionData != null && (
+                        <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 4 }}>New manuscript or cover under review</div>
+                      )}
                       {b.status === "REJECTED" && b.revisionNotes && (
                         <div style={{ fontSize: 12, color: "#6F1A28", marginTop: 4, maxWidth: 260 }}>
                           &quot;{b.revisionNotes}&quot;

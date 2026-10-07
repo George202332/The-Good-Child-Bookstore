@@ -2395,5 +2395,34 @@
   .page-body-content strong{font-weight:700;color:var(--ink);}
 
   /* ---------- Shop by Category: eight tiles, laid out 4 x 2 ---------- */
+  /* Each tile sets --ct-from/--ct-to/--ct-border/--ct-ink/--ct-accent inline
+     (lib/category-colors.ts). Text colours are dark enough for >= 7:1. */
+  .cat-tile-themed{background:linear-gradient(135deg,var(--ct-from),var(--ct-to));border-color:var(--ct-border);color:var(--ct-ink);}
+  .cat-tile-themed span, .cat-tile-themed small{color:var(--ct-ink);}
+  .cat-tile-themed .cat-count{
+    color:var(--ct-ink);background:rgba(255,255,255,0.6);
+    border:1px solid var(--ct-border);border-radius:7px;padding:3px 10px;
+  }
+  html.dark-mode .cat-tile-themed{background:var(--paper);border-color:var(--line);box-shadow:inset 0 4px 0 var(--ct-accent);}
+  html.dark-mode .cat-tile-themed:hover{box-shadow:inset 0 4px 0 var(--ct-accent),var(--shadow);}
+  html.dark-mode .cat-tile-themed span, html.dark-mode .cat-tile-themed small{color:var(--ink);}
+  html.dark-mode .cat-tile-themed .cat-count{color:var(--ink);background:rgba(255,255,255,0.08);border-color:var(--line);}
   .cat-grid.cat-grid-8{grid-template-columns:repeat(4,1fr);}
   @media (max-width:980px){ .cat-grid.cat-grid-8{grid-template-columns:repeat(2,1fr);} }
+
+  /* ---------- Admin payout detail pop-up: landscape, no scrollbar ----------
+     Wider than tall, three columns. Overflow is hidden because the compact
+     layout fits laptop viewports (1366x768 and up); only on very short
+     (<= 560px tall) or narrow (<= 760px wide, columns stack) screens does it
+     scroll, with the scrollbar itself hidden. */
+  .payout-detail-modal{overflow-y:hidden !important;max-height:calc(100vh - 40px) !important;padding:20px 24px !important;}
+  .payout-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 28px;align-items:start;}
+  @media (max-width:760px){
+    .payout-detail-grid{grid-template-columns:1fr;}
+    .payout-detail-modal{overflow-y:auto !important;}
+  }
+  @media (max-height:560px){
+    .payout-detail-modal{overflow-y:auto !important;}
+  }
+  .payout-detail-modal{scrollbar-width:none;-ms-overflow-style:none;}
+  .payout-detail-modal::-webkit-scrollbar{display:none;}

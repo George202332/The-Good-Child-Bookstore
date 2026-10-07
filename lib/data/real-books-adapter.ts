@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { hashStr } from "@/lib/hash";
 import { BOOKS, PALETTES, type Book, type MotifKind } from "@/lib/data/catalog";
-import { categoryOfSubcategory, isCategory } from "@/lib/taxonomy";
+import { categoryOfSubcategory, type BookCategory } from "@/lib/taxonomy";
+import { attributeCategory, countBooksByCategory, type CategoryAttributionInput } from "@/lib/category-counts";
 import { genreLabelFromShelfId, shelfIdFromGenreLabel } from "@/lib/shelf-mapping";
 import {
   effectiveRestrictedCountries,
@@ -123,7 +124,10 @@ function toCatalogBook(row: RealBookRow): Book {
     palette: PALETTES[seed % PALETTES.length],
     category: shelfId,
     genre: genreLabelFromShelfId(shelfId),
-    series: isCategory(row.category) ? row.category : undefined,
+    // Real Book.category, else the Category implied by the subcategory /
+    // legacy Genre name, so older books (null category) still belong to a
+    // series. The home page's counts use the same helper.
+    series: attributeCategory({ category: row.category, subcategory, legacySubcategory: legacyTheme }),
     subcategory,
     restrictedCountries: effectiveRestrictedCountries(row),
     age: ageFromAgeGroup(row.ageGroup),
@@ -262,5 +266,40 @@ export async function getRealPublishedBookBySlug(slug: string): Promise<Book | n
     return toCatalogBook(row);
   } catch {
     return null;
+  }
+}
+
+/** Live number of PUBLISHED, visible books per Category series, straight
+ * from the database (a light select, no covers/files/reviews). Applies
+ * exactly the filters getRealPublishedBooks applies — PUBLISHED, not
+ * withheld from the store (sellOnStore === false) and not restricted for the
+ * visitor — and attributes older books with no Book.category through their
+ * legacy Genre name (see lib/category-counts.ts), so the number on a card
+ * equals what the `?series=` filter lists. Zeros if the database is
+ * unreachable. */
+export async function getPublishedCategoryCounts(visitorCountries?: VisitorCountries): Promise<Record<BookCategory, number>> {
+  try {
+    const rows = await prisma.book.findMany({
+      where: { status: "PUBLISHED" },
+      select: {
+        category: true,
+        subcategory: true,
+        restrictedCountries: true,
+        submissionMetadata: true,
+        genres: { select: { genre: { select: { name: true } } } },
+      },
+    });
+    if (!Array.isArray(rows)) return countBooksByCategory([]);
+    const attributable: CategoryAttributionInput[] = rows
+      .filter((r) => !isSellOnStoreDisabled(r.submissionMetadata))
+      .filter((r) => isBookVisibleToVisitor({ restrictedCountries: effectiveRestrictedCountries(r) }, visitorCountries ?? []))
+      .map((r) => ({
+        category: r.category,
+        subcategory: r.subcategory?.trim() || undefined,
+        legacySubcategory: r.genres[0]?.genre.name,
+      }));
+    return countBooksByCategory(attributable);
+  } catch {
+    return countBooksByCategory([]);
   }
 }

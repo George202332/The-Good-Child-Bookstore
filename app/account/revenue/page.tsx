@@ -6,6 +6,8 @@ import { BookSalesTable, type BookSalesRow } from "./BookSalesTable";
 import { ReferralRevenueTable, type ReferralRawRow } from "./ReferralRevenueTable";
 import { BookPromotionTable, type PromotionRawRow } from "./BookPromotionTable";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { firstNameOnly } from "@/lib/first-name";
+import { maskAccountNumber } from "@/lib/mask-account-number";
 import { bumpLastViewedRevenueAt } from "@/actions/revenue-last-viewed";
 import { RevenueHighlightProvider, BlinkStatCard } from "@/components/RevenueHighlight";
 
@@ -170,20 +172,28 @@ export default async function RevenuePage() {
   // author and re-aggregates dynamically based on whatever search/
   // month/year filter is applied — rather than a fixed lifetime total
   // that can't be filtered meaningfully.
-  const referralRawRows: ReferralRawRow[] = referralSaleLines.map((l) => ({
-    accountId: l.book.author.user.accountNumber,
-    // Same submission-time-name → pen name → real name priority order
-    // used everywhere else a book's author name is shown (see
-    // lib/book-author-name.ts) — previously skipped the submission-time
-    // override, so a referred author could show their real name here
-    // even on a book submitted under a pen name.
-    name: bookAuthorDisplayName(l.book),
-    dateJoined: l.book.author.user.createdAt.toISOString(),
-    saleDate: l.createdAt.toISOString(),
-    revenue: Number(l.companyShare),
-    commission: Number(l.authorReferralShare),
-    isNew: isNewSince(l.createdAt),
-  }));
+  // Privacy: the referred author's full name and full account number are
+  // reduced HERE, on the server, so neither ever reaches the browser. The
+  // client groups rows by an opaque key (not the account number, whose
+  // masked form could collide).
+  const referredGroupKeys = new Map<string, string>();
+  const referralRawRows: ReferralRawRow[] = referralSaleLines.map((l) => {
+    const authorId = l.book.author.id;
+    if (!referredGroupKeys.has(authorId)) referredGroupKeys.set(authorId, `ref-${referredGroupKeys.size + 1}`);
+    return {
+      groupKey: referredGroupKeys.get(authorId) as string,
+      accountId: maskAccountNumber(l.book.author.user.accountNumber),
+      // Same submission-time-name → pen name → real name priority order
+      // used everywhere else a book's author name is shown (see
+      // lib/book-author-name.ts), then reduced to the first name only.
+      name: firstNameOnly(bookAuthorDisplayName(l.book)),
+      dateJoined: l.book.author.user.createdAt.toISOString(),
+      saleDate: l.createdAt.toISOString(),
+      revenue: Number(l.companyShare),
+      commission: Number(l.authorReferralShare),
+      isNew: isNewSince(l.createdAt),
+    };
+  });
 
   type PromotionSaleLine = {
     id: string;

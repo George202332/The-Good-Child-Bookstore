@@ -8,7 +8,7 @@ import { computeMonthlyPayoutRows, computePayoutStatCards } from "@/lib/payout-m
 import { getMyWallet } from "@/actions/wallet";
 import { ColHelp } from "@/components/ColHelp";
 import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
-import { authorStatusLabel, authorStatusHelp, authorStatusPillStyle, rolledOverNote, STATUS_COLUMN_HELP, LIVE_LABEL, ROLLED_LABEL, PENDING_LABEL } from "@/lib/payout-status";
+import { authorStatusLabel, authorStatusHelp, authorStatusPillStyle, STATUS_COLUMN_HELP, LIVE_LABEL, ROLLED_LABEL, PENDING_LABEL } from "@/lib/payout-status";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
@@ -82,10 +82,7 @@ export default async function PayoutSettingsPage() {
         <div className="stat-card stat-card-total">
           <div className="stat-label">Next Month</div>
           <div className="stat-value">${statCards.liveTotal.toFixed(2)}</div>
-          <div className="stat-sub">
-            {LIVE_LABEL}, still growing
-            {rolledOverNote(statCards.rolledOver) && <div>{rolledOverNote(statCards.rolledOver)}</div>}
-          </div>
+          <div className="stat-sub">{LIVE_LABEL}, still growing</div>
         </div>
         <div className="stat-card stat-card-due">
           <div className="stat-label">{statCards.pendingStatus === "Paid" ? "Paid This Month" : statCards.pendingPayout < MIN_PAYOUT_AMOUNT ? ROLLED_LABEL : PENDING_LABEL}</div>
@@ -154,9 +151,6 @@ export default async function PayoutSettingsPage() {
                     </td>
                     <td style={TABLE_CELL_STYLE}>
                       ${(r.status === "Live" && r.liveTotal !== undefined ? r.liveTotal : r.amount).toFixed(2)}
-                      {r.status === "Live" && rolledOverNote(r.rolloverIn) && (
-                        <div style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{rolledOverNote(r.rolloverIn)}</div>
-                      )}
                     </td>
                     <td style={TABLE_CELL_STYLE}>
                       <a

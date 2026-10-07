@@ -1,5 +1,3 @@
-import { rolledOverNote } from "@/lib/payout-status";
-
 /**
  * Replaces the old "click to request a payout" button — nothing needs
  * to be manually requested. Everything earned in a calendar month is
@@ -33,7 +31,6 @@ export function AutoPayoutInfo({
   rolledOver?: number;
 }) {
   const liveTotal = onHold + rolledOver;
-  const note = rolledOverNote(rolledOver);
   const pendingAvailable = Math.max(0, available - rolledOver);
   return (
     <div className="form-section" style={{ background: "var(--cream)" }}>
@@ -52,7 +49,6 @@ export function AutoPayoutInfo({
           {liveTotal > 0 && (
             <div style={{ fontSize: 13.5, marginBottom: 6 }}>
               <strong>${liveTotal.toFixed(2)}</strong> is live and still growing.
-              {note && <span style={{ color: "var(--ink-faint)" }}> ({note})</span>}
             </div>
           )}
           {pendingAvailable > 0 ? (

@@ -126,8 +126,17 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
           </div>
 
           {(() => {
-            const pending = book.pendingRevisionData as unknown as { input?: { title?: string; description?: string; price?: number } } | null;
-            if (!pending?.input) return null;
+            const pending = book.pendingRevisionData as unknown as { kind?: string; manuscriptFileId?: string; coverImageUrl?: string; input?: { title?: string; description?: string; price?: number } } | null;
+            if (!pending) return null;
+            if (pending.kind === "files") {
+              return (
+                <RevisionReviewCard
+                  bookId={book.id}
+                  files={{ manuscriptUrl: pending.manuscriptFileId ? `/api/files/${pending.manuscriptFileId}` : undefined, coverUrl: pending.coverImageUrl }}
+                />
+              );
+            }
+            if (!pending.input) return null;
             return (
               <RevisionReviewCard
                 bookId={book.id}

@@ -7,7 +7,7 @@ import { hashStr } from "@/lib/hash";
 import { selectHomeBlogs } from "@/lib/blog-ranking";
 import { NewsletterForm } from "@/components/NewsletterForm";
 import { getPagesContent } from "@/actions/page-content";
-import { getRealPublishedBooks } from "@/lib/data/real-books-adapter";
+import { getRealPublishedBooks, getPublishedCategoryCounts } from "@/lib/data/real-books-adapter";
 import { DEFAULT_PAGES_CONTENT } from "@/lib/page-content";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,8 @@ import { FeaturedAuthors } from "@/components/FeaturedAuthors";
 import { CATS, BOOKS } from "@/lib/data/catalog";
 import { CATEGORIES, categorySlug } from "@/lib/taxonomy";
 import { CATEGORY_BLURBS } from "@/lib/data/category-blurbs";
+import { categoryThemeStyle } from "@/lib/category-colors";
+import { bookCountLabel } from "@/lib/category-counts";
 import { getVisitorCountries } from "@/lib/visitor-country";
 import { getPlatformStats } from "@/lib/platform-stats";
 import { LiveRefresher } from "@/components/LiveRefresher";
@@ -92,7 +94,11 @@ export default async function HomePage() {
   // Books restricted in the visitor's country are hidden from every list on
   // this page (best sellers, new arrivals, tile counts). The page is already
   // force-dynamic, so reading the request adds no cacheability cost.
-  const realBooks = await getRealPublishedBooks(await getVisitorCountries());
+  const visitorCountries = await getVisitorCountries();
+  const realBooks = await getRealPublishedBooks(visitorCountries);
+  // Shop by Category counts: live from the database, same visibility
+  // rules as the lists above, older books attributed via their legacy genre.
+  const seriesCounts = await getPublishedCategoryCounts(visitorCountries);
   const allBooksForArrivals = [...realBooks, ...BOOKS].sort((a, b) => (a.pubDate < b.pubDate ? 1 : -1));
   const newArrivals = getRotatingBatch(allBooksForArrivals, 12, 20 * 60 * 1000);
   // Live per-category/per-age counts — the same combined real+demo set
@@ -101,10 +107,8 @@ export default async function HomePage() {
   // moment a new book is published under that category.
   const catCounts = new Map<string, number>();
   const ageCounts = new Map<string, number>();
-  const seriesCounts = new Map<string, number>();
   for (const b of allBooksForArrivals) {
     catCounts.set(b.category, (catCounts.get(b.category) ?? 0) + 1);
-    if (b.series) seriesCounts.set(b.series, (seriesCounts.get(b.series) ?? 0) + 1);
     ageCounts.set(b.age, (ageCounts.get(b.age) ?? 0) + 1);
   }
   const AGE_EXPLORER = AGE_EXPLORER_BASE.map((a) => ({ ...a, count: ageCounts.get(a.range) ?? 0 }));
@@ -167,11 +171,11 @@ export default async function HomePage() {
             </div>
           </div>
           <div className="cat-grid cat-grid-8">
-            {CATEGORIES.map((c, i) => (
-              <Link key={c} href={`/bookshelf?series=${categorySlug(c)}`} className={`cat-tile ${["age-card-blue", "age-card-orange", "age-card-grey", "age-card-purple", "age-card-green"][i % 5]}`}>
+            {CATEGORIES.map((c) => (
+              <Link key={c} href={`/bookshelf?series=${categorySlug(c)}`} className="cat-tile cat-tile-themed" style={categoryThemeStyle(c)}>
                 <span>{c}</span>
                 <small>{CATEGORY_BLURBS[c]}</small>
-                <span className="cat-count">{seriesCounts.get(c) ?? 0} books</span>
+                <span className="cat-count">{bookCountLabel(seriesCounts[c])}</span>
               </Link>
             ))}
           </div>

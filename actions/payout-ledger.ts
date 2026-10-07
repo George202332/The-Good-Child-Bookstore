@@ -84,6 +84,9 @@ export interface PayoutLedgerRow {
   bank: PayoutBankDetails;
   email: string;
   role: string;
+  /** When the account joined (User.createdAt, ISO). Shown in the row's
+   * detail pop-up; optional so older/synthetic data without it still works. */
+  joinedAt?: string;
   paymentMethod: string;
   accountDetails: string;
   currency: string;
@@ -240,7 +243,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-  type PersonInfo = { accountNumber: string; email: string; role: string; name: string };
+  type PersonInfo = { accountNumber: string; email: string; role: string; name: string; joinedAt: Date };
   const authorAmounts = new Map<string, number>();
   const affiliateAmounts = new Map<string, { referral: number; commission: number }>();
   const personInfo = new Map<string, PersonInfo>();
@@ -259,7 +262,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
       },
     },
   })) as {
-    id: string; accountNumber: string; email: string; role: string; name: string;
+    id: string; accountNumber: string; email: string; role: string; name: string; createdAt: Date;
     authorProfile: { books: { saleLines: { authorShare: unknown }[] }[] } | null;
   }[];
   for (const u of authors) {
@@ -267,7 +270,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
     const amount = books.reduce((sum, b) => sum + b.saleLines.reduce((s, l) => s + Number(l.authorShare), 0), 0);
     if (amount <= 0) continue;
     authorAmounts.set(u.id, amount);
-    personInfo.set(u.id, { accountNumber: u.accountNumber, email: u.email, role: u.role, name: u.name });
+    personInfo.set(u.id, { accountNumber: u.accountNumber, email: u.email, role: u.role, name: u.name, joinedAt: u.createdAt });
   }
 
   const affiliateProfiles = (await prisma.affiliateProfile.findMany({
@@ -278,7 +281,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
     },
   })) as {
     userId: string;
-    user: { accountNumber: string; email: string; role: string; name: string };
+    user: { accountNumber: string; email: string; role: string; name: string; createdAt: Date };
     affiliateLinks: { saleLines: { affiliateShare: unknown }[] }[];
     authorReferralEarnings: { authorReferralShare: unknown }[];
   }[];
@@ -287,7 +290,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
     const referral = a.authorReferralEarnings.reduce((sum, r) => sum + Number(r.authorReferralShare), 0);
     if (direct + referral <= 0) continue;
     affiliateAmounts.set(a.userId, { referral, commission: direct });
-    if (!personInfo.has(a.userId)) personInfo.set(a.userId, { accountNumber: a.user.accountNumber, email: a.user.email, role: a.user.role, name: a.user.name });
+    if (!personInfo.has(a.userId)) personInfo.set(a.userId, { accountNumber: a.user.accountNumber, email: a.user.email, role: a.user.role, name: a.user.name, joinedAt: a.user.createdAt });
   }
 
   const rows: PayoutLedgerRow[] = [];
@@ -308,6 +311,7 @@ async function getLiveMonthRows(): Promise<PayoutLedgerRow[]> {
       bank: fields.bank,
       email: info.email,
       role: info.role,
+      joinedAt: info.joinedAt.toISOString(),
       paymentMethod: fields.paymentMethod,
       accountDetails: fields.accountDetails,
       currency: "USD",
@@ -441,14 +445,14 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     return summarizePayouts(payouts, earningsType);
   }
 
-  type PersonInfo = { accountNumber: string; email: string; role: string; name: string };
+  type PersonInfo = { accountNumber: string; email: string; role: string; name: string; joinedAt: Date };
   const personInfo = new Map<string, PersonInfo>();
   const authorAvailable = new Map<string, number>();
   const affiliateAvailable = new Map<string, { referral: number; commission: number; total: number }>();
 
   const authors = await prisma.user.findMany({
     where: { role: "AUTHOR", authorProfile: { isNot: null } },
-    select: { id: true, accountNumber: true, email: true, role: true, name: true },
+    select: { id: true, accountNumber: true, email: true, role: true, name: true, createdAt: true },
   });
   for (const u of authors) {
     const breakdown = await fetchEarningsBreakdown(u.id);
@@ -457,13 +461,13 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     const wallet = computeWallet(lines, paidOut, pending);
     if (wallet.available <= 0) continue;
     authorAvailable.set(u.id, wallet.available);
-    personInfo.set(u.id, { accountNumber: u.accountNumber, email: u.email, role: u.role, name: u.name });
+    personInfo.set(u.id, { accountNumber: u.accountNumber, email: u.email, role: u.role, name: u.name, joinedAt: u.createdAt });
   }
 
   const affiliateProfiles = await prisma.affiliateProfile.findMany({
-    select: { userId: true, user: { select: { accountNumber: true, email: true, role: true, name: true } } },
+    select: { userId: true, user: { select: { accountNumber: true, email: true, role: true, name: true, createdAt: true } } },
   });
-  for (const a of affiliateProfiles as { userId: string; user: { accountNumber: string; email: string; role: string; name: string } }[]) {
+  for (const a of affiliateProfiles as { userId: string; user: { accountNumber: string; email: string; role: string; name: string; createdAt: Date } }[]) {
     const breakdown = await fetchEarningsBreakdown(a.userId);
     const combinedLines = linesForView(breakdown, "affiliate");
     const { paidOut, pending } = await paidAndPendingFor(a.userId, "AFFILIATE");
@@ -481,7 +485,7 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     const commissionEarnings = +(wallet.available - referralEarnings).toFixed(2);
 
     affiliateAvailable.set(a.userId, { referral: referralEarnings, commission: commissionEarnings, total: wallet.available });
-    if (!personInfo.has(a.userId)) personInfo.set(a.userId, { accountNumber: a.user.accountNumber, email: a.user.email, role: a.user.role, name: a.user.name });
+    if (!personInfo.has(a.userId)) personInfo.set(a.userId, { accountNumber: a.user.accountNumber, email: a.user.email, role: a.user.role, name: a.user.name, joinedAt: a.user.createdAt });
   }
 
   const rows: PayoutLedgerRow[] = [];
@@ -504,6 +508,7 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
       bank: fields.bank,
       email: info.email,
       role: info.role,
+      joinedAt: info.joinedAt.toISOString(),
       paymentMethod: fields.paymentMethod,
       accountDetails: fields.accountDetails,
       currency: "USD",
@@ -561,7 +566,7 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
       requestedAt: Date;
       resolvedAt: Date | null;
       recipientId: string;
-      user: { accountNumber: string; email: string; role: string; name: string };
+      user: { accountNumber: string; email: string; role: string; name: string; createdAt: Date };
     }[];
 
     const recipientIds = [...new Set(payouts.map((p) => p.recipientId))];
@@ -606,6 +611,7 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
           bank: bankByUser.get(p.userId) ?? EMPTY_BANK_DETAILS,
           email: p.user.email,
           role: p.user.role,
+          joinedAt: p.user.createdAt.toISOString(),
           paymentMethod: recipient ? payoutMethodLabel(recipient.type) : "—",
           accountDetails: recipient ? formatAccountDetails(recipient.details) : "—",
           currency: p.currency,
