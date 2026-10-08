@@ -106,6 +106,10 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
     ? format
     : ((["ebook", "audiobook", "paperback", "print"] as FormatKey[]).find((f) => isFormatAvailable[f]) ?? format);
 
+  // An audiobook-only title has no manuscript: no sample to read, and no
+  // page count / trim size / file size to show.
+  const audiobookOnly = isFormatAvailable.audiobook && !isFormatAvailable.ebook && !isFormatAvailable.paperback && !isFormatAvailable.print;
+
   const initials = b.author.split(" ").map((w) => w[0]).join("").slice(0, 2);
   const fmtLabel = FORMAT_LABELS[effectiveFormat];
   const stats = isRealBook
@@ -127,7 +131,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
     isbn: b.isbn,
     genre: [b.genre, b.subcategory].filter(Boolean).join(", ") || undefined,
     ageRange: b.age,
-    price: b.formats.ebook,
+    price: isFormatAvailable.ebook ? b.formats.ebook : b.price,
     ratingValue: b.rating,
     reviewCount: b.reviews,
     imageUrl: b.coverImage,
@@ -181,7 +185,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
             </div>
           </div>
           <div className="az-sample-btns">
-            <ReadSampleViewer manuscriptUrl={b.manuscriptUrl} title={b.title} />
+            {!audiobookOnly && <ReadSampleViewer manuscriptUrl={b.manuscriptUrl} title={b.title} />}
             {b.formatAvailable?.audiobook && (
               <button type="button" className="btn btn-ghost btn-small btn-block">Listen to sample</button>
             )}
@@ -256,10 +260,12 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 18l-6-6 6-6" /></svg>
               </button>
               <div className="az-details-row" id={`details-track-${b.id}`}>
-                <div className="az-detail-item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 2h9l3 3v17H6z" /><path d="M14 2v4h4" /></svg>
-                  <strong>{b.pages}</strong><span>Pages</span>
-                </div>
+                {!audiobookOnly && (
+                  <div className="az-detail-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 2h9l3 3v17H6z" /><path d="M14 2v4h4" /></svg>
+                    <strong>{b.pages}</strong><span>Pages</span>
+                  </div>
+                )}
                 <div className="az-detail-item">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={12} r={9} /><path d="M3 12h18M12 3c2.2 2.4 3.5 5.5 3.5 9s-1.3 6.6-3.5 9c-2.2-2.4-3.5-5.5-3.5-9s1.3-6.6 3.5-9z" /></svg>
                   <strong>{b.language || "English"}</strong><span>Language</span>
@@ -290,14 +296,18 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={7} width={18} height={14} rx={2} /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                   <strong>{b.publisher || "Good Child Press"}</strong><span>Publisher</span>
                 </div>
-                <div className="az-detail-item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={4} y={3} width={16} height={18} rx={1} /><path d="M8 3v18M16 3v18" /></svg>
-                  <strong>{b.dimensions || "5.5 × 8.5 in"}</strong><span>Dimensions</span>
-                </div>
-                <div className="az-detail-item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
-                  <strong>{formatFileSize(b.fileSizeKB, b.pages)}</strong><span>File Size</span>
-                </div>
+                {!audiobookOnly && (
+                  <>
+                    <div className="az-detail-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={4} y={3} width={16} height={18} rx={1} /><path d="M8 3v18M16 3v18" /></svg>
+                      <strong>{b.dimensions || "5.5 × 8.5 in"}</strong><span>Dimensions</span>
+                    </div>
+                    <div className="az-detail-item">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+                      <strong>{formatFileSize(b.fileSizeKB, b.pages)}</strong><span>File Size</span>
+                    </div>
+                  </>
+                )}
               </div>
               <button type="button" className="carousel-arrow carousel-right" aria-label="Scroll details right" onClick={() => scrollTrack(`details-track-${b.id}`, 1)}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 18l6-6-6-6" /></svg>

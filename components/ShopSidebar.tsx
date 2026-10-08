@@ -88,6 +88,12 @@ export function ShopSidebar({
     pushParams(params);
   }
 
+  // The checkbox toggles the Category filter only (never opens the pop-up).
+  function toggleSeries(slug: string, subs: readonly string[]) {
+    if (has("series", slug)) clearSeries(slug, subs);
+    else selectSeries(slug);
+  }
+
   function clearAll() {
     router.push(pathname, { scroll: false });
     onClose();
@@ -128,6 +134,10 @@ export function ShopSidebar({
                   setOpenCat(cat);
                 }}
                 onClose={() => setOpenCat((c) => (c === cat ? null : c))}
+                onToggleSelected={() => {
+                  toggleSeries(slug, subs);
+                  setOpenCat((c) => (c === cat ? null : c));
+                }}
                 isChecked={hasSub}
                 onToggleSub={(sub) => toggleSubIn(slug, sub)}
                 onClear={() => clearSeries(slug, subs)}
@@ -207,6 +217,7 @@ type CategoryRowProps = {
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
+  onToggleSelected: () => void;
   isChecked: (sub: string) => boolean;
   onToggleSub: (sub: string) => void;
   onClear: () => void;
@@ -218,8 +229,9 @@ type CategoryRowProps = {
  * trap position:fixed). Desktop: anchored to the right of the row. Narrow
  * screens: centred modal with a backdrop.
  */
-function CategoryRow({ cat, subs, selected, count, open, onOpen, onClose, isChecked, onToggleSub, onClear }: CategoryRowProps) {
+function CategoryRow({ cat, subs, selected, count, open, onOpen, onClose, onToggleSelected, isChecked, onToggleSub, onClear }: CategoryRowProps) {
   const btnRef = useRef<HTMLButtonElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -228,9 +240,9 @@ function CategoryRow({ cat, subs, selected, count, open, onOpen, onClose, isChec
   const narrow = useSyncExternalStore(subscribeNarrow, getNarrow, () => false);
 
   const place = useCallback(() => {
-    const btn = btnRef.current;
-    if (!btn) return;
-    const r = btn.getBoundingClientRect();
+    const row = rowRef.current;
+    if (!row) return;
+    const r = row.getBoundingClientRect();
     const panelH = panelRef.current?.offsetHeight ?? 340;
     const maxTop = Math.max(8, window.innerHeight - panelH - 8);
     setPos({ left: r.right + 10, top: Math.min(Math.max(8, r.top - 8), maxTop) });
@@ -258,7 +270,7 @@ function CategoryRow({ cat, subs, selected, count, open, onOpen, onClose, isChec
     panelRef.current?.querySelector<HTMLInputElement>("input")?.focus();
     function onDown(e: MouseEvent | TouchEvent) {
       const t = e.target as Node;
-      if (panelRef.current?.contains(t) || btnRef.current?.contains(t)) return;
+      if (panelRef.current?.contains(t) || rowRef.current?.contains(t)) return;
       onClose();
     }
     function onKey(e: KeyboardEvent) {
@@ -327,22 +339,30 @@ function CategoryRow({ cat, subs, selected, count, open, onOpen, onClose, isChec
 
   return (
     <div>
-      <button
-        type="button"
-        ref={btnRef}
-        className={`filter-option subcat-trigger ${selected ? "is-selected" : ""}`}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        onClick={() => (open ? close() : onOpen())}
-      >
-        <span className="subcat-trigger-name">{cat}</span>
-        {count > 0 && (
-          <span className="subcat-badge" aria-label={`${count} subcategories selected`}>{count}</span>
-        )}
-        <svg className="subcat-chevron" viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-          <path d="M9 18l6-6-6-6" />
-        </svg>
-      </button>
+      <div ref={rowRef} className={`filter-option subcat-row ${selected ? "is-selected" : ""}`}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggleSelected}
+          aria-label={`Filter by ${cat}`}
+        />
+        <button
+          type="button"
+          ref={btnRef}
+          className="subcat-trigger"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          onClick={() => (open ? close() : onOpen())}
+        >
+          <span className="subcat-trigger-name">{cat}</span>
+          {count > 0 && (
+            <span className="subcat-badge" aria-label={`${count} subcategories selected`}>{count}</span>
+          )}
+          <svg className="subcat-chevron" viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <path d="M9 18l6-6-6-6" />
+          </svg>
+        </button>
+      </div>
       {open &&
         createPortal(
           narrow ? <div className="subcat-backdrop">{panel}</div> : panel,

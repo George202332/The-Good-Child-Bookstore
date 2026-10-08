@@ -133,13 +133,15 @@ function toCatalogBook(row: RealBookRow): Book {
     age: ageFromAgeGroup(row.ageGroup),
     price,
     formats: {
-      ebook: row.ebookPrice ? Number(row.ebookPrice) : price,
+      ebook: resolveFormatPrice(row, "ebook") ?? price,
       print: hardcoverPrice ?? price,
       paperback: paperbackPrice ?? price,
       audiobook: audiobookPrice ?? price,
     },
     formatAvailable: {
-      ebook: row.hasEbook,
+      // Only a title that really has an eBook (a manuscript was submitted)
+      // offers one: an audiobook-only title shows no eBook format at all.
+      ebook: isFormatPurchasable(row, "ebook"),
       paperback: isFormatPurchasable(row, "paperback"),
       hardcover: isFormatPurchasable(row, "hardcover"),
       // Per explicit instruction: the Audiobook format is only ever

@@ -1,6 +1,6 @@
 /**
  * Book classification taxonomy. Three INDEPENDENT dimensions:
- *   - Category    one of the eight CATEGORIES (the "series" a book belongs to)
+ *   - Category    one of the ten CATEGORIES (the "series" a book belongs to)
  *   - Genre       one of the five GENRES (the "Shop by Shelf" shelves)
  *   - Subcategory a theme listed under the chosen Category
  * A subcategory name exists under exactly one category so a
@@ -16,6 +16,8 @@ export const CATEGORIES = [
   "Values and Virtues Series",
   "Community and Society Series",
   "Religion and Culture Series",
+  "Holiday and Festivities",
+  "Diversity, Equity, and Inclusion",
 ] as const;
 
 export type BookCategory = (typeof CATEGORIES)[number];
@@ -216,7 +218,6 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
     "Sikh Stories",
     "Interfaith Understanding",
     "Holidays and Festivals",
-    "Christmas",
     "Easter",
     "Ramadan and Eid",
     "Diwali",
@@ -229,6 +230,49 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
     "Cultural Foods and Customs",
     "Heritage Languages",
     "Spiritual Values",
+  ],
+  "Holiday and Festivities": [
+    "New Year's Day",
+    "Valentine's Day",
+    "Easter Egg Fun",
+    "Mother's Day",
+    "Father's Day",
+    "Independence Day",
+    "Thanksgiving",
+    "Canada Day",
+    "Remembrance Day",
+    "Australia Day",
+    "Anzac Day",
+    "Boxing Day",
+    "Earth Day",
+    "Halloween",
+    "Christmas",
+    "Lunar New Year",
+  ],
+  "Diversity, Equity, and Inclusion": [
+    "Cultural Diversity",
+    "Celebrating Differences",
+    "Inclusion and Belonging",
+    "Disability Awareness",
+    "Neurodiversity",
+    "Autism Awareness",
+    "Deaf and Hard of Hearing",
+    "Blind and Low Vision",
+    "Accessibility and Mobility",
+    "Racial Equity",
+    "Anti-Racism",
+    "Immigrant Stories",
+    "Refugee Stories",
+    "Gender Equality",
+    "Different Family Structures",
+    "LGBTQ+ Families",
+    "Language and Identity",
+    "Indigenous Voices",
+    "Mixed Heritage",
+    "Cultural Pride",
+    "Equity for All",
+    "Allyship",
+    "Kids Advocating for Change",
   ],
 };
 

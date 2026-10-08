@@ -11,4 +11,6 @@ export const CATEGORY_BLURBS: Record<BookCategory, string> = {
   "Values and Virtues Series": "Kindness, courage and character",
   "Community and Society Series": "Neighbours, friends and the wider world",
   "Religion and Culture Series": "Faith, heritage and tradition",
+  "Holiday and Festivities": "Celebrations, traditions and festive fun",
+  "Diversity, Equity, and Inclusion": "Every child seen, valued and included",
 };

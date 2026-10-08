@@ -7,6 +7,7 @@ import { canModerateContent } from "@/lib/roles";
 import { isCategory, isGenre, isSubcategoryOf } from "@/lib/taxonomy";
 import { parseRestrictedCountries } from "@/lib/book-country-restriction";
 import { needsReReview, fileRefKey } from "@/lib/revision-trigger";
+import { resolveFormats } from "@/lib/submission-formats";
 
 export interface AuthorAliasRow {
   id: string;
@@ -283,8 +284,14 @@ interface PreparedSubmission {
   taxonomyColumns: boolean;
   restrictedCountries: string[];
   metadata: SubmissionMetadata;
+  hasEbook: boolean;
+  /** Null when there is no eBook (no manuscript) — never stored then. */
+  ebookPrice: number | null;
   hasAudiobook: boolean;
   audiobookPrice: number | null;
+  /** Value for the required Book.price column: the eBook price when an
+   * eBook exists, otherwise the audiobook price. */
+  basePrice: number;
 }
 
 function prepareSubmission(input: SubmitBookInput, opts: { lenient?: boolean } = {}): { ok: true; value: PreparedSubmission } | { ok: false; error: string } {
@@ -308,18 +315,34 @@ function prepareSubmission(input: SubmitBookInput, opts: { lenient?: boolean } =
     return { ok: false, error: "Choose at least one country where this book may not be sold, or turn on worldwide distribution rights." };
   }
 
-  // The audiobook price is only meaningful with an uploaded audiobook
-  // file, and must be a real price whenever a file is attached.
-  const hasAudiobook = !!input.audiobookFileId;
-  let audiobookPrice: number | null = null;
-  if (hasAudiobook) {
-    const p = Number(meta.audiobookRetailPrice);
-    if (!Number.isFinite(p) || p <= 0) return { ok: false, error: "Audiobook price must be greater than $0 when an audiobook file is attached." };
-    audiobookPrice = p;
-  }
+  // eBook (manuscript) and audiobook are independent: either, or both, but
+  // at least one. The eBook price is required only with a manuscript and the
+  // audiobook price only with an audiobook file (see lib/submission-formats.ts).
+  // Print titles (formats.print) carry their own files and price and are
+  // not subject to the eBook/audiobook rule.
+  const isPrintTitle = input.formats.print;
+  const fmt = resolveFormats({
+    // A pre-existing (lenient) revision that was saved as an eBook keeps its
+    // eBook even if its manuscript reference is no longer in the payload.
+    manuscriptFileId: isPrintTitle ? undefined : input.manuscriptFileId || (opts.lenient && input.formats.ebook ? "legacy" : undefined),
+    audiobookFileId: input.audiobookFileId,
+    ebookPrice: input.price,
+    audiobookPrice: meta.audiobookRetailPrice,
+    requireFile: !isPrintTitle,
+  });
+  if (fmt.errors.length > 0) return { ok: false, error: fmt.errors[0] };
+  if (isPrintTitle && !(input.price > 0)) return { ok: false, error: "Price must be greater than $0." };
+  const hasEbook = isPrintTitle ? input.formats.ebook : fmt.hasEbook;
+  const ebookPrice = isPrintTitle ? null : fmt.ebookPrice;
+  const hasAudiobook = fmt.hasAudiobook;
+  const audiobookPrice = fmt.audiobookPrice;
+  const basePrice = isPrintTitle ? input.price : (fmt.basePrice as number);
 
   const metadata: SubmissionMetadata = {
     ...meta,
+    // Pages / dimensions / file size describe the manuscript; an
+    // audiobook-only title has none.
+    ...(!isPrintTitle && !hasEbook ? { pages: undefined, dimensions: undefined, fileSizeKB: undefined } : {}),
     worldwideRights: worldwide,
     countryRestrictions: restrictedCountries.length > 0 ? restrictedCountries.join(", ") : undefined,
     // All books are sold on the store; featured placement is not yet available.
@@ -334,7 +357,7 @@ function prepareSubmission(input: SubmitBookInput, opts: { lenient?: boolean } =
   const names = taxonomyColumns
     ? { category: input.category, genre: input.genre, subcategory: input.subcategory }
     : { category: "", genre: input.category, subcategory: input.genre };
-  return { ok: true, value: { ...names, taxonomyColumns, restrictedCountries, metadata, hasAudiobook, audiobookPrice } };
+  return { ok: true, value: { ...names, taxonomyColumns, restrictedCountries, metadata, hasEbook, ebookPrice, hasAudiobook, audiobookPrice, basePrice } };
 }
 
 export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
@@ -346,10 +369,6 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   if (!input.description.trim()) return { ok: false, error: "Short description is required." };
   if (countWords(input.description) > DESCRIPTION_WORD_LIMIT) {
     return { ok: false, error: `The description is over the ${DESCRIPTION_WORD_LIMIT}-word limit — please shorten it.` };
-  }
-  if (input.price <= 0) return { ok: false, error: "Price must be greater than $0." };
-  if (!input.formats.ebook && !input.formats.print && !input.formats.audiobook) {
-    return { ok: false, error: "Select at least one format (eBook, print, or audiobook)." };
   }
 
   const prepared = prepareSubmission(input);
@@ -400,8 +419,8 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       subtitle: input.subtitle?.trim() || null,
       slug,
       description: input.description.trim(),
-      isbn: input.isbn?.trim() || (input.formats.print ? generateIsbn() : input.formats.ebook ? generateSerialNumber() : null),
-      price: input.price,
+      isbn: input.isbn?.trim() || (input.formats.print ? generateIsbn() : prep.hasEbook || prep.hasAudiobook ? generateSerialNumber() : null),
+      price: prep.basePrice,
       isTestData: siteMode === "test",
       status: input.submitForReview ? "PENDING_REVIEW" : "DRAFT",
       authorId: user.authorProfile.id,
@@ -409,9 +428,10 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       language: input.language || "en",
       coverImageUrl: input.coverImageUrl?.trim() || null,
       coverAltText: input.coverAltText?.trim() || null,
-      hasEbook: input.formats.ebook,
+      hasEbook: prep.hasEbook,
       hasPrint: input.formats.print,
       hasAudiobook: prep.hasAudiobook,
+      ebookPrice: prep.ebookPrice,
       paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
         ? input.metadata.paperbackRetailPrice
         : null,
@@ -449,13 +469,18 @@ interface PendingFilesRevision {
   /** Manuscript-derived details that belong with the held manuscript
    * (page count, trim size, file size) — applied only on approval. */
   metadataPatch?: Partial<Pick<SubmissionMetadata, "pages" | "dimensions" | "fileSizeKB">>;
+  /** The held manuscript is the title's first (an audiobook-only title
+   * gaining an eBook): on approval the eBook edition goes on sale at
+   * `ebookPrice`. */
+  introducesEbook?: boolean;
+  ebookPrice?: number;
 }
 
 function readPendingFiles(raw: unknown): PendingFilesRevision | null {
   if (!raw || typeof raw !== "object") return null;
-  const r = raw as { kind?: string; input?: Partial<SubmitBookInput>; manuscriptFileId?: string; coverImageUrl?: string; metadataPatch?: PendingFilesRevision["metadataPatch"] };
+  const r = raw as { kind?: string; input?: Partial<SubmitBookInput>; manuscriptFileId?: string; coverImageUrl?: string; metadataPatch?: PendingFilesRevision["metadataPatch"]; introducesEbook?: boolean; ebookPrice?: number };
   if (r.kind === "files") {
-    return { kind: "files", manuscriptFileId: r.manuscriptFileId, coverImageUrl: r.coverImageUrl, metadataPatch: r.metadataPatch };
+    return { kind: "files", manuscriptFileId: r.manuscriptFileId, coverImageUrl: r.coverImageUrl, metadataPatch: r.metadataPatch, introducesEbook: r.introducesEbook, ebookPrice: r.ebookPrice };
   }
   if (r.input) {
     const m = r.input.metadata;
@@ -513,16 +538,22 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   if (countWords(input.description) > DESCRIPTION_WORD_LIMIT) {
     return { ok: false, error: `The description is over the ${DESCRIPTION_WORD_LIMIT}-word limit — please shorten it.` };
   }
-  if (input.price <= 0) return { ok: false, error: "Price must be greater than $0." };
-  const prepared = prepareSubmission(input);
-  if (!prepared.ok) return { ok: false, error: prepared.error };
-  const prep = prepared.value;
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
   if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
 
   const existing = await prisma.book.findUnique({ where: { id: bookId } });
   if (!existing || existing.authorId !== user.authorProfile.id) return { ok: false, error: "Book not found." };
+
+  // A published title keeps its live files when the save sends none, so the
+  // eBook / audiobook decision is made against the manuscript that will be
+  // live (or the new one). An audiobook-only title simply has none.
+  const liveManuscriptRef = existing.status === "PUBLISHED"
+    ? (await prisma.bookFile.findFirst({ where: { bookId, kind: "MANUSCRIPT" } }))?.url
+    : undefined;
+  const prepared = prepareSubmission({ ...input, manuscriptFileId: input.manuscriptFileId || fileRefKey(liveManuscriptRef) || undefined });
+  if (!prepared.ok) return { ok: false, error: prepared.error };
+  const prep = prepared.value;
 
   const authorFirstName = (input.metadata as { authorFirstName?: string }).authorFirstName;
   const authorLastName = (input.metadata as { authorLastName?: string }).authorLastName;
@@ -582,10 +613,18 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
     const priorCover = prior?.coverImageUrl && fileRefKey(prior.coverImageUrl) !== fileRefKey(existing.coverImageUrl) ? prior.coverImageUrl : undefined;
     const heldManuscript = decision.manuscript ? input.manuscriptFileId : priorManuscript;
     const heldCover = decision.cover ? input.coverImageUrl?.trim() : priorCover;
+    // The title has no live manuscript (audiobook-only, or print-only), so a
+    // held manuscript would introduce its eBook: that edition only goes on
+    // sale — with its price — once the manuscript is approved.
+    const introducesEbook = !!heldManuscript && !liveManuscript && !existing.hasPrint;
+    const heldEbookPrice = introducesEbook ? (prep.ebookPrice ?? (prior?.ebookPrice ?? null)) : null;
+    const liveHasEbook = keepPrint && !existing.hasEbook ? false : introducesEbook ? existing.hasEbook : prep.hasEbook;
+    const liveBasePrice = liveHasEbook ? (prep.ebookPrice ?? prep.basePrice) : (prep.audiobookPrice ?? (keepPrint ? input.price : prep.basePrice));
     const held: PendingFilesRevision | null = heldManuscript || heldCover
       ? {
           kind: "files",
           ...(heldManuscript ? { manuscriptFileId: heldManuscript } : {}),
+          ...(introducesEbook && heldEbookPrice !== null ? { introducesEbook: true, ebookPrice: heldEbookPrice } : {}),
           ...(heldCover ? { coverImageUrl: heldCover } : {}),
           ...(heldManuscript
             ? { metadataPatch: decision.manuscript ? { pages: prep.metadata.pages, dimensions: prep.metadata.dimensions, fileSizeKB: prep.metadata.fileSizeKB } : prior?.metadataPatch }
@@ -626,14 +665,15 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
           subtitle: input.subtitle?.trim() || null,
           description: input.description.trim(),
           isbn: input.isbn?.trim() || existing.isbn,
-          price: input.price,
+          price: liveBasePrice,
           // status stays PUBLISHED; coverImageUrl and the MANUSCRIPT file
           // are deliberately not written here (live until a held
           // replacement is approved).
           ageGroup: input.ageGroup,
           language: input.language || "en",
           coverAltText: input.coverAltText?.trim() || null,
-          hasEbook: keepPrint && !existing.hasEbook ? false : input.formats.ebook,
+          hasEbook: liveHasEbook,
+          ...(introducesEbook ? {} : { ebookPrice: liveHasEbook ? prep.ebookPrice : null }),
           hasPrint: keepPrint ? true : input.formats.print,
           hasAudiobook: prep.hasAudiobook,
           paperbackPrice: keepPrint
@@ -695,15 +735,16 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
         subtitle: input.subtitle?.trim() || null,
         description: input.description.trim(),
         isbn: input.isbn?.trim() || existing.isbn,
-        price: input.price,
+        price: prep.basePrice,
         status: "PENDING_REVIEW",
         ageGroup: input.ageGroup,
         language: input.language || "en",
         coverImageUrl: input.coverImageUrl?.trim() || null,
         coverAltText: input.coverAltText?.trim() || null,
-        hasEbook: input.formats.ebook,
+        hasEbook: prep.hasEbook,
         hasPrint: input.formats.print,
         hasAudiobook: prep.hasAudiobook,
+        ebookPrice: prep.ebookPrice,
         paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
           ? input.metadata.paperbackRetailPrice
           : null,
@@ -753,6 +794,9 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
       prisma.book.update({
         where: { id: bookId },
         data: {
+          ...(held?.manuscriptFileId && held.introducesEbook && held.ebookPrice
+            ? { hasEbook: true, ebookPrice: held.ebookPrice, price: held.ebookPrice }
+            : {}),
           ...(held?.coverImageUrl ? { coverImageUrl: held.coverImageUrl } : {}),
           ...(held?.manuscriptFileId ? { submissionMetadata: JSON.parse(JSON.stringify({ ...liveMeta, ...patch })), files: { create: [{ kind: "MANUSCRIPT", url: `/api/files/${held.manuscriptFileId}` }] } } : {}),
           pendingRevisionData: null as unknown as object,
@@ -789,15 +833,16 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
         subtitle: input.subtitle?.trim() || null,
         description: input.description.trim(),
         isbn: input.isbn?.trim() || book.isbn,
-        price: input.price,
+        price: prep.basePrice,
         status: "PUBLISHED",
         ageGroup: input.ageGroup,
         language: input.language || "en",
         coverImageUrl: input.coverImageUrl?.trim() || null,
         coverAltText: input.coverAltText?.trim() || null,
-        hasEbook: input.formats.ebook,
+        hasEbook: prep.hasEbook,
         hasPrint: input.formats.print,
         hasAudiobook: prep.hasAudiobook,
+        ebookPrice: prep.ebookPrice,
         paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
           ? input.metadata.paperbackRetailPrice
           : null,

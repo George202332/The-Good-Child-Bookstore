@@ -34,6 +34,10 @@ export const CATEGORY_THEME: Record<BookCategory, CategoryTheme> = {
   "Community and Society Series": { from: "#DDE0F8", to: "#AEB6EC", border: "#8D98DE", ink: "#1A1F5C", accent: "#6573D6" },
   // brown / terracotta
   "Religion and Culture Series": { from: "#F0D9CB", to: "#D9A98F", border: "#C48A6C", ink: "#3F1C0D", accent: "#C0704D" },
+  // crimson / festive red
+  "Holiday and Festivities": { from: "#FBD6D6", to: "#F2A3A3", border: "#E27D7D", ink: "#560A0A", accent: "#D94444" },
+  // sky / cyan
+  "Diversity, Equity, and Inclusion": { from: "#D3F0FA", to: "#9DDDF3", border: "#6CC5E5", ink: "#08384D", accent: "#2AA8D6" },
 };
 
 /** Inline CSS variables consumed by `.cat-tile-themed` in app/site.css. */

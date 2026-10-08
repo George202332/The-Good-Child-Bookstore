@@ -167,10 +167,10 @@ export default async function HomePage() {
           <div className="section-head">
             <div>
               <h2 className="home-section-heading">Shop by Category</h2>
-              <p>Eight series to explore, each one its own world of stories.</p>
+              <p>Ten series to explore, each one its own world of stories.</p>
             </div>
           </div>
-          <div className="cat-grid cat-grid-8">
+          <div className="cat-grid cat-grid-10">
             {CATEGORIES.map((c) => (
               <Link key={c} href={`/bookshelf?series=${categorySlug(c)}`} className="cat-tile cat-tile-themed" style={categoryThemeStyle(c)}>
                 <span>{c}</span>

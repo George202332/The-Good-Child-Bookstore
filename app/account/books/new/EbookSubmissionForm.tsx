@@ -118,10 +118,11 @@ export function EbookSubmissionForm({
   const [manuscriptFileId, setManuscriptFileId] = useState<string | undefined>(initial?.manuscriptFileId);
   const [coverImageUrl, setCoverImageUrl] = useState(initial?.coverImageUrl ?? "");
 
-  // Audiobook — optional, lives on this same tab (relabeled "eBook /
-  // Audiobook" by the parent wizard) rather than a separate Audiobook
-  // tab. The audiobook price field (Pricing section) stays disabled
-  // until a file has actually been uploaded here.
+  // Audiobook — lives on this same tab (relabeled "eBook / Audiobook" by
+  // the parent wizard) rather than a separate Audiobook tab. It is fully
+  // independent of the manuscript: a title needs a manuscript, an audiobook
+  // file, or both. The audiobook price field (Pricing section) is not
+  // rendered at all until a file has actually been uploaded here.
   const [audiobookFileId, setAudiobookFileId] = useState<string | undefined>(initial?.audiobookFileId);
   const [audiobookPrice, setAudiobookPrice] = useState(initial?.audiobookPrice ?? "");
 
@@ -251,7 +252,7 @@ export function EbookSubmissionForm({
   }, [manuscriptFileId, title, authorFirstName, authorLastName]);
 
   const checklist = [
-    { label: "Manuscript uploaded", ok: !!manuscriptFileId },
+    { label: "Manuscript or audiobook file uploaded", ok: !!manuscriptFileId || !!audiobookFileId },
     { label: "Book identifier (ISBN or generated SN)", ok: hasOwnIsbn ? !!isbn.trim() : !!generatedSn },
     { label: "Cover image uploaded", ok: !!coverImageUrl },
     { label: "Book title", ok: !!title.trim() },
@@ -262,7 +263,7 @@ export function EbookSubmissionForm({
     { label: "Age group selected", ok: !!ageGroup },
     { label: "Book description", ok: !!plainTextFromHtml(descriptionHtml) },
     { label: `Description within ${DESCRIPTION_WORD_LIMIT}-word limit`, ok: descriptionWordCount <= DESCRIPTION_WORD_LIMIT },
-    { label: "List price set", ok: Number(price) > 0 },
+    ...(manuscriptFileId ? [{ label: "List price set", ok: Number(price) > 0 }] : []),
     ...(audiobookFileId ? [{ label: "Audiobook price set", ok: Number(audiobookPrice) > 0 }] : []),
     ...(!worldwideRights ? [{ label: "Restricted countries chosen (or turn on worldwide rights)", ok: restrictedCountries.length > 0 }] : []),
     { label: "Copyright holder named", ok: !!copyrightHolder.trim() },
@@ -282,7 +283,10 @@ export function EbookSubmissionForm({
       // mid-sentence at 500 characters, well short of a real description.
       // The 200-word submission limit above is what keeps this bounded now.
       description: plainTextFromHtml(descriptionHtml),
-      price: Number(price) || 0,
+      // The eBook list price only applies with a manuscript; an
+      // audiobook-only title is priced by its audiobook price (the server
+      // derives Book.price from it).
+      price: manuscriptFileId ? Number(price) || 0 : 0,
       ageGroup,
       category,
       genre,
@@ -292,7 +296,7 @@ export function EbookSubmissionForm({
       coverImageUrl,
       manuscriptFileId,
       audiobookFileId,
-      formats: { ebook: true, print: false, audiobook: !!audiobookFileId },
+      formats: { ebook: !!manuscriptFileId, print: false, audiobook: !!audiobookFileId },
       metadata: {
         authorFirstName,
         authorLastName,
@@ -305,9 +309,11 @@ export function EbookSubmissionForm({
         copyrightYear: copyrightYear ? Number(copyrightYear) : undefined,
         authorBio,
         readingLevel,
-        pages: pages ? Number(pages) : undefined,
-        dimensions: dimensions.trim() || undefined,
-        fileSizeKB: fileSizeKB ? Number(fileSizeKB) : undefined,
+        // Manuscript-derived details: optional, and dropped for an
+        // audiobook-only title (no manuscript to describe).
+        pages: manuscriptFileId && pages ? Number(pages) : undefined,
+        dimensions: manuscriptFileId ? dimensions.trim() || undefined : undefined,
+        fileSizeKB: manuscriptFileId && fileSizeKB ? Number(fileSizeKB) : undefined,
         longDescriptionHtml: descriptionHtml,
         aiDeclaration: aiDeclaration.trim() || undefined,
         taxSetting,
@@ -348,12 +354,15 @@ export function EbookSubmissionForm({
   }
 
   const editingPublished = !!initial?.bookId && initial.bookStatus === "PUBLISHED";
+  // A published title keeps its live manuscript when a save sends none, so
+  // that file can be replaced but not removed; any other manuscript can.
+  const manuscriptRemovable = !(editingPublished && initial?.manuscriptFileId);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Section 1 — Files, first per explicit instruction */}
       <Card>
-        <SectionHeader n={1} title="Files" sub="Manuscript and cover — this is where we start." />
+        <SectionHeader n={1} title="Files" sub="Manuscript and/or audiobook, plus your cover — this is where we start." />
         <div className="upload-cards-row">
           <FileUploadField
             label="Manuscript (PDF, EPUB, MOBI, or DOCX)"
@@ -361,6 +370,8 @@ export function EbookSubmissionForm({
             allowedTypes={["application/pdf", "application/epub+zip", "application/x-mobipocket-ebook", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
             accept=".pdf,.epub,.mobi,.docx"
             onUploaded={(ids) => setManuscriptFileId(ids[0])}
+            onRemove={manuscriptRemovable ? () => { setManuscriptFileId(undefined); setPagesAutoDetected(false); setDimensionsAutoDetected(false); setDimensionsUnmatched(null); setFileSizeAutoDetected(false); } : undefined}
+            initialFileName={initial?.manuscriptFileId ? "Manuscript already uploaded" : undefined}
             onFileMeta={(results) => {
               const result = results[0];
               const detectedPages = result?.pageCount;
@@ -399,7 +410,7 @@ export function EbookSubmissionForm({
           <ImageUploadField label="Cover image" recommendedSize="Any image format — Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} fillWidth />
           <FileUploadField
             label="Audiobook file (MP3 or M4A)"
-            sizeHint="Optional — max 4MB"
+            sizeHint="Max 4MB"
             allowedTypes={["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/aac"]}
             accept=".mp3,.m4a,.aac"
             onUploaded={(ids) => setAudiobookFileId(ids[0])}
@@ -412,8 +423,9 @@ export function EbookSubmissionForm({
           />
         </div>
         <p className="field-hint" style={{ marginTop: 10 }}>
-          Readers get a free preview of the first 10 pages from the &quot;Read Sample&quot; button on the book&apos;s
-          page — there&apos;s nothing separate to upload for that.
+          Upload a manuscript (eBook), an audiobook file, or both — at least one is required, and each is optional on
+          its own. Readers get a free preview of the first 10 pages of a manuscript from the &quot;Read Sample&quot;
+          button on the book&apos;s page — there&apos;s nothing separate to upload for that.
         </p>
       </Card>
 
@@ -592,7 +604,7 @@ export function EbookSubmissionForm({
               onChange={(e) => { setPages(e.target.value); setPagesAutoDetected(false); }}
             />
             <div className="field-hint">
-              {pagesAutoDetected ? "Auto-detected from your uploaded manuscript — edit if it's not quite right." : "Auto-fills once you upload a PDF/DOCX manuscript above; enter it yourself for EPUB/MOBI."}
+              {pagesAutoDetected ? "Auto-detected from your uploaded manuscript — edit if it's not quite right." : "Auto-fills once you upload a PDF/DOCX manuscript above; enter it yourself for EPUB/MOBI. Optional for an audiobook-only title."}
             </div>
           </div>
           <div>
@@ -661,29 +673,29 @@ export function EbookSubmissionForm({
       {/* Section 6 — Pricing */}
       <Card>
         <SectionHeader n={6} title="Pricing" sub="What readers pay, in US dollars — any currency conversion happens at checkout, outside this site." />
-        <div className="form-grid-2">
+        {/* The audiobook price is not rendered at all until an audiobook file
+            exists, so the list price lays out alone (no empty column). */}
+        <div className={audiobookFileId ? "form-grid-2" : undefined}>
           <div>
             <label className="field-label" htmlFor="f-price">List price (USD)</label>
             <input className="field" id="f-price" type="number" step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} />
+            {!manuscriptFileId && <div className="field-hint">Required with a manuscript.</div>}
           </div>
-          <div>
-            <label className="field-label" htmlFor="f-audiobook-price">Audiobook price (USD)</label>
-            <input
-              className="field"
-              id="f-audiobook-price"
-              type="number"
-              step={0.01}
-              min={0}
-              value={audiobookPrice}
-              onChange={(e) => setAudiobookPrice(e.target.value)}
-              disabled={!audiobookFileId}
-            />
-            <div className="field-hint">
-              {audiobookFileId
-                ? "The Audiobook format only appears on the book's page once both a file and a price are set."
-                : "Upload an audiobook file in the Files section to set its price."}
+          {audiobookFileId && (
+            <div>
+              <label className="field-label" htmlFor="f-audiobook-price">Audiobook price (USD)</label>
+              <input
+                className="field"
+                id="f-audiobook-price"
+                type="number"
+                step={0.01}
+                min={0}
+                value={audiobookPrice}
+                onChange={(e) => setAudiobookPrice(e.target.value)}
+              />
+              <div className="field-hint">The Audiobook format only appears on the book&apos;s page once both a file and a price are set.</div>
             </div>
-          </div>
+          )}
         </div>
         <label className="field-label" htmlFor="f-tax">Tax settings</label>
         <select className="field" id="f-tax" value={taxSetting} onChange={(e) => setTaxSetting(e.target.value)}>
@@ -765,17 +777,19 @@ export function EbookSubmissionForm({
                 No cover uploaded yet
               </div>
             )}
-            <p className="field-hint" style={{ marginTop: 8, maxWidth: 220 }}>
-              Your cover is attached to the manuscript itself — readers who download this book will see it as the
-              very first page.
-            </p>
+            {manuscriptFileId && (
+              <p className="field-hint" style={{ marginTop: 8, maxWidth: 220 }}>
+                Your cover is attached to the manuscript itself — readers who download this book will see it as the
+                very first page.
+              </p>
+            )}
           </div>
           <div>
             <label className="field-label">Store listing preview</label>
             <div className="map-card" style={{ padding: 16 }}>
               <div style={{ fontWeight: 700 }}>{title || "Your book title"}</div>
               <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>by {authorFirstName || authorLastName ? `${authorFirstName} ${authorLastName}`.trim() : "Author name"}</div>
-              <div style={{ color: "var(--coral-deep)", fontWeight: 700, marginTop: 6 }}>${(Number(price) || 0).toFixed(2)}</div>
+              <div style={{ color: "var(--coral-deep)", fontWeight: 700, marginTop: 6 }}>${(manuscriptFileId ? Number(price) || 0 : Number(audiobookPrice) || 0).toFixed(2)}</div>
             </div>
           </div>
         </div>
@@ -788,7 +802,9 @@ export function EbookSubmissionForm({
             <ManuscriptReviewViewer url={`/api/files/${manuscriptFileId}`} title={title || "Manuscript preview"} spread theme="light" scale={2} />
           </div>
         ) : (
-          <p className="field-hint" style={{ marginTop: 14 }}>Upload a manuscript above to preview it page by page.</p>
+          <p className="field-hint" style={{ marginTop: 14 }}>
+            {audiobookFileId ? "No manuscript uploaded — this title will be published as an audiobook only." : "Upload a manuscript above to preview it page by page."}
+          </p>
         )}
       </Card>
 

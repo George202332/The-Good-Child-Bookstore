@@ -92,7 +92,13 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
           descriptionHtml: (meta.longDescriptionHtml as string) ?? book.description ?? "",
           aiDeclaration: (meta.aiDeclaration as string) ?? "",
           keywords: typeof meta.keywords === "string" ? (meta.keywords as string).split(",").map((k) => k.trim()).filter(Boolean) : [],
-          price: String(Number(book.price)),
+          // Book.price is the audiobook price for an audiobook-only title, so
+          // it is not the eBook list price there; leave that field blank.
+          price: book.ebookPrice != null
+            ? String(Number(book.ebookPrice))
+            : book.hasAudiobook && !book.hasEbook && !book.hasPrint
+            ? ""
+            : String(Number(book.price)),
           taxSetting: (meta.taxSetting as string) ?? "",
           affiliateEnabled: (meta.affiliateEnabled as boolean) ?? false,
           worldwideRights: restrictedCountries.length > 0 ? false : ((meta.worldwideRights as boolean) ?? true),

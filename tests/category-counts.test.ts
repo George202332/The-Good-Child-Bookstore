@@ -29,7 +29,7 @@ describe("category counts", () => {
     ]);
     assert.equal(c["Adventure Series"], 3);
     assert.equal(Object.values(c).reduce((a, b) => a + b, 0), 3);
-    assert.equal(Object.keys(c).length, 8);
+    assert.equal(Object.keys(c).length, 10);
   });
   test("singular/plural label", () => {
     assert.equal(bookCountLabel(0), "0 books");

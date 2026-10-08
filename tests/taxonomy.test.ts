@@ -6,16 +6,17 @@ import {
 } from "../lib/taxonomy";
 
 describe("taxonomy", () => {
-  test("eight categories, five genres", () => {
-    assert.equal(CATEGORIES.length, 8);
+  test("ten categories, five genres", () => {
+    assert.equal(CATEGORIES.length, 10);
+    assert.deepEqual([...CATEGORIES].slice(8), ["Holiday and Festivities", "Diversity, Equity, and Inclusion"]);
     assert.equal(GENRES.length, 5);
     assert.deepEqual(Object.values(GENRE_SHELF_ID), ["picture", "bedtime", "early", "middle", "activity"]);
   });
-  test("20-30 unique subcategories per category, globally unique", () => {
+  test("15-30 unique subcategories per category, globally unique", () => {
     const all = new Set<string>();
     for (const c of CATEGORIES) {
       const subs = SUBCATEGORIES[c];
-      assert.ok(subs.length >= 20 && subs.length <= 30, c);
+      assert.ok(subs.length >= 15 && subs.length <= 30, c);
       assert.equal(new Set(subs).size, subs.length);
       for (const s of subs) { assert.ok(!all.has(s), s); all.add(s); }
     }
@@ -36,7 +37,15 @@ describe("taxonomy", () => {
   test("slugs round trip", () => {
     for (const c of CATEGORIES) assert.equal(categoryFromSlug(categorySlug(c)), c);
     assert.equal(categorySlug("Emotional Wellness and Mindfulness Series"), "emotional-wellness-and-mindfulness-series");
+    assert.equal(categorySlug("Holiday and Festivities"), "holiday-and-festivities");
+    assert.equal(categorySlug("Diversity, Equity, and Inclusion"), "diversity-equity-and-inclusion");
+    assert.equal(new Set(CATEGORIES.map(categorySlug)).size, CATEGORIES.length);
     assert.equal(categoryFromSlug("zzz"), undefined);
+  });
+  test("new categories own their subcategories", () => {
+    assert.equal(categoryOfSubcategory("Christmas"), "Holiday and Festivities");
+    assert.equal(categoryOfSubcategory("Halloween"), "Holiday and Festivities");
+    assert.equal(categoryOfSubcategory("Neurodiversity"), "Diversity, Equity, and Inclusion");
   });
   test("normalizeGenre", () => {
     assert.equal(normalizeGenre("Picture books"), "Picture Books");
