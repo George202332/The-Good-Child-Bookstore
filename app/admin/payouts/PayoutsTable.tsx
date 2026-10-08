@@ -10,7 +10,7 @@ import type { PayoutLedgerRow } from "@/actions/payout-ledger";
 import { approvePayoutRequest, bulkMarkPayoutsPaid } from "@/actions/admin";
 import { ledgerStatusLabel, ledgerStatusKey, ledgerStatusHelp, ledgerStatusPillStyle, PAYOUT_STATUS_FILTER_OPTIONS, STATUS_COLUMN_HELP, type PayoutStatusKey } from "@/lib/payout-status";
 import { actionableIds, ledgerPeriodLabel, payableNowAmount, isSyntheticLedgerRow } from "@/lib/payout-ledger-dedupe";
-import { isRowSelectable, unselectableReason, toggleRow, toggleAll, summarizeSelection } from "@/lib/payout-selection";
+import { isRowPayable, skipReason, pruneSelection, toggleRow, toggleAll, summarizeSelection, describeSkipped } from "@/lib/payout-selection";
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -18,10 +18,26 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
  * scrolling internally — the totals row below stays fixed in view the
  * whole time, since it lives outside this scrolling area entirely. */
 const VISIBLE_ROWS = 15;
-/** Explicit size, accent and cursor so the admin theme's blanket
- * `.admin-shell input` rule (dark background and border for text
- * fields) can never make a checkbox look inert or its tick invisible. */
-const CHECKBOX_STYLE: React.CSSProperties = { width: 16, height: 16, margin: 0, cursor: "pointer", accentColor: "var(--admin-accent, #2451B7)" };
+/** Explicit size, accent and cursor. The visible box and drawn tick come
+ * from the `payout-check` class (app/admin/admin.css), which opts out of
+ * the admin theme's blanket `.admin-shell input` rule (dark background and
+ * border meant for text fields) so the box is clearly outlined and the tick
+ * is always visible. Checkboxes are never disabled. */
+const CHECKBOX_STYLE: React.CSSProperties = { width: 18, height: 18, margin: 0, cursor: "pointer", accentColor: "var(--admin-accent, #2451B7)" };
+/** The Report column's download button: 70 x 27px border-box (see the
+ * Round 26 note where it is used), regular weight, label never wraps. */
+const DOWNLOAD_BTN_STYLE: React.CSSProperties = {
+  boxSizing: "border-box",
+  width: 70,
+  height: 27,
+  padding: "0 4px",
+  fontSize: 13,
+  fontWeight: 400,
+  lineHeight: 1,
+  justifyContent: "center",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
+};
 const ROW_HEIGHT_PX = 42;
 /** Body cells never wrap, so every row is a single compact line (the
  * table already scrolls sideways when it is wider than the screen). */
@@ -40,11 +56,11 @@ function statusPillStyle(p: PayoutLedgerRow) {
   return ledgerStatusPillStyle(p.status, p.paid);
 }
 
-/** A row's checkbox is enabled exactly when it can really be marked
- * paid (lib/payout-selection.ts isRowSelectable): every Pending row.
- * Rolled, Live, Paid and Rejected rows are disabled, with a tooltip. */
+/** Whether "Paid" (per row or bulk) would act on this row: only Pending
+ * rows. This gates the Action column's Paid button and the payable subset
+ * of a selection. It does NOT gate the checkboxes, which are always enabled. */
 function isBulkPayable(p: PayoutLedgerRow): boolean {
-  return isRowSelectable(p);
+  return isRowPayable(p);
 }
 
 function formatDate(iso: string | null | undefined): string {
@@ -174,19 +190,22 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
   );
 
   // Selection (all pure logic in lib/payout-selection.ts, unit-tested):
-  // the select-all box acts on every selectable row in the CURRENT
-  // filtered view; the bar's count and total cover everything ticked.
-  const summary = useMemo(() => summarizeSelection(selected, filtered, rows), [selected, filtered, rows]);
-  const selectableCount = useMemo(() => filtered.filter(isRowSelectable).length, [filtered]);
-  const allPayableSelected = summary.allSelected;
-  const somePayableSelected = summary.someSelected;
-  const selectedTotal = summary.total;
+  // any row can be ticked; the select-all box ticks every row in the
+  // CURRENT filtered view; the bar shows how many are ticked and how many
+  // of those are payable now (Pending), with the payable total.
+  // `selected` is plain state that nothing resets when `rows` changes
+  // (e.g. after router.refresh() hands down a new array): what is shown
+  // and acted on is derived from it, dropping only ids no longer in rows.
+  const selection = useMemo(() => pruneSelection(selected, rows), [selected, rows]);
+  const summary = useMemo(() => summarizeSelection(selection, filtered, rows), [selection, filtered, rows]);
+  const allSelected = summary.allSelected;
+  const someSelected = summary.someSelected;
 
   function toggleOne(id: string) {
     setSelected((prev) => toggleRow(prev, rows, id));
   }
 
-  function toggleAllPayable() {
+  function toggleAllInView() {
     setSelected((prev) => toggleAll(prev, filtered));
   }
 
@@ -227,16 +246,18 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
   }
 
   function runBulkMarkPaid() {
-    // A row's own `id` is what's tracked in `selected` (it's unique and
-    // is what the checkboxes key off), but a merged row (see
-    // lib/payout-ledger-dedupe.ts consolidateLedgerRows) carries 2 or more
-    // real PayoutRequest ids behind that one row — all of them have to
-    // be sent to the server or the others are left behind, un-resolved
-    // (actionableIds leaves out any component already paid inside a
-    // mixed row, so nothing is ever paid twice).
+    // Only the PAYABLE subset of the ticked rows is sent (summary.ids is
+    // built from payable rows only). A row's own `id` is what's tracked in
+    // `selected`, but a merged row (lib/payout-ledger-dedupe.ts
+    // consolidateLedgerRows) carries 2 or more real PayoutRequest ids behind
+    // that one row, all of which are sent (actionableIds leaves out any
+    // component already paid inside a mixed row, so nothing is paid twice).
+    // The server re-checks every id and refuses anything not payable.
     const ids = summary.ids;
     if (ids.length === 0) return;
-    if (!window.confirm(`Mark ${summary.count} payout${summary.count === 1 ? "" : "s"} as paid? This sends a "Payout sent" notification to each recipient.`)) return;
+    const { payableCount, skippedCount, skipped, payableRowIds } = summary;
+    const skippedNote = skippedCount > 0 ? ` ${skippedCount} other selected row${skippedCount === 1 ? "" : "s"} (${describeSkipped(skipped)}) will be skipped.` : "";
+    if (!window.confirm(`Mark ${payableCount} payout${payableCount === 1 ? "" : "s"} as paid? This sends a "Payout sent" notification to each recipient.${skippedNote}`)) return;
     setBulkMessage(null);
     startBulkTransition(async () => {
       const res = await bulkMarkPayoutsPaid(ids);
@@ -244,8 +265,18 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
         setBulkMessage(res.error ?? "Something went wrong.");
         return;
       }
-      setBulkMessage(`Marked ${res.updated ?? 0} payout${res.updated === 1 ? "" : "s"} as paid.`);
-      setSelected(new Set());
+      const paidNow = res.updated ?? 0;
+      setBulkMessage(
+        `Marked ${paidNow} payout${paidNow === 1 ? "" : "s"} as paid.` +
+          (skippedCount > 0 ? ` Skipped ${skippedCount} selected row${skippedCount === 1 ? "" : "s"}: ${describeSkipped(skipped)} (only Pending payouts can be marked as paid).` : "")
+      );
+      // The rows that were sent are un-ticked; skipped rows stay ticked so
+      // the admin can see exactly which ones were left out.
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const id of payableRowIds) next.delete(id);
+        return next;
+      });
       router.refresh();
     });
   }
@@ -323,21 +354,25 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
         )}
       </div>
 
-      {/* The bulk "Mark selected as paid" bar — only ever shown to Admins
+      {/* The bulk "Mark selected as paid" bar: only ever shown to Admins
           (Accountant and Investor stay view-only, same as the per-row
-          action). Every row has a checkbox in the leftmost column, the
-          header one selects all selectable rows, and only Pending rows
-          can be ticked: Rolled/Live/Paid/Rejected are disabled, each
-          with a tooltip saying why (lib/payout-selection.ts). */}
+          action). Every row has an always-enabled checkbox in the leftmost
+          column and the header one ticks every row in the current view.
+          Ticking is independent of payability: the bar says how many are
+          selected and how many of those are payable now, and the button
+          acts only on the payable (Pending) subset (lib/payout-selection.ts). */}
       {canModerate && (
         <div className="map-card" style={{ padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
-            {summary.count > 0 ? `${summary.count} selected — $${selectedTotal.toFixed(2)}` : "No payouts selected"}
+            {summary.count === 0
+              ? "No payouts selected"
+              : `${summary.count} selected — ${summary.payableCount} payable now ($${summary.total.toFixed(2)})`}
           </span>
           <button
             type="button"
             className="btn btn-primary btn-small"
-            disabled={summary.count === 0 || isBulkPending}
+            disabled={summary.payableCount === 0 || isBulkPending}
+            title={summary.payableCount === 0 ? "None of the selected rows can be marked paid yet (only Pending payouts can)" : `Mark the ${summary.payableCount} payable selected payout${summary.payableCount === 1 ? "" : "s"} as paid`}
             onClick={runBulkMarkPaid}
           >
             {isBulkPending ? "Marking…" : "Mark selected as paid"}
@@ -370,15 +405,15 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                   <th style={{ ...TH_STYLE, width: 36, textAlign: "center" }}>
                     <input
                       type="checkbox"
-                      aria-label="Select all Pending rows"
-                      title={selectableCount === 0 ? "No Pending payouts in this view to select" : "Select or deselect every Pending payout in this view"}
-                      checked={allPayableSelected}
-                      disabled={selectableCount === 0}
+                      className="payout-check"
+                      aria-label="Select all rows in this view"
+                      title="Select or deselect every row in this view (only Pending rows are paid by Mark selected as paid)"
+                      checked={allSelected}
                       style={CHECKBOX_STYLE}
                       ref={(el) => {
-                        if (el) el.indeterminate = somePayableSelected && !allPayableSelected;
+                        if (el) el.indeterminate = someSelected && !allSelected;
                       }}
-                      onChange={toggleAllPayable}
+                      onChange={toggleAllInView}
                     />
                   </th>
                 )}
@@ -421,11 +456,11 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                       <td style={{ ...TD_STYLE, textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
+                          className="payout-check"
                           aria-label={`Select ${p.accountHolderName}`}
-                          checked={isBulkPayable(p) && selected.has(p.id)}
-                          disabled={!isBulkPayable(p)}
+                          checked={selection.has(p.id)}
                           style={CHECKBOX_STYLE}
-                          title={unselectableReason(p) ?? "Select this payout to mark it as paid"}
+                          title={skipReason(p) ? `${skipReason(p)} (selected rows like this are skipped by Mark selected as paid)` : "Select this payout; Pending payouts can be marked as paid"}
                           onChange={() => toggleOne(p.id)}
                         />
                       </td>
@@ -468,9 +503,11 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                         className="btn btn-ghost btn-small"
                         href={`/api/payout-report?month=${p.reportMonthKey}&userId=${p.userId}`}
                         title={`Download the ${p.reportMonthKey} statement as a PDF`}
+                        aria-label={`Download report for ${p.accountHolderName}`}
+                        style={DOWNLOAD_BTN_STYLE}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        ↓
+                        Download
                       </a>
                     </td>
                   </tr>
