@@ -5,9 +5,10 @@ import type { BookCategory } from "./taxonomy";
  * One colour treatment per Category series, used by the home page's
  * "Shop by Category" tiles. Each tile gets a soft two-stop gradient
  * (`from` -> `to`), a border, and a dark text colour (`ink`). Every `ink`
- * has a contrast ratio of at least 7:1 against both gradient stops.
+ * has a contrast ratio of at least 8:1 against both gradient stops.
  * `accent` is the stripe colour used in dark mode, where the tile surface
- * itself goes neutral like the other tiles do.
+ * itself goes neutral like the other tiles do. All ten hues are spaced round
+ * the wheel and pinned by tests/category-colors.test.ts.
  */
 export interface CategoryTheme {
   from: string;
@@ -19,25 +20,25 @@ export interface CategoryTheme {
 
 export const CATEGORY_THEME: Record<BookCategory, CategoryTheme> = {
   // green
-  "Adventure Series": { from: "#D5EFC9", to: "#A6D68F", border: "#86BF6E", ink: "#173D12", accent: "#6FBF52" },
+  "Adventure Series": { from: "#DFF6E7", to: "#A9E5BD", border: "#70CD8F", ink: "#0E341B", accent: "#42BD6B" },
   // blue
-  "Education Series": { from: "#DFEAFB", to: "#B7CFF3", border: "#8FB0E3", ink: "#11285A", accent: "#5B8FDB" },
+  "Education Series": { from: "#DAE9FB", to: "#9CC4F2", border: "#5899E4", ink: "#061F3C", accent: "#3E89E0" },
   // orange
-  "Interactive Activity Series": { from: "#FDE3C8", to: "#F6BD85", border: "#E39C55", ink: "#4A2200", accent: "#EE8A2C" },
-  // teal
-  "Emotional Wellness and Mindfulness Series": { from: "#D2F0EE", to: "#9ADAD5", border: "#6FC2BC", ink: "#0A3A38", accent: "#2FB3AA" },
-  // yellow / amber
-  "Fun and Humor Series": { from: "#FFF1B8", to: "#FADB6A", border: "#E0BB3C", ink: "#403000", accent: "#F2C21B" },
-  // pink / rose
-  "Values and Virtues Series": { from: "#FBDDE6", to: "#F2AFC4", border: "#E38AA8", ink: "#5A1130", accent: "#E5648F" },
+  "Interactive Activity Series": { from: "#FEE9D7", to: "#F9C494", border: "#F0994C", ink: "#411F02", accent: "#EE862B" },
+  // teal / aqua
+  "Emotional Wellness and Mindfulness Series": { from: "#DCF9F8", to: "#A2EBE9", border: "#64D8D4", ink: "#0A3837", accent: "#2BABA7" },
+  // yellow
+  "Fun and Humor Series": { from: "#FFF7D6", to: "#FCE792", border: "#F5D247", ink: "#423500", accent: "#F3C716" },
+  // pink
+  "Values and Virtues Series": { from: "#FBDAE8", to: "#F29CC0", border: "#E45892", ink: "#3C061D", accent: "#E56198" },
   // indigo
-  "Community and Society Series": { from: "#DDE0F8", to: "#AEB6EC", border: "#8D98DE", ink: "#1A1F5C", accent: "#6573D6" },
-  // brown / terracotta
-  "Religion and Culture Series": { from: "#F0D9CB", to: "#D9A98F", border: "#C48A6C", ink: "#3F1C0D", accent: "#C0704D" },
-  // crimson / festive red
-  "Holiday and Festivities": { from: "#FBD6D6", to: "#F2A3A3", border: "#E27D7D", ink: "#560A0A", accent: "#D94444" },
-  // sky / cyan
-  "Diversity, Equity, and Inclusion": { from: "#D3F0FA", to: "#9DDDF3", border: "#6CC5E5", ink: "#08384D", accent: "#2AA8D6" },
+  "Community and Society Series": { from: "#DDDEF8", to: "#A4A6EA", border: "#666AD6", ink: "#0B0C38", accent: "#5559D0" },
+  // brown
+  "Religion and Culture Series": { from: "#F5E7E0", to: "#E1BEAD", border: "#C79175", ink: "#321B10", accent: "#91583B" },
+  // red
+  "Holiday and Festivities": { from: "#FBDBDB", to: "#F09E9E", border: "#E05C5C", ink: "#3B0707", accent: "#D93A3A" },
+  // lime
+  "Diversity, Equity, and Inclusion": { from: "#F2F9DC", to: "#DBECA1", border: "#BEDA62", ink: "#2E3909", accent: "#A3C62F" },
 };
 
 /** Inline CSS variables consumed by `.cat-tile-themed` in app/site.css. */

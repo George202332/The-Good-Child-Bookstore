@@ -116,6 +116,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        // Stamped once, at the moment of sign-in (the only time `user` is
+        // present). The inactivity timer uses it to ignore a stale
+        // last-activity timestamp left in localStorage by a PREVIOUS
+        // session — see lib/inactivity.ts.
+        token.signedInAt = Date.now();
         token.twoFactorEnabled = user.twoFactorEnabled ?? false;
         // Nothing to verify if 2FA isn't enabled — session starts
         // already-satisfied so non-2FA users are never gated.
@@ -136,6 +141,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user) {
         session.user.role = token.role as import("@/lib/roles").Role;
         session.user.id = token.id as string;
+        session.signedInAt = token.signedInAt;
         session.user.twoFactorEnabled = (token.twoFactorEnabled as boolean) ?? false;
         session.user.twoFactorVerified = (token.twoFactorVerified as boolean) ?? true;
       }

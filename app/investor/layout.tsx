@@ -25,7 +25,7 @@ export default async function InvestorLayout({ children }: { children: React.Rea
 
   return (
     <>
-      <SessionInactivityTimer isAdmin />
+      <SessionInactivityTimer isAdmin sessionStartedAt={session.signedInAt} />
       <BackNavigationGuard isAdmin />
       {children}
     </>

@@ -49,7 +49,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
   if (!user.emailVerifiedAt) {
     return (
       <>
-        <SessionInactivityTimer />
+        <SessionInactivityTimer sessionStartedAt={session.signedInAt} />
         <BackNavigationGuard />
         <EmailVerificationRequired email={user.email} />
       </>
@@ -59,7 +59,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
   if (session.user.twoFactorEnabled && !session.user.twoFactorVerified) {
     return (
       <>
-        <SessionInactivityTimer />
+        <SessionInactivityTimer sessionStartedAt={session.signedInAt} />
         <BackNavigationGuard />
         <TwoFactorChallengeScreen />
       </>
@@ -68,7 +68,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
 
   return (
     <>
-      <SessionInactivityTimer />
+      <SessionInactivityTimer sessionStartedAt={session.signedInAt} />
       <BackNavigationGuard />
       {children}
     </>

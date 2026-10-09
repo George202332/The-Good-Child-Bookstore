@@ -17,6 +17,11 @@ import { adminSignOut } from "@/actions/admin-auth";
  * silently leave the real admin session cookie untouched. */
 export function SignOutButton({ className, callbackUrl = "/", isAdmin = false }: { className?: string; callbackUrl?: string; isAdmin?: boolean }) {
   async function handleSignOut() {
+    try {
+      localStorage.removeItem(isAdmin ? "gcb-admin-last-activity" : "gcb-last-activity");
+    } catch {
+      // Best-effort — the sign-in timestamp check is the real safeguard.
+    }
     if (isAdmin) await adminSignOut();
     else await signOut({ redirect: false });
     window.location.href = callbackUrl;

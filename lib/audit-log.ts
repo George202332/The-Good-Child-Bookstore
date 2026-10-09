@@ -37,7 +37,10 @@ export type AuditAction =
   | "PAYOUT_METHOD_ADDED"
   | "PAYOUT_METHOD_UPDATED"
   | "PAYOUT_METHOD_REMOVED"
-  | "PAYOUT_METHOD_ACTIVATED";
+  | "PAYOUT_METHOD_ACTIVATED"
+  // A writer withdrawing / deleting their own blog post.
+  | "BLOG_WITHDRAWN"
+  | "BLOG_DELETED";
 
 export async function logAuditEvent(actorId: string, action: AuditAction, metadata?: Record<string, unknown>): Promise<void> {
   try {

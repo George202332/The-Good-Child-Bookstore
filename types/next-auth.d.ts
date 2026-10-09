@@ -10,6 +10,9 @@ declare module "next-auth" {
     twoFactorEnabled?: boolean;
   }
   interface Session {
+    /** ms epoch of the sign-in that created this session (undefined for
+     * sessions issued before this claim existed). */
+    signedInAt?: number;
     user: {
       id: string;
       role: Role;
@@ -34,5 +37,6 @@ declare module "next-auth/jwt" {
     role: Role;
     twoFactorEnabled?: boolean;
     twoFactorVerified?: boolean;
+    signedInAt?: number;
   }
 }

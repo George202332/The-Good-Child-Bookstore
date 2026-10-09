@@ -3,8 +3,8 @@
 import { useEffect, useRef } from "react";
 import { signOut } from "next-auth/react";
 import { adminSignOut } from "@/actions/admin-auth";
+import { INACTIVITY_TIMEOUT_MS, isIdleExpired, resolveLastActivity } from "@/lib/inactivity";
 
-const TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 // Checked on a short recurring interval instead of relying on one single
 // 30-minute setTimeout — browsers throttle (sometimes heavily) timers in
 // a backgrounded or minimized tab, which is exactly the situation this
@@ -126,7 +126,7 @@ const ACTIVITY_EVENTS = ["mousemove", "mousedown", "keydown", "scroll", "touchst
  * lib/auth-admin.ts `session.maxAge`) remains the hard outer backstop
  * for the (rare) case where even this never gets a chance to run.
  */
-export function SessionInactivityTimer({ isAdmin = false }: { isAdmin?: boolean }) {
+export function SessionInactivityTimer({ isAdmin = false, sessionStartedAt }: { isAdmin?: boolean; sessionStartedAt?: number }) {
   const loggedOutRef = useRef(false);
 
   useEffect(() => {
@@ -144,16 +144,19 @@ export function SessionInactivityTimer({ isAdmin = false }: { isAdmin?: boolean 
       // instance of this component (after exactly that kind of eviction
       // and relaunch) still reads back the real last-activity time
       // instead of wrongly assuming "just now".
+      //
+      // A stored value older than THIS session's sign-in belongs to a
+      // previous session (browser closed, cookie expired, signed out
+      // elsewhere — localStorage outlives all of those) and is ignored,
+      // see lib/inactivity.ts. Without this, the first sign-in after
+      // such a gap was signed straight back out.
+      let stored: string | null = null;
       try {
-        const stored = localStorage.getItem(storageKey);
-        if (stored) {
-          const n = Number(stored);
-          if (Number.isFinite(n)) return n;
-        }
+        stored = localStorage.getItem(storageKey);
       } catch {
         // localStorage can throw in some privacy modes — fall through.
       }
-      return Date.now();
+      return resolveLastActivity(stored, Date.now(), sessionStartedAt);
     }
 
     let lastActivity = readLastActivity();
@@ -170,7 +173,7 @@ export function SessionInactivityTimer({ isAdmin = false }: { isAdmin?: boolean 
 
     async function checkIdle() {
       if (loggedOutRef.current) return;
-      if (Date.now() - lastActivity < TIMEOUT_MS) return;
+      if (!isIdleExpired(lastActivity, Date.now(), INACTIVITY_TIMEOUT_MS)) return;
       loggedOutRef.current = true;
       try {
         localStorage.removeItem(storageKey);
@@ -223,7 +226,7 @@ export function SessionInactivityTimer({ isAdmin = false }: { isAdmin?: boolean 
       window.removeEventListener("pageshow", onPageShow);
       clearInterval(interval);
     };
-  }, [isAdmin]);
+  }, [isAdmin, sessionStartedAt]);
 
   return null;
 }

@@ -65,7 +65,7 @@ export function BackNavigationGuard({ isAdmin = false }: { isAdmin?: boolean }) 
 
       const activityKey = isAdmin ? "gcb-admin-last-activity" : "gcb-last-activity";
       try {
-        sessionStorage.removeItem(activityKey);
+        localStorage.removeItem(activityKey);
       } catch {
         // Best-effort only.
       }

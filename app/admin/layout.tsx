@@ -1,4 +1,5 @@
 import "./admin.css";
+import { authAdmin } from "@/lib/auth-admin";
 import { SessionInactivityTimer } from "@/components/SessionInactivityTimer";
 import { BackNavigationGuard } from "@/components/BackNavigationGuard";
 
@@ -13,10 +14,14 @@ import { BackNavigationGuard } from "@/components/BackNavigationGuard";
  * timer only ever mounted from inside AdminShell, so any page that
  * skipped that component — the review screen did — had no inactivity
  * logout running at all. */
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Only read for its sign-in timestamp (so the inactivity timer ignores a
+  // stale last-activity value from a previous session) — NOT a gate;
+  // middleware and each page still do the real access checks.
+  const session = await authAdmin();
   return (
     <>
-      <SessionInactivityTimer isAdmin />
+      <SessionInactivityTimer isAdmin sessionStartedAt={session?.signedInAt} />
       <BackNavigationGuard isAdmin />
       {children}
     </>

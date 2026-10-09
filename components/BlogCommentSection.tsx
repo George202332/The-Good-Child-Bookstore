@@ -27,7 +27,7 @@ export function BlogCommentSection({ blogId, initial }: { blogId: string; initia
   }
 
   return (
-    <div style={{ marginTop: 40, borderTop: "1px solid var(--line)", paddingTop: 28 }}>
+    <div>
       <h3 style={{ fontSize: 17, marginBottom: 16 }}>Comments {initial.length > 0 && `(${initial.length})`}</h3>
 
       {session?.user ? (

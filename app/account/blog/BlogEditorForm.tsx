@@ -43,7 +43,7 @@ function toLocalDatetimeInputValue(iso: string | null): string {
 export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
   defaultAuthorName: string;
   editingPost?: EditingBlogPost;
-  onDone?: () => void;
+  onDone?: (result?: { submittedForReview: boolean }) => void;
 }) {
   const router = useRouter();
   const [defaultFirst, defaultLast] = useMemo(() => {
@@ -195,7 +195,7 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
       return;
     }
     router.refresh();
-    onDone?.();
+    onDone?.({ submittedForReview: submitForReview });
   }
 
   const searchPreviewTitle = metaTitle.trim() || title.trim() || "Your post title";
@@ -390,7 +390,7 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
           <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={() => handleSave(false)}>Save draft</button>
           <button type="button" className="btn btn-ghost btn-small" onClick={() => setShowPreview((v) => !v)}>{showPreview ? "Hide preview" : "Preview"}</button>
           <button type="button" className="btn btn-primary btn-small" disabled={submitting} onClick={() => handleSave(true)}>Publish / submit for review</button>
-          {onDone && <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={onDone}>Cancel</button>}
+          {onDone && <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={() => onDone()}>Cancel</button>}
         </div>
       </div>
 
@@ -405,7 +405,7 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
           <div className="blog-meta" style={{ marginBottom: 16 }}>
             <span>by {authorFirstName} {authorLastName}</span>
           </div>
-          <div className="blog-article-body blog-article-dropcap">
+          <div className="blog-article-body">
             {content.split(/\n\s*\n/).filter((p) => p.trim()).map((para, i) => <p key={i} style={{ whiteSpace: "pre-wrap" }}>{para.trim()}</p>)}
           </div>
         </div>

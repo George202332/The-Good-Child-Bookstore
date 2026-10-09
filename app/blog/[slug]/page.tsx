@@ -4,7 +4,6 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getPublicBlogComments } from "@/actions/blog-comments";
 import { BlogCommentSection } from "@/components/BlogCommentSection";
-import { BlogReadingProgress } from "@/components/BlogReadingProgress";
 import { BlogShareButtons } from "@/components/BlogShareButtons";
 import { blogPostingJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
@@ -85,9 +84,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 /**
  * Rebuilt to match the reference blog-detail design: a real
- * scroll-tracked reading-progress bar + sticky mini-header, a hero
+ * hero
  * cover image, an author row with real read-time and real comment
- * count, category/tag chips, a drop-cap article body, a sidebar
+ * count, category/tag chips, a plain article body, a sidebar
  * (author card, real share buttons, real "More from the journal"
  * related posts), and the comments section (hidden entirely when the
  * writer turned off "Allow comments"). Left out, honestly: the
@@ -143,7 +142,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     <div>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
-      <BlogReadingProgress title={post.title} />
 
       <div className="blog-detail-cover">
         {post.coverImageUrl ? (
@@ -171,7 +169,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <div className="wrap" style={{ padding: "40px 0 0" }}>
         <div className="blog-detail-layout">
           <div className="blog-detail-main">
-            <article className="blog-article-body blog-article-dropcap">
+            <article className="blog-article-body">
               {post.content.split(/\n\s*\n/).filter((p) => p.trim()).map((para, i) => (
                 <p key={i} style={{ whiteSpace: "pre-wrap" }}>{para.trim()}</p>
               ))}
@@ -192,7 +190,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
             {post.allowComments && (
               <div className="blog-detail-card" style={{ marginTop: 20 }}>
-                <h2 style={{ fontSize: 18, marginBottom: 14 }}>Comments</h2>
                 <BlogCommentSection blogId={post.id} initial={comments} />
               </div>
             )}

@@ -100,6 +100,8 @@ export const { handlers: adminHandlers, auth: authAdmin, signIn: signInAdmin, si
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        // See the matching comment in lib/auth.ts.
+        token.signedInAt = Date.now();
       }
       return token;
     },
@@ -107,6 +109,7 @@ export const { handlers: adminHandlers, auth: authAdmin, signIn: signInAdmin, si
       if (session.user) {
         session.user.role = token.role as Role;
         session.user.id = token.id as string;
+        session.signedInAt = token.signedInAt;
       }
       return session;
     },
