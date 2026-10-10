@@ -67,7 +67,7 @@ export async function submitReview(input: { bookId: string; content: string; sta
     update: { stars },
     create: { bookId: input.bookId, userId: session.user.id, stars },
   });
-  await prisma.review.create({
+  const createdReview = await prisma.review.create({
     data: { bookId: input.bookId, userId: session.user.id, content: input.content.trim() },
   });
 
@@ -86,6 +86,9 @@ export async function submitReview(input: { bookId: string; content: string; sta
           title: reviewedBook.title,
           body: `A reader left a review on "${reviewedBook.title}".`,
           type: "REVIEW",
+          // Tied to this review so deleting it (or its book) removes this
+          // notification too — see lib/notification-cleanup.ts.
+          relatedRecordId: createdReview.id,
         },
       });
     } catch {

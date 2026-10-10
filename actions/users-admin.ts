@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { prepareUserContentNotificationCleanup } from "@/lib/notification-cleanup";
 import { authEither as auth } from "@/lib/auth-either";
 import type { Role } from "@/lib/roles";
 import { generateAccountNumber } from "@/lib/account-number";
@@ -333,7 +334,11 @@ export async function deleteUserAccount(userId: string): Promise<{ ok: boolean; 
   }
 
   try {
+    const cleanupNotifications = await prepareUserContentNotificationCleanup(userId);
     await prisma.user.delete({ where: { id: userId } });
+    // Notifications OTHER people received about this account's books,
+    // reviews, blog posts and orders are removed with them.
+    await cleanupNotifications();
     revalidatePath("/admin/users");
     return { ok: true };
   } catch (e) {

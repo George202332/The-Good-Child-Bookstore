@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent } from "@/lib/roles";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { prepareBookNotificationCleanup, prepareReviewNotificationCleanup } from "@/lib/notification-cleanup";
 
 /**
  * Book Management — a real summary (how many Approved/Under Review/
@@ -123,7 +124,10 @@ export async function deleteReviewAsModerator(reviewId: string): Promise<{ ok: b
   const session = await auth();
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
+  const cleanupNotifications = await prepareReviewNotificationCleanup(reviewId);
   await prisma.review.delete({ where: { id: reviewId } });
+  // The author's "you've got a review" notification for this review goes too.
+  await cleanupNotifications();
   return { ok: true };
 }
 
@@ -143,7 +147,11 @@ export async function deleteBookFromCatalog(bookId: string): Promise<{ ok: boole
   }
 
   try {
+    const cleanupNotifications = await prepareBookNotificationCleanup(bookId);
     await prisma.book.delete({ where: { id: bookId } });
+    // Published / revision / suspended / new-book-by-followed-author and
+    // review notifications for this book are removed with it.
+    await cleanupNotifications();
     revalidatePath("/admin/books");
     return { ok: true };
   } catch (e) {

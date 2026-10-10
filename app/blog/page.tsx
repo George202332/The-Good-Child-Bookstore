@@ -4,6 +4,7 @@ import { Motif } from "@/components/Motif";
 import type { MotifKind } from "@/lib/data/catalog";
 import { hashStr } from "@/lib/hash";
 import { getPagesContent } from "@/actions/page-content";
+import { BLOG_PAGE_SIZE, blogListUrl, pageWindow, parsePageParam, searchTerms, totalPagesFor } from "@/lib/blog-pagination";
 
 export const dynamic = "force-dynamic";
 
@@ -45,14 +46,42 @@ function bylineFor(p: { authorFirstName: string | null; authorLastName: string |
  * + comment-count meta row. View counts from the original aren't shown
  * since this app doesn't track real view counts — a fake number would
  * be worse than leaving it out. */
-export default async function BlogListPage() {
+export default async function BlogListPage({ searchParams }: { searchParams: Promise<{ q?: string | string[]; page?: string | string[] }> }) {
   const { blog } = await getPagesContent();
+  const sp = await searchParams;
+  const terms = searchTerms(sp.q);
+  const query = terms.join(" ");
+  const requestedPage = parsePageParam(sp.page);
+
+  // Live posts only; when the header search box is used on this page,
+  // every word typed must match the post's title or its author's name.
+  const where = {
+    status: "PUBLISHED" as const,
+    AND: [
+      { OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }] },
+      ...terms.map((t) => ({
+        OR: [
+          { title: { contains: t, mode: "insensitive" as const } },
+          { authorFirstName: { contains: t, mode: "insensitive" as const } },
+          { authorLastName: { contains: t, mode: "insensitive" as const } },
+          { author: { name: { contains: t, mode: "insensitive" as const } } },
+        ],
+      })),
+    ],
+  };
+
   let posts: PublishedBlog[] = [];
+  let totalPosts = 0;
+  let page = requestedPage;
   try {
+    totalPosts = await prisma.blog.count({ where });
+    page = Math.min(requestedPage, totalPagesFor(totalPosts));
     const result = await prisma.blog.findMany({
-      where: { status: "PUBLISHED", OR: [{ publishAt: null }, { publishAt: { lte: new Date() } }] },
+      where,
       include: { author: true, _count: { select: { comments: true } } },
       orderBy: { publishAt: "desc" },
+      skip: (page - 1) * BLOG_PAGE_SIZE,
+      take: BLOG_PAGE_SIZE,
     });
     if (Array.isArray(result)) posts = result as PublishedBlog[];
   } catch {
@@ -73,9 +102,15 @@ export default async function BlogListPage() {
           )}
         </div>
       </div>
+      {query && (
+        <p className="blog-search-note">
+          {totalPosts === 0 ? "No blog posts match" : `${totalPosts} blog post${totalPosts === 1 ? "" : "s"} matching`} “{query}”.{" "}
+          <Link href="/blog">Clear search</Link>
+        </p>
+      )}
       {posts.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
-          Nothing published yet — check back soon.
+          {query ? "Try a different title or author name." : "Nothing published yet — check back soon."}
         </div>
       ) : (
         <div className="blog-grid">
@@ -119,6 +154,31 @@ export default async function BlogListPage() {
             );
           })}
         </div>
+      )}
+      {totalPosts > BLOG_PAGE_SIZE && (
+        <nav className="blog-pager" aria-label="Blog pages">
+          {page > 1 ? (
+            <Link className="blog-pager-btn" href={blogListUrl(page - 1, query)} rel="prev">← Previous</Link>
+          ) : (
+            <span className="blog-pager-btn disabled" aria-disabled="true">← Previous</span>
+          )}
+          <span className="blog-pager-pages">
+            {pageWindow(page, totalPagesFor(totalPosts)).map((p, i) =>
+              p === "gap" ? (
+                <span key={`gap-${i}`} className="blog-pager-gap">…</span>
+              ) : (
+                <Link key={p} className={`blog-pager-num${p === page ? " active" : ""}`} href={blogListUrl(p, query)} aria-current={p === page ? "page" : undefined}>
+                  {p}
+                </Link>
+              )
+            )}
+          </span>
+          {page < totalPagesFor(totalPosts) ? (
+            <Link className="blog-pager-btn" href={blogListUrl(page + 1, query)} rel="next">Next →</Link>
+          ) : (
+            <span className="blog-pager-btn disabled" aria-disabled="true">Next →</span>
+          )}
+        </nav>
       )}
     </div>
   );

@@ -410,12 +410,12 @@ export default async function HomePage() {
               {blogPosts.map((p) => {
                 const motif = BLOG_MOTIFS[hashStr(p.slug) % BLOG_MOTIFS.length];
                 return (
-                  <div key={p.slug} className="blog-card-v2">
+                  <div key={p.slug} className="blog-card-v2 blog-card-home">
                     <Link href={`/blog/${p.slug}`}>
                       <div className="blog-cover">
                         {p.coverImageUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element -- real uploaded blog cover
-                          <img src={p.coverImageUrl} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", display: "block" }} />
+                          <img src={p.coverImageUrl} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
                         ) : (
                           <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#2E2442" /></svg>
                         )}

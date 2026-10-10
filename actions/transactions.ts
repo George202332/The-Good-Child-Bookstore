@@ -5,6 +5,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { BACKEND_ROLES, canViewFinancials } from "@/lib/roles";
+import { deleteNotificationsForRecords } from "@/lib/notification-cleanup";
 
 /**
  * A unified transaction ledger for the admin backend — every individual
@@ -256,6 +257,9 @@ export async function deleteTransaction(id: string, type: "sale" | "payout"): Pr
           // If the order was already gone (or something still
           // references it), there's nothing more to clean up here.
         });
+        // The reader's "Payment received / Order confirmed" notification
+        // is tied to the order itself, which is now gone too.
+        await deleteNotificationsForRecords([line.orderId]);
       } else {
         const newTotal = remaining.reduce((sum: number, l: { grossAmount: unknown }) => sum + Number(l.grossAmount), 0);
         await prisma.order.update({ where: { id: line.orderId }, data: { totalAmount: newTotal } });
@@ -318,9 +322,10 @@ export async function resetAllOrders(): Promise<{ ok: boolean; error?: string; d
   try {
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const saleLines = await tx.saleLine.findMany({ select: { id: true } });
-      if (saleLines.length > 0) {
-        await tx.notification.deleteMany({ where: { relatedRecordId: { in: saleLines.map((l: { id: string }) => l.id) } } });
-      }
+      const orderRows = await tx.order.findMany({ select: { id: true } });
+      // Sale notifications (tied to each sale line) and the readers'
+      // order-confirmed notifications (tied to each order).
+      await deleteNotificationsForRecords([...saleLines.map((l: { id: string }) => l.id), ...orderRows.map((o: { id: string }) => o.id)], tx);
       const orders = await tx.order.deleteMany({});
       await tx.auditLog.create({
         data: {

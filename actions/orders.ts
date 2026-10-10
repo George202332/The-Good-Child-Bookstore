@@ -350,6 +350,8 @@ export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: b
         title: `Payment received: Order #${orderId.slice(0, 8).toUpperCase()}`,
         body: `Your order #${orderId.slice(0, 8).toUpperCase()} for $${Number(order.totalAmount).toFixed(2)} is confirmed.`,
         type: "PAYMENT",
+        // Tied to the order so deleting the order removes this too.
+        relatedRecordId: orderId,
       },
     });
   } catch {

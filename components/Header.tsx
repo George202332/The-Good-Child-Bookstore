@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { SearchIcon, HeartIcon, BagIcon, UserIcon } from "./icons";
+import { headerSearchTarget, headerSearchUrl, HEADER_SEARCH_PLACEHOLDER } from "@/lib/header-search";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 
@@ -47,6 +48,7 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   const { data: session } = useSession();
   const { count: cartCount } = useCart();
   const { count: wishlistCount } = useWishlist();
+  const searchTarget = headerSearchTarget(pathname);
   const [search, setSearch] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -58,6 +60,9 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   if (pathname !== lastPathname) {
     setLastPathname(pathname);
     setMobileNavOpen(false);
+    // Leaving the Blog listing: don't carry a blog search into the book
+    // search (or a blog post) the visitor is now looking at.
+    if (lastPathname === "/blog") setSearch("");
   }
 
   // Close on Escape, same as the dashboard sidebar's mobile panel and any
@@ -81,11 +86,11 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   // Keep the box in sync with ?q= when already on /bookshelf (e.g. back/forward
   // nav, or a filter chip removed elsewhere), without fighting local typing.
   useEffect(() => {
-    if (pathname === "/bookshelf") {
+    if (pathname === "/bookshelf" || searchTarget === "blog") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSearch(searchParams.get("q") ?? "");
     }
-  }, [pathname, searchParams]);
+  }, [pathname, searchParams, searchTarget]);
 
   // Converted from the global-search input listener in attachHeaderHandlers()
   // (the-good-child-bookstore_54_1.html:15175-15185): typing here live-
@@ -93,11 +98,11 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   // to #/bookshelf on the first keystroke.
   function handleSearchChange(value: string) {
     setSearch(value);
-    const params = new URLSearchParams(pathname === "/bookshelf" ? searchParams.toString() : "");
-    if (value) params.set("q", value);
-    else params.delete("q");
-    params.delete("page");
-    router.replace(`/bookshelf?${params.toString()}`, { scroll: false });
+    // Only while ON the Blog listing page does this box search blog
+    // posts (staying on /blog); on every other page — an individual blog
+    // post included — it searches books exactly as before.
+    const keepParams = pathname === "/bookshelf" || searchTarget === "blog" ? searchParams.toString() : "";
+    router.replace(headerSearchUrl(searchTarget, value, keepParams), { scroll: false });
   }
 
   // The dashboard sidebar's own mobile panel (DashboardSidebarNav.tsx)
@@ -172,7 +177,8 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
             <input
               id="global-search"
               type="text"
-              placeholder="Search titles or authors"
+              placeholder={HEADER_SEARCH_PLACEHOLDER[searchTarget]}
+              aria-label={searchTarget === "blog" ? "Search blog posts" : "Search books"}
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
             />

@@ -67,7 +67,7 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
     // plain-language line — see recentActivityLine in
     // lib/notification-types.ts. The fuller sentence stays in body for
     // the full Notifications list (app/account/notifications).
-    await createNotification(book.author.user.id, book.title, `"${book.title}" is now published on the shelf.`, "BOOK_PUBLISHED");
+    await createNotification(book.author.user.id, book.title, `"${book.title}" is now published on the shelf.`, "BOOK_PUBLISHED", bookId);
     await notifyFollowersOfNewBook(book);
     submitUrlToIndexNow(`${getPublicSiteUrl()}/${book.slug}`).catch(() => {});
     revalidatePath("/admin/books");
@@ -127,7 +127,8 @@ export async function rejectBook(bookId: string, comments?: string): Promise<{ o
       comments?.trim()
         ? `"${book.title}" was sent back for revision: ${comments.trim()}`
         : `"${book.title}" was not approved this time — please revise and resubmit.`,
-      "REVISION"
+      "REVISION",
+      bookId
     );
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);
@@ -163,7 +164,8 @@ async function proposeOrApplyModeration(bookId: string, action: "SUSPEND" | "WIT
         book.author.user.id,
         `${action === "SUSPEND" ? "Suspended" : "Withdrawn"}: "${book.title}"`,
         note?.trim() || `"${book.title}" has been ${action === "SUSPEND" ? "suspended" : "withdrawn"}.`,
-        "REVISION"
+        "REVISION",
+        bookId
       );
     } else {
       await prisma.book.update({
@@ -178,7 +180,8 @@ async function proposeOrApplyModeration(bookId: string, action: "SUSPEND" | "WIT
           u.id,
           `${action === "SUSPEND" ? "Suspend" : "Withdraw"} proposed: "${book.title}"`,
           `${session?.user?.name ?? "An editor"} proposed to ${action === "SUSPEND" ? "suspend" : "withdraw"} this book${note?.trim() ? `: ${note.trim()}` : "."}`,
-          "REVISION"
+          "REVISION",
+          bookId
         );
       }
     }
@@ -215,7 +218,8 @@ export async function ratifyPendingModeration(bookId: string, approve: boolean):
       book.author.user.id,
       `${book.pendingAction === "SUSPEND" ? "Suspended" : "Withdrawn"}: "${book.title}"`,
       book.pendingActionNote || `"${book.title}" has been ${book.pendingAction === "SUSPEND" ? "suspended" : "withdrawn"}.`,
-      "REVISION"
+      "REVISION",
+      bookId
     );
   } else {
     await prisma.book.update({ where: { id: bookId }, data: { pendingAction: null, pendingActionBy: null, pendingActionNote: null } });

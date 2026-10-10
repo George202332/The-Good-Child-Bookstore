@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { logSelfServiceEvent } from "@/lib/audit-log";
 import { canWithdraw } from "@/lib/blog-status";
+import { prepareBlogNotificationCleanup } from "@/lib/notification-cleanup";
 
 /**
  * Writer-side row actions for the My Blogs table (app/account/blog).
@@ -61,7 +62,10 @@ export async function deleteMyBlog(blogId: string): Promise<{ ok: boolean; error
   });
   if (!blog || blog.authorId !== session.user.id) return { ok: false, error: "Not found." };
 
-  await prisma.blog.deleteMany({ where: { id: blogId, authorId: session.user.id } });
+  const cleanupNotifications = await prepareBlogNotificationCleanup(blogId);
+  const removed = await prisma.blog.deleteMany({ where: { id: blogId, authorId: session.user.id } });
+  // Its published / revision / suspended / withdrawn notifications go too.
+  if (removed.count > 0) await cleanupNotifications();
 
   await logSelfServiceEvent(session.user.id, "BLOG_DELETED", { blogId, status: blog.status });
   revalidateBlogPaths(blog.slug);
