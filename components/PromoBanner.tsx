@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { bannerClassName, bannerImageStyle } from "@/lib/banner-style";
 
 /** Converted from the repeated `.promo-banner` markup used four times in
  * homeHTML() (the-good-child-bookstore_54_1.html, e.g. lines 3772-3785). */
@@ -22,8 +23,8 @@ export function PromoBanner({
 }) {
   return (
     <div
-      className={`promo-banner promo-${tone}`}
-      style={imageUrl ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.55), rgba(20,14,26,0.55)), url(${imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}
+      className={bannerClassName(`promo-banner promo-${tone}`, imageUrl)}
+      style={imageUrl ? bannerImageStyle(imageUrl) : undefined}
     >
       <div className="promo-banner-text">
         <div className="promo-banner-icon">{icon}</div>

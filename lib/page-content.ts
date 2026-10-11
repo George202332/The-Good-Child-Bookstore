@@ -7,6 +7,9 @@ export interface HomeContent {
   heroWelcomeImage?: string;
   heroBrowseImage?: string;
   heroAuthorImage?: string;
+  /** The 4th hero slide ("Become an affiliate") was removed; this is kept
+   * only so an image already stored for it stays recognised in the media
+   * library. It is no longer shown or editable. */
   heroAffiliateImage?: string;
   bookClubBannerTitle: string;
   bookClubBannerBody: string;
@@ -62,6 +65,12 @@ export interface MarketingPageContent {
    * the one thing that stays a separate, structured upload rather than
    * being folded into the free-text pane below. */
   heroImage?: string;
+  /** The page's SECOND banner (further down the page, above the FAQs):
+   * its own heading, optional supporting text, and image. Recommended
+   * 1200x600px, same as the top banner. Its sign-up buttons are fixed. */
+  ctaBannerTitle: string;
+  ctaBannerBody: string;
+  ctaBannerImage?: string;
   /** Kept for backward compatibility with previously-stored data; no
    * longer rendered — superseded by bodyHtml below. */
   sections: MarketingPageSection[];
@@ -136,6 +145,8 @@ export const DEFAULT_PAGES_CONTENT: PagesContent = {
   authorship: {
     eyebrow: "✦ Authorship",
     heading: "Publish your story, keep the rights.",
+    ctaBannerTitle: "Sign up as an author",
+    ctaBannerBody: "",
     introText: "Join the children's authors already publishing eBooks, print, and audiobooks through The Good Child Bookstore, with real time sales tracking, transparent royalties, and a modern dashboard built for writers, not spreadsheets.",
     sections: [
       {
@@ -265,6 +276,8 @@ export const DEFAULT_PAGES_CONTENT: PagesContent = {
   affiliateMarketing: {
     eyebrow: "✦ Affiliate program",
     heading: "Share books you love, get paid for it.",
+    ctaBannerTitle: "Start earning as an affiliate",
+    ctaBannerBody: "",
     introText: "Anyone passionate about children's books can earn commission promoting titles from our shelf, with a real time dashboard, transparent payouts, and lifetime earnings from the authors you refer. There is no separate affiliate account to create: affiliate access comes built into your Reader or Author account, turned on from your dashboard whenever you're ready.",
     sections: [
       {

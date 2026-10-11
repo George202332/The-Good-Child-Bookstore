@@ -78,7 +78,7 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
     <form onSubmit={handleSave} className="form-section">
       <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 16 }}>
         Each page below has one editing pane where its content is written or pasted in as a single block. Authorship
-        and Affiliate additionally keep their own banner (image + heading + intro text) at the top, unchanged.
+        and Affiliate additionally have two banners each (Banner 1 at the top, Banner 2 lower down), each with its own image and text.
       </p>
 
       <div style={{
@@ -119,7 +119,6 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
             <ImageUploadField label="Slide 1: Welcome" recommendedSize="Recommended 1200×600px" value={content.home.heroWelcomeImage} onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, heroWelcomeImage: url } }))} />
             <ImageUploadField label="Slide 2: Browse the bookshelf" recommendedSize="Recommended 1200×600px" value={content.home.heroBrowseImage} onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, heroBrowseImage: url } }))} />
             <ImageUploadField label="Slide 3: Become an author" recommendedSize="Recommended 1200×600px" value={content.home.heroAuthorImage} onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, heroAuthorImage: url } }))} />
-            <ImageUploadField label="Slide 4: Become an affiliate" recommendedSize="Recommended 1200×600px" value={content.home.heroAffiliateImage} onChange={(url) => setContent((c) => ({ ...c, home: { ...c.home, heroAffiliateImage: url } }))} />
           </div>
 
           <div style={{ marginTop: 10 }}>

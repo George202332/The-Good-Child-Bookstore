@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { bannerClassName, bannerImageStyle } from "@/lib/banner-style";
 
 interface HeroSlide {
   tone: "lavender" | "mint" | "pink";
@@ -23,9 +24,6 @@ const ICONS = {
   author: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={8} r={3.6} /><path d="M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5" /></svg>
   ),
-  affiliate: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 15l6-6" /><path d="M10 6.5h-.5A4.5 4.5 0 0 0 5 11v.5" /><path d="M14 17.5h.5A4.5 4.5 0 0 0 19 13v-.5" /></svg>
-  ),
 };
 
 export function HeroBannerCarousel({
@@ -34,20 +32,17 @@ export function HeroBannerCarousel({
   welcomeImage,
   browseImage,
   authorImage,
-  affiliateImage,
 }: {
   heading: string;
   lede: string;
   welcomeImage?: string;
   browseImage?: string;
   authorImage?: string;
-  affiliateImage?: string;
 }) {
   const slides: HeroSlide[] = [
     { tone: "lavender", icon: ICONS.welcome, title: heading, body: lede, ctaHref: "/bookshelf", ctaLabel: "Browse the bookshelf", imageUrl: welcomeImage },
     { tone: "mint", icon: ICONS.browse, title: "Browse the bookshelf", body: "Picture books, bedtime stories, and middle-grade adventures, curated with parents, teachers, and librarians in mind.", ctaHref: "/bookshelf", ctaLabel: "Browse the bookshelf", imageUrl: browseImage },
     { tone: "pink", icon: ICONS.author, title: "Become an author", body: "Publish your own children's book as an eBook, paperback, hardcover, or audiobook — and earn real royalties on every sale.", ctaHref: "/signup/author", ctaLabel: "Become an author", imageUrl: authorImage },
-    { tone: "lavender", icon: ICONS.affiliate, title: "Become an affiliate", body: "Refer authors, promote books, and earn a lifetime share of the revenue you help bring in — all from one account.", ctaHref: "/signup/author", ctaLabel: "Become an affiliate", imageUrl: affiliateImage },
   ];
 
   const [index, setIndex] = useState(0);
@@ -62,10 +57,10 @@ export function HeroBannerCarousel({
   return (
     <div style={{ position: "relative" }}>
       <div
-        className={`promo-banner promo-${slide.tone}`}
+        className={bannerClassName(`promo-banner promo-${slide.tone}`, slide.imageUrl)}
         style={{
           height: 352, minHeight: 0, overflow: "hidden", boxSizing: "border-box",
-          ...(slide.imageUrl ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.58), rgba(20,14,26,0.58)), url(${slide.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+          ...bannerImageStyle(slide.imageUrl),
         }}
       >
         <div className="promo-banner-text">

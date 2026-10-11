@@ -404,6 +404,10 @@
   }
   .promo-banner-icon svg{width:28px;height:28px;}
   .promo-banner h3{font-size:22px;margin-bottom:4px;}
+  /* Banners with an uploaded picture have no dark overlay; a soft text
+     shadow keeps their (white) text readable over any picture. */
+  .promo-banner-on-image .promo-banner-text h3,
+  .promo-banner-on-image .promo-banner-text p{text-shadow:0 1px 3px rgba(0,0,0,0.55),0 2px 14px rgba(0,0,0,0.45);}
   .promo-banner p{font-size:14px;color:var(--ink-soft);max-width:420px;}
   .promo-lavender{background:var(--lavender);}
   .promo-mint{background:var(--mint);}

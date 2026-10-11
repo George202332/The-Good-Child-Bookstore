@@ -92,6 +92,10 @@ export async function listLibrary(): Promise<LibraryItem[]> {
       pagesContent.home.printBannerImage,
       pagesContent.home.affiliateBannerImage,
       pagesContent.home.journalBannerImage,
+      pagesContent.authorship.heroImage,
+      pagesContent.authorship.ctaBannerImage,
+      pagesContent.affiliateMarketing.heroImage,
+      pagesContent.affiliateMarketing.ctaBannerImage,
     ]
       .map((u) => extractId(u, "/api/images/"))
       .filter((id): id is string => !!id)

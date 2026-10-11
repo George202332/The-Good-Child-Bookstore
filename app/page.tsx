@@ -157,7 +157,6 @@ export default async function HomePage() {
             welcomeImage={hero.heroWelcomeImage}
             browseImage={hero.heroBrowseImage}
             authorImage={hero.heroAuthorImage}
-            affiliateImage={hero.heroAffiliateImage}
           />
         </div>
       </section>

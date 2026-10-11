@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPagesContent } from "@/actions/page-content";
+import { bannerClassName, bannerImageStyle } from "@/lib/banner-style";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +25,10 @@ export default async function AffiliateMarketingPage() {
       <section className="fade-in-section visible" style={{ paddingTop: "0.5in" }}>
         <div className="wrap">
           <div
-            className="promo-banner promo-mint"
+            className={bannerClassName("promo-banner promo-mint", affiliateMarketing.heroImage)}
             style={{
               height: 352, overflow: "hidden", boxSizing: "border-box",
-              ...(affiliateMarketing.heroImage ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.58), rgba(20,14,26,0.58)), url(${affiliateMarketing.heroImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+              ...bannerImageStyle(affiliateMarketing.heroImage),
             }}
           >
             <div className="promo-banner-text">
@@ -78,8 +79,8 @@ export default async function AffiliateMarketingPage() {
       <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap">
           <div
-            className="promo-banner promo-lavender"
-            style={{ height: 352, overflow: "hidden", boxSizing: "border-box", justifyContent: "center", flexDirection: "column", gap: 20 }}
+            className={bannerClassName("promo-banner promo-lavender", affiliateMarketing.ctaBannerImage)}
+            style={{ height: 352, overflow: "hidden", boxSizing: "border-box", justifyContent: "center", flexDirection: "column", gap: 20, ...bannerImageStyle(affiliateMarketing.ctaBannerImage) }}
           >
             <div className="promo-banner-text">
               <div className="promo-banner-icon">
@@ -87,7 +88,12 @@ export default async function AffiliateMarketingPage() {
                   <path d="M9 15l6-6" /><path d="M10 6.5h-.5A4.5 4.5 0 0 0 5 11v.5" /><path d="M14 17.5h.5A4.5 4.5 0 0 0 19 13v-.5" />
                 </svg>
               </div>
-              <h3 style={{ fontSize: 26 }}>Start earning as an affiliate</h3>
+              <div>
+                <h3 style={{ fontSize: 26, ...(affiliateMarketing.ctaBannerImage ? { color: "#fff" } : {}) }}>{affiliateMarketing.ctaBannerTitle}</h3>
+                {affiliateMarketing.ctaBannerBody && (
+                  <p style={affiliateMarketing.ctaBannerImage ? { color: "rgba(255,255,255,0.9)" } : undefined}>{affiliateMarketing.ctaBannerBody}</p>
+                )}
+              </div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
               <Link href="/signup/reader" className="btn btn-primary">Sign up as a reader</Link>

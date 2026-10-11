@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BOOKS } from "@/lib/data/catalog";
 import { getPagesContent } from "@/actions/page-content";
+import { bannerClassName, bannerImageStyle } from "@/lib/banner-style";
 
 export const dynamic = "force-dynamic";
 
@@ -28,10 +29,10 @@ export default async function AuthorsPage() {
       <section className="fade-in-section visible" style={{ paddingTop: "0.5in" }}>
         <div className="wrap">
           <div
-            className="promo-banner promo-lavender"
+            className={bannerClassName("promo-banner promo-lavender", authorship.heroImage)}
             style={{
               height: 352, overflow: "hidden", boxSizing: "border-box",
-              ...(authorship.heroImage ? { backgroundImage: `linear-gradient(rgba(20,14,26,0.58), rgba(20,14,26,0.58)), url(${authorship.heroImage})`, backgroundSize: "cover", backgroundPosition: "center" } : {}),
+              ...bannerImageStyle(authorship.heroImage),
             }}
           >
             <div className="promo-banner-text">
@@ -80,8 +81,8 @@ export default async function AuthorsPage() {
         <div className="wrap">
           <Link
             href="/signup/author"
-            className="promo-banner promo-pink"
-            style={{ height: 352, overflow: "hidden", boxSizing: "border-box", justifyContent: "center", textDecoration: "none" }}
+            className={bannerClassName("promo-banner promo-pink", authorship.ctaBannerImage)}
+            style={{ height: 352, overflow: "hidden", boxSizing: "border-box", justifyContent: "center", textDecoration: "none", ...bannerImageStyle(authorship.ctaBannerImage) }}
           >
             <div className="promo-banner-text">
               <div className="promo-banner-icon">
@@ -89,7 +90,12 @@ export default async function AuthorsPage() {
                   <circle cx={12} cy={8} r={3.6} /><path d="M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5" />
                 </svg>
               </div>
-              <h3 style={{ fontSize: 26 }}>Sign up as an author</h3>
+              <div>
+                <h3 style={{ fontSize: 26, ...(authorship.ctaBannerImage ? { color: "#fff" } : {}) }}>{authorship.ctaBannerTitle}</h3>
+                {authorship.ctaBannerBody && (
+                  <p style={authorship.ctaBannerImage ? { color: "rgba(255,255,255,0.9)" } : undefined}>{authorship.ctaBannerBody}</p>
+                )}
+              </div>
             </div>
           </Link>
         </div>
