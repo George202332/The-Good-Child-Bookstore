@@ -66,8 +66,8 @@ export function HeroBannerCarousel({
         <div className="promo-banner-text">
           <div className="promo-banner-icon">{slide.icon}</div>
           <div>
-            <h3 style={slide.imageUrl ? { color: "#fff" } : undefined}>{slide.title}</h3>
-            <p style={slide.imageUrl ? { color: "rgba(255,255,255,0.9)" } : undefined}>{slide.body}</p>
+            <h3>{slide.title}</h3>
+            <p>{slide.body}</p>
           </div>
         </div>
         <Link href={slide.ctaHref} className="btn btn-primary btn-small">

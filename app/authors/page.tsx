@@ -40,8 +40,8 @@ export default async function AuthorsPage() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="#3A2C62" strokeWidth={2}><circle cx={12} cy={8} r={3.6} /><path d="M5 20c0-4 3-6.5 7-6.5s7 2.5 7 6.5" /></svg>
               </div>
               <div>
-                <h3 style={authorship.heroImage ? { color: "#fff" } : undefined}>{authorship.heading}</h3>
-                <p style={authorship.heroImage ? { color: "rgba(255,255,255,0.9)" } : undefined}>{authorship.introText}</p>
+                <h3>{authorship.heading}</h3>
+                <p>{authorship.introText}</p>
               </div>
             </div>
             <Link href="/signup/author" className="btn btn-primary btn-small">Become an author</Link>
@@ -91,10 +91,8 @@ export default async function AuthorsPage() {
                 </svg>
               </div>
               <div>
-                <h3 style={{ fontSize: 26, ...(authorship.ctaBannerImage ? { color: "#fff" } : {}) }}>{authorship.ctaBannerTitle}</h3>
-                {authorship.ctaBannerBody && (
-                  <p style={authorship.ctaBannerImage ? { color: "rgba(255,255,255,0.9)" } : undefined}>{authorship.ctaBannerBody}</p>
-                )}
+                <h3 style={{ fontSize: 26 }}>{authorship.ctaBannerTitle}</h3>
+                {authorship.ctaBannerBody && <p>{authorship.ctaBannerBody}</p>}
               </div>
             </div>
           </Link>

@@ -404,10 +404,29 @@
   }
   .promo-banner-icon svg{width:28px;height:28px;}
   .promo-banner h3{font-size:22px;margin-bottom:4px;}
-  /* Banners with an uploaded picture have no dark overlay; a soft text
-     shadow keeps their (white) text readable over any picture. */
-  .promo-banner-on-image .promo-banner-text h3,
-  .promo-banner-on-image .promo-banner-text p{text-shadow:0 1px 3px rgba(0,0,0,0.55),0 2px 14px rgba(0,0,0,0.45);}
+  /* Banner text is black on every banner. On a banner with an uploaded
+     picture there is no dark overlay over the picture; instead ONLY the
+     text group sits on a soft white panel, so the black text is clearly
+     readable over any picture while the rest of the picture stays clear. */
+  .promo-banner h3{color:#000;}
+  .promo-banner p{color:#111;}
+  .promo-banner-on-image .promo-banner-text{
+    background:rgba(255,255,255,0.86);border-radius:18px;padding:18px 24px;
+    box-shadow:0 4px 18px rgba(0,0,0,0.18);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  }
+  /* Banner buttons: strong, high-contrast on every banner (with or
+     without a picture) — solid dark button with white text and a white
+     edge; the secondary button is solid white with a dark edge. */
+  .promo-banner .btn-primary{
+    background:#1F1630;color:#fff;border:2px solid #fff;
+    box-shadow:0 6px 18px rgba(0,0,0,0.35);
+  }
+  .promo-banner .btn-primary:hover{background:#000;box-shadow:0 10px 22px rgba(0,0,0,0.42);}
+  .promo-banner .btn-ghost{
+    background:#fff;color:#000;border:2px solid #1F1630;
+    box-shadow:0 6px 18px rgba(0,0,0,0.25);
+  }
+  .promo-banner .btn-ghost:hover{border-color:#000;box-shadow:0 10px 22px rgba(0,0,0,0.32);}
   .promo-banner p{font-size:14px;color:var(--ink-soft);max-width:420px;}
   .promo-lavender{background:var(--lavender);}
   .promo-mint{background:var(--mint);}
@@ -2461,7 +2480,6 @@
   }
   .subcat-trigger-name{flex:1;min-width:0;}
   .subcat-trigger:focus-visible{outline:2px solid var(--lavender-deep);outline-offset:2px;border-radius:4px;}
-  .subcat-chevron{flex-shrink:0;opacity:.6;}
   .subcat-badge{
     min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--coral);color:#1F1630;
     font-size:11px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;

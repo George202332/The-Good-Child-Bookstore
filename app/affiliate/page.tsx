@@ -36,8 +36,8 @@ export default async function AffiliateMarketingPage() {
                 <svg viewBox="0 0 24 24" fill="none" stroke="#1F5E43" strokeWidth={2}><path d="M9 15l6-6" /><path d="M10 6.5h-.5A4.5 4.5 0 0 0 5 11v.5" /><path d="M14 17.5h.5A4.5 4.5 0 0 0 19 13v-.5" /></svg>
               </div>
               <div>
-                <h3 style={affiliateMarketing.heroImage ? { color: "#fff" } : undefined}>{affiliateMarketing.heading}</h3>
-                <p style={affiliateMarketing.heroImage ? { color: "rgba(255,255,255,0.9)" } : undefined}>{affiliateMarketing.introText}</p>
+                <h3>{affiliateMarketing.heading}</h3>
+                <p>{affiliateMarketing.introText}</p>
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -89,10 +89,8 @@ export default async function AffiliateMarketingPage() {
                 </svg>
               </div>
               <div>
-                <h3 style={{ fontSize: 26, ...(affiliateMarketing.ctaBannerImage ? { color: "#fff" } : {}) }}>{affiliateMarketing.ctaBannerTitle}</h3>
-                {affiliateMarketing.ctaBannerBody && (
-                  <p style={affiliateMarketing.ctaBannerImage ? { color: "rgba(255,255,255,0.9)" } : undefined}>{affiliateMarketing.ctaBannerBody}</p>
-                )}
+                <h3 style={{ fontSize: 26 }}>{affiliateMarketing.ctaBannerTitle}</h3>
+                {affiliateMarketing.ctaBannerBody && <p>{affiliateMarketing.ctaBannerBody}</p>}
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>

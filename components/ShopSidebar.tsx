@@ -358,9 +358,6 @@ function CategoryRow({ cat, subs, selected, count, open, onOpen, onClose, onTogg
           {count > 0 && (
             <span className="subcat-badge" aria-label={`${count} subcategories selected`}>{count}</span>
           )}
-          <svg className="subcat-chevron" viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-            <path d="M9 18l6-6-6-6" />
-          </svg>
         </button>
       </div>
       {open &&

@@ -5,9 +5,9 @@ import type { CSSProperties } from "react";
  * filling the banner — no dark overlay laid over it. (Every banner on the
  * site used to put a 55–58% dark layer between the image and its text;
  * that layer has been removed on purpose so the picture shows at its
- * true brightness. The banner's text and buttons are unchanged, and the
- * text carries a soft shadow instead — see `.promo-banner-on-image` in
- * app/site.css — so it stays readable.)
+ * true brightness. The banner text is black and sits on a soft white
+ * panel behind the text only — see `.promo-banner-on-image` in
+ * app/site.css — so it stays readable over any picture.)
  */
 export function bannerImageStyle(imageUrl: string | undefined | null): CSSProperties {
   if (!imageUrl) return {};
