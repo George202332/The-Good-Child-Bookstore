@@ -5,6 +5,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { CATS, PRICE_RANGES, type Book } from "@/lib/data/catalog";
 import { categoryFromSlug, subcategoriesFor } from "@/lib/taxonomy";
 import { parseShopFilters, filteredSortedBooks, SHOP_PAGE_SIZE } from "@/lib/shop-filters";
+import { formatLabel } from "@/lib/shop-formats";
 import { BookCard } from "@/components/BookCard";
 import { ShopSidebar } from "@/components/ShopSidebar";
 
@@ -64,7 +65,7 @@ export function ShopPageClient({ books }: { books: Book[] }) {
   });
   filters.subs.forEach((v) => chips.push({ label: v, remove: () => goTo(paramsWithout("genre", v, paramsWithout("sub", v))) }));
   filters.ages.forEach((v) => chips.push({ label: `${v} yrs`, remove: () => goTo(paramsWithout("age", v)) }));
-  filters.formats.forEach((v) => chips.push({ label: v, remove: () => goTo(paramsWithout("format", v)) }));
+  filters.formats.forEach((v) => chips.push({ label: formatLabel(v), remove: () => goTo(paramsWithout("format", v)) }));
   filters.minRatings.forEach((v) => chips.push({ label: `${v}★ & up`, remove: () => goTo(paramsWithout("rating", v)) }));
   filters.priceRanges.forEach((id) => {
     const r = PRICE_RANGES.find((x) => x.id === id);

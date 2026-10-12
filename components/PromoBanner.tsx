@@ -17,8 +17,9 @@ export function PromoBanner({
   icon: ReactNode;
   title: string;
   body: string;
-  ctaHref: string;
-  ctaLabel: string;
+  /** Leave both out for a banner with no button. */
+  ctaHref?: string;
+  ctaLabel?: string;
   imageUrl?: string;
 }) {
   return (
@@ -33,9 +34,11 @@ export function PromoBanner({
           <p>{body}</p>
         </div>
       </div>
-      <Link href={ctaHref} className="btn btn-primary btn-small">
-        {ctaLabel}
-      </Link>
+      {ctaHref && ctaLabel && (
+        <Link href={ctaHref} className="btn btn-primary btn-small">
+          {ctaLabel}
+        </Link>
+      )}
     </div>
   );
 }

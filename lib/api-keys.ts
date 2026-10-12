@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { ApiKeys } from "@/lib/site-settings";
+import { resolveLuluEnvironment, type LuluEnvironment } from "@/lib/lulu-order";
 
 /**
  * Resolves live credentials, preferring what's saved in Site Settings
@@ -22,6 +23,13 @@ async function getStoredApiKeys(): Promise<ApiKeys | null> {
   } catch {
     return null;
   }
+}
+
+/** Which Lulu system (sandbox or production) print orders go to — see
+ * resolveLuluEnvironment in lib/lulu-order.ts for the precedence. */
+export async function getLuluEnvironment(): Promise<LuluEnvironment> {
+  const stored = await getStoredApiKeys();
+  return resolveLuluEnvironment({ stored: stored?.luluEnvironment, envVar: process.env.LULU_ENV, paymentMode: stored?.paymentMode });
 }
 
 export async function getLuluCredentials(): Promise<{ clientKey: string | undefined; clientSecret: string | undefined }> {

@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { CATS, AGE_RANGES, PRICE_RANGES, BOOKS } from "@/lib/data/catalog";
+import { CATS, AGE_RANGES, PRICE_RANGES } from "@/lib/data/catalog";
+import { FORMAT_OPTIONS } from "@/lib/shop-formats";
 import { CATEGORIES, categorySlug, subcategoriesFor } from "@/lib/taxonomy";
 
 /**
@@ -24,7 +25,6 @@ export function ShopSidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [openCat, setOpenCat] = useState<string | null>(null);
-  const formats = Array.from(new Set(BOOKS.map((b) => b.format)));
 
   function toggle(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -174,10 +174,10 @@ export function ShopSidebar({
         </div>
         <div className="filter-block">
           <h4>Format</h4>
-          {formats.map((f) => (
-            <label key={f} className="filter-option">
-              <input type="checkbox" checked={has("format", f)} onChange={() => toggle("format", f)} />
-              {f}
+          {FORMAT_OPTIONS.map((f) => (
+            <label key={f.id} className="filter-option">
+              <input type="checkbox" checked={has("format", f.id)} onChange={() => toggle("format", f.id)} />
+              {f.label}
             </label>
           ))}
         </div>

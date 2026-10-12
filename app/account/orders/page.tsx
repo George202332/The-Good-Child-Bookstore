@@ -67,7 +67,7 @@ export default async function OrdersPage() {
                 <div style={{ fontSize: 12, marginTop: 6, fontWeight: 600, color: o.printJobStatus === "FAILED" ? "var(--coral-deep)" : "#165236" }}>
                   {o.printJobStatus === "SUBMITTED" && "✓ Sent to our print partner for production"}
                   {o.printJobStatus === "FAILED" && "We hit an issue sending this to our print partner — our team has been notified"}
-                  {!o.printJobStatus && "Preparing to send to our print partner"}
+                  {(!o.printJobStatus || o.printJobStatus === "SUBMITTING") && "Preparing to send to our print partner"}
                 </div>
               )}
             </div>

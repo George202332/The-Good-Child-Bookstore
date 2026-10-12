@@ -84,6 +84,7 @@ export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSetti
         paymentMode: settings.apiKeys.paymentMode,
         luluClientKey: "",
         luluClientSecret: "",
+        luluEnvironment: settings.apiKeys.luluEnvironment,
         resendApiKey: "",
         fromEmail: settings.apiKeys.fromEmail ?? "",
         paystackSecretKey: "",
@@ -214,6 +215,9 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
       paymentMode: settings.apiKeys.paymentMode,
       luluClientKey: settings.apiKeys.luluClientKey?.trim() || existing.apiKeys.luluClientKey,
       luluClientSecret: settings.apiKeys.luluClientSecret?.trim() || existing.apiKeys.luluClientSecret,
+      luluEnvironment: settings.apiKeys.luluEnvironment === "production" || settings.apiKeys.luluEnvironment === "sandbox"
+        ? settings.apiKeys.luluEnvironment
+        : existing.apiKeys.luluEnvironment,
       resendApiKey: settings.apiKeys.resendApiKey?.trim() || existing.apiKeys.resendApiKey,
       fromEmail: settings.apiKeys.fromEmail?.trim() || existing.apiKeys.fromEmail,
       paystackSecretKey: settings.apiKeys.paystackSecretKey?.trim() || existing.apiKeys.paystackSecretKey,

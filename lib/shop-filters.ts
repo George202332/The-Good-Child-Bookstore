@@ -1,5 +1,6 @@
 import { BOOKS, PRICE_RANGES, type Book } from "@/lib/data/catalog";
 import { categoryFromSlug, subcategoriesFor } from "@/lib/taxonomy";
+import { bookMatchesAnyFormat } from "@/lib/shop-formats";
 
 /**
  * Converted from filters/filteredSortedBooks() (the-good-child-bookstore_54_1.html:
@@ -70,7 +71,7 @@ export function filteredSortedBooks(filters: ShopFilters, books: Book[] = BOOKS)
     if (filters.cats.size && !filters.cats.has(b.category)) return false;
     if (!matchesSeriesAndSubs(b, filters, seriesNames)) return false;
     if (filters.ages.size && !filters.ages.has(b.age)) return false;
-    if (filters.formats.size && !filters.formats.has(b.format)) return false;
+    if (filters.formats.size && !bookMatchesAnyFormat(b, filters.formats)) return false;
     if (filters.minRatings.size) {
       const minReq = Math.max(...Array.from(filters.minRatings).map(Number));
       if (parseFloat(b.rating) < minReq) return false;

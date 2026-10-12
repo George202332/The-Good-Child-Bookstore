@@ -226,8 +226,6 @@ export default async function HomePage() {
             title={hero.bookClubBannerTitle}
             body={hero.bookClubBannerBody}
             imageUrl={hero.bookClubBannerImage}
-            ctaHref="/subscription"
-            ctaLabel="See the plans"
           />
         </div>
       </FadeInSection>

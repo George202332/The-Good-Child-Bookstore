@@ -33,6 +33,10 @@ export interface PaymentBadgeUrls {
 export interface ApiKeys {
   luluClientKey?: string;
   luluClientSecret?: string;
+  /** Which Lulu system print orders are sent to: "sandbox" (test jobs,
+   * never printed or charged) or "production" (real printing and charges).
+   * Unset = follow LULU_ENV, else the Paystack key mode. */
+  luluEnvironment?: "sandbox" | "production";
   resendApiKey?: string;
   fromEmail?: string;
   /** A label for which kind of Paystack key is currently entered below —

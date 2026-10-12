@@ -14,6 +14,7 @@ import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } fr
 import { PaymentBadgeIcon } from "@/components/PaymentBadgeIcon";
 import { COUNTRIES } from "@/lib/countries";
 import { countryToIso2 } from "@/lib/user-country";
+import { composeShipAddress } from "@/lib/lulu-order";
 import { restrictionMessage } from "@/lib/book-country-restriction";
 import { isLineRestricted } from "@/lib/book-visibility";
 import { getSiteSettings } from "@/actions/site-settings";
@@ -45,6 +46,11 @@ interface CheckoutData {
   phoneCountryCode: string;
   country: string;
   billingAddress: string;
+  /** City / state-or-province / postal code — asked for print orders, where
+   * the print partner needs a complete address (see lib/lulu-order.ts). */
+  city: string;
+  state: string;
+  postcode: string;
   paymentMethod: "paystack" | "mpesa";
   cardName: string;
   cardNumber: string;
@@ -84,6 +90,9 @@ function CheckoutPageInner() {
     phoneCountryCode: "+1",
     country: "",
     billingAddress: "",
+    city: "",
+    state: "",
+    postcode: "",
     paymentMethod: "paystack",
     cardName: "",
     cardNumber: "",
@@ -123,6 +132,11 @@ function CheckoutPageInner() {
   const subtotal = lines.reduce((sum, l) => sum + priceFor(l.book, l.format) * l.qty, 0);
   const hasPrintItem = lines.some((l) => l.format === "paperback" || l.format === "hardcover");
   const grandTotal = subtotal;
+  // Print copies are shipped by our print partner, which needs a complete
+  // address; the order stores it as street / city / state / postal code.
+  const shipAddressValue = hasPrintItem
+    ? composeShipAddress({ street: data.billingAddress, city: data.city, state: data.state, postcode: data.postcode })
+    : data.billingAddress;
   // Lines whose book is restricted for this visitor (account country / IP
   // geo, flagged by resolveCartBooks) or — for print — for the ship-to
   // country entered at step 2. Payment stays disabled until they are
@@ -164,7 +178,7 @@ function CheckoutPageInner() {
       shipName: data.fullName,
       shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
       shipCountry: data.country,
-      shipAddress: data.billingAddress,
+      shipAddress: shipAddressValue,
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);
@@ -203,7 +217,7 @@ function CheckoutPageInner() {
       shipName: data.fullName,
       shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
       shipCountry: data.country,
-      shipAddress: data.billingAddress,
+      shipAddress: shipAddressValue,
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);
@@ -346,7 +360,7 @@ function CheckoutPageInner() {
             <option value="">Select a country</option>
             {COUNTRIES.map((c) => <option key={c.iso2} value={c.name}>{c.name}</option>)}
           </select>
-          <label className="field-label field-label-compact" htmlFor="co-phone">Phone number <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(optional)</span></label>
+          <label className="field-label field-label-compact" htmlFor="co-phone">Phone number {!hasPrintItem && <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(optional)</span>}</label>
           <div style={{ display: "flex", gap: 8 }}>
             <select
               className="field field-compact"
@@ -357,13 +371,23 @@ function CheckoutPageInner() {
             >
               {COUNTRIES.map((c) => <option key={c.iso2} value={c.dialCode}>{c.dialCode} {c.iso2}</option>)}
             </select>
-            <input className="field field-compact" id="co-phone" type="tel" style={{ flex: 1 }} value={data.phone} onChange={(e) => setData((d) => ({ ...d, phone: e.target.value }))} />
+            <input className="field field-compact" id="co-phone" type="tel" style={{ flex: 1 }} required={hasPrintItem} value={data.phone} onChange={(e) => setData((d) => ({ ...d, phone: e.target.value }))} />
           </div>
-          <label className="field-label field-label-compact" htmlFor="co-address">{hasPrintItem ? "Shipping address" : "Billing address"}</label>
+          <label className="field-label field-label-compact" htmlFor="co-address">{hasPrintItem ? "Street address" : "Billing address"}</label>
           <textarea className="field field-compact" id="co-address" required value={data.billingAddress} onChange={(e) => setData((d) => ({ ...d, billingAddress: e.target.value }))} />
+          {hasPrintItem && (
+            <>
+              <label className="field-label field-label-compact" htmlFor="co-city">City</label>
+              <input className="field field-compact" id="co-city" type="text" required value={data.city} onChange={(e) => setData((d) => ({ ...d, city: e.target.value }))} />
+              <label className="field-label field-label-compact" htmlFor="co-state">State / province / region {["United States", "Canada", "Australia", "Mexico"].includes(data.country) ? "" : <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(if your country uses one)</span>}</label>
+              <input className="field field-compact" id="co-state" type="text" required={["United States", "Canada", "Australia", "Mexico"].includes(data.country)} value={data.state} onChange={(e) => setData((d) => ({ ...d, state: e.target.value }))} />
+              <label className="field-label field-label-compact" htmlFor="co-postcode">Postal / ZIP code</label>
+              <input className="field field-compact" id="co-postcode" type="text" required value={data.postcode} onChange={(e) => setData((d) => ({ ...d, postcode: e.target.value }))} />
+            </>
+          )}
           <div className="field-hint">
             {hasPrintItem
-              ? "Your print copy will be shipped to this address — please include street, city, and postal code."
+              ? "Your print copy will be printed and shipped to this address."
               : "Books are delivered digitally; this address is used for billing and tax purposes only."}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 10 }}>

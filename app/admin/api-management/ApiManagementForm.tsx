@@ -151,6 +151,21 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
       {/* Print-on-demand + Email                                     */}
       {/* ---------------------------------------------------------- */}
       <h3 style={{ fontSize: 15, margin: "24px 0 10px" }}>Print-on-Demand (Lulu)</h3>
+      <label className="field-label" htmlFor="api-lulu-env">Lulu system print orders are sent to</label>
+      <select
+        className="field"
+        id="api-lulu-env"
+        value={settings.apiKeys.luluEnvironment ?? ""}
+        onChange={(e) => update({ luluEnvironment: (e.target.value || undefined) as "sandbox" | "production" | undefined })}
+      >
+        <option value="">Automatic — follow the Paystack key mode above (Live → Production, Test → Sandbox)</option>
+        <option value="production">Production — real printing and real charges (use your real Lulu keys)</option>
+        <option value="sandbox">Sandbox — test jobs only, never printed or charged (use your Lulu sandbox keys)</option>
+      </select>
+      <p className="field-hint" style={{ margin: "-8px 0 12px" }}>
+        Lulu runs two completely separate systems with separate accounts and keys. An order sent to the Sandbox
+        will never appear in your real Lulu account, and Sandbox keys do not work on Production (or the other way round).
+      </p>
       <div className="form-grid-2">
         <SecretField id="api-lulu-key" label="Client Key" isSet={apiKeysSet.luluClientKey} value={settings.apiKeys.luluClientKey ?? ""} onChange={(v) => update({ luluClientKey: v })} />
         <SecretField id="api-lulu-secret" label="Client Secret" isSet={apiKeysSet.luluClientSecret} value={settings.apiKeys.luluClientSecret ?? ""} onChange={(v) => update({ luluClientSecret: v })} />

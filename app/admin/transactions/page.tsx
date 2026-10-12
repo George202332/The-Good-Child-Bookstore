@@ -5,6 +5,8 @@ import { getTransactionLedger } from "@/actions/transactions";
 import { canViewFinancials } from "@/lib/roles";
 import { TransactionsTable } from "./TransactionsTable";
 import { ResetOrdersButton } from "./ResetOrdersButton";
+import { PrintOrdersPanel } from "./PrintOrdersPanel";
+import { listPrintOrdersNeedingAttention } from "@/actions/print-orders";
 
 /** Unified transaction ledger — every sale and every payout, one table,
  * 7 columns. Financial data, so gated the same way as Analytics (Editor
@@ -20,6 +22,7 @@ export default async function TransactionsPage() {
   if (!canViewFinancials(role)) redirect("/admin");
 
   const rows = await getTransactionLedger();
+  const printOrders = role === "ADMIN" ? await listPrintOrdersNeedingAttention() : [];
 
   return (
     <AdminShell role={role} activeKey="transactions" displayName={session.user.name ?? ""}>
@@ -33,6 +36,7 @@ export default async function TransactionsPage() {
         </div>
         {role === "ADMIN" && <ResetOrdersButton />}
       </div>
+      <PrintOrdersPanel rows={printOrders} />
       <TransactionsTable rows={rows} canDelete={role === "ADMIN"} />
     </AdminShell>
   );

@@ -14,6 +14,7 @@ import { getRequestIp, getRequestUserAgent } from "@/lib/geo";
  * action (a login, a password reset) it's attached to.
  */
 export type AuditAction =
+  | "PRINT_ORDER_RESENT"
   | "LOGIN"
   | "LOGIN_FAILED"
   | "PASSWORD_RESET_REQUESTED"
