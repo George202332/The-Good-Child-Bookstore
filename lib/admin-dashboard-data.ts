@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { canViewFinancials } from "@/lib/roles";
 import type { Role } from "@/lib/roles";
 import { getTransactionLedger } from "@/actions/transactions";
+import { currentMonthStart } from "@/lib/month-range";
 
 /**
  * The single data loader behind the admin dashboard (app/admin/page.tsx)
@@ -27,9 +28,14 @@ export async function loadDashboardData(role: Role) {
   let authorRevenue = 0;
   let affiliateRevenue = 0;
   let totalOrders = 0;
+  let monthCompanyRevenue = 0;
+  let monthAuthorRevenue = 0;
+  let monthAffiliateRevenue = 0;
+  const { start: monthStart, label: monthLabel } = currentMonthStart();
   if (canViewFinancials(role)) {
-    const [agg, orderCount] = await Promise.all([
+    const [agg, monthAgg, orderCount] = await Promise.all([
       prisma.saleLine.aggregate({ _sum: { companyShare: true, authorShare: true, affiliateShare: true }, where: { order: { isTestData } } }),
+      prisma.saleLine.aggregate({ _sum: { companyShare: true, authorShare: true, affiliateShare: true }, where: { order: { isTestData }, createdAt: { gte: monthStart } } }),
       // "Total orders" means orders with a real sale behind them —
       // requiring at least one SaleLine (lines: { some: {} }), not just
       // a PAID status, so it moves in lockstep with real transactions.
@@ -38,6 +44,9 @@ export async function loadDashboardData(role: Role) {
     companyRevenue = Number(agg._sum.companyShare ?? 0);
     authorRevenue = Number(agg._sum.authorShare ?? 0);
     affiliateRevenue = Number(agg._sum.affiliateShare ?? 0);
+    monthCompanyRevenue = Number(monthAgg._sum.companyShare ?? 0);
+    monthAuthorRevenue = Number(monthAgg._sum.authorShare ?? 0);
+    monthAffiliateRevenue = Number(monthAgg._sum.affiliateShare ?? 0);
     totalOrders = orderCount;
   }
 
@@ -59,6 +68,10 @@ export async function loadDashboardData(role: Role) {
     companyRevenue,
     authorRevenue,
     affiliateRevenue,
+    monthCompanyRevenue,
+    monthAuthorRevenue,
+    monthAffiliateRevenue,
+    monthLabel,
     recentTransactions,
   };
 }

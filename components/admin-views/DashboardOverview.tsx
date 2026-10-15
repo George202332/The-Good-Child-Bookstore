@@ -26,6 +26,10 @@ export function DashboardOverview({
   companyRevenue,
   authorRevenue,
   affiliateRevenue,
+  monthCompanyRevenue,
+  monthAuthorRevenue,
+  monthAffiliateRevenue,
+  monthLabel,
   recentTransactions,
   transactionsHref,
 }: {
@@ -41,6 +45,10 @@ export function DashboardOverview({
   companyRevenue: number;
   authorRevenue: number;
   affiliateRevenue: number;
+  monthCompanyRevenue: number;
+  monthAuthorRevenue: number;
+  monthAffiliateRevenue: number;
+  monthLabel: string;
   recentTransactions: TransactionRow[];
   transactionsHref: string;
 }) {
@@ -83,6 +91,7 @@ export function DashboardOverview({
       {canViewFinancials(role) && (
         <>
           <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Who the money belongs to</h3>
+          <h3 style={{ fontSize: 14, margin: "0 0 14px", color: "var(--ink-soft)" }}>All time</h3>
           <div className="stat-grid" style={{ marginBottom: 24 }}>
             <div className="stat-card">
               <div className="stat-label">Company revenue</div>
@@ -102,6 +111,29 @@ export function DashboardOverview({
             <div className="stat-card">
               <div className="stat-label">Total</div>
               <div className="stat-value">${(companyRevenue + authorRevenue + affiliateRevenue).toFixed(2)}</div>
+              <div className="stat-sub">Company + author + affiliate</div>
+            </div>
+          </div>
+          <h3 style={{ fontSize: 14, margin: "0 0 14px", color: "var(--ink-soft)" }}>This month ({monthLabel})</h3>
+          <div className="stat-grid" style={{ marginBottom: 24 }}>
+            <div className="stat-card">
+              <div className="stat-label">Company revenue</div>
+              <div className="stat-value">${monthCompanyRevenue.toFixed(2)}</div>
+              <div className="stat-sub">30% share, this month</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Author payouts</div>
+              <div className="stat-value">${monthAuthorRevenue.toFixed(2)}</div>
+              <div className="stat-sub">This month</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Affiliate payouts</div>
+              <div className="stat-value">${monthAffiliateRevenue.toFixed(2)}</div>
+              <div className="stat-sub">This month</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-label">Total</div>
+              <div className="stat-value">${(monthCompanyRevenue + monthAuthorRevenue + monthAffiliateRevenue).toFixed(2)}</div>
               <div className="stat-sub">Company + author + affiliate</div>
             </div>
           </div>

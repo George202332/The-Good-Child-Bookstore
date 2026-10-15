@@ -239,9 +239,11 @@ export function EbookSubmissionForm({
       authorFirstName, authorLastName,
       description: plainTextFromHtml(descriptionHtml),
       aiDeclaration,
+      publisher,
+      coverImageUrl,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onSharedFieldsChange is expected to be a stable callback from the parent; including it would re-run this on every parent render for no reason.
-  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, aiDeclaration]);
+  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, aiDeclaration, publisher, coverImageUrl]);
 
   const [metadataCheck, setMetadataCheck] = useState<MetadataCheckResult>({ titleFound: true, authorFound: true, checked: false });
   useEffect(() => {

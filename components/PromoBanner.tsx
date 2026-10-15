@@ -13,6 +13,7 @@ export function PromoBanner({
   ctaHref,
   ctaLabel,
   imageUrl,
+  ctas,
 }: {
   tone: "lavender" | "mint" | "pink";
   icon: ReactNode;
@@ -22,6 +23,8 @@ export function PromoBanner({
   ctaHref?: string;
   ctaLabel?: string;
   imageUrl?: string;
+  /** Several buttons side by side (e.g. sign up as a reader / as an author). */
+  ctas?: { href: string; label: string }[];
 }) {
   return (
     <BannerFrame className={bannerClassName(`promo-banner promo-${tone}`, imageUrl)} imageUrl={imageUrl}>
@@ -32,6 +35,15 @@ export function PromoBanner({
           <p>{body}</p>
         </div>
       </div>
+      {ctas && ctas.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {ctas.map((c, i) => (
+            <Link key={c.href} href={c.href} className={`btn btn-small ${i === 0 ? "btn-primary" : "btn-ghost"}`}>
+              {c.label}
+            </Link>
+          ))}
+        </div>
+      )}
       {ctaHref && ctaLabel && (
         <Link href={ctaHref} className="btn btn-primary btn-small">
           {ctaLabel}

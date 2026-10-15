@@ -1,5 +1,6 @@
 "use server";
 
+import { saleModeLabel, payoutModeLabel } from "@/lib/payment-mode";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -38,6 +39,8 @@ export interface TransactionRow {
   affiliateShare: number | null;
   affiliateName: string | null;
   status: string;
+  /** How the money moved: Paystack, PayPal - Card, PayPal - Email, or the payout method. */
+  mode: string;
 }
 
 export async function getTransactionLedger(): Promise<TransactionRow[]> {
@@ -50,14 +53,14 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       prisma.saleLine.findMany({
         include: {
           book: true,
-          order: { include: { reader: { include: { user: true } } } },
+          order: { include: { reader: { include: { user: true } }, paymentLogs: { orderBy: { createdAt: "desc" }, take: 1 } } },
           affiliateLink: { include: { affiliate: { include: { user: true } } } },
         },
         orderBy: { createdAt: "desc" },
         take: 200,
       }),
       prisma.payoutRequest.findMany({
-        include: { user: true },
+        include: { user: true, recipient: { select: { type: true } } },
         orderBy: { requestedAt: "desc" },
         take: 150,
       }),
@@ -72,7 +75,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       authorShare: unknown;
       affiliateShare: unknown;
       book: { title: string };
-      order: { status: string; reader: { user: { name: string } } };
+      order: { status: string; reader: { user: { name: string } }; paymentLogs: { gateway: string; rawPayload: unknown }[] };
       affiliateLink: { affiliate: { user: { name: string } } } | null;
     };
 
@@ -90,6 +93,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
         affiliateShare: Number(s.affiliateShare),
         affiliateName: isAffiliateSale ? s.affiliateLink!.affiliate.user.name : null,
         status: s.order.status,
+        mode: saleModeLabel(s.order.paymentLogs[0]),
       };
     });
 
@@ -99,6 +103,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       amount: unknown;
       status: string;
       user: { name: string };
+      recipient: { type: string } | null;
     }[]).map((p) => ({
       id: p.id,
       date: p.requestedAt.toISOString(),
@@ -111,6 +116,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       affiliateShare: null,
       affiliateName: null,
       status: p.status,
+      mode: payoutModeLabel(p.recipient?.type),
     }));
 
     return [...saleRows, ...payoutRows].sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -128,6 +134,7 @@ export interface TransactionDetail {
   amount: number;
   party: string;
   partyEmail: string;
+  mode: string;
   // Sale-only fields.
   bookTitle?: string;
   saleType?: string;
@@ -163,7 +170,7 @@ export async function getTransactionDetail(id: string, type: "sale" | "payout"):
         where: { id },
         include: {
           book: true,
-          order: { include: { reader: { include: { user: true } } } },
+          order: { include: { reader: { include: { user: true } }, paymentLogs: { orderBy: { createdAt: "desc" }, take: 1 } } },
           affiliateLink: { include: { affiliate: { include: { user: true } } } },
         },
       });
@@ -177,6 +184,7 @@ export async function getTransactionDetail(id: string, type: "sale" | "payout"):
         amount: Number(line.grossAmount),
         party: line.order.reader.user.name,
         partyEmail: line.order.reader.user.email,
+        mode: saleModeLabel(line.order.paymentLogs[0]),
         bookTitle: line.book.title,
         saleType: line.saleType,
         format: line.format,
@@ -189,7 +197,7 @@ export async function getTransactionDetail(id: string, type: "sale" | "payout"):
       };
     }
 
-    const payout = await prisma.payoutRequest.findUnique({ where: { id }, include: { user: true } });
+    const payout = await prisma.payoutRequest.findUnique({ where: { id }, include: { user: true, recipient: { select: { type: true } } } });
     if (!payout) return null;
     return {
       id: payout.id,
@@ -200,6 +208,7 @@ export async function getTransactionDetail(id: string, type: "sale" | "payout"):
       amount: Number(payout.amount),
       party: payout.user.name,
       partyEmail: payout.user.email,
+      mode: payoutModeLabel(payout.recipient?.type),
       currency: payout.currency,
       earningsType: payout.earningsType,
       failureReason: payout.failureReason,

@@ -29,6 +29,9 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
   const visibleFormats = ALL_FORMATS.filter((f) => enabledFormats[f.key]);
   const [activeFormat, setActiveFormat] = useState<Format>(visibleFormats[0]?.key ?? "ebook");
   const [sharedFields, setSharedFields] = useState<SharedSubmissionFields | undefined>(undefined);
+  // Goes up by one each time the "Autofill from eBook" tab is clicked.
+  const [autofillRequest, setAutofillRequest] = useState(0);
+  const canAutofill = enabledFormats.ebook && enabledFormats.print;
 
   if (visibleFormats.length === 0) {
     return (
@@ -54,6 +57,19 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
               {f.label}
             </button>
           ))}
+          {canAutofill && (
+            <button
+              type="button"
+              className="btn btn-small btn-ghost"
+              title="Copy the title, description, cover, author and other details from the eBook / Audiobook tab into the Print Copy form"
+              onClick={() => {
+                setActiveFormat("print");
+                setAutofillRequest((n) => n + 1);
+              }}
+            >
+              Autofill print from eBook
+            </button>
+          )}
         </div>
         <p style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
           {activeFormat === "print"
@@ -62,10 +78,19 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
         </p>
       </div>
 
-      {activeFormat === "ebook" && enabledFormats.ebook && (
-        <EbookSubmissionForm audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setSharedFields} />
+      {/* Both forms stay mounted (the inactive one is just hidden) so nothing typed
+          on one tab is lost when switching, and the Autofill tab always has the
+          eBook details to copy. */}
+      {enabledFormats.ebook && (
+        <div style={{ display: activeFormat === "ebook" ? "block" : "none" }}>
+          <EbookSubmissionForm audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setSharedFields} />
+        </div>
       )}
-      {activeFormat === "print" && enabledFormats.print && <PrintSubmissionForm prefill={sharedFields} />}
+      {enabledFormats.print && (
+        <div style={{ display: activeFormat === "print" ? "block" : "none" }}>
+          <PrintSubmissionForm prefill={sharedFields} autofillRequest={autofillRequest} />
+        </div>
+      )}
     </div>
   );
 }

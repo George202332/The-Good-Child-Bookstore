@@ -1,7 +1,7 @@
 "use client";
 
 import { PublisherField } from "./PublisherField";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitBook, updateBookFull } from "@/actions/submissions";
 import { ImageUploadField } from "@/components/ImageUploadField";
@@ -90,7 +90,17 @@ export interface PrintSubmissionInitial {
  * the numbers shown are a documented, labeled estimate (see
  * lib/lulu-pricing.ts), not a live quote.
  */
-export function PrintSubmissionForm({ prefill, initial }: { prefill?: SharedSubmissionFields; initial?: PrintSubmissionInitial } = {}) {
+export function PrintSubmissionForm({
+  prefill,
+  initial,
+  autofillRequest = 0,
+}: {
+  prefill?: SharedSubmissionFields;
+  initial?: PrintSubmissionInitial;
+  /** Goes up by one each time the author clicks the "Autofill from eBook" tab;
+   * every increase copies the eBook tab's current details into this form. */
+  autofillRequest?: number;
+} = {}) {
   const router = useRouter();
   const editing = !!initial?.bookId;
   const editingPublished = editing && initial?.bookStatus === "PUBLISHED";
@@ -180,6 +190,43 @@ export function PrintSubmissionForm({ prefill, initial }: { prefill?: SharedSubm
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [autofillNote, setAutofillNote] = useState<string | null>(null);
+
+  // The "Autofill from eBook" tab: copy what was entered on the eBook /
+  // Audiobook tab (title, description, cover, author, category, ...) into this
+  // form. Fields the eBook tab left empty are skipped so nothing here is blanked.
+  /* eslint-disable react-hooks/set-state-in-effect -- the copy is a one-off reaction to the author clicking the Autofill tab */
+  useEffect(() => {
+    if (!autofillRequest) return;
+    if (!prefill || !prefill.title.trim()) {
+      setAutofillNote("Nothing to copy yet - fill in the eBook / Audiobook tab first (title, description, cover...).");
+      return;
+    }
+    const copied: string[] = [];
+    const take = (value: string | undefined, set: (v: string) => void, label: string) => {
+      if (value && value.trim()) { set(value); copied.push(label); }
+    };
+    take(prefill.title, setTitle, "title");
+    take(prefill.subtitle, setSubtitle, "subtitle");
+    take(prefill.seriesName, setSeriesName, "series");
+    take(prefill.edition, setEdition, "edition");
+    take(prefill.language, setLanguage, "language");
+    take(prefill.publisher, setPublisher, "publisher");
+    take(prefill.publicationDate, setPublicationDate, "publication date");
+    take(prefill.category, setCategory, "category");
+    take(prefill.genre, setGenre, "genre");
+    take(prefill.subcategory, setSubcategory, "subcategory");
+    take(prefill.ageGroup, setAgeGroup, "age range");
+    take(prefill.readingLevel, setReadingLevel, "reading level");
+    take(prefill.description, setDescription, "description");
+    take(prefill.aiDeclaration, setAiDeclaration, "AI statement");
+    take(prefill.authorFirstName, setAuthorFirstName, "author first name");
+    take(prefill.authorLastName, setAuthorLastName, "author last name");
+    take(prefill.coverImageUrl, setFrontCoverImageUrl, "front cover");
+    setAutofillNote(`Filled in from your eBook details: ${copied.join(", ")}. Check each one, then add the print-only details below.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new click (autofillRequest) should copy; later edits to the eBook tab must not overwrite this form.
+  }, [autofillRequest]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const foilCharsUsed = foilStampTitleText.length + foilStampAuthorText.length;
 
@@ -285,6 +332,11 @@ export function PrintSubmissionForm({ prefill, initial }: { prefill?: SharedSubm
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {autofillNote && (
+        <div className="field-hint" role="status" style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 14px", margin: 0 }}>
+          {autofillNote}
+        </div>
+      )}
       {/* Section 1 */}
       <Card>
         <SectionHeader n={1} title="Book information" sub="Core bibliographic details for the print edition." />

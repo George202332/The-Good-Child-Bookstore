@@ -161,5 +161,7 @@ export function sharedPrefill(book: BookWithRelations, c: { category: string; ge
     authorLastName: str(meta.authorLastName),
     description: (book.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
     aiDeclaration: str(meta.aiDeclaration),
+    publisher: str(meta.publisher),
+    coverImageUrl: book.coverImageUrl ?? "",
   };
 }

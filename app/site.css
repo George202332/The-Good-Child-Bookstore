@@ -2565,3 +2565,7 @@ html.dark-mode .dashboard-content [style*="background"]:not([style*="width"]):no
   background-image:none !important;
   border-color:var(--line) !important;
 }
+
+/* Book Club banner: a second (outline) button beside the main one. */
+.promo-banner .btn-ghost{background:rgba(255,255,255,0.7);border-color:#000;color:#000;}
+.promo-banner .btn-ghost:hover{background:#fff;}

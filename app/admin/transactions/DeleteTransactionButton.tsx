@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { deleteTransaction } from "@/actions/transactions";
 import { Modal } from "@/components/Modal";
 
-export function DeleteTransactionButton({ id, type, detail }: { id: string; type: "sale" | "payout"; detail: string }) {
+export function DeleteTransactionButton({ id, type, detail, onDeleted }: { id: string; type: "sale" | "payout"; detail: string; onDeleted?: () => void }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -17,6 +17,7 @@ export function DeleteTransactionButton({ id, type, detail }: { id: string; type
       if (!res.ok) setError(res.error ?? "Couldn't delete this transaction.");
       else {
         setOpen(false);
+        onDeleted?.();
         router.refresh();
       }
     });

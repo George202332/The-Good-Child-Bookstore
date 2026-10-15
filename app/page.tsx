@@ -226,6 +226,10 @@ export default async function HomePage() {
             title={hero.bookClubBannerTitle}
             body={hero.bookClubBannerBody}
             imageUrl={hero.bookClubBannerImage}
+            ctas={[
+              { href: "/signup/reader", label: "Join as a reader" },
+              { href: "/signup/author", label: "Join as an author" },
+            ]}
           />
         </div>
       </FadeInSection>

@@ -6,7 +6,6 @@ import { EmailVerificationRequired } from "@/components/EmailVerificationRequire
 import { TwoFactorChallengeScreen } from "@/components/TwoFactorChallengeScreen";
 import { SessionInactivityTimer } from "@/components/SessionInactivityTimer";
 import { BackNavigationGuard } from "@/components/BackNavigationGuard";
-import { DarkModeSync } from "@/components/DarkModeSync";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +43,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { email: true, emailVerifiedAt: true, settings: { select: { darkMode: true } } } });
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { email: true, emailVerifiedAt: true } });
   if (!user) redirect("/login");
 
   if (!user.emailVerifiedAt) {
@@ -71,7 +70,6 @@ export default async function AccountLayout({ children }: { children: ReactNode 
     <>
       <SessionInactivityTimer sessionStartedAt={session.signedInAt} />
       <BackNavigationGuard />
-      <DarkModeSync dark={user.settings?.darkMode ?? null} />
       {children}
     </>
   );

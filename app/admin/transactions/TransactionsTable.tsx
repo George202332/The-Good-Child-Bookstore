@@ -21,7 +21,7 @@ const COLUMNS: { label: string; help: string }[] = [
   { label: "Company", help: "The company's share of this sale." },
   { label: "Royalty", help: "The author's share (royalty) of this sale." },
   { label: "Commission", help: "The affiliate's commission on this sale, and which affiliate earned it, if any." },
-  { label: "Action", help: "Permanently delete this record." },
+  { label: "Mode", help: "How the money moved: Paystack, PayPal - Card, PayPal - Email, or (for a payout) the method it is sent by." },
 ];
 
 /**
@@ -91,15 +91,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                     <td style={{ ...TD, color: r.affiliateShare ? "#165236" : "var(--ink-faint)", fontWeight: r.affiliateShare ? 700 : 400 }}>
                       {r.affiliateShare !== null ? `$${r.affiliateShare.toFixed(2)}${r.affiliateName ? ` (${r.affiliateName})` : ""}` : "—"}
                     </td>
-                    <td style={TD} onClick={(e) => e.stopPropagation()}>
-                      {canDelete && (
-                        loadingKey === rowKey ? (
-                          <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Loading…</span>
-                        ) : (
-                          <DeleteTransactionButton id={r.id} type={kind} detail={r.detail} />
-                        )
-                      )}
-                    </td>
+                    <td style={{ ...TD, whiteSpace: "nowrap" }}>{loadingKey === rowKey ? <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Loading…</span> : r.mode}</td>
                   </tr>
                 );
               })
@@ -124,6 +116,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                 <DetailRow label="Date" value={new Date(detail.date).toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })} />
                 <DetailRow label={detail.kind === "payout" ? "Recipient" : "Buyer"} value={`${detail.party} (${detail.partyEmail})`} />
                 <DetailRow label="Amount" value={`$${detail.amount.toFixed(2)}`} />
+                <DetailRow label="Mode" value={detail.mode} />
 
                 {detail.kind === "sale" ? (
                   <>
@@ -143,6 +136,11 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                     <DetailRow label="Failure reason" value={detail.failureReason ?? "—"} />
                     <DetailRow label="Resolved" value={detail.resolvedAt ? new Date(detail.resolvedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—"} />
                   </>
+                )}
+                {canDelete && (
+                  <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+                    <DeleteTransactionButton id={detail.id} type={detail.kind} detail={detail.bookTitle ?? detail.type} onDeleted={() => setDetail(null)} />
+                  </div>
                 )}
               </div>
             )}

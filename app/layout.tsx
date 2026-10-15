@@ -130,8 +130,9 @@ const JSON_LD = {
 
 const DARK_MODE_INIT_SCRIPT = `
 try {
-  var m = document.cookie.match(/(?:^|; )gcb-dark-mode=([^;]*)/);
-  if (m && m[1] === "1") document.documentElement.classList.add("dark-mode");
+  // Dark mode no longer exists. Clear any leftover choice so nobody is stuck in it.
+  document.documentElement.classList.remove("dark-mode");
+  document.cookie = "gcb-dark-mode=; path=/; max-age=0";
 } catch (e) {}
 `;
 

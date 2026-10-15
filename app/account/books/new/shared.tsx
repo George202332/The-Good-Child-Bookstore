@@ -44,4 +44,7 @@ export interface SharedSubmissionFields {
   authorLastName: string;
   description: string;
   aiDeclaration: string;
+  publisher: string;
+  /** The eBook's front cover image (a URL), reused as the print front cover. */
+  coverImageUrl: string;
 }
