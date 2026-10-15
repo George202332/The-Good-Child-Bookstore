@@ -10,13 +10,12 @@ import { auth } from "@/lib/auth";
 
 export interface MySettings {
   darkMode: boolean;
-  reduceMotion: boolean;
   notifyPayouts: boolean;
   notifyReviews: boolean;
   notifyBlogComments: boolean;
 }
 
-const DEFAULT_SETTINGS: MySettings = { darkMode: false, reduceMotion: false, notifyPayouts: true, notifyReviews: true, notifyBlogComments: true };
+const DEFAULT_SETTINGS: MySettings = { darkMode: false, notifyPayouts: true, notifyReviews: true, notifyBlogComments: true };
 
 // Readable client-side (not httpOnly) so the root layout's tiny inline
 // script (see app/layout.tsx) can apply dark mode before first paint
@@ -29,7 +28,41 @@ export async function getMySettings(): Promise<MySettings> {
   const session = await auth();
   if (!session?.user) return DEFAULT_SETTINGS;
   const settings = await prisma.settings.findUnique({ where: { userId: session.user.id } });
-  return settings ?? DEFAULT_SETTINGS;
+  if (!settings) return DEFAULT_SETTINGS;
+  return {
+    darkMode: settings.darkMode,
+    notifyPayouts: settings.notifyPayouts,
+    notifyReviews: settings.notifyReviews,
+    notifyBlogComments: settings.notifyBlogComments,
+  };
+}
+
+/** Saves just the dark-mode choice (called the moment the toggle is flipped,
+ * so the whole account goes light/dark straight away and stays that way on
+ * every device) and refreshes the cookie the page-load script reads. */
+export async function setMyDarkMode(darkMode: boolean): Promise<{ ok: boolean }> {
+  const session = await auth();
+  if (!session?.user) return { ok: false };
+  await prisma.settings.upsert({
+    where: { userId: session.user.id },
+    update: { darkMode },
+    create: { userId: session.user.id, darkMode },
+  });
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set(DARK_MODE_COOKIE, darkMode ? "1" : "0", { maxAge: 60 * 60 * 24 * 365, path: "/", sameSite: "lax" });
+  } catch {
+    // Non-critical.
+  }
+  return { ok: true };
+}
+
+/** Whether this user has dark mode on (for the account layout's sync). */
+export async function getMyDarkMode(): Promise<boolean | null> {
+  const session = await auth();
+  if (!session?.user) return null;
+  const s = await prisma.settings.findUnique({ where: { userId: session.user.id }, select: { darkMode: true } });
+  return s ? s.darkMode : null;
 }
 
 export async function updateMySettings(input: MySettings): Promise<{ ok: boolean; error?: string }> {

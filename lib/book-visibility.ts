@@ -126,6 +126,20 @@ export function resolveFormatPrice(book: FormatPricingInput, format: SaleFormat)
   }
 }
 
+/** When several formats of one book are on sale, the price shown first is
+ * the eBook's, then the audiobook's, then the paperback's, then the
+ * hardcover's. */
+export const HEADLINE_FORMAT_ORDER: readonly SaleFormat[] = ["ebook", "audiobook", "paperback", "hardcover"];
+
+export function headlineFormat(book: FormatPricingInput): SaleFormat | null {
+  return HEADLINE_FORMAT_ORDER.find((f) => isFormatPurchasable(book, f)) ?? null;
+}
+
+export function headlinePrice(book: FormatPricingInput): number | null {
+  const f = headlineFormat(book);
+  return f ? resolveFormatPrice(book, f) : null;
+}
+
 /** Is the format genuinely on sale for this book? The audiobook needs the
  * flag, an uploaded AUDIOBOOK file AND a price. */
 export function isFormatPurchasable(book: FormatPricingInput, format: SaleFormat): boolean {

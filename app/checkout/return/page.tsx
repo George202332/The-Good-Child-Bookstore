@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { verifyPaystackTransaction } from "@/lib/payments/paystack";
+import { capturePaypalOrder, evaluatePaypalCapture } from "@/lib/payments/paypal";
 import { finalizeOrderPayment } from "@/lib/payments/finalize";
 import { saveCardIfReusable } from "@/actions/payment-methods";
 import { prisma } from "@/lib/prisma";
@@ -14,7 +15,7 @@ import { prisma } from "@/lib/prisma";
 export default async function CheckoutReturnPage({
   searchParams,
 }: {
-  searchParams: Promise<{ gateway?: string; orderId?: string; reference?: string; trxref?: string }>;
+  searchParams: Promise<{ gateway?: string; orderId?: string; reference?: string; trxref?: string; token?: string }>;
 }) {
   const params = await searchParams;
   const { gateway, orderId } = params;
@@ -56,6 +57,33 @@ export default async function CheckoutReturnPage({
     if (order?.status === "PAID") {
       redirect(`/checkout/confirmation?order=${orderId}`);
     }
+  }
+
+  if (gateway === "paypal") {
+    // PayPal sends the buyer back with ?token=<PayPal order id> once they have
+    // approved. We capture the money here, then only trust it if it is for THIS
+    // order and exactly its total, as recorded in our own database.
+    const paypalToken = params.token;
+    if (paypalToken) {
+      try {
+        const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true, totalAmount: true } });
+        if (order?.status === "PAID") redirect(`/checkout/confirmation?order=${orderId}`);
+        if (order?.status === "PENDING") {
+          const captured = await capturePaypalOrder(paypalToken);
+          const verdict = evaluatePaypalCapture(captured, orderId, Number(order.totalAmount));
+          if (verdict.ok) {
+            await finalizeOrderPayment(orderId, "PAYPAL", { source: "return_redirect", paypalOrderId: paypalToken, captured });
+            redirect(`/checkout/confirmation?order=${orderId}`);
+          }
+        }
+      } catch (e) {
+        if (e instanceof Error && e.message === "NEXT_REDIRECT") throw e;
+        // Next.js redirects carry a digest instead of the plain message.
+        if (typeof e === "object" && e && "digest" in e && String((e as { digest: unknown }).digest).startsWith("NEXT_REDIRECT")) throw e;
+      }
+    }
+    const paid = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
+    if (paid?.status === "PAID") redirect(`/checkout/confirmation?order=${orderId}`);
   }
 
   // Payment wasn't confirmed by either path — back to checkout rather

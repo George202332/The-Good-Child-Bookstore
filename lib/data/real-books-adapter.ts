@@ -1,12 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { hashStr } from "@/lib/hash";
 import { BOOKS, PALETTES, type Book, type MotifKind } from "@/lib/data/catalog";
+import { LULU_CONFIG } from "@/lib/lulu-config";
 import { categoryOfSubcategory, type BookCategory } from "@/lib/taxonomy";
 import { attributeCategory, countBooksByCategory, type CategoryAttributionInput } from "@/lib/category-counts";
 import { genreLabelFromShelfId, shelfIdFromGenreLabel } from "@/lib/shelf-mapping";
 import {
   effectiveRestrictedCountries,
   isBookVisibleToVisitor,
+  headlinePrice,
   isFormatPurchasable,
   isRestrictedForCountries,
   isSellOnStoreDisabled,
@@ -78,7 +80,8 @@ interface RealBookRow {
 
 function toCatalogBook(row: RealBookRow): Book {
   const seed = hashStr(row.id);
-  const price = Number(row.price);
+  // Headline price: eBook, else audiobook, else paperback, else hardcover.
+  const price = headlinePrice(row) ?? Number(row.price);
   const avgRating = row.ratings.length > 0 ? row.ratings.reduce((s, r) => s + r.stars, 0) / row.ratings.length : 0;
   const meta = (row.submissionMetadata as {
     affiliateEnabled?: boolean;
@@ -93,9 +96,14 @@ function toCatalogBook(row: RealBookRow): Book {
     dimensions?: string;
     fileSizeKB?: number;
     publisher?: string;
+    trimSizeCode?: string;
     publicationDate?: string;
     aiDeclaration?: string;
   } | null) ?? null;
+  // A print-only title is described by its chosen trim size (the real size of
+  // the printed book); an eBook by the dimensions read from its manuscript.
+  const printOnly = row.hasPrint && !row.hasEbook && !row.hasAudiobook;
+  const trimLabel = LULU_CONFIG.trimSizes.find((t) => t.code === meta?.trimSizeCode)?.label;
   const submittedAuthorName = meta?.authorFirstName || meta?.authorLastName
     ? `${meta.authorFirstName ?? ""} ${meta.authorLastName ?? ""}`.trim()
     : null;
@@ -164,12 +172,13 @@ function toCatalogBook(row: RealBookRow): Book {
     // Real page count when the manuscript's was auto-detected (or the
     // author entered one) at submission — the seed-based placeholder
     // only covers older books submitted before this was captured.
-    pages: meta?.pages ?? 24 + (seed % 40),
+    // 0 = the author never gave one; the product page then hides the field.
+    pages: meta?.pages ?? 0,
     language: row.language,
-    dimensions: meta?.dimensions,
-    publisher: meta?.publisher,
+    dimensions: printOnly ? (trimLabel ?? meta?.dimensions) : meta?.dimensions,
+    publisher: meta?.publisher?.trim() || undefined,
     aiDeclaration: meta?.aiDeclaration,
-    fileSizeKB: meta?.fileSizeKB,
+    fileSizeKB: printOnly ? undefined : meta?.fileSizeKB,
     format: [row.hasEbook && "eBook", row.hasPrint && "Print", row.hasAudiobook && "Audiobook"].filter(Boolean).join(", ") || "eBook",
     blurb: row.description ?? "",
     featured: meta?.includeInPromotions ?? false,

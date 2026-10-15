@@ -10,7 +10,7 @@ import {
 
 type Where = Record<string, unknown>;
 
-function fakeDb(opts: { book?: unknown; reviews?: { id: string }[]; blog?: unknown; sameTitleBooks?: number; sameTitleBlogs?: number; failDelete?: boolean }) {
+function fakeDb(opts: { book?: unknown; reviews?: { id: string }[]; saleLines?: { id: string }[]; blog?: unknown; sameTitleBooks?: number; sameTitleBlogs?: number; failDelete?: boolean }) {
   const deletes: Where[] = [];
   const db = {
     notification: {
@@ -22,6 +22,7 @@ function fakeDb(opts: { book?: unknown; reviews?: { id: string }[]; blog?: unkno
     },
     book: { findUnique: async () => opts.book ?? null, count: async () => opts.sameTitleBooks ?? 0 },
     review: { findMany: async () => opts.reviews ?? [] },
+    saleLine: { findMany: async () => opts.saleLines ?? [] },
     blog: { findUnique: async () => opts.blog ?? null, count: async () => opts.sameTitleBlogs ?? 0 },
   };
   return { db: db as unknown as Prisma.TransactionClient, deletes };

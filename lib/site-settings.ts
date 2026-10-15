@@ -47,6 +47,11 @@ export interface ApiKeys {
   paymentMode: "test" | "live";
   paystackSecretKey?: string;
   paystackPublicKey?: string;
+  /** PayPal REST app credentials (developer.paypal.com) for PayPal checkout. */
+  paypalClientId?: string;
+  paypalClientSecret?: string;
+  /** "sandbox" = test payments, "live" = real money. */
+  paypalEnvironment?: "sandbox" | "live";
 }
 
 export interface PublishingFormatsEnabled {

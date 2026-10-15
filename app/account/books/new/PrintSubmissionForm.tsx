@@ -1,5 +1,6 @@
 "use client";
 
+import { PublisherField } from "./PublisherField";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitBook, updateBookFull } from "@/actions/submissions";
@@ -32,6 +33,7 @@ export interface PrintSubmissionInitial {
   edition?: string;
   isbn?: string;
   language?: string;
+  publisher?: string;
   publicationDate?: string;
   category?: string;
   genre?: string;
@@ -103,6 +105,7 @@ export function PrintSubmissionForm({ prefill, initial }: { prefill?: SharedSubm
   const [edition, setEdition] = useState(initial?.edition ?? prefill?.edition ?? "");
   const [isbn, setIsbn] = useState(initial ? (initial.isbn ?? "") : "978-1-59299-541-7");
   const [language, setLanguage] = useState(initial?.language || prefill?.language || LANGUAGES[0]);
+  const [publisher, setPublisher] = useState(initial?.publisher ?? "");
   const [publicationDate, setPublicationDate] = useState(initial?.publicationDate ?? prefill?.publicationDate ?? "");
   const [category, setCategory] = useState(initial?.category ?? prefill?.category ?? "");
   const [genre, setGenre] = useState(initial?.genre ?? prefill?.genre ?? "");
@@ -212,6 +215,7 @@ export function PrintSubmissionForm({ prefill, initial }: { prefill?: SharedSubm
         authorLastName,
         edition,
         seriesName,
+        publisher: publisher.trim() || undefined,
         publicationDate,
         coAuthors,
         illustrator,
@@ -312,6 +316,7 @@ export function PrintSubmissionForm({ prefill, initial }: { prefill?: SharedSubm
             </select>
           </div>
         </div>
+        <PublisherField id="p-publisher" value={publisher} onChange={setPublisher} />
         <label className="field-label" htmlFor="p-pubdate">Publication date</label>
         <input className="field" id="p-pubdate" type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} />
         <div className="form-grid-3">

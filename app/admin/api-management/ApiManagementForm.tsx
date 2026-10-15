@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateSiteSettings, testPaystackConnection, sendTestEmail } from "@/actions/site-settings";
+import { updateSiteSettings, testPaystackConnection, testPaypalConnection, sendTestEmail } from "@/actions/site-settings";
 import type { SiteSettings } from "@/lib/site-settings";
 import { SHIPPING_LEVELS, normaliseEnabledLevels } from "@/lib/lulu-order";
 
@@ -66,6 +66,16 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
     const res = await testPaystackConnection();
     setTesting(false);
     setTestResult(res);
+  }
+
+  const [paypalResult, setPaypalResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [testingPaypal, setTestingPaypal] = useState(false);
+  async function handleTestPaypal() {
+    setTestingPaypal(true);
+    setPaypalResult(null);
+    const res = await testPaypalConnection();
+    setTestingPaypal(false);
+    setPaypalResult(res);
   }
 
   async function handleTestEmail() {
@@ -144,6 +154,36 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
         {testResult && (
           <div className="field-hint" style={{ color: testResult.ok ? "#165236" : "var(--coral-deep)", marginTop: 8 }}>
             {testResult.message}
+          </div>
+        )}
+      </div>
+
+      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>PayPal (checkout — pay with PayPal)</h4>
+      <p className="field-hint" style={{ margin: "0 0 10px" }}>
+        Create a &quot;REST API app&quot; at developer.paypal.com (Apps &amp; Credentials), then paste its Client ID and
+        Secret here. The PayPal button only appears at checkout once both are saved.
+      </p>
+      <label className="field-label" htmlFor="api-paypal-env">PayPal environment</label>
+      <select
+        className="field"
+        id="api-paypal-env"
+        value={settings.apiKeys.paypalEnvironment ?? "sandbox"}
+        onChange={(e) => update({ paypalEnvironment: e.target.value as "sandbox" | "live" })}
+      >
+        <option value="sandbox">Sandbox — test payments, no real money</option>
+        <option value="live">Live — real payments, real money</option>
+      </select>
+      <div className="form-grid-2">
+        <SecretField id="api-paypal-id" label="Client ID" type="text" isSet={apiKeysSet.paypalClientId} value={settings.apiKeys.paypalClientId ?? ""} onChange={(v) => update({ paypalClientId: v })} />
+        <SecretField id="api-paypal-secret" label="Client Secret" isSet={apiKeysSet.paypalClientSecret} value={settings.apiKeys.paypalClientSecret ?? ""} onChange={(v) => update({ paypalClientSecret: v })} />
+      </div>
+      <div style={{ marginTop: 8, marginBottom: 20 }}>
+        <button type="button" className="btn btn-ghost btn-small" disabled={testingPaypal} onClick={handleTestPaypal}>
+          {testingPaypal ? "Testing…" : "Test PayPal connection"}
+        </button>
+        {paypalResult && (
+          <div className="field-hint" style={{ color: paypalResult.ok ? "#165236" : "var(--coral-deep)", marginTop: 8 }}>
+            {paypalResult.message}
           </div>
         )}
       </div>

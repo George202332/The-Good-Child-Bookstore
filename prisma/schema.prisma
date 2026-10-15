@@ -315,6 +315,7 @@ model AuthorProfile {
   referredBy         AffiliateProfile? @relation("AffiliateReferrals", fields: [referredById], references: [id], onDelete: SetNull)
   books              Book[]
   aliases            AuthorAlias[]
+  publishers         AuthorPublisher[]
 }
 
 /** A pen name / display name a real author has used when submitting a
@@ -333,6 +334,19 @@ model AuthorAlias {
   createdAt       DateTime      @default(now())
 
   @@unique([authorProfileId, firstName, lastName])
+  @@index([authorProfileId])
+}
+
+/** A publisher name an author has used before, remembered so the
+ * Publisher dropdown on the eBook and print forms can offer it again. */
+model AuthorPublisher {
+  id              String        @id @default(cuid())
+  authorProfileId String
+  authorProfile   AuthorProfile @relation(fields: [authorProfileId], references: [id], onDelete: Cascade)
+  name            String
+  createdAt       DateTime      @default(now())
+
+  @@unique([authorProfileId, name])
   @@index([authorProfileId])
 }
 

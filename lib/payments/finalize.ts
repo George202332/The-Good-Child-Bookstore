@@ -16,7 +16,7 @@ import { reportSystemError } from "@/lib/site-health/alert";
  * return-page catch falls back to its own DB-status check). */
 export async function finalizeOrderPayment(
   orderId: string,
-  gateway: "PAYSTACK",
+  gateway: "PAYSTACK" | "PAYPAL",
   rawPayload: unknown
 ): Promise<void> {
   let order;

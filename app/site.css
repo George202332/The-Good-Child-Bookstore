@@ -2534,3 +2534,34 @@
     display:flex;align-items:center;justify-content:center;padding:12px;
   }
   .subcat-popover.subcat-popover-modal{position:relative;left:auto;top:auto;width:min(360px,100%);}
+
+
+/* ---- Dark mode: dashboard cards carry no colour ----
+   In dark mode every card in the signed-in account area is one neutral
+   surface: no tinted fills, gradients or coloured left borders - including
+   cards coloured by inline styles (activity feed, notices, tinted panels).
+   Progress bars and charts (inline width/height) and buttons keep theirs. */
+html.dark-mode .dashboard-content .stat-card,
+html.dark-mode .dashboard-content .map-card,
+html.dark-mode .dashboard-content .tinted-blue,
+html.dark-mode .dashboard-content .tinted-peach,
+html.dark-mode .dashboard-content .tinted-cream,
+html.dark-mode .dashboard-content .tinted-green,
+html.dark-mode .dashboard-content .tinted-red,
+html.dark-mode .dashboard-content .activity-feed-item{
+  background:var(--paper) !important;
+  background-image:none !important;
+  border-color:var(--line) !important;
+  box-shadow:none;
+}
+html.dark-mode .dashboard-content .activity-feed-item{border-left:3px solid var(--line-strong) !important;filter:none;}
+html.dark-mode .dashboard-content .activity-feed-item > span{background:rgba(255,255,255,0.08) !important;}
+html.dark-mode .dashboard-content .activity-feed-item svg{stroke:var(--ink-soft);}
+html.dark-mode .dashboard-content .stat-card .stat-label,
+html.dark-mode .dashboard-content .stat-card .stat-sub{color:var(--ink-faint) !important;}
+html.dark-mode .dashboard-content .stat-card .stat-value{color:var(--ink) !important;}
+html.dark-mode .dashboard-content [style*="background"]:not([style*="width"]):not([style*="height"]):not(button):not(.btn):not(a.btn):not(.toggle-slider):not(.activity-feed-item){
+  background:var(--paper) !important;
+  background-image:none !important;
+  border-color:var(--line) !important;
+}

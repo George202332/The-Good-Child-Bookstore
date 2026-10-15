@@ -57,7 +57,7 @@ const FORMAT_LABELS: Record<FormatKey, string> = {
  */
 export function BookDetailClient({ book, isRealBook, allBooks, restricted = false }: { book: Book; isRealBook: boolean; allBooks: Book[]; restricted?: boolean }) {
   const b = book;
-  const [format, setFormat] = useState<FormatKey>("print");
+  const [chosenFormat, setFormat] = useState<FormatKey | null>(null);
   const { addItem } = useCart();
   const router = useRouter();
   const { has, toggle } = useWishlist();
@@ -102,9 +102,13 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
   const isFormatAvailable: Record<FormatKey, boolean> = {
     ebook: availableFormats.ebook, audiobook: availableFormats.audiobook, paperback: availableFormats.paperback, print: availableFormats.hardcover,
   };
-  const effectiveFormat: FormatKey = isFormatAvailable[format]
-    ? format
-    : ((["ebook", "audiobook", "paperback", "print"] as FormatKey[]).find((f) => isFormatAvailable[f]) ?? format);
+  // Until the visitor picks a format, show the highest-priority one on sale:
+  // eBook, then audiobook, then paperback, then hardcover.
+  const effectiveFormat: FormatKey =
+    chosenFormat && isFormatAvailable[chosenFormat]
+      ? chosenFormat
+      : ((["ebook", "audiobook", "paperback", "print"] as FormatKey[]).find((f) => isFormatAvailable[f]) ?? "ebook");
+  const format = effectiveFormat;
 
   // An audiobook-only title has no manuscript: no sample to read, and no
   // page count / trim size / file size to show.
@@ -260,7 +264,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 18l-6-6 6-6" /></svg>
               </button>
               <div className="az-details-row" id={`details-track-${b.id}`}>
-                {!audiobookOnly && (
+                {!audiobookOnly && (!isRealBook || b.pages > 0) && (
                   <div className="az-detail-item">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 2h9l3 3v17H6z" /><path d="M14 2v4h4" /></svg>
                     <strong>{b.pages}</strong><span>Pages</span>
@@ -292,20 +296,26 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={4} width={18} height={18} rx={2} /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
                   <strong>{b.pubDate}</strong><span>Published</span>
                 </div>
+                {(!isRealBook || b.publisher) && (
                 <div className="az-detail-item az-detail-item-wide">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={7} width={18} height={14} rx={2} /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                   <strong>{b.publisher || "Good Child Press"}</strong><span>Publisher</span>
                 </div>
+                )}
                 {!audiobookOnly && (
                   <>
+                    {(!isRealBook || b.dimensions) && (
                     <div className="az-detail-item">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={4} y={3} width={16} height={18} rx={1} /><path d="M8 3v18M16 3v18" /></svg>
                       <strong>{b.dimensions || "5.5 × 8.5 in"}</strong><span>Dimensions</span>
                     </div>
+                    )}
+                    {(!isRealBook || b.fileSizeKB) && (
                     <div className="az-detail-item">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
                       <strong>{formatFileSize(b.fileSizeKB, b.pages)}</strong><span>File Size</span>
                     </div>
+                    )}
                   </>
                 )}
               </div>

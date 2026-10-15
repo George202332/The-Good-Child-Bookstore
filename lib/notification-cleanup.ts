@@ -73,7 +73,10 @@ export async function prepareBookNotificationCleanup(bookId: string, db: Db = pr
       select: { title: true, author: { select: { user: { select: { id: true } } } } },
     });
     const reviews = await db.review.findMany({ where: { bookId }, select: { id: true } });
-    const ids = clean([bookId, ...reviews.map((r: { id: string }) => r.id)]);
+    // Each sale of the book has its own "A copy just sold" / royalty
+    // notification (keyed by the sale line's id), so those go with the book too.
+    const saleLines = await db.saleLine.findMany({ where: { bookId }, select: { id: true } });
+    const ids = clean([bookId, ...reviews.map((r: { id: string }) => r.id), ...saleLines.map((l: { id: string }) => l.id)]);
 
     const ownerId = book?.author?.user?.id ?? null;
     const title = book?.title ?? null;
@@ -93,7 +96,7 @@ export async function prepareBookNotificationCleanup(bookId: string, db: Db = pr
             where: {
               userId: ownerId,
               relatedRecordId: null,
-              type: { in: ["BOOK_PUBLISHED", "REVISION", "REVIEW"] },
+              type: { in: ["BOOK_PUBLISHED", "REVISION", "REVIEW", "SALE", "REVENUE_ROYALTY"] },
               title: { in: legacyTitles },
             },
           });
@@ -237,3 +240,75 @@ export const clearBlogLiveNotices = (blogId: string) =>
   clearSupersededNotifications(blogId, [...BLOG_LIVE_NOTIFICATION_TYPES, ...BLOG_NOT_LIVE_NOTIFICATION_TYPES]);
 /** A payout is resolved: any earlier outcome notice for it is replaced. */
 export const clearPayoutNotices = (payoutId: string) => clearSupersededNotifications(payoutId, ["PAYOUT"]);
+
+// ---------------------------------------------------------------------------
+// Orphaned activity
+// ---------------------------------------------------------------------------
+
+/** The notification types that make up the author's Recent activity feed. */
+export const ACTIVITY_NOTIFICATION_TYPES = ["SALE", "REVIEW", "BOOK_PUBLISHED"] as const;
+
+export interface ActivityNoticeInput {
+  id: string;
+  type: string;
+  title: string;
+  relatedRecordId: string | null;
+}
+
+/**
+ * Pure rule: which activity notices point at something that no longer
+ * exists. A notice with a related id is orphaned when that id is not among
+ * the ids still present for its type; an older notice with no related id is
+ * orphaned when the book title it carries matches none of the owner's
+ * remaining books.
+ */
+export function findOrphanedActivityIds(
+  notices: readonly ActivityNoticeInput[],
+  alive: { saleLineIds: ReadonlySet<string>; reviewIds: ReadonlySet<string>; bookIds: ReadonlySet<string>; bookTitles: ReadonlySet<string> },
+): string[] {
+  const orphaned: string[] = [];
+  for (const n of notices) {
+    if (!(ACTIVITY_NOTIFICATION_TYPES as readonly string[]).includes(n.type)) continue;
+    if (n.relatedRecordId) {
+      const set = n.type === "SALE" ? alive.saleLineIds : n.type === "REVIEW" ? alive.reviewIds : alive.bookIds;
+      if (!set.has(n.relatedRecordId)) orphaned.push(n.id);
+    } else if (!alive.bookTitles.has(n.title)) {
+      orphaned.push(n.id);
+    }
+  }
+  return orphaned;
+}
+
+/**
+ * Removes this user's Recent-activity notifications whose sale, review or
+ * book has since been deleted (including ones deleted before the cleanup
+ * rule existed). Best-effort and never throws. Returns how many were removed.
+ */
+export async function pruneOrphanedActivity(userId: string, db: Db = prisma): Promise<number> {
+  try {
+    const notices = await db.notification.findMany({
+      where: { userId, type: { in: [...ACTIVITY_NOTIFICATION_TYPES] } },
+      select: { id: true, type: true, title: true, relatedRecordId: true },
+    });
+    if (notices.length === 0) return 0;
+
+    const related = (type: string) => notices.filter((n: ActivityNoticeInput) => n.type === type && n.relatedRecordId).map((n: ActivityNoticeInput) => n.relatedRecordId as string);
+    const [saleLines, reviews, books, ownBooks] = await Promise.all([
+      db.saleLine.findMany({ where: { id: { in: related("SALE") } }, select: { id: true } }),
+      db.review.findMany({ where: { id: { in: related("REVIEW") } }, select: { id: true } }),
+      db.book.findMany({ where: { id: { in: related("BOOK_PUBLISHED") }, deletedByAuthorAt: null }, select: { id: true } }),
+      db.book.findMany({ where: { author: { userId }, deletedByAuthorAt: null }, select: { title: true } }),
+    ]);
+    const orphaned = findOrphanedActivityIds(notices, {
+      saleLineIds: new Set(saleLines.map((r: { id: string }) => r.id)),
+      reviewIds: new Set(reviews.map((r: { id: string }) => r.id)),
+      bookIds: new Set(books.map((r: { id: string }) => r.id)),
+      bookTitles: new Set(ownBooks.map((r: { title: string }) => r.title)),
+    });
+    if (orphaned.length === 0) return 0;
+    await db.notification.deleteMany({ where: { id: { in: orphaned } } });
+    return orphaned.length;
+  } catch {
+    return 0;
+  }
+}

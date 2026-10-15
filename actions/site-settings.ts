@@ -77,6 +77,8 @@ export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSetti
     resendApiKey: !!settings.apiKeys.resendApiKey,
     paystackSecretKey: !!settings.apiKeys.paystackSecretKey,
     paystackPublicKey: !!settings.apiKeys.paystackPublicKey,
+    paypalClientId: !!settings.apiKeys.paypalClientId,
+    paypalClientSecret: !!settings.apiKeys.paypalClientSecret,
   };
   return {
     settings: {
@@ -91,6 +93,9 @@ export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSetti
         fromEmail: settings.apiKeys.fromEmail ?? "",
         paystackSecretKey: "",
         paystackPublicKey: "",
+        paypalClientId: "",
+        paypalClientSecret: "",
+        paypalEnvironment: settings.apiKeys.paypalEnvironment,
       },
     },
     apiKeysSet,
@@ -127,6 +132,23 @@ export async function testPaystackConnection(): Promise<{ ok: boolean; message: 
     return { ok: false, message: `Paystack responded with an unexpected status (${res.status}). The key format may be valid, but something else is wrong — check Paystack's own dashboard for account issues.` };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? `Could not reach Paystack: ${e.message}` : "Could not reach Paystack." };
+  }
+}
+
+export async function testPaypalConnection(): Promise<{ ok: boolean; message: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, message: "Only Admins can do this." };
+  const { getPaypalCredentials } = await import("@/lib/api-keys");
+  const { testPaypalCredentials } = await import("@/lib/payments/paypal");
+  const { clientId, clientSecret, environment } = await getPaypalCredentials();
+  if (!clientId || !clientSecret) {
+    return { ok: false, message: "No PayPal Client ID and Secret found. Enter both above and save first." };
+  }
+  try {
+    await testPaypalCredentials();
+    return { ok: true, message: `Connected successfully to PayPal (${environment === "live" ? "live - real money" : "sandbox - test payments"}). PayPal accepted the Client ID and Secret.` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? `${e.message} Make sure the Sandbox/Live choice matches where the keys were created.` : "Could not reach PayPal." };
   }
 }
 
@@ -227,6 +249,11 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
       fromEmail: settings.apiKeys.fromEmail?.trim() || existing.apiKeys.fromEmail,
       paystackSecretKey: settings.apiKeys.paystackSecretKey?.trim() || existing.apiKeys.paystackSecretKey,
       paystackPublicKey: settings.apiKeys.paystackPublicKey?.trim() || existing.apiKeys.paystackPublicKey,
+      paypalClientId: settings.apiKeys.paypalClientId?.trim() || existing.apiKeys.paypalClientId,
+      paypalClientSecret: settings.apiKeys.paypalClientSecret?.trim() || existing.apiKeys.paypalClientSecret,
+      paypalEnvironment: settings.apiKeys.paypalEnvironment === "live" || settings.apiKeys.paypalEnvironment === "sandbox"
+        ? settings.apiKeys.paypalEnvironment
+        : existing.apiKeys.paypalEnvironment,
     };
 
     // The payout-method toggles have their own action

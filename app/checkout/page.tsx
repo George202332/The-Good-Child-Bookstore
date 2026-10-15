@@ -8,7 +8,7 @@ import type { Book } from "@/lib/data/catalog";
 import { Motif } from "@/components/Motif";
 import { useCart, type CartItem } from "@/hooks/useCart";
 import { createPendingOrder, confirmOrderPaidDirectly } from "@/actions/orders";
-import { initiateGatewayCheckout } from "@/actions/payment-init";
+import { initiateGatewayCheckout, initiatePayPalCheckout, isPaypalAvailable } from "@/actions/payment-init";
 import { resolveCartBooks } from "@/actions/cart-books";
 import { getShippingOptions, type ShippingOptionRow } from "@/actions/shipping-options";
 import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } from "@/actions/payment-methods";
@@ -104,6 +104,10 @@ function CheckoutPageInner() {
     cardCvv: "",
   });
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paypalReady, setPaypalReady] = useState(false);
+  useEffect(() => {
+    isPaypalAvailable().then(setPaypalReady).catch(() => setPaypalReady(false));
+  }, []);
   const [submitting, setSubmitting] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethodRow[]>([]);
   const [resolvedBooks, setResolvedBooks] = useState<Book[] | null>(null);
@@ -235,6 +239,35 @@ function CheckoutPageInner() {
       return;
     }
     router.push(`/checkout/confirmation?order=${created.orderId}`);
+  }
+
+  async function payWithPayPal() {
+    setPaymentError(null);
+    if (hasRestricted) return;
+    setSubmitting(true);
+    const created = await createPendingOrder({
+      items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
+      guestEmail: data.email,
+      guestName: data.fullName,
+      shipName: data.fullName,
+      shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
+      shipCountry: data.country,
+      shipAddress: shipAddressValue,
+      shippingLevel: hasPrintItem ? shippingLevel : undefined,
+    });
+    if (!created.ok || !created.orderId) {
+      setSubmitting(false);
+      setPaymentError(created.error ?? "Something went wrong creating your order.");
+      return;
+    }
+    const result = await initiatePayPalCheckout(created.orderId);
+    if (!result.ok || !result.redirectUrl) {
+      setSubmitting(false);
+      setPaymentError(result.error ?? "Something went wrong starting PayPal.");
+      return;
+    }
+    // eslint-disable-next-line react-hooks/immutability -- navigation in a click handler, not during render
+    window.location.href = result.redirectUrl;
   }
 
   async function completeOrder() {
@@ -527,6 +560,22 @@ function CheckoutPageInner() {
                 </div>
               ))}
               <div className="auth-divider" style={{ marginTop: 14 }}><span /><small>Or pay with a new card</small><span /></div>
+            </div>
+          )}
+
+          {paypalReady && (
+            <div style={{ marginBottom: 16 }}>
+              <button
+                type="button"
+                className="btn btn-block"
+                disabled={submitting || hasRestricted}
+                onClick={payWithPayPal}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#FFC439", color: "#111", fontWeight: 700 }}
+              >
+                <PaymentBadgeIcon type="paypal" width={44} height={28} />
+                {submitting ? "Processing…" : `Pay $${grandTotal.toFixed(2)} with PayPal`}
+              </button>
+              <div className="auth-divider" style={{ marginTop: 14 }}><span /><small>Or pay with a card</small><span /></div>
             </div>
           )}
 

@@ -40,6 +40,9 @@ export async function listMyNotifications(): Promise<NotificationRow[]> {
   const session = await auth();
   if (!session?.user) return [];
   try {
+    // Drop activity (sales, reviews, published books) whose item was deleted.
+    const { pruneOrphanedActivity } = await import("@/lib/notification-cleanup");
+    await pruneOrphanedActivity(session.user.id);
     const notifications = await prisma.notification.findMany({
       where: { userId: session.user.id },
       orderBy: { createdAt: "desc" },

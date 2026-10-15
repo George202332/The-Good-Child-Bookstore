@@ -56,3 +56,13 @@ export async function getPaystackCredentials(): Promise<{ secretKey: string | un
   };
 }
 
+
+export async function getPaypalCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined; environment: "sandbox" | "live" }> {
+  const stored = await getStoredApiKeys();
+  const envName = (stored?.paypalEnvironment ?? process.env.PAYPAL_ENV ?? "sandbox").toLowerCase();
+  return {
+    clientId: stored?.paypalClientId?.trim() || process.env.PAYPAL_CLIENT_ID,
+    clientSecret: stored?.paypalClientSecret?.trim() || process.env.PAYPAL_CLIENT_SECRET,
+    environment: envName === "live" ? "live" : "sandbox",
+  };
+}

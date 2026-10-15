@@ -8,6 +8,7 @@ import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
+import { PublisherField } from "./PublisherField";
 import { AuthorAliasField } from "./AuthorAliasField";
 import { KeywordsField } from "./KeywordsField";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
@@ -133,7 +134,7 @@ export function EbookSubmissionForm({
   const [seriesName, setSeriesName] = useState(initial?.seriesName ?? "");
   const [seriesNumber, setSeriesNumber] = useState(initial?.seriesNumber ?? "");
   const [language, setLanguage] = useState(initial?.language || LANGUAGES[0]);
-  const [publisher, setPublisher] = useState(initial?.publisher ?? "The Good Child Bookstore");
+  const [publisher, setPublisher] = useState(initial?.publisher ?? "");
   const [publicationDate, setPublicationDate] = useState(initial?.publicationDate ?? "");
   const [originalPublicationDate, setOriginalPublicationDate] = useState(initial?.originalPublicationDate ?? "");
   const [isbn, setIsbn] = useState(initial?.isbn ?? "");
@@ -461,10 +462,7 @@ export function EbookSubmissionForm({
               {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
-          <div>
-            <label className="field-label" htmlFor="f-publisher">Publisher</label>
-            <input className="field" id="f-publisher" type="text" value={publisher} onChange={(e) => setPublisher(e.target.value)} />
-          </div>
+          <PublisherField id="f-publisher" value={publisher} onChange={setPublisher} />
         </div>
         <div className="form-grid-2">
           <div>

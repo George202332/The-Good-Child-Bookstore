@@ -1,7 +1,9 @@
 "use server";
 
 import { initializePaystackTransaction } from "@/lib/payments/paystack";
-import { getPaystackCredentials } from "@/lib/api-keys";
+import { getPaystackCredentials, getPaypalCredentials } from "@/lib/api-keys";
+import { createPaypalOrder } from "@/lib/payments/paypal";
+import { prisma } from "@/lib/prisma";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 
 /**
@@ -50,5 +52,35 @@ export async function initiateGatewayCheckout(
     return { ok: true, configured: true, redirectUrl: authorizationUrl };
   } catch (e) {
     return { ok: false, configured: true, error: e instanceof Error ? e.message : "Paystack error." };
+  }
+}
+
+/** Whether PayPal can be offered at checkout. Reports only yes/no - the
+ * credentials themselves never leave the server. */
+export async function isPaypalAvailable(): Promise<boolean> {
+  const { clientId, clientSecret } = await getPaypalCredentials();
+  return !!clientId && !!clientSecret;
+}
+
+/**
+ * Starts a PayPal payment for an already-created pending order and returns
+ * the PayPal page to send the buyer to. The amount charged is read from our
+ * own order record, never taken from the browser.
+ */
+export async function initiatePayPalCheckout(orderId: string): Promise<{ ok: boolean; redirectUrl?: string; error?: string }> {
+  if (!(await isPaypalAvailable())) return { ok: false, error: "PayPal isn't available right now." };
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true, totalAmount: true } });
+  if (!order || order.status !== "PENDING") return { ok: false, error: "This order can't be paid for." };
+  const base = getPublicSiteUrl();
+  try {
+    const { approvalUrl } = await createPaypalOrder(
+      orderId,
+      Number(order.totalAmount),
+      `${base}/checkout/return?gateway=paypal&orderId=${orderId}`,
+      `${base}/checkout?payment_failed=1`,
+    );
+    return { ok: true, redirectUrl: approvalUrl };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "PayPal error." };
   }
 }

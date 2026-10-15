@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateMySettings, type MySettings } from "@/actions/settings";
+import { updateMySettings, setMyDarkMode, type MySettings } from "@/actions/settings";
+import { applyDarkMode } from "@/components/DarkModeSync";
 
 export function SettingsForm({ initial }: { initial: MySettings }) {
   const router = useRouter();
@@ -22,7 +23,6 @@ export function SettingsForm({ initial }: { initial: MySettings }) {
 
   const toggles: { key: keyof MySettings; label: string }[] = [
     { key: "darkMode", label: "Dark mode" },
-    { key: "reduceMotion", label: "Reduce motion" },
     { key: "notifyPayouts", label: "Notify me about payouts" },
     { key: "notifyReviews", label: "Notify me about new reviews" },
     { key: "notifyBlogComments", label: "Notify me about blog comments" },
@@ -33,7 +33,15 @@ export function SettingsForm({ initial }: { initial: MySettings }) {
       {toggles.map((t) => (
         <div className="toggle-row" key={t.key}>
           <label className="toggle-switch">
-            <input type="checkbox" checked={settings[t.key]} onChange={(e) => setSettings((s) => ({ ...s, [t.key]: e.target.checked }))} />
+            <input type="checkbox" checked={settings[t.key]} onChange={(e) => {
+                const on = e.target.checked;
+                setSettings((s) => ({ ...s, [t.key]: on }));
+                // Dark mode takes effect (and is saved) the moment it is flipped.
+                if (t.key === "darkMode") {
+                  applyDarkMode(on);
+                  void setMyDarkMode(on);
+                }
+              }} />
             <span className="toggle-slider" />
           </label>
           <span>{t.label}</span>

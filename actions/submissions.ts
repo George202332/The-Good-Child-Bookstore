@@ -50,6 +50,46 @@ export async function rememberAuthorAlias(firstName: string, lastName: string): 
   }
 }
 
+export interface AuthorPublisherRow {
+  id: string;
+  name: string;
+}
+
+/** Every publisher name this author has used before — powers the
+ * "Publisher" dropdown on the eBook and print forms. */
+export async function listMyPublishers(): Promise<AuthorPublisherRow[]> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "AUTHOR") return [];
+  const profile = await prisma.authorProfile.findUnique({ where: { userId: session.user.id } });
+  if (!profile) return [];
+  try {
+    const rows = await prisma.authorPublisher.findMany({ where: { authorProfileId: profile.id }, orderBy: { createdAt: "asc" } });
+    return rows.map((r: { id: string; name: string }) => ({ id: r.id, name: r.name }));
+  } catch {
+    return [];
+  }
+}
+
+/** Remembers a publisher name for future submissions. Safe to call on every
+ * submit/update; does nothing if the name is blank or already on file. */
+export async function rememberPublisher(name: string): Promise<void> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "AUTHOR") return;
+  const clean = name.trim().slice(0, 120);
+  if (!clean) return;
+  const profile = await prisma.authorProfile.findUnique({ where: { userId: session.user.id } });
+  if (!profile) return;
+  try {
+    await prisma.authorPublisher.upsert({
+      where: { authorProfileId_name: { authorProfileId: profile.id, name: clean } },
+      update: {},
+      create: { authorProfileId: profile.id, name: clean },
+    });
+  } catch {
+    // Non-critical.
+  }
+}
+
 /**
  * Real book submission — a full port of the original's submission form
  * (collectSubmissionFormData()), rebuilt to match the exact reference
@@ -418,6 +458,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
   if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
 
+  await rememberPublisher((input.metadata as { publisher?: string }).publisher ?? "");
   const authorFirstName = (input.metadata as { authorFirstName?: string }).authorFirstName;
   const authorLastName = (input.metadata as { authorLastName?: string }).authorLastName;
   if (authorFirstName?.trim() && authorLastName?.trim()) {
@@ -603,6 +644,7 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   if (!prepared.ok) return { ok: false, error: prepared.error };
   const prep = prepared.value;
 
+  await rememberPublisher((input.metadata as { publisher?: string }).publisher ?? "");
   const authorFirstName = (input.metadata as { authorFirstName?: string }).authorFirstName;
   const authorLastName = (input.metadata as { authorLastName?: string }).authorLastName;
   if (authorFirstName?.trim() && authorLastName?.trim()) {
