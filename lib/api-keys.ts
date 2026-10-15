@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { ApiKeys } from "@/lib/site-settings";
-import { resolveLuluEnvironment, type LuluEnvironment } from "@/lib/lulu-order";
+import { resolveLuluEnvironment, normaliseEnabledLevels, type LuluEnvironment, type LuluShippingLevel } from "@/lib/lulu-order";
 
 /**
  * Resolves live credentials, preferring what's saved in Site Settings
@@ -30,6 +30,13 @@ async function getStoredApiKeys(): Promise<ApiKeys | null> {
 export async function getLuluEnvironment(): Promise<LuluEnvironment> {
   const stored = await getStoredApiKeys();
   return resolveLuluEnvironment({ stored: stored?.luluEnvironment, envVar: process.env.LULU_ENV, paymentMode: stored?.paymentMode });
+}
+
+/** Shipping methods the store offers customers for printed copies (set in
+ * Admin → API Management). Defaults to all of them. */
+export async function getEnabledShippingLevels(): Promise<LuluShippingLevel[]> {
+  const stored = await getStoredApiKeys();
+  return normaliseEnabledLevels(stored?.luluShippingLevels);
 }
 
 export async function getLuluCredentials(): Promise<{ clientKey: string | undefined; clientSecret: string | undefined }> {

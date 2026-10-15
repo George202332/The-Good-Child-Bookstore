@@ -13,6 +13,7 @@ import { PieChart } from "@/components/charts/PieChart";
 import { LiveRefresher } from "@/components/LiveRefresher";
 import { PayoutHoldBanner } from "@/components/PayoutHoldBanner";
 import { computePayoutStatCards } from "@/lib/payout-monthly";
+import { hasFileDownload } from "@/lib/delivery-format";
 
 export const dynamic = "force-dynamic";
 
@@ -35,11 +36,13 @@ interface AuthorBook {
 
 interface OrderLine {
   book: { title: string };
+  format?: string | null;
 }
 interface OrderWithLines {
   id: string;
   totalAmount: unknown;
   createdAt: Date;
+  status?: string;
   lines: OrderLine[];
 }
 
@@ -90,6 +93,11 @@ export default async function AccountPage() {
     });
     const orders = (user?.readerProfile?.orders ?? []) as OrderWithLines[];
     const booksPurchased = orders.reduce((sum: number, o: OrderWithLines) => sum + o.lines.length, 0);
+    // Only eBook and audiobook purchases come with a file download; printed
+    // copies are shipped by Lulu, so they are not counted here.
+    const downloadsAvailable = orders
+      .filter((o: OrderWithLines) => o.status === "PAID")
+      .reduce((sum: number, o: OrderWithLines) => sum + o.lines.filter((l) => hasFileDownload(l.format)).length, 0);
     const recentOrders = orders.slice(0, 3);
     // Wishlist is tracked client-side (localStorage, see useWishlist) rather
     // than in the database, so there's no server-side count to show here.
@@ -126,8 +134,8 @@ export default async function AccountPage() {
           </div>
           <div className="stat-card">
             <div className="stat-label">Downloads</div>
-            <div className="stat-value">{booksPurchased}</div>
-            <div className="stat-sub">Available across all devices</div>
+            <div className="stat-value">{downloadsAvailable}</div>
+            <div className="stat-sub">eBooks &amp; audiobooks only</div>
           </div>
           <div className="stat-card">
             <div className="stat-label">Wishlist</div>
@@ -343,7 +351,7 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div className="dash-grid-main" style={{ marginBottom: 20 }}>
+        <div className="dash-grid-main dash-aligned" style={{ marginBottom: 20 }}>
           <div className="map-card" style={{ padding: 20 }}>
             <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales trend: {now.getFullYear()}</h3>
             <BarChart data={monthBuckets.map((m) => ({ label: m.label, value: m.count }))} color="#165236" />
@@ -362,7 +370,7 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div className="dash-grid-2-tight" style={{ marginBottom: 16 }}>
+        <div className="dash-grid-2-tight dash-aligned" style={{ marginBottom: 20 }}>
           <div className="map-card" style={{ padding: 14 }}>
             <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Affiliate snapshot</h3>
             {isAffiliateToo ? (
@@ -409,7 +417,7 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div className="dash-grid-2-tight">
+        <div className="dash-grid-2-tight dash-aligned">
           <div className="map-card" style={{ padding: 14 }}>
             <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Average rating</h3>
             <div className="rb-card" style={{ border: "none", padding: 0 }}>

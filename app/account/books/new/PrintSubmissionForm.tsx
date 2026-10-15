@@ -11,6 +11,7 @@ import { Ean13Barcode } from "@/components/Ean13Barcode";
 import { LULU_CONFIG, buildPodPackageId, labelForCode } from "@/lib/lulu-config";
 import { computePrintPricing } from "@/lib/lulu-pricing";
 import { computeCoverGeometry } from "@/lib/cover-preview";
+import { detectTrimFromPageSize, formatInches, type DetectedTrim } from "@/lib/trim-size";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 
 import { CATEGORIES, GENRES, subcategoriesFor } from "@/lib/taxonomy";
@@ -92,7 +93,11 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
   const [hardcoverEnabled, setHardcoverEnabled] = useState(true);
 
   // Section 5
-  const [trimCode, setTrimCode] = useState(LULU_CONFIG.trimSizes[2].code);
+  const [trimCode, setTrimCode] = useState(LULU_CONFIG.trimSizes.find((t) => t.code === "0600X0900")?.code ?? LULU_CONFIG.trimSizes[0].code);
+  // The trim size is read from the uploaded interior PDF's page size, so it
+  // always matches the file Lulu will print from.
+  const [detectedTrim, setDetectedTrim] = useState<DetectedTrim | null>(null);
+  const [trimProblem, setTrimProblem] = useState<string | null>(null);
   const [paperbackBinding, setPaperbackBinding] = useState(PAPERBACK_BINDINGS[0].code);
   const [interiorColor, setInteriorColor] = useState(LULU_CONFIG.interiorColors[0].code);
   const [printQuality, setPrintQuality] = useState(LULU_CONFIG.printQualities[0].code);
@@ -355,6 +360,19 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
               } else {
                 setPrintDimensionsAutoDetected(false);
               }
+              if (typeof result?.pageWidthIn === "number" && typeof result?.pageHeightIn === "number") {
+                const found = detectTrimFromPageSize(result.pageWidthIn, result.pageHeightIn, LULU_CONFIG.trimSizes);
+                setDetectedTrim(found);
+                if (found) {
+                  setTrimCode(found.code);
+                  setTrimProblem(null);
+                } else {
+                  setTrimProblem(`Your PDF's pages are ${formatInches(result.pageWidthIn, result.pageHeightIn)}, which doesn't match any trim size we can print. Re-export the interior at the exact trim size (or trim size plus 0.125 in bleed) and upload it again.`);
+                }
+              } else {
+                setDetectedTrim(null);
+                setTrimProblem(null);
+              }
             }}
             fillWidth
           />
@@ -430,6 +448,21 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
         <SectionHeader n={5} title="Book specifications" sub="Every option here maps directly to a Lulu Print API POD Package code." />
         <label className="field-label">Trim size</label>
         <ButtonGroup options={LULU_CONFIG.trimSizes} value={trimCode} onChange={setTrimCode} />
+        {detectedTrim && detectedTrim.code === trimCode && (
+          <div className="field-hint">
+            Picked automatically from your uploaded PDF ({detectedTrim.label}{detectedTrim.withBleed ? ", with bleed" : ""}).
+          </div>
+        )}
+        {detectedTrim && detectedTrim.code !== trimCode && (
+          <div className="field-hint" role="alert" style={{ color: "var(--coral-deep)" }}>
+            Your uploaded PDF is {detectedTrim.label}, but a different trim size is selected. Lulu will reject the book unless they match.{" "}
+            <button type="button" className="btn btn-ghost btn-small" onClick={() => setTrimCode(detectedTrim.code)}>Use {detectedTrim.label}</button>
+          </div>
+        )}
+        {trimProblem && <div className="field-hint" role="alert" style={{ color: "var(--coral-deep)" }}>{trimProblem}</div>}
+        {!detectedTrim && !trimProblem && (
+          <div className="field-hint">The trim size is picked automatically once you upload the print-ready PDF above.</div>
+        )}
         {paperbackEnabled && (
           <>
             <label className="field-label">Paperback binding</label>

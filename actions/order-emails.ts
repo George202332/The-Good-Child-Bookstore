@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { getPublicSiteUrl as getSiteUrl } from "@/lib/seo/site-url";
+import { hasFileDownload } from "@/lib/delivery-format";
 
 /**
  * Sends the order receipt + download-link email — the piece that was
@@ -35,7 +36,9 @@ export async function sendOrderReceiptEmail(orderId: string): Promise<void> {
           if (l.book.files.some((f) => f.kind === "AUDIOBOOK")) {
             downloadLine = `<p style="margin:4px 0"><a href="${siteUrl}/api/downloads/${l.bookId}?format=audiobook">Download the audiobook "${l.book.title}"</a></p>`;
           }
-        } else if (l.format !== "paperback" && l.format !== "hardcover") {
+        } else if (!hasFileDownload(l.format)) {
+          downloadLine = `<p style="margin:4px 0;color:#6b6178;font-size:13px">Printed and shipped to you by Lulu — no file download for this copy.</p>`;
+        } else {
           const downloadUrl = l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url;
           if (downloadUrl) downloadLine = `<p style="margin:4px 0"><a href="${siteUrl}${downloadUrl}">Download "${l.book.title}"</a></p>`;
         }

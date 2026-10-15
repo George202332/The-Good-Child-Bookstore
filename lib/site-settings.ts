@@ -37,6 +37,9 @@ export interface ApiKeys {
    * never printed or charged) or "production" (real printing and charges).
    * Unset = follow LULU_ENV, else the Paystack key mode. */
   luluEnvironment?: "sandbox" | "production";
+  /** Shipping methods customers may pick for printed copies (Lulu
+   * shipping_level values). Unset/empty = all methods offered. */
+  luluShippingLevels?: string[];
   resendApiKey?: string;
   fromEmail?: string;
   /** A label for which kind of Paystack key is currently entered below —

@@ -46,6 +46,7 @@ const createPendingOrderSchema = z.object({
   shipPhone: z.string().max(50).optional(),
   shipCountry: z.string().max(100).optional(),
   shipAddress: z.string().max(1000).optional(),
+  shippingLevel: z.string().max(30).optional(),
 });
 
 /**
@@ -174,6 +175,8 @@ export async function createPendingOrder(input: {
   shipPhone?: string;
   shipCountry?: string;
   shipAddress?: string;
+  /** Shipping method chosen for printed copies (a Lulu shipping_level). */
+  shippingLevel?: string;
 }): Promise<CreateOrderResult> {
   const parsed = createPendingOrderSchema.safeParse(input);
   if (!parsed.success) {
@@ -211,6 +214,32 @@ export async function createPendingOrder(input: {
       return { ok: false, error: `"${book.title}" isn't available as ${FORMAT_NAME[item.format]}. Please remove it from your cart and try again.` };
     }
     lines.push({ ...item, book, unitPrice });
+  }
+
+  // Printed copies are made and shipped by Lulu, which needs a complete
+  // delivery address and contact details. Check them here, before anyone is
+  // charged, so an order can never reach Lulu half-filled. (The checkout
+  // page asks for every one of these; this is the authoritative check.)
+  const hasPrintLine = lines.some((l) => l.format === "paperback" || l.format === "hardcover");
+  let shippingLevel: string | null = null;
+  if (hasPrintLine) {
+    const { buildLuluAddress, shippingProblems } = await import("@/lib/lulu-order");
+    const addr = buildLuluAddress({
+      name: input.shipName || input.guestName || "",
+      email: input.guestEmail ?? "x@x.x",
+      rawAddress: input.shipAddress,
+      countryIso: shipIso ?? "",
+      phone: input.shipPhone,
+    });
+    // The email is taken from the account when signed in, so it is not part of this check.
+    const problems = shippingProblems({ ...addr, email: "ok" });
+    if (!addr.phone_number) problems.push("a phone number is required for delivery");
+    if (problems.length > 0) {
+      return { ok: false, error: `Printed copies need a complete delivery address: ${problems.join("; ")}.` };
+    }
+    const { getEnabledShippingLevels } = await import("@/lib/api-keys");
+    const { resolveShippingLevel } = await import("@/lib/lulu-order");
+    shippingLevel = resolveShippingLevel(input.shippingLevel, shipIso ?? "", await getEnabledShippingLevels());
   }
 
   const { readerProfileId, error, tempPassword } = await resolveReaderProfileId(input.guestEmail, input.guestName);
@@ -278,6 +307,7 @@ export async function createPendingOrder(input: {
       shipPhone: input.shipPhone?.trim() || null,
       shipCountry: input.shipCountry?.trim() || null,
       shipAddress: input.shipAddress?.trim() || null,
+      shippingLevel,
       lines: {
         create: lines.map((l) => {
           const lineGross = +(l.unitPrice * l.qty).toFixed(2);

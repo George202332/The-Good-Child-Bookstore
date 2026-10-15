@@ -1,31 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { submitContactForm } from "@/actions/contact";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
+import { CONTACT_TOPICS } from "@/lib/contact-guard";
 
 // Replaces the old, too-short ["Order", "Subscription", "Recommendation",
 // "Something else"] list — "Subscription" removed per explicit request
 // (the platform doesn't offer one), and broadened to cover the realistic
 // range of reasons someone actually emails a children's bookstore.
-const TOPIC_OPTIONS = [
-  "Order issue",
-  "Book recommendation",
-  "Author inquiry",
-  "Affiliate inquiry",
-  "Technical or website issue",
-  "Refund or return",
-  "Partnership or press",
-  "General feedback",
-  "Something else",
-];
+const TOPIC_OPTIONS: readonly string[] = CONTACT_TOPICS;
 
 /** Converted from contactHTML() (the-good-child-bookstore_54_1.html:6156-6208). */
 export function ContactPageClient({ eyebrow, heading, introText, bodyHtml }: { eyebrow: string; heading: string; introText: string; bodyHtml?: string }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [topic, setTopic] = useState(TOPIC_OPTIONS[0]);
+  const [topic, setTopic] = useState<string>(TOPIC_OPTIONS[0]);
+  // Bot protection: when the form appeared (a script submits instantly),
+  // a hidden trap field, and the Cloudflare Turnstile token.
+  const [startedAt, setStartedAt] = useState(0);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- timestamp can only be read in the browser, after the form is shown
+    setStartedAt(Date.now());
+  }, []);
 
   const isOther = topic === "Something else";
 
@@ -82,6 +82,9 @@ export function ContactPageClient({ eyebrow, heading, introText, bodyHtml }: { e
               email: String(data.get("email") ?? ""),
               topic: selectedTopic === "Something else" && otherDetails ? `Something else: ${otherDetails}` : selectedTopic,
               message: String(data.get("message") ?? ""),
+              honeypot: String(data.get("website") ?? ""),
+              startedAt,
+              turnstileToken,
             });
             setSubmitting(false);
             if (!res.ok) {
@@ -95,6 +98,7 @@ export function ContactPageClient({ eyebrow, heading, introText, bodyHtml }: { e
             setSubmitted(true);
             form.reset();
             setTopic(TOPIC_OPTIONS[0]);
+            setStartedAt(Date.now());
           }}
         >
           <h3>Send us a message</h3>
@@ -140,8 +144,19 @@ export function ContactPageClient({ eyebrow, heading, introText, bodyHtml }: { e
           )}
           <div className="field-group">
             <label htmlFor="c-message">Message</label>
-            <textarea className="field-premium" id="c-message" name="message" placeholder="Tell us a little about what you need" required />
+            <textarea className="field-premium" id="c-message" maxLength={5000} name="message" placeholder="Tell us a little about what you need" required />
           </div>
+          {/* Honeypot — invisible and skipped by keyboard users, but a form-filling
+              bot will still complete it (see lib/contact-guard.ts). */}
+          <input
+            type="text"
+            name="website"
+            tabIndex={-1}
+            autoComplete="off"
+            style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+            aria-hidden="true"
+          />
+          <TurnstileWidget onToken={setTurnstileToken} />
           <button className="btn btn-primary btn-block" type="submit" disabled={submitting}>
             {submitting ? "Sending…" : "Send message"}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: 16, height: 16 }}>

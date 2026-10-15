@@ -102,8 +102,44 @@ test("lineProblems and print job body", () => {
   const body = buildLuluPrintJobBody({ externalId: "ord1", contactEmail: "s@x.com", address, lines: [line] });
   assert.equal(body.external_id, "ord1");
   assert.equal(body.shipping_level, "MAIL");
-  assert.equal(body.line_items[0].pod_package_id, "0600X0900BWSTDPB060UW444MXX");
+  assert.equal(body.line_items[0].printable_normalization.pod_package_id, "0600X0900BWSTDPB060UW444MXX");
   assert.equal(body.line_items[0].quantity, 2);
   assert.equal(body.line_items[0].printable_normalization.cover.source_url, "https://x/c.png");
   assert.equal(body.shipping_address.country_code, "KE");
+});
+
+import { composeShipAddress as compose2, parseShipAddress as parse2, shippingLevelsFor, resolveShippingLevel, normaliseEnabledLevels } from "../lib/lulu-order";
+
+test("five-line address keeps street line 2 and never confuses city with state", () => {
+  const raw = compose2({ street: "12 Main St", street2: "Apt 4", city: "Nairobi", postcode: "00100" });
+  assert.equal(raw.split("\n").length, 5);
+  assert.deepEqual(parse2(raw), { street1: "12 Main St", street2: "Apt 4", city: "Nairobi", state: "", postcode: "00100" });
+  const full = compose2({ street: "1 A St", city: "Austin", state: "Texas", postcode: "73301" });
+  assert.deepEqual(parse2(full), { street1: "1 A St", city: "Austin", state: "Texas", postcode: "73301" });
+});
+
+test("shipping methods: country rules, defaults and fallbacks", () => {
+  assert.equal(normaliseEnabledLevels(undefined).length, 5);
+  assert.equal(normaliseEnabledLevels(["nonsense"]).length, 5);
+  assert.deepEqual(normaliseEnabledLevels(["EXPRESS", "MAIL"]), ["MAIL", "EXPRESS"]);
+  assert.ok(shippingLevelsFor("US", undefined).some((l) => l.id === "GROUND"));
+  assert.ok(!shippingLevelsFor("KE", undefined).some((l) => l.id === "GROUND"));
+  assert.equal(resolveShippingLevel("EXPRESS", "KE", undefined), "EXPRESS");
+  assert.equal(resolveShippingLevel("GROUND", "KE", undefined), "MAIL");
+  assert.equal(resolveShippingLevel("EXPRESS", "KE", ["MAIL"]), "MAIL");
+  assert.equal(resolveShippingLevel(null, "KE", ["PRIORITY_MAIL"]), "PRIORITY_MAIL");
+  // Everything the country allows switched off -> standard mail still offered.
+  assert.deepEqual(shippingLevelsFor("KE", ["GROUND"]).map((l) => l.id), ["MAIL"]);
+});
+
+test("print job body carries the chosen shipping level and no stray line-level package id", () => {
+  const address = buildLuluAddress({ name: "Jo", email: "j@x.com", countryIso: "KE", rawAddress: "1 Moi Ave\n\nNairobi\n\n00100", phone: "+254700000000" });
+  const body = buildLuluPrintJobBody({
+    externalId: "o1", contactEmail: "s@x.com", address, shippingLevel: "EXPRESS",
+    lines: [{ title: "B", podPackageId: "0600X0900BWSTDPB060UW444MXX", coverUrl: "https://x/c.pdf", interiorUrl: "https://x/i.pdf", quantity: 1 }],
+  });
+  assert.equal(body.shipping_level, "EXPRESS");
+  assert.ok(!("pod_package_id" in body.line_items[0]));
+  assert.equal(body.shipping_address.street1, "1 Moi Ave");
+  assert.equal(body.shipping_address.city, "Nairobi");
 });

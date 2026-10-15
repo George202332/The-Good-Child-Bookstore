@@ -16,8 +16,13 @@
 export const LULU_CONFIG = {
   trimSizes: [
     { label: "5 x 8 in", code: "0500X0800" },
+    { label: "5.25 x 8 in", code: "0525X0800" },
     { label: "5.5 x 8.5 in", code: "0550X0850" },
+    { label: "5.83 x 8.27 in (A5)", code: "0583X0827" },
     { label: "6 x 9 in", code: "0600X0900" },
+    { label: "6.14 x 9.21 in (Royal)", code: "0614X0921" },
+    { label: "7 x 10 in", code: "0700X1000" },
+    { label: "8.5 x 8.5 in (Square)", code: "0850X0850" },
     { label: "8.5 x 11 in", code: "0850X1100" },
     { label: "8.27 x 11.69 in (A4)", code: "0827X1169" },
   ],

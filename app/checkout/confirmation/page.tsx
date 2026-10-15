@@ -67,6 +67,11 @@ export default async function CheckoutConfirmationPage({
                   Download available from your Library once the file is on record.
                 </p>
               )}
+              {it.isPrint && (
+                <p style={{ fontSize: 12, color: "var(--ink-faint)", margin: "0 0 4px" }}>
+                  Printed and shipped by Lulu — there is no file download for this copy.
+                </p>
+              )}
               {it.isPrint && order.printJobStatus === "SUBMITTED" && (
                 <p style={{ fontSize: 12, color: "#165236", margin: 0, fontWeight: 600 }}>
                   ✓ Sent to our print partner for production — this copy will ship to the address you provided.

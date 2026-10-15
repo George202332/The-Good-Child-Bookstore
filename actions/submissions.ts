@@ -8,6 +8,8 @@ import { isCategory, isGenre, isSubcategoryOf } from "@/lib/taxonomy";
 import { parseRestrictedCountries } from "@/lib/book-country-restriction";
 import { needsReReview, fileRefKey } from "@/lib/revision-trigger";
 import { resolveFormats } from "@/lib/submission-formats";
+import { detectTrimFromPageSize, formatInches } from "@/lib/trim-size";
+import { LULU_CONFIG } from "@/lib/lulu-config";
 
 export interface AuthorAliasRow {
   id: string;
@@ -360,6 +362,37 @@ function prepareSubmission(input: SubmitBookInput, opts: { lenient?: boolean } =
   return { ok: true, value: { ...names, taxonomyColumns, restrictedCountries, metadata, hasEbook, ebookPrice, hasAudiobook, audiobookPrice, basePrice } };
 }
 
+/** Reads the first page size of the uploaded interior PDF and sets the
+ * trim size (and the package code built from it) to match. A PDF that
+ * matches no printable size is refused when submitting for review, with a
+ * plain explanation; a draft is saved as-is. */
+async function alignTrimSizeWithPdf(input: SubmitBookInput): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const file = await prisma.uploadedFile.findUnique({ where: { id: input.manuscriptFileId! } });
+    if (!file || file.mimeType !== "application/pdf") return { ok: true };
+    const { PDFDocument } = await import("pdf-lib");
+    const doc = await PDFDocument.load(file.data);
+    if (doc.getPageCount() === 0) return { ok: true };
+    const { width, height } = doc.getPage(0).getSize();
+    const found = detectTrimFromPageSize(width / 72, height / 72, LULU_CONFIG.trimSizes);
+    if (!found) {
+      if (!input.submitForReview) return { ok: true };
+      return {
+        ok: false,
+        error: `Your print-ready PDF's pages are ${formatInches(width / 72, height / 72)}, which doesn't match any trim size we can print. Re-export the interior at the exact trim size (or the trim size plus 0.125 in bleed) and upload it again.`,
+      };
+    }
+    const meta = input.metadata as { trimSizeCode?: string; podPackageId?: string };
+    if (meta.trimSizeCode && meta.trimSizeCode !== found.code) {
+      if (meta.podPackageId) meta.podPackageId = meta.podPackageId.replace(meta.trimSizeCode, found.code);
+      meta.trimSizeCode = found.code;
+    }
+  } catch {
+    // An unreadable PDF is reported elsewhere (page count, review); never block here.
+  }
+  return { ok: true };
+}
+
 export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
   const session = await auth();
   if (session?.user?.role !== "AUTHOR") {
@@ -374,6 +407,13 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   const prepared = prepareSubmission(input);
   if (!prepared.ok) return { ok: false, error: prepared.error };
   const prep = prepared.value;
+
+  // Print titles: the trim size sent to Lulu must be the one the interior
+  // PDF is really laid out for, so it is read from the file itself.
+  if (input.formats.print && input.manuscriptFileId) {
+    const fixed = await alignTrimSizeWithPdf(input);
+    if (!fixed.ok) return { ok: false, error: fixed.error };
+  }
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
   if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };

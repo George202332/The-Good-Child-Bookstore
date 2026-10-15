@@ -220,6 +220,17 @@ model SignupAttempt {
   @@index([ip, createdAt])
 }
 
+/// One row per contact-form submission that got past the first bot checks,
+/// so a single connection cannot flood the support inbox (see
+/// actions/contact.ts and lib/contact-guard.ts).
+model ContactAttempt {
+  id        String   @id @default(cuid())
+  ip        String
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+}
+
 /**
  * Two-factor authentication configuration — one row per user, created
  * lazily the first time they start setup. `enabled` only flips to true
@@ -690,6 +701,10 @@ model Order {
   shipPhone     String?
   shipCountry   String?
   shipAddress   String?
+  /// Shipping method the customer chose at checkout for the printed copies
+  /// (a Lulu shipping_level: MAIL, PRIORITY_MAIL, GROUND, EXPEDITED, EXPRESS).
+  /// Null on older orders and on orders with no printed copies.
+  shippingLevel String?
   // Real status of the Lulu print-job submission (see
   // lib/payments/lulu.ts) — null if this order has no physical copies,
   // otherwise reflects what actually happened, not an assumption.

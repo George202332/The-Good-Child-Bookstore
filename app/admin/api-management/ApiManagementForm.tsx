@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateSiteSettings, testPaystackConnection, sendTestEmail } from "@/actions/site-settings";
 import type { SiteSettings } from "@/lib/site-settings";
+import { SHIPPING_LEVELS, normaliseEnabledLevels } from "@/lib/lulu-order";
 
 /**
  * TASK 1.1 — API Management view.
@@ -166,6 +167,31 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
         Lulu runs two completely separate systems with separate accounts and keys. An order sent to the Sandbox
         will never appear in your real Lulu account, and Sandbox keys do not work on Production (or the other way round).
       </p>
+      <fieldset style={{ border: "none", padding: 0, margin: "0 0 14px" }}>
+        <legend className="field-label">Shipping methods customers can choose for printed copies</legend>
+        <p className="field-hint" style={{ margin: "0 0 8px" }}>
+          Lulu charges <strong>you</strong> for the method the customer picks (faster methods cost more), and
+          shipping is not added to the customer&apos;s total. Switch off any method you do not want to pay for.
+          Ground courier is only offered for the United States.
+        </p>
+        {SHIPPING_LEVELS.map((lvl) => {
+          const current = normaliseEnabledLevels(settings.apiKeys.luluShippingLevels);
+          const checked = current.includes(lvl.id);
+          return (
+            <label key={lvl.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, marginBottom: 4 }}>
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={(e) => {
+                  const next = e.target.checked ? [...current, lvl.id] : current.filter((x) => x !== lvl.id);
+                  update({ luluShippingLevels: next.length > 0 ? next : ["MAIL"] });
+                }}
+              />
+              <span><strong>{lvl.label}</strong> — {lvl.detail}</span>
+            </label>
+          );
+        })}
+      </fieldset>
       <div className="form-grid-2">
         <SecretField id="api-lulu-key" label="Client Key" isSet={apiKeysSet.luluClientKey} value={settings.apiKeys.luluClientKey ?? ""} onChange={(v) => update({ luluClientKey: v })} />
         <SecretField id="api-lulu-secret" label="Client Secret" isSet={apiKeysSet.luluClientSecret} value={settings.apiKeys.luluClientSecret ?? ""} onChange={(v) => update({ luluClientSecret: v })} />

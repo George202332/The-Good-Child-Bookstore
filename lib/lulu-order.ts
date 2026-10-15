@@ -68,22 +68,25 @@ export function absoluteFileUrl(url: string | null | undefined, siteUrl: string)
 
 export interface ShipAddressParts {
   street: string;
+  /** Apartment, suite, unit, building (optional). */
+  street2?: string;
   city: string;
   state?: string;
   postcode: string;
 }
 
-/** The one-text-field form the order stores (Order.shipAddress): one item per
- * line, in the order street, city, state/province (left out when empty),
- * postal code. Readable as-is in emails and the admin, and parsed back by
- * parseShipAddress. */
+/** The one-text-field form the order stores (Order.shipAddress): always five
+ * lines, in this order — street, street line 2, city, state/province,
+ * postal code — with a blank line for anything left empty. Readable as-is in
+ * emails and the admin, and read back exactly by parseShipAddress. */
 export function composeShipAddress(parts: ShipAddressParts): string {
   const clean = (s: string | undefined) => (s ?? "").replace(/\s*[\r\n]+\s*/g, ", ").trim();
-  return [clean(parts.street), clean(parts.city), clean(parts.state), clean(parts.postcode)].filter(Boolean).join("\n");
+  return [clean(parts.street), clean(parts.street2), clean(parts.city), clean(parts.state), clean(parts.postcode)].join("\n");
 }
 
 export interface ParsedShipAddress {
   street1: string;
+  street2?: string;
   city: string;
   state: string;
   postcode: string;
@@ -102,6 +105,13 @@ export function parseShipAddress(raw: string | null | undefined): ParsedShipAddr
   const empty: ParsedShipAddress = { street1: text, city: "", state: "", postcode: "" };
   if (!text) return empty;
 
+  // Current layout: exactly five lines (see composeShipAddress).
+  const fixed = text.split(/\r?\n/).map((l) => l.trim());
+  if (fixed.length === 5) {
+    return { street1: fixed[0], ...(fixed[1] ? { street2: fixed[1] } : {}), city: fixed[2], state: fixed[3], postcode: fixed[4] };
+  }
+
+  // Older layouts (variable number of lines, or one free-text box).
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (lines.length >= 3 && looksLikePostcode(lines[lines.length - 1])) {
     const postcode = lines[lines.length - 1];
@@ -184,6 +194,7 @@ export function cleanPhone(raw: string | null | undefined): string {
 export interface LuluAddress {
   name: string;
   street1: string;
+  street2?: string;
   city: string;
   state_code?: string;
   postcode: string;
@@ -205,6 +216,7 @@ export function buildLuluAddress(opts: {
   return {
     name: opts.name.trim(),
     street1: p.street1,
+    ...(p.street2 ? { street2: p.street2 } : {}),
     city: p.city,
     ...(state ? { state_code: state } : {}),
     postcode: p.postcode,
@@ -228,6 +240,61 @@ export function shippingProblems(a: LuluAddress): string[] {
   // saved on the Lulu account itself, and checkout now asks for one on
   // print orders.
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Shipping method
+// ---------------------------------------------------------------------------
+
+export type LuluShippingLevel = "MAIL" | "PRIORITY_MAIL" | "GROUND" | "EXPEDITED" | "EXPRESS";
+
+export interface ShippingLevelInfo {
+  id: LuluShippingLevel;
+  label: string;
+  detail: string;
+  /** Countries it is offered for; undefined = everywhere Lulu ships. */
+  countries?: readonly string[];
+}
+
+/** The shipping methods Lulu's Print API accepts as `shipping_level`, in
+ * order from cheapest/slowest to dearest/fastest. Lulu bills the shipping
+ * for the chosen method to the store's Lulu account. */
+export const SHIPPING_LEVELS: readonly ShippingLevelInfo[] = [
+  { id: "MAIL", label: "Standard mail", detail: "Lowest cost, slowest. Delivered by the postal service." },
+  { id: "PRIORITY_MAIL", label: "Priority mail", detail: "Faster postal service." },
+  { id: "GROUND", label: "Ground courier", detail: "Tracked courier delivery by road.", countries: ["US"] },
+  { id: "EXPEDITED", label: "Expedited courier", detail: "Fast, tracked courier delivery." },
+  { id: "EXPRESS", label: "Express courier", detail: "Fastest, tracked courier delivery." },
+];
+
+export const ALL_SHIPPING_LEVEL_IDS: readonly LuluShippingLevel[] = SHIPPING_LEVELS.map((l) => l.id);
+
+/** Cleans a stored/submitted list down to known methods (keeps order). An
+ * empty or missing list means "offer every method". */
+export function normaliseEnabledLevels(raw: unknown): LuluShippingLevel[] {
+  const list = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+  const known = ALL_SHIPPING_LEVEL_IDS.filter((id) => list.includes(id));
+  return known.length > 0 ? [...known] : [...ALL_SHIPPING_LEVEL_IDS];
+}
+
+/** The methods a customer in this country can pick. Never empty: if the
+ * store switched off everything that applies, standard mail is offered. */
+export function shippingLevelsFor(countryIso: string, enabled: readonly string[] | undefined): ShippingLevelInfo[] {
+  const on = normaliseEnabledLevels(enabled);
+  const iso = countryIso.toUpperCase();
+  const offered = SHIPPING_LEVELS.filter((l) => on.includes(l.id) && (!l.countries || l.countries.includes(iso)));
+  return offered.length > 0 ? offered : SHIPPING_LEVELS.filter((l) => l.id === "MAIL");
+}
+
+/** The method actually used: the customer's choice when it is offered for
+ * their country, otherwise the cheapest one offered. */
+export function resolveShippingLevel(chosen: string | null | undefined, countryIso: string, enabled: readonly string[] | undefined): LuluShippingLevel {
+  const offered = shippingLevelsFor(countryIso, enabled);
+  return (offered.find((l) => l.id === chosen) ?? offered[0]).id;
+}
+
+export function shippingLevelLabel(id: string | null | undefined): string {
+  return SHIPPING_LEVELS.find((l) => l.id === id)?.label ?? "Standard mail";
 }
 
 // ---------------------------------------------------------------------------
@@ -258,7 +325,7 @@ export function buildLuluPrintJobBody(opts: {
   contactEmail: string;
   address: LuluAddress;
   lines: LuluJobLine[];
-  shippingLevel?: "MAIL" | "GROUND" | "EXPEDITED" | "EXPRESS";
+  shippingLevel?: LuluShippingLevel;
 }) {
   return {
     contact_email: opts.contactEmail,
@@ -269,7 +336,6 @@ export function buildLuluPrintJobBody(opts: {
         external_id: `${opts.externalId}-${i + 1}`,
         title: l.title.slice(0, 255),
         quantity: l.quantity,
-        pod_package_id: pod,
         printable_normalization: {
           pod_package_id: pod,
           cover: { source_url: l.coverUrl },

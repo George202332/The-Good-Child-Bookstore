@@ -1454,6 +1454,8 @@
   .qty-fixed{font-size:13.5px;font-weight:700;color:var(--ink-soft);white-space:nowrap;}
   .remove-link{font-size:12.5px;color:var(--ink-faint);margin-top:8px;display:inline-block;cursor:pointer;transition:color .15s ease;}
   .remove-link:hover{color:var(--coral-deep);}
+  .cart-remove-btn{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;color:var(--coral-deep);background:var(--paper);border:1.5px solid var(--coral-deep);border-radius:999px;cursor:pointer;transition:background .15s ease,color .15s ease;}
+  .cart-remove-btn:hover,.cart-remove-btn:focus-visible{background:var(--coral-deep);color:#fff;}
   .cart-item .price{font-size:17px;font-weight:700;color:var(--ink);}
   .summary-card{
     background:var(--paper);border-radius:20px;padding:30px;
@@ -1845,6 +1847,9 @@
   .dash-grid-perf{display:grid;grid-template-columns:1.3fr 1fr;gap:20px;align-items:stretch;}
   .dash-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
   .dash-grid-2-tight{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  /* Author dashboard: cards inside these rows carry no bottom margin of their own, so the space between rows is exactly the row's own 20px, the same as between the two rows of coloured cards. */
+  .dash-aligned > .map-card{margin-bottom:0;}
+  .dash-aligned{row-gap:20px;}
   @media (max-width:700px){
     .dash-grid-main, .dash-grid-perf, .dash-grid-2, .dash-grid-2-tight{grid-template-columns:1fr;}
   }

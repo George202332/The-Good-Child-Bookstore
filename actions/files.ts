@@ -52,6 +52,10 @@ export interface UploadFileResult {
   /** Trim size of the PDF's first page, e.g. "5.5 x 8.5 in" — auto-
    * detected the same way as pageCount, same EPUB/MOBI caveat. */
   dimensions?: string;
+  /** Exact first-page size in inches (not rounded), used to pick the
+   * print trim size automatically — see lib/trim-size.ts. */
+  pageWidthIn?: number;
+  pageHeightIn?: number;
   /** The stored file's actual size in bytes — the real uploaded (or, for
    * a DOCX, converted-to-PDF) file, not an estimate. */
   fileSizeBytes?: number;
@@ -66,19 +70,21 @@ export interface UploadFileResult {
  * over it. Page size comes back from pdf-lib in PDF points (1/72 inch),
  * converted here to inches to match what the submission form and
  * product page's detail card both expect. */
-async function readPdfMetadata(bytes: Uint8Array): Promise<{ pageCount?: number; dimensions?: string }> {
+async function readPdfMetadata(bytes: Uint8Array): Promise<{ pageCount?: number; dimensions?: string; pageWidthIn?: number; pageHeightIn?: number }> {
   try {
     const { PDFDocument } = await import("pdf-lib");
     const doc = await PDFDocument.load(bytes);
     const pageCount = doc.getPageCount();
     let dimensions: string | undefined;
+    let pageWidthIn: number | undefined;
+    let pageHeightIn: number | undefined;
     if (pageCount > 0) {
       const { width, height } = doc.getPage(0).getSize();
-      const widthIn = width / 72;
-      const heightIn = height / 72;
-      dimensions = `${widthIn.toFixed(1)} x ${heightIn.toFixed(1)} in`;
+      pageWidthIn = width / 72;
+      pageHeightIn = height / 72;
+      dimensions = `${pageWidthIn.toFixed(1)} x ${pageHeightIn.toFixed(1)} in`;
     }
-    return { pageCount, dimensions };
+    return { pageCount, dimensions, pageWidthIn, pageHeightIn };
   } catch {
     return {};
   }

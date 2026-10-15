@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { resolvePayoutMethodToggles, type PayoutMethodToggles } from "@/lib/payout-method-availability";
+import { normaliseEnabledLevels } from "@/lib/lulu-order";
 import { DEFAULT_SITE_SETTINGS, type SiteSettings, type ApiKeys, type PublishingFormatsEnabled } from "@/lib/site-settings";
 
 /**
@@ -85,6 +86,7 @@ export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSetti
         luluClientKey: "",
         luluClientSecret: "",
         luluEnvironment: settings.apiKeys.luluEnvironment,
+        luluShippingLevels: normaliseEnabledLevels(settings.apiKeys.luluShippingLevels),
         resendApiKey: "",
         fromEmail: settings.apiKeys.fromEmail ?? "",
         paystackSecretKey: "",
@@ -218,6 +220,9 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
       luluEnvironment: settings.apiKeys.luluEnvironment === "production" || settings.apiKeys.luluEnvironment === "sandbox"
         ? settings.apiKeys.luluEnvironment
         : existing.apiKeys.luluEnvironment,
+      luluShippingLevels: settings.apiKeys.luluShippingLevels
+        ? normaliseEnabledLevels(settings.apiKeys.luluShippingLevels)
+        : existing.apiKeys.luluShippingLevels,
       resendApiKey: settings.apiKeys.resendApiKey?.trim() || existing.apiKeys.resendApiKey,
       fromEmail: settings.apiKeys.fromEmail?.trim() || existing.apiKeys.fromEmail,
       paystackSecretKey: settings.apiKeys.paystackSecretKey?.trim() || existing.apiKeys.paystackSecretKey,

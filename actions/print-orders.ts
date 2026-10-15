@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
+import { shippingLevelLabel } from "@/lib/lulu-order";
 
 /**
  * Admin tools for print (paperback / hardcover) orders that have not
@@ -48,7 +49,7 @@ export async function listPrintOrdersNeedingAttention(): Promise<PrintOrderRow[]
     items: o.lines
       .filter((l) => l.format === "paperback" || l.format === "hardcover")
       .map((l) => `${l.book.title} (${l.format})`)
-      .join(", "),
+      .join(", ") + ` — ${shippingLevelLabel(o.shippingLevel)}`,
     status: o.printJobStatus ?? "NOT SENT",
     error: o.printJobError,
     isTest: o.isTestData,

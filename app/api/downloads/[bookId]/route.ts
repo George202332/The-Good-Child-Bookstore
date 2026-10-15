@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { hasFileDownload } from "@/lib/delivery-format";
 
 /**
  * Serves a purchased book's file — checks the signed-in user actually
@@ -52,6 +53,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ book
     },
   });
   if (!ownsBook) {
+    // A paperback/hardcover purchase is printed and shipped by Lulu — it
+    // never comes with a file, so say so plainly instead of "not purchased".
+    if (!wantsAudiobook) {
+      const printLine = await prisma.saleLine.findFirst({
+        where: { bookId, order: { readerId: user.readerProfile.id, status: "PAID" }, format: { in: ["paperback", "hardcover"] } },
+        select: { format: true },
+      });
+      if (printLine && !hasFileDownload(printLine.format)) {
+        return new NextResponse("Paperback and hardcover copies are printed and shipped to you — there is no file download for them.", { status: 403 });
+      }
+    }
     return new NextResponse(
       wantsAudiobook ? "You haven't purchased the audiobook of this book." : "You haven't purchased this book.",
       { status: 403 },

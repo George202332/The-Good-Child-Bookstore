@@ -10,6 +10,7 @@ import { useCart, type CartItem } from "@/hooks/useCart";
 import { createPendingOrder, confirmOrderPaidDirectly } from "@/actions/orders";
 import { initiateGatewayCheckout } from "@/actions/payment-init";
 import { resolveCartBooks } from "@/actions/cart-books";
+import { getShippingOptions, type ShippingOptionRow } from "@/actions/shipping-options";
 import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } from "@/actions/payment-methods";
 import { PaymentBadgeIcon } from "@/components/PaymentBadgeIcon";
 import { COUNTRIES } from "@/lib/countries";
@@ -46,6 +47,8 @@ interface CheckoutData {
   phoneCountryCode: string;
   country: string;
   billingAddress: string;
+  /** Apartment, suite, unit (optional) — print orders only. */
+  street2: string;
   /** City / state-or-province / postal code — asked for print orders, where
    * the print partner needs a complete address (see lib/lulu-order.ts). */
   city: string;
@@ -90,6 +93,7 @@ function CheckoutPageInner() {
     phoneCountryCode: "+1",
     country: "",
     billingAddress: "",
+    street2: "",
     city: "",
     state: "",
     postcode: "",
@@ -103,6 +107,9 @@ function CheckoutPageInner() {
   const [submitting, setSubmitting] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethodRow[]>([]);
   const [resolvedBooks, setResolvedBooks] = useState<Book[] | null>(null);
+  // Shipping methods offered for printed copies, for the chosen country.
+  const [shippingOptions, setShippingOptions] = useState<ShippingOptionRow[]>([]);
+  const [shippingLevel, setShippingLevel] = useState("");
   const [paymentBadges, setPaymentBadges] = useState<PaymentBadgeUrls>(DEFAULT_SITE_SETTINGS.paymentBadges);
 
   useEffect(() => {
@@ -122,6 +129,23 @@ function CheckoutPageInner() {
     }
   }, [session?.user?.id]);
 
+  const printCountry = data.country;
+  const needsShipping = items.some((i) => i.format === "paperback" || i.format === "hardcover");
+  useEffect(() => {
+    if (!needsShipping || !printCountry) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- nothing to choose until a country is picked
+      setShippingOptions([]);
+      return;
+    }
+    let cancelled = false;
+    getShippingOptions(printCountry).then((opts) => {
+      if (cancelled) return;
+      setShippingOptions(opts);
+      setShippingLevel((cur) => (opts.some((o) => o.id === cur) ? cur : opts[0]?.id ?? ""));
+    });
+    return () => { cancelled = true; };
+  }, [needsShipping, printCountry]);
+
   const bookSource = resolvedBooks ?? [];
   const FORMAT_LABEL: Record<string, string> = { ebook: "eBook", paperback: "Paperback", hardcover: "Hardcover", audiobook: "Audiobook" };
   const priceFor = (book: Book, format: string) =>
@@ -135,7 +159,7 @@ function CheckoutPageInner() {
   // Print copies are shipped by our print partner, which needs a complete
   // address; the order stores it as street / city / state / postal code.
   const shipAddressValue = hasPrintItem
-    ? composeShipAddress({ street: data.billingAddress, city: data.city, state: data.state, postcode: data.postcode })
+    ? composeShipAddress({ street: data.billingAddress, street2: data.street2, city: data.city, state: data.state, postcode: data.postcode })
     : data.billingAddress;
   // Lines whose book is restricted for this visitor (account country / IP
   // geo, flagged by resolveCartBooks) or — for print — for the ship-to
@@ -154,7 +178,7 @@ function CheckoutPageInner() {
           {isDirectBuy ? (
             <Link href="/bookshelf">Back to the bookshelf</Link>
           ) : (
-            <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>
+            <button type="button" className="cart-remove-btn" onClick={() => removeItem(l.book.id, l.format)}>Remove</button>
           )}
         </div>
       ))}
@@ -179,6 +203,7 @@ function CheckoutPageInner() {
       shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
       shipCountry: data.country,
       shipAddress: shipAddressValue,
+      shippingLevel: hasPrintItem ? shippingLevel : undefined,
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);
@@ -218,6 +243,7 @@ function CheckoutPageInner() {
       shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
       shipCountry: data.country,
       shipAddress: shipAddressValue,
+      shippingLevel: hasPrintItem ? shippingLevel : undefined,
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);
@@ -313,7 +339,17 @@ function CheckoutPageInner() {
                   )}
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                     <div className="price">${(priceFor(l.book, l.format) * l.qty).toFixed(2)}</div>
-                    {!isDirectBuy && <a className="remove-link" onClick={() => removeItem(l.book.id, l.format)}>Remove</a>}
+                    <button
+                      type="button"
+                      className="cart-remove-btn"
+                      aria-label={`Remove ${l.book.title} (${FORMAT_LABEL[l.format]}) from your cart`}
+                      onClick={() => (isDirectBuy ? router.push("/bookshelf") : removeItem(l.book.id, l.format))}
+                    >
+                      <svg viewBox="0 0 24 24" width={14} height={14} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" />
+                      </svg>
+                      Remove
+                    </button>
                   </div>
                 </div>
               );
@@ -377,12 +413,34 @@ function CheckoutPageInner() {
           <textarea className="field field-compact" id="co-address" required value={data.billingAddress} onChange={(e) => setData((d) => ({ ...d, billingAddress: e.target.value }))} />
           {hasPrintItem && (
             <>
+              <label className="field-label field-label-compact" htmlFor="co-street2">Apartment, suite, unit <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(optional)</span></label>
+              <input className="field field-compact" id="co-street2" type="text" value={data.street2} onChange={(e) => setData((d) => ({ ...d, street2: e.target.value }))} />
               <label className="field-label field-label-compact" htmlFor="co-city">City</label>
               <input className="field field-compact" id="co-city" type="text" required value={data.city} onChange={(e) => setData((d) => ({ ...d, city: e.target.value }))} />
               <label className="field-label field-label-compact" htmlFor="co-state">State / province / region {["United States", "Canada", "Australia", "Mexico"].includes(data.country) ? "" : <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(if your country uses one)</span>}</label>
               <input className="field field-compact" id="co-state" type="text" required={["United States", "Canada", "Australia", "Mexico"].includes(data.country)} value={data.state} onChange={(e) => setData((d) => ({ ...d, state: e.target.value }))} />
               <label className="field-label field-label-compact" htmlFor="co-postcode">Postal / ZIP code</label>
               <input className="field field-compact" id="co-postcode" type="text" required value={data.postcode} onChange={(e) => setData((d) => ({ ...d, postcode: e.target.value }))} />
+              <fieldset style={{ border: "none", padding: 0, margin: "12px 0 0" }}>
+                <legend className="field-label field-label-compact">Shipping method</legend>
+                {shippingOptions.length === 0 ? (
+                  <div className="field-hint">Choose your country above to see the shipping methods available to you.</div>
+                ) : (
+                  shippingOptions.map((o) => (
+                    <label key={o.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, marginBottom: 6, cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="co-shipping-level"
+                        value={o.id}
+                        checked={shippingLevel === o.id}
+                        onChange={() => setShippingLevel(o.id)}
+                        style={{ marginTop: 3 }}
+                      />
+                      <span><strong>{o.label}</strong> — {o.detail}</span>
+                    </label>
+                  ))
+                )}
+              </fieldset>
             </>
           )}
           <div className="field-hint">
@@ -417,6 +475,9 @@ function CheckoutPageInner() {
               </div>
             ))}
             <div className="summary-row" style={{ marginTop: 14 }}><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+            {hasPrintItem && (
+              <div className="summary-row"><span>Shipping method</span><span>{shippingOptions.find((o) => o.id === shippingLevel)?.label ?? "Standard mail"} (included)</span></div>
+            )}
             <div className="summary-row"><span>Taxes</span><span>Calculated at payment</span></div>
             <div className="summary-row total"><span>Grand total</span><span>${grandTotal.toFixed(2)}</span></div>
           </div>
