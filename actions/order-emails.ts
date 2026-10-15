@@ -64,6 +64,7 @@ export async function sendOrderReceiptEmail(orderId: string): Promise<void> {
         <p>Order #${orderId.slice(0, 8).toUpperCase()}</p>
         <table style="width:100%; border-collapse: collapse;">${itemsHtml}</table>
         <hr />
+        ${Number(order.shippingAmount ?? 0) > 0 ? `<p style="margin:0 0 6px">Shipping (paid by you): $${Number(order.shippingAmount).toFixed(2)}</p>` : ""}
         <p style="font-weight:bold">Total paid: $${Number(order.totalAmount).toFixed(2)}</p>
         ${accountHtml}
         <p>You can also access your library any time at <a href="${siteUrl}/account/library">${siteUrl}/account/library</a>.</p>
@@ -82,6 +83,7 @@ export async function sendOrderReceiptEmail(orderId: string): Promise<void> {
         price: Number(l.grossAmount),
       })),
       totalAmount: Number(order.totalAmount),
+      shippingAmount: Number(order.shippingAmount ?? 0),
     });
 
     await sendEmail(

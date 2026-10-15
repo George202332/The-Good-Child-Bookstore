@@ -2,17 +2,19 @@ import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
-import { EbookSubmissionForm } from "../../new/EbookSubmissionForm";
-import { isCategory, categoryOfSubcategory, normalizeGenre, isSubcategoryOf } from "@/lib/taxonomy";
-import { parseRestrictedCountries } from "@/lib/book-country-restriction";
+import { getSiteSettings } from "@/actions/site-settings";
+import { EditBookTabs, type EditTab } from "./EditBookTabs";
+import { buildEbookInitial, buildPrintInitial, classify, sharedPrefill, type BookWithRelations } from "./edit-initials";
 
 /**
  * Edit an existing book — genuinely the same page used to submit a new
- * title (see app/account/books/new/EbookSubmissionForm.tsx), in edit
- * mode: every field pre-filled from the existing book, not a
- * separate, simplified form. Saving resubmits an unpublished book for
- * review; a published book saves live and only a replaced manuscript or
- * cover goes to review.
+ * title, in edit mode, with the same two tabs ("eBook / Audiobook" and
+ * "Print Copy"). Each format of a title is its own edition (its own book
+ * record), so each tab edits its own edition: every field pre-filled from
+ * that edition, not a separate, simplified form. Saving resubmits an
+ * unpublished edition for review; a published edition saves live and only
+ * a replaced manuscript or cover goes to review. A format the title does
+ * not have yet can be added from its tab.
  */
 export default async function EditBookPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,25 +29,35 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
     where: { id },
     include: { categories: { include: { category: true } }, genres: { include: { genre: true } }, files: true },
   });
-  if (!book || book.authorId !== user.authorProfile.id) notFound();
+  if (!book || book.authorId !== user.authorProfile.id || book.deletedByAuthorAt) notFound();
 
-  const manuscriptFile = book.files.find((f: { kind: string; url: string }) => f.kind === "MANUSCRIPT");
-  const manuscriptFileId = manuscriptFile?.url.split("/").pop();
-  const audiobookFile = book.files.find((f: { kind: string; url: string }) => f.kind === "AUDIOBOOK");
-  const audiobookFileId = audiobookFile?.url.split("/").pop();
-  const meta = (book.submissionMetadata as Record<string, unknown> | null) ?? {};
+  const settings = await getSiteSettings();
 
-  // Classification prefill. New columns win; books from before the taxonomy
-  // change fall back to the legacy joins (Category join = genre shelf, Genre
-  // join = subcategory). Nothing is invented: anything that can't be mapped
-  // stays empty so the author has to choose it.
-  const legacyShelf = book.categories[0]?.category.name;
-  const legacySub = book.genres[0]?.genre.name;
-  const categoryValue = isCategory(book.category) ? book.category : categoryOfSubcategory(legacySub) ?? "";
-  const subcategoryCandidate = book.subcategory ?? legacySub;
-  const subcategoryValue = categoryValue && isSubcategoryOf(categoryValue, subcategoryCandidate) ? (subcategoryCandidate as string) : "";
-  const genreValue = normalizeGenre(legacyShelf) ?? "";
-  const restrictedCountries = book.restrictedCountries.length > 0 ? book.restrictedCountries : parseRestrictedCountries(meta.countryRestrictions as string | undefined);
+  // The other edition of this title, if there is one: same author, same
+  // title, the other kind of edition (print vs eBook/audiobook).
+  const isPrintRow = (b: { hasPrint: boolean; hasEbook: boolean; hasAudiobook: boolean }) => b.hasPrint && !b.hasEbook && !b.hasAudiobook;
+  const isCombined = book.hasPrint && (book.hasEbook || book.hasAudiobook);
+  let sibling: BookWithRelations | null = null;
+  if (!isCombined) {
+    const candidates = await prisma.book.findMany({
+      where: { authorId: user.authorProfile.id, id: { not: book.id }, deletedByAuthorAt: null, title: { equals: book.title, mode: "insensitive" } },
+      include: { categories: { include: { category: true } }, genres: { include: { genre: true } }, files: true },
+      orderBy: { createdAt: "desc" },
+    });
+    sibling = candidates.find((c: BookWithRelations) => !(c.hasPrint && (c.hasEbook || c.hasAudiobook)) && isPrintRow(c) !== isPrintRow(book)) ?? null;
+  }
+
+  const thisIsPrint = isPrintRow(book);
+  const ebookBook = thisIsPrint ? sibling : book;
+  const printBook = thisIsPrint ? book : sibling;
+
+  const ebookTab: EditTab = ebookBook ? { mode: "edit", status: ebookBook.status } : { mode: "add" };
+  const printTab: EditTab = printBook ? { mode: "edit", status: printBook.status } : { mode: "add" };
+  const ebookInitial = ebookBook ? buildEbookInitial(ebookBook) : undefined;
+  const printInitial = printBook ? buildPrintInitial(printBook) : undefined;
+  const sharedSource = ebookBook ?? printBook ?? book;
+  const classification = classify(sharedSource);
+  const sharedMeta = (sharedSource.submissionMetadata as Record<string, unknown> | null) ?? {};
 
   return (
     <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
@@ -57,56 +69,35 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
               ? "Changes to details such as price, description and categories go live as soon as you save. Replacing the manuscript or the cover sends the new file for review; your current file stays live until it is approved."
               : "Saving these changes resubmits the book for review."}
           </p>
+          {isCombined && (
+            <p style={{ color: "var(--ink-faint)", fontSize: 12.5, marginTop: 4 }}>
+              This title was created with its eBook and print editions together, so both are edited here; its print settings are kept as they are.
+            </p>
+          )}
         </div>
       </div>
-      <EbookSubmissionForm
-        initial={{
-          bookId: book.id,
-          bookStatus: book.status,
-          manuscriptFileId,
-          audiobookFileId,
-          audiobookPrice: book.audiobookPrice != null ? String(Number(book.audiobookPrice)) : "",
-          coverImageUrl: book.coverImageUrl ?? "",
-          title: book.title,
-          subtitle: book.subtitle ?? "",
-          edition: (meta.edition as string) ?? "",
-          seriesName: (meta.seriesName as string) ?? "",
-          seriesNumber: meta.seriesNumber != null ? String(meta.seriesNumber) : "",
-          language: book.language ?? "English",
-          publisher: (meta.publisher as string) ?? "The Good Child Bookstore",
-          publicationDate: (meta.publicationDate as string) ?? "",
-          originalPublicationDate: (meta.originalPublicationDate as string) ?? "",
-          isbn: book.isbn ?? "",
-          copyrightYear: meta.copyrightYear != null ? String(meta.copyrightYear) : String(new Date().getFullYear()),
-          authorFirstName: (meta.authorFirstName as string) ?? "",
-          authorLastName: (meta.authorLastName as string) ?? "",
-          authorBio: (meta.authorBio as string) ?? "",
-          category: categoryValue,
-          genre: genreValue,
-          subcategory: subcategoryValue,
-          ageGroup: book.ageGroup ?? "",
-          readingLevel: (meta.readingLevel as string) ?? "",
-          pages: meta.pages != null ? Number(meta.pages) : undefined,
-          dimensions: (meta.dimensions as string) ?? undefined,
-          fileSizeKB: meta.fileSizeKB != null ? Number(meta.fileSizeKB) : undefined,
-          descriptionHtml: (meta.longDescriptionHtml as string) ?? book.description ?? "",
-          aiDeclaration: (meta.aiDeclaration as string) ?? "",
-          keywords: typeof meta.keywords === "string" ? (meta.keywords as string).split(",").map((k) => k.trim()).filter(Boolean) : [],
-          // Book.price is the audiobook price for an audiobook-only title, so
-          // it is not the eBook list price there; leave that field blank.
-          price: book.ebookPrice != null
-            ? String(Number(book.ebookPrice))
-            : book.hasAudiobook && !book.hasEbook && !book.hasPrint
-            ? ""
-            : String(Number(book.price)),
-          taxSetting: (meta.taxSetting as string) ?? "",
-          affiliateEnabled: (meta.affiliateEnabled as boolean) ?? false,
-          worldwideRights: restrictedCountries.length > 0 ? false : ((meta.worldwideRights as boolean) ?? true),
-          restrictedCountries,
-          copyrightHolder: (meta.copyrightHolder as string) ?? "",
-          licenseType: (meta.licenseType as string) ?? "",
-        }}
-      />
+      {isCombined ? (
+        <EditBookTabs
+          startOn="ebook"
+          enabledFormats={settings.publishingFormatsEnabled}
+          ebookTab={{ mode: "edit", status: book.status }}
+          printTab={{ mode: "edit", status: book.status }}
+          ebookInitial={buildEbookInitial(book)}
+          printInitial={undefined}
+          addPrefill={sharedPrefill(book, classification, sharedMeta)}
+          combined
+        />
+      ) : (
+        <EditBookTabs
+          startOn={thisIsPrint ? "print" : "ebook"}
+          enabledFormats={settings.publishingFormatsEnabled}
+          ebookTab={ebookTab}
+          printTab={printTab}
+          ebookInitial={ebookInitial}
+          printInitial={printInitial}
+          addPrefill={sharedPrefill(sharedSource, classification, sharedMeta)}
+        />
+      )}
     </DashboardShell>
   );
 }

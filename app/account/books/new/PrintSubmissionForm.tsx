@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { submitBook } from "@/actions/submissions";
+import { submitBook, updateBookFull } from "@/actions/submissions";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { ButtonGroup } from "@/components/ButtonGroup";
@@ -21,6 +21,58 @@ const LANGUAGES = ["English", "Spanish", "French", "Swahili"];
 
 const PAPERBACK_BINDINGS = LULU_CONFIG.bindings.filter((b) => !b.hardcover);
 
+/** Everything the print form can be pre-filled with when an existing print
+ * edition is being edited (see app/account/books/[id]/edit/page.tsx). */
+export interface PrintSubmissionInitial {
+  bookId: string;
+  bookStatus?: string;
+  title: string;
+  subtitle?: string;
+  seriesName?: string;
+  edition?: string;
+  isbn?: string;
+  language?: string;
+  publicationDate?: string;
+  category?: string;
+  genre?: string;
+  subcategory?: string;
+  ageGroup?: string;
+  readingLevel?: string;
+  description?: string;
+  aiDeclaration?: string;
+  authorFirstName?: string;
+  authorLastName?: string;
+  coAuthors?: string;
+  illustrator?: string;
+  editor?: string;
+  translator?: string;
+  printReadyPdfFileId?: string;
+  pages?: number;
+  dimensions?: string;
+  frontCoverImageUrl?: string;
+  customBackCoverPdfFileId?: string;
+  backCoverMode?: "auto" | "custom";
+  paperbackEnabled?: boolean;
+  hardcoverEnabled?: boolean;
+  trimCode?: string;
+  paperbackBinding?: string;
+  interiorColor?: string;
+  printQuality?: string;
+  paperType?: string;
+  coverFinish?: string;
+  linenColor?: string;
+  foilColor?: string;
+  foilStampTitleText?: string;
+  foilStampAuthorText?: string;
+  paperbackRetailPrice?: string;
+  hardcoverRetailPrice?: string;
+  luluGlobalDistribution?: boolean;
+  privatePrinting?: boolean;
+  affiliateEligiblePrint?: boolean;
+  promotionalCampaignEligible?: boolean;
+}
+
+
 /**
  * Converted to match the exact reference design provided: "Submit a
  * print copy" — a dedicated print-on-demand workflow fulfilled through
@@ -36,90 +88,92 @@ const PAPERBACK_BINDINGS = LULU_CONFIG.bindings.filter((b) => !b.hardcover);
  * the numbers shown are a documented, labeled estimate (see
  * lib/lulu-pricing.ts), not a live quote.
  */
-export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFields } = {}) {
+export function PrintSubmissionForm({ prefill, initial }: { prefill?: SharedSubmissionFields; initial?: PrintSubmissionInitial } = {}) {
   const router = useRouter();
+  const editing = !!initial?.bookId;
+  const editingPublished = editing && initial?.bookStatus === "PUBLISHED";
 
   // Section 1 — whatever the author already entered on the eBook /
   // Audiobook tab is pre-filled here (see SharedSubmissionFields in
   // ./shared.tsx) so there's nothing to re-type; every field stays
   // fully editable afterward.
-  const [title, setTitle] = useState(prefill?.title ?? "");
-  const [subtitle, setSubtitle] = useState(prefill?.subtitle ?? "");
-  const [seriesName, setSeriesName] = useState(prefill?.seriesName ?? "");
-  const [edition, setEdition] = useState(prefill?.edition ?? "");
-  const [isbn, setIsbn] = useState("978-1-59299-541-7");
-  const [language, setLanguage] = useState(prefill?.language || LANGUAGES[0]);
-  const [publicationDate, setPublicationDate] = useState(prefill?.publicationDate ?? "");
-  const [category, setCategory] = useState(prefill?.category ?? "");
-  const [genre, setGenre] = useState(prefill?.genre ?? "");
-  const [subcategory, setSubcategory] = useState(prefill?.subcategory ?? "");
-  const [ageGroup, setAgeGroup] = useState(prefill?.ageGroup || AGE_RANGES[0]);
-  const [readingLevel, setReadingLevel] = useState(prefill?.readingLevel || READING_LEVELS[0]);
-  const [description, setDescription] = useState(prefill?.description ?? "");
+  const [title, setTitle] = useState(initial?.title ?? prefill?.title ?? "");
+  const [subtitle, setSubtitle] = useState(initial?.subtitle ?? prefill?.subtitle ?? "");
+  const [seriesName, setSeriesName] = useState(initial?.seriesName ?? prefill?.seriesName ?? "");
+  const [edition, setEdition] = useState(initial?.edition ?? prefill?.edition ?? "");
+  const [isbn, setIsbn] = useState(initial ? (initial.isbn ?? "") : "978-1-59299-541-7");
+  const [language, setLanguage] = useState(initial?.language || prefill?.language || LANGUAGES[0]);
+  const [publicationDate, setPublicationDate] = useState(initial?.publicationDate ?? prefill?.publicationDate ?? "");
+  const [category, setCategory] = useState(initial?.category ?? prefill?.category ?? "");
+  const [genre, setGenre] = useState(initial?.genre ?? prefill?.genre ?? "");
+  const [subcategory, setSubcategory] = useState(initial?.subcategory ?? prefill?.subcategory ?? "");
+  const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || prefill?.ageGroup || AGE_RANGES[0]);
+  const [readingLevel, setReadingLevel] = useState(initial?.readingLevel || prefill?.readingLevel || READING_LEVELS[0]);
+  const [description, setDescription] = useState(initial?.description ?? prefill?.description ?? "");
   const descriptionWordCount = description.trim() ? description.trim().split(/\s+/).filter(Boolean).length : 0;
   // The author's own statement of how (or whether) they used AI in
   // creating this book — shown on the product page's detail card.
-  const [aiDeclaration, setAiDeclaration] = useState(prefill?.aiDeclaration ?? "");
+  const [aiDeclaration, setAiDeclaration] = useState(initial?.aiDeclaration ?? prefill?.aiDeclaration ?? "");
 
   // Section 2
-  const [authorFirstName, setAuthorFirstName] = useState(prefill?.authorFirstName ?? "");
-  const [authorLastName, setAuthorLastName] = useState(prefill?.authorLastName ?? "");
-  const [coAuthors, setCoAuthors] = useState("");
-  const [illustrator, setIllustrator] = useState("");
-  const [editor, setEditor] = useState("");
-  const [translator, setTranslator] = useState("");
+  const [authorFirstName, setAuthorFirstName] = useState(initial?.authorFirstName ?? prefill?.authorFirstName ?? "");
+  const [authorLastName, setAuthorLastName] = useState(initial?.authorLastName ?? prefill?.authorLastName ?? "");
+  const [coAuthors, setCoAuthors] = useState(initial?.coAuthors ?? "");
+  const [illustrator, setIllustrator] = useState(initial?.illustrator ?? "");
+  const [editor, setEditor] = useState(initial?.editor ?? "");
+  const [translator, setTranslator] = useState(initial?.translator ?? "");
 
   // Section 3
-  const [printReadyPdfFileId, setPrintReadyPdfFileId] = useState<string | undefined>();
+  const [printReadyPdfFileId, setPrintReadyPdfFileId] = useState<string | undefined>(initial?.printReadyPdfFileId);
   // Page count + trim-size dimensions, auto-detected from the uploaded
   // print-ready PDF itself (same readPdfMetadata() helper the eBook
   // manuscript upload already uses — see actions/files.ts) — reviewed/
   // editable, same "detect, pre-fill, let the author confirm or
   // correct" pattern as the eBook tab.
-  const [printPages, setPrintPages] = useState("");
+  const [printPages, setPrintPages] = useState(initial?.pages ? String(initial.pages) : "");
   const [printPagesAutoDetected, setPrintPagesAutoDetected] = useState(false);
-  const [printDimensions, setPrintDimensions] = useState("");
+  const [printDimensions, setPrintDimensions] = useState(initial?.dimensions ?? "");
   const [printDimensionsAutoDetected, setPrintDimensionsAutoDetected] = useState(false);
-  const [frontCoverImageUrl, setFrontCoverImageUrl] = useState("");
-  const [customBackCoverPdfFileId, setCustomBackCoverPdfFileId] = useState<string | undefined>();
+  const [frontCoverImageUrl, setFrontCoverImageUrl] = useState(initial?.frontCoverImageUrl ?? "");
+  const [customBackCoverPdfFileId, setCustomBackCoverPdfFileId] = useState<string | undefined>(initial?.customBackCoverPdfFileId);
   // Which cover actually gets sent to Lulu: "auto" (front cover + our
   // generated spine/back) or "custom" (the author's own uploaded
   // complete wraparound). Set automatically by whichever of the two
   // cover uploads below the author most recently used.
-  const [backCoverMode, setBackCoverMode] = useState<"auto" | "custom">("auto");
+  const [backCoverMode, setBackCoverMode] = useState<"auto" | "custom">(initial?.customBackCoverPdfFileId && initial.backCoverMode === "custom" ? "custom" : "auto");
 
   // Section 4
-  const [paperbackEnabled, setPaperbackEnabled] = useState(true);
-  const [hardcoverEnabled, setHardcoverEnabled] = useState(true);
+  const [paperbackEnabled, setPaperbackEnabled] = useState(initial?.paperbackEnabled ?? true);
+  const [hardcoverEnabled, setHardcoverEnabled] = useState(initial?.hardcoverEnabled ?? true);
 
   // Section 5
-  const [trimCode, setTrimCode] = useState(LULU_CONFIG.trimSizes.find((t) => t.code === "0600X0900")?.code ?? LULU_CONFIG.trimSizes[0].code);
+  const [trimCode, setTrimCode] = useState(initial?.trimCode ?? LULU_CONFIG.trimSizes.find((t) => t.code === "0600X0900")?.code ?? LULU_CONFIG.trimSizes[0].code);
   // The trim size is read from the uploaded interior PDF's page size, so it
   // always matches the file Lulu will print from.
   const [detectedTrim, setDetectedTrim] = useState<DetectedTrim | null>(null);
   const [trimProblem, setTrimProblem] = useState<string | null>(null);
-  const [paperbackBinding, setPaperbackBinding] = useState(PAPERBACK_BINDINGS[0].code);
-  const [interiorColor, setInteriorColor] = useState(LULU_CONFIG.interiorColors[0].code);
-  const [printQuality, setPrintQuality] = useState(LULU_CONFIG.printQualities[0].code);
-  const [paperType, setPaperType] = useState(LULU_CONFIG.paperTypes[0].code);
-  const [coverFinish, setCoverFinish] = useState(LULU_CONFIG.coverFinishes[0].code);
-  const [linenColor, setLinenColor] = useState(LULU_CONFIG.linenColors[1].code);
-  const [foilColor, setFoilColor] = useState(LULU_CONFIG.foilColors[1].code);
-  const [foilStampTitleText, setFoilStampTitleText] = useState("");
-  const [foilStampAuthorText, setFoilStampAuthorText] = useState("");
+  const [paperbackBinding, setPaperbackBinding] = useState(initial?.paperbackBinding ?? PAPERBACK_BINDINGS[0].code);
+  const [interiorColor, setInteriorColor] = useState(initial?.interiorColor ?? LULU_CONFIG.interiorColors[0].code);
+  const [printQuality, setPrintQuality] = useState(initial?.printQuality ?? LULU_CONFIG.printQualities[0].code);
+  const [paperType, setPaperType] = useState(initial?.paperType ?? LULU_CONFIG.paperTypes[0].code);
+  const [coverFinish, setCoverFinish] = useState(initial?.coverFinish ?? LULU_CONFIG.coverFinishes[0].code);
+  const [linenColor, setLinenColor] = useState(initial?.linenColor ?? LULU_CONFIG.linenColors[1].code);
+  const [foilColor, setFoilColor] = useState(initial?.foilColor ?? LULU_CONFIG.foilColors[1].code);
+  const [foilStampTitleText, setFoilStampTitleText] = useState(initial?.foilStampTitleText ?? "");
+  const [foilStampAuthorText, setFoilStampAuthorText] = useState(initial?.foilStampAuthorText ?? "");
 
   // Section 6
-  const [paperbackRetailPrice, setPaperbackRetailPrice] = useState("0");
-  const [hardcoverRetailPrice, setHardcoverRetailPrice] = useState("0");
+  const [paperbackRetailPrice, setPaperbackRetailPrice] = useState(initial?.paperbackRetailPrice ?? "0");
+  const [hardcoverRetailPrice, setHardcoverRetailPrice] = useState(initial?.hardcoverRetailPrice ?? "0");
 
 
   // Section 8
   // Every book is sold on the store, so "Sell through website" is no
   // longer a choice here (metadata always stores true for both flags).
-  const [luluGlobalDistribution, setLuluGlobalDistribution] = useState(true);
-  const [privatePrinting, setPrivatePrinting] = useState(false);
-  const [affiliateEligiblePrint, setAffiliateEligiblePrint] = useState(false);
-  const [promotionalCampaignEligible, setPromotionalCampaignEligible] = useState(false);
+  const [luluGlobalDistribution, setLuluGlobalDistribution] = useState(initial?.luluGlobalDistribution ?? true);
+  const [privatePrinting, setPrivatePrinting] = useState(initial?.privatePrinting ?? false);
+  const [affiliateEligiblePrint, setAffiliateEligiblePrint] = useState(initial?.affiliateEligiblePrint ?? false);
+  const [promotionalCampaignEligible, setPromotionalCampaignEligible] = useState(initial?.promotionalCampaignEligible ?? false);
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -139,7 +193,7 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
   async function handleSubmit(submitForReview: boolean) {
     setSubmitting(true);
     setError(null);
-    const res = await submitBook({
+    const payload = {
       title,
       subtitle,
       isbn,
@@ -203,7 +257,20 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
         podPackageId: paperbackEnabled ? paperbackPodId : hardcoverPodId,
       },
       submitForReview,
-    });
+    };
+    if (initial?.bookId) {
+      const res = await updateBookFull(initial.bookId, payload);
+      setSubmitting(false);
+      if (!res.ok) {
+        setError(res.error ?? "Something went wrong.");
+        return;
+      }
+      if (res.outcome === "live") router.push("/account/books?saved=live");
+      else if (res.outcome === "live_files_pending") router.push(`/account/books?saved=files-review-${res.held ?? "manuscript"}`);
+      else router.push("/account/books");
+      return;
+    }
+    const res = await submitBook(payload);
     setSubmitting(false);
     if (!res.ok) {
       setError(res.error ?? "Something went wrong.");
@@ -345,6 +412,7 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
             sizeHint="The complete interior pages of the book"
             allowedTypes={["application/pdf"]}
             accept=".pdf"
+            initialFileName={initial?.printReadyPdfFileId ? "Print-ready PDF already uploaded" : undefined}
             onUploaded={(ids) => setPrintReadyPdfFileId(ids[0])}
             onFileMeta={(results) => {
               const result = results[0];
@@ -385,11 +453,13 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
             fillWidth
           />
           <FileUploadField
-            label="Custom Back Cover"
-            sizeHint="PDF — complete wraparound cover (front, spine, back)"
+            label="Custom Cover (optional)"
+            sizeHint="PDF — your own complete wraparound cover (front, spine, back)"
             allowedTypes={["application/pdf"]}
             accept=".pdf"
+            initialFileName={initial?.customBackCoverPdfFileId ? "Custom cover already uploaded" : undefined}
             onUploaded={(ids) => { setCustomBackCoverPdfFileId(ids[0]); setBackCoverMode("custom"); }}
+            onRemove={() => { setCustomBackCoverPdfFileId(undefined); setBackCoverMode("auto"); }}
             fillWidth
           />
         </div>
@@ -638,7 +708,19 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
       {/* Section 9 */}
       <Card>
         <SectionHeader n={8} title="Book Preview" sub="Use this preview window to see how your book will look. Carefully review the margin, bleed, and fold areas to ensure your book will print correctly." />
+        {customBackCoverPdfFileId && (
+          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+            <button type="button" className={`btn btn-small ${backCoverMode === "auto" ? "btn-primary" : "btn-ghost"}`} onClick={() => setBackCoverMode("auto")}>
+              Auto-generated cover
+            </button>
+            <button type="button" className={`btn btn-small ${backCoverMode === "custom" ? "btn-primary" : "btn-ghost"}`} onClick={() => setBackCoverMode("custom")}>
+              My custom cover
+            </button>
+          </div>
+        )}
         <CoverWrapPreview
+          customCoverFileId={backCoverMode === "custom" ? customBackCoverPdfFileId : undefined}
+          pages={Number(printPages) || 32}
           title={title}
           subtitle={subtitle}
           authorFirstName={authorFirstName}
@@ -660,7 +742,11 @@ export function PrintSubmissionForm({ prefill }: { prefill?: SharedSubmissionFie
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       <div>
         <button type="button" className="btn btn-primary btn-small" disabled={submitting} onClick={() => handleSubmit(true)}>
-          {submitting ? "Submitting…" : "Submit print copy"}
+          {submitting
+            ? (editing ? "Saving…" : "Submitting…")
+            : editing
+            ? (editingPublished ? "Save changes" : "Save and resubmit for review")
+            : "Submit print copy"}
         </button>
       </div>
     </div>

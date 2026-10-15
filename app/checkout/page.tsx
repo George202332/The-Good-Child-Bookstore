@@ -131,6 +131,11 @@ function CheckoutPageInner() {
 
   const printCountry = data.country;
   const needsShipping = items.some((i) => i.format === "paperback" || i.format === "hardcover");
+  // The address as the order will store it, used to ask for the exact
+  // postage once it is filled in (until then an estimate is shown).
+  const quoteAddress = composeShipAddress({ street: data.billingAddress, street2: data.street2, city: data.city, state: data.state, postcode: data.postcode });
+  const quotePhone = data.phone ? `${data.phoneCountryCode}${data.phone}` : "";
+  const quoteItemsKey = JSON.stringify(items.filter((i) => i.format === "paperback" || i.format === "hardcover").map((i) => [i.bookId, i.quantity, i.format]));
   useEffect(() => {
     if (!needsShipping || !printCountry) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- nothing to choose until a country is picked
@@ -138,13 +143,22 @@ function CheckoutPageInner() {
       return;
     }
     let cancelled = false;
-    getShippingOptions(printCountry).then((opts) => {
-      if (cancelled) return;
-      setShippingOptions(opts);
-      setShippingLevel((cur) => (opts.some((o) => o.id === cur) ? cur : opts[0]?.id ?? ""));
-    });
-    return () => { cancelled = true; };
-  }, [needsShipping, printCountry]);
+    // Wait a moment after typing stops so we ask for a price once, not per keystroke.
+    const timer = setTimeout(() => {
+      getShippingOptions({
+        items: (JSON.parse(quoteItemsKey) as [string, number, string][]).map(([bookId, qty, format]) => ({ bookId, qty, format })),
+        country: printCountry,
+        address: quoteAddress,
+        phone: quotePhone,
+        name: data.fullName,
+      }).then((opts) => {
+        if (cancelled) return;
+        setShippingOptions(opts);
+        setShippingLevel((cur) => (opts.some((o) => o.id === cur) ? cur : opts[0]?.id ?? ""));
+      });
+    }, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [needsShipping, printCountry, quoteAddress, quotePhone, quoteItemsKey, data.fullName]);
 
   const bookSource = resolvedBooks ?? [];
   const FORMAT_LABEL: Record<string, string> = { ebook: "eBook", paperback: "Paperback", hardcover: "Hardcover", audiobook: "Audiobook" };
@@ -155,7 +169,10 @@ function CheckoutPageInner() {
     .filter((l): l is { book: NonNullable<typeof l.book>; qty: number; format: typeof l.format } => !!l.book);
   const subtotal = lines.reduce((sum, l) => sum + priceFor(l.book, l.format) * l.qty, 0);
   const hasPrintItem = lines.some((l) => l.format === "paperback" || l.format === "hardcover");
-  const grandTotal = subtotal;
+  // The customer pays postage for printed copies, on top of the books.
+  const chosenShipping = hasPrintItem ? shippingOptions.find((o) => o.id === shippingLevel) : undefined;
+  const shippingCost = chosenShipping?.amount ?? 0;
+  const grandTotal = Math.round((subtotal + shippingCost) * 100) / 100;
   // Print copies are shipped by our print partner, which needs a complete
   // address; the order stores it as street / city / state / postal code.
   const shipAddressValue = hasPrintItem
@@ -358,7 +375,8 @@ function CheckoutPageInner() {
           <div className="checkout-summary-card">
             <h3>Order summary</h3>
             <div className="summary-row"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-            <div className="summary-row total"><span>Total</span><span>${subtotal.toFixed(2)}</span></div>
+            {hasPrintItem && <div className="summary-row"><span>Shipping (printed copies)</span><span>Added at checkout</span></div>}
+            <div className="summary-row total"><span>{hasPrintItem ? "Total before shipping" : "Total"}</span><span>${subtotal.toFixed(2)}</span></div>
             {restrictedNotice}
             <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 18 }} disabled={hasRestricted} onClick={() => goTo(2)}>
               Continue
@@ -424,7 +442,7 @@ function CheckoutPageInner() {
               <fieldset style={{ border: "none", padding: 0, margin: "12px 0 0" }}>
                 <legend className="field-label field-label-compact">Shipping method</legend>
                 {shippingOptions.length === 0 ? (
-                  <div className="field-hint">Choose your country above to see the shipping methods available to you.</div>
+                  <div className="field-hint">Choose your country above to see the shipping methods and prices available to you.</div>
                 ) : (
                   shippingOptions.map((o) => (
                     <label key={o.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, marginBottom: 6, cursor: "pointer" }}>
@@ -436,7 +454,7 @@ function CheckoutPageInner() {
                         onChange={() => setShippingLevel(o.id)}
                         style={{ marginTop: 3 }}
                       />
-                      <span><strong>{o.label}</strong> — {o.detail}</span>
+                      <span><strong>{o.label}</strong> — ${o.amount.toFixed(2)}{o.source === "estimate" ? " (estimate)" : ""} · {o.detail}</span>
                     </label>
                   ))
                 )}
@@ -445,7 +463,7 @@ function CheckoutPageInner() {
           )}
           <div className="field-hint">
             {hasPrintItem
-              ? "Your print copy will be printed and shipped to this address."
+              ? "Your print copy will be printed and shipped to this address. Shipping is paid by you and is added to your total."
               : "Books are delivered digitally; this address is used for billing and tax purposes only."}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 10 }}>
@@ -476,7 +494,10 @@ function CheckoutPageInner() {
             ))}
             <div className="summary-row" style={{ marginTop: 14 }}><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
             {hasPrintItem && (
-              <div className="summary-row"><span>Shipping method</span><span>{shippingOptions.find((o) => o.id === shippingLevel)?.label ?? "Standard mail"} (included)</span></div>
+              <div className="summary-row">
+                <span>Shipping{chosenShipping ? ` (${chosenShipping.label})` : ""}</span>
+                <span>{chosenShipping ? `$${chosenShipping.amount.toFixed(2)}${chosenShipping.source === "estimate" ? " (estimate)" : ""}` : "Choose a method"}</span>
+              </div>
             )}
             <div className="summary-row"><span>Taxes</span><span>Calculated at payment</span></div>
             <div className="summary-row total"><span>Grand total</span><span>${grandTotal.toFixed(2)}</span></div>

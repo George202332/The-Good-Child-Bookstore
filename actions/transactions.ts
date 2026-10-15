@@ -240,13 +240,15 @@ export async function deleteTransaction(id: string, type: "sale" | "payout"): Pr
   if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can delete a transaction." };
 
   try {
-    await prisma.notification.deleteMany({ where: { relatedRecordId: id } });
-
     if (type === "sale") {
       const line = await prisma.saleLine.findUnique({ where: { id }, select: { orderId: true } });
       if (!line) return { ok: false, error: "This transaction no longer exists." };
 
       await prisma.saleLine.delete({ where: { id } });
+      // Only after the sale is really gone: its notifications go with it
+      // (sale, royalty, referral and promotion notices all carry the
+      // sale line's id). A failed delete therefore never loses them.
+      await deleteNotificationsForRecords([id]);
 
       const remaining = await prisma.saleLine.findMany({ where: { orderId: line.orderId }, select: { grossAmount: true } });
       if (remaining.length === 0) {
@@ -261,11 +263,14 @@ export async function deleteTransaction(id: string, type: "sale" | "payout"): Pr
         // is tied to the order itself, which is now gone too.
         await deleteNotificationsForRecords([line.orderId]);
       } else {
-        const newTotal = remaining.reduce((sum: number, l: { grossAmount: unknown }) => sum + Number(l.grossAmount), 0);
+        const orderRow = await prisma.order.findUnique({ where: { id: line.orderId }, select: { shippingAmount: true } });
+        // The customer-paid shipping stays part of the order total.
+        const newTotal = remaining.reduce((sum: number, l: { grossAmount: unknown }) => sum + Number(l.grossAmount), 0) + Number(orderRow?.shippingAmount ?? 0);
         await prisma.order.update({ where: { id: line.orderId }, data: { totalAmount: newTotal } });
       }
     } else {
       await prisma.payoutRequest.delete({ where: { id } });
+      await deleteNotificationsForRecords([id]);
     }
 
     await prisma.auditLog.create({

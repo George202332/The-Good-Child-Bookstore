@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { createNotification } from "@/actions/notifications";
+import { clearBookNotLiveNotices, clearBookLiveNotices, clearModerationProposalNotices, clearPayoutNotices } from "@/lib/notification-cleanup";
 import { submitUrlToIndexNow } from "@/lib/indexnow";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
@@ -67,6 +68,7 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
     // plain-language line — see recentActivityLine in
     // lib/notification-types.ts. The fuller sentence stays in body for
     // the full Notifications list (app/account/notifications).
+    await clearBookNotLiveNotices(bookId);
     await createNotification(book.author.user.id, book.title, `"${book.title}" is now published on the shelf.`, "BOOK_PUBLISHED", bookId);
     await notifyFollowersOfNewBook(book);
     submitUrlToIndexNow(`${getPublicSiteUrl()}/${book.slug}`).catch(() => {});
@@ -121,6 +123,7 @@ export async function rejectBook(bookId: string, comments?: string): Promise<{ o
       data: { status: "REJECTED", revisionNotes: comments?.trim() || null },
       include: { author: { include: { user: true } } },
     });
+    await clearBookLiveNotices(bookId);
     await createNotification(
       book.author.user.id,
       `Revision requested: "${book.title}"`,
@@ -160,6 +163,8 @@ async function proposeOrApplyModeration(bookId: string, action: "SUSPEND" | "WIT
         where: { id: bookId },
         data: { status: action === "SUSPEND" ? "SUSPENDED" : "WITHDRAWN", pendingAction: null, pendingActionBy: null, pendingActionNote: null },
       });
+      await clearBookLiveNotices(bookId);
+      await clearModerationProposalNotices(bookId);
       await createNotification(
         book.author.user.id,
         `${action === "SUSPEND" ? "Suspended" : "Withdrawn"}: "${book.title}"`,
@@ -214,6 +219,8 @@ export async function ratifyPendingModeration(bookId: string, approve: boolean):
       where: { id: bookId },
       data: { status: book.pendingAction === "SUSPEND" ? "SUSPENDED" : "WITHDRAWN", pendingAction: null, pendingActionBy: null, pendingActionNote: null },
     });
+    await clearBookLiveNotices(bookId);
+    await clearModerationProposalNotices(bookId);
     await createNotification(
       book.author.user.id,
       `${book.pendingAction === "SUSPEND" ? "Suspended" : "Withdrawn"}: "${book.title}"`,
@@ -223,6 +230,7 @@ export async function ratifyPendingModeration(bookId: string, approve: boolean):
     );
   } else {
     await prisma.book.update({ where: { id: bookId }, data: { pendingAction: null, pendingActionBy: null, pendingActionNote: null } });
+    await clearModerationProposalNotices(bookId);
   }
   revalidatePath("/admin/books");
   revalidatePath(`/admin/books/${bookId}/review`);
@@ -294,6 +302,7 @@ export async function approvePayoutRequest(payoutId: string | string[]): Promise
 
     const payouts = await prisma.payoutRequest.findMany({ where: { id: { in: payable }, status: "PAID", resolvedAt } });
     for (const payout of payouts) {
+      await clearPayoutNotices(payout.id);
       await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
     }
     revalidatePath("/admin/payouts");
@@ -348,6 +357,7 @@ export async function rejectPayoutRequest(payoutId: string | string[]): Promise<
     }
     const payouts = await prisma.payoutRequest.findMany({ where: { id: { in: ids }, status: "REJECTED", resolvedAt } });
     for (const payout of payouts) {
+      await clearPayoutNotices(payout.id);
       await createNotification(payout.userId, "Payout rejected", `Your $${Number(payout.amount).toFixed(2)} payout request was not approved.`, "PAYOUT", payout.id);
     }
     revalidatePath("/admin/payouts");
@@ -480,6 +490,7 @@ export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: bo
           where: { id: { in: payable }, status: "PAID", resolvedAt },
         });
         for (const payout of paid) {
+          await clearPayoutNotices(payout.id);
           await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
         }
         updated += claim.count;

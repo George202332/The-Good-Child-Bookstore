@@ -186,6 +186,8 @@ export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?
     include: { author: true },
   });
   const { createNotification } = await import("@/actions/notifications");
+  const { clearBlogNotLiveNotices } = await import("@/lib/notification-cleanup");
+  await clearBlogNotLiveNotices(blog.id);
   await createNotification(blog.author.id, `Published: "${blog.title}"`, `"${blog.title}" is now live on the journal.`, "BLOG_PUBLISHED", blog.id);
   const { submitUrlToIndexNow } = await import("@/lib/indexnow");
   const { getPublicSiteUrl } = await import("@/lib/seo/site-url");
@@ -205,6 +207,8 @@ export async function rejectBlog(blogId: string, comments?: string): Promise<{ o
     include: { author: true },
   });
   const { createNotification } = await import("@/actions/notifications");
+  const { clearBlogLiveNotices } = await import("@/lib/notification-cleanup");
+  await clearBlogLiveNotices(blog.id);
   await createNotification(
     blog.author.id,
     `Revision requested: "${blog.title}"`,
@@ -231,6 +235,8 @@ export async function suspendBlog(blogId: string, comments?: string): Promise<{ 
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
   const blog = await prisma.blog.update({ where: { id: blogId }, data: { status: "SUSPENDED" }, include: { author: true } });
   const { createNotification } = await import("@/actions/notifications");
+  const { clearBlogLiveNotices } = await import("@/lib/notification-cleanup");
+  await clearBlogLiveNotices(blog.id);
   await createNotification(blog.author.id, `Suspended: "${blog.title}"`, comments?.trim() || `"${blog.title}" has been suspended.`, "BLOG_REVISION", blog.id);
   revalidatePath("/admin/blog");
   revalidatePath(`/admin/blog/${blogId}/review`);
@@ -243,6 +249,8 @@ export async function withdrawBlog(blogId: string, comments?: string): Promise<{
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
   const blog = await prisma.blog.update({ where: { id: blogId }, data: { status: "WITHDRAWN" }, include: { author: true } });
   const { createNotification } = await import("@/actions/notifications");
+  const { clearBlogLiveNotices } = await import("@/lib/notification-cleanup");
+  await clearBlogLiveNotices(blog.id);
   await createNotification(blog.author.id, `Withdrawn: "${blog.title}"`, comments?.trim() || `"${blog.title}" has been withdrawn.`, "BLOG_REVISION", blog.id);
   revalidatePath("/admin/blog");
   revalidatePath(`/admin/blog/${blogId}/review`);

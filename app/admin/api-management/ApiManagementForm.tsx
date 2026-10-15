@@ -170,9 +170,11 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
       <fieldset style={{ border: "none", padding: 0, margin: "0 0 14px" }}>
         <legend className="field-label">Shipping methods customers can choose for printed copies</legend>
         <p className="field-hint" style={{ margin: "0 0 8px" }}>
-          Lulu charges <strong>you</strong> for the method the customer picks (faster methods cost more), and
-          shipping is not added to the customer&apos;s total. Switch off any method you do not want to pay for.
-          Ground courier is only offered for the United States.
+          The <strong>customer pays</strong> shipping: at checkout they see each method with its price (quoted
+          live by Lulu for their address and copies; a built-in estimate is shown, and labelled, if Lulu&apos;s
+          quote is unavailable) and the price is added to their total. Lulu bills the method they picked to your
+          Lulu account, so the customer&apos;s shipping payment covers it. Switch off any method you do not want
+          to offer. Ground courier is only offered for the United States.
         </p>
         {SHIPPING_LEVELS.map((lvl) => {
           const current = normaliseEnabledLevels(settings.apiKeys.luluShippingLevels);

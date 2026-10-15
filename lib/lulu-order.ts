@@ -258,7 +258,8 @@ export interface ShippingLevelInfo {
 
 /** The shipping methods Lulu's Print API accepts as `shipping_level`, in
  * order from cheapest/slowest to dearest/fastest. Lulu bills the shipping
- * for the chosen method to the store's Lulu account. */
+ * for the chosen method to the store's Lulu account; the customer pays the
+ * same amount at checkout (lib/shipping-quote.ts). */
 export const SHIPPING_LEVELS: readonly ShippingLevelInfo[] = [
   { id: "MAIL", label: "Standard mail", detail: "Lowest cost, slowest. Delivered by the postal service." },
   { id: "PRIORITY_MAIL", label: "Priority mail", detail: "Faster postal service." },

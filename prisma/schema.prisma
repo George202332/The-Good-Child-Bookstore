@@ -486,6 +486,10 @@ model Book {
   reviewChecklist   Json?
   hasPrint     Boolean       @default(false)
   hasAudiobook Boolean       @default(false)
+  /// Set when the author deletes a title that already has sales. The book
+  /// is then hidden from the author (and withdrawn from sale) but kept so
+  /// its sales and royalty history stays intact. Null = not deleted.
+  deletedByAuthorAt DateTime?
   /** Real, distinct prices per purchasable format — a customer picks
    * one of these (not just "the book") at checkout, since eBook/
    * Paperback/Hardcover/Audiobook are 4 separate purchasable editions
@@ -705,6 +709,10 @@ model Order {
   /// (a Lulu shipping_level: MAIL, PRIORITY_MAIL, GROUND, EXPEDITED, EXPRESS).
   /// Null on older orders and on orders with no printed copies.
   shippingLevel String?
+  /// Postage the CUSTOMER paid at checkout for the printed copies (quoted
+  /// from Lulu). Included in totalAmount; never part of the author's
+  /// royalty. Null on older orders and on orders with no printed copies.
+  shippingAmount Decimal? @db.Decimal(10, 2)
   // Real status of the Lulu print-job submission (see
   // lib/payments/lulu.ts) — null if this order has no physical copies,
   // otherwise reflects what actually happened, not an assumption.

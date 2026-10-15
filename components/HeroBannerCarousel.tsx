@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { bannerClassName, bannerImageStyle } from "@/lib/banner-style";
+import { bannerClassName } from "@/lib/banner-style";
+import { BannerFrame } from "@/components/BannerFrame";
 
 interface HeroSlide {
   tone: "lavender" | "mint" | "pink";
@@ -52,30 +53,42 @@ export function HeroBannerCarousel({
     return () => clearInterval(t);
   }, [slides.length]);
 
-  const slide = slides[index];
-
+  // All three slides are in the page from the start, stacked on top of each
+  // other, so every picture is downloaded up front and changing slide is a
+  // smooth cross-fade instead of an empty banner waiting for the next picture.
   return (
-    <div style={{ position: "relative" }}>
-      <div
-        className={bannerClassName(`promo-banner promo-${slide.tone}`, slide.imageUrl)}
-        style={{
-          height: 352, minHeight: 0, overflow: "hidden", boxSizing: "border-box",
-          ...bannerImageStyle(slide.imageUrl),
-        }}
-      >
-        <div className="promo-banner-text">
-          <div className="promo-banner-icon">{slide.icon}</div>
-          <div>
-            <h3>{slide.title}</h3>
-            <p>{slide.body}</p>
-          </div>
-        </div>
-        <Link href={slide.ctaHref} className="btn btn-primary btn-small">
-          {slide.ctaLabel}
-        </Link>
-      </div>
+    <div style={{ position: "relative", height: 352 }}>
+      {slides.map((slide, i) => {
+        const active = i === index;
+        return (
+          <BannerFrame
+            key={slide.title + i}
+            className={bannerClassName(`promo-banner promo-${slide.tone}`, slide.imageUrl)}
+            imageUrl={slide.imageUrl}
+            priority={i === 0}
+            style={{
+              position: "absolute", inset: 0, height: 352, minHeight: 0, overflow: "hidden", boxSizing: "border-box",
+              opacity: active ? 1 : 0,
+              visibility: active ? "visible" : "hidden",
+              transition: "opacity 600ms ease, visibility 0s linear " + (active ? "0s" : "600ms"),
+              zIndex: active ? 1 : 0,
+            }}
+          >
+            <div className="promo-banner-text">
+              <div className="promo-banner-icon">{slide.icon}</div>
+              <div>
+                <h3>{slide.title}</h3>
+                <p>{slide.body}</p>
+              </div>
+            </div>
+            <Link href={slide.ctaHref} className="btn btn-primary btn-small" tabIndex={active ? 0 : -1} aria-hidden={!active}>
+              {slide.ctaLabel}
+            </Link>
+          </BannerFrame>
+        );
+      })}
 
-      <div style={{ position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", display: "flex", justifyContent: "center", gap: 8 }}>
+      <div style={{ position: "absolute", left: "50%", bottom: 14, transform: "translateX(-50%)", display: "flex", justifyContent: "center", gap: 8, zIndex: 2 }}>
         {slides.map((_, i) => (
           <button
             key={i}

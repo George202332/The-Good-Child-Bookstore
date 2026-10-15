@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getPagesContent } from "@/actions/page-content";
-import { bannerClassName, bannerImageStyle } from "@/lib/banner-style";
+import { bannerClassName } from "@/lib/banner-style";
+import { BannerFrame } from "@/components/BannerFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +25,11 @@ export default async function AffiliateMarketingPage() {
     <main>
       <section className="fade-in-section visible" style={{ paddingTop: "0.5in" }}>
         <div className="wrap">
-          <div
+          <BannerFrame
             className={bannerClassName("promo-banner promo-mint", affiliateMarketing.heroImage)}
-            style={{
-              height: 352, overflow: "hidden", boxSizing: "border-box",
-              ...bannerImageStyle(affiliateMarketing.heroImage),
-            }}
+            imageUrl={affiliateMarketing.heroImage}
+            priority
+            style={{ height: 352, overflow: "hidden", boxSizing: "border-box" }}
           >
             <div className="promo-banner-text">
               <div className="promo-banner-icon">
@@ -44,7 +44,7 @@ export default async function AffiliateMarketingPage() {
               <Link href="/signup/reader" className="btn btn-primary btn-small">Sign up as a reader</Link>
               <Link href="/signup/author" className="btn btn-ghost btn-small">Sign up as an author</Link>
             </div>
-          </div>
+          </BannerFrame>
         </div>
       </section>
 
@@ -78,9 +78,10 @@ export default async function AffiliateMarketingPage() {
 
       <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap">
-          <div
+          <BannerFrame
             className={bannerClassName("promo-banner promo-lavender", affiliateMarketing.ctaBannerImage)}
-            style={{ height: 352, overflow: "hidden", boxSizing: "border-box", justifyContent: "center", flexDirection: "column", gap: 20, ...bannerImageStyle(affiliateMarketing.ctaBannerImage) }}
+            imageUrl={affiliateMarketing.ctaBannerImage}
+            style={{ height: 352, overflow: "hidden", boxSizing: "border-box", justifyContent: "center", flexDirection: "column", gap: 20 }}
           >
             <div className="promo-banner-text">
               <div className="promo-banner-icon">
@@ -97,7 +98,7 @@ export default async function AffiliateMarketingPage() {
               <Link href="/signup/reader" className="btn btn-primary">Sign up as a reader</Link>
               <Link href="/signup/author" className="btn btn-ghost">Sign up as an author</Link>
             </div>
-          </div>
+          </BannerFrame>
         </div>
       </section>
 

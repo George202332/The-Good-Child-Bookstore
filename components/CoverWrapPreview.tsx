@@ -35,6 +35,7 @@ export function CoverWrapPreview({
   paperCode,
   pages = 32,
   coverImageUrl,
+  customCoverFileId,
 }: {
   title: string;
   subtitle?: string;
@@ -46,6 +47,10 @@ export function CoverWrapPreview({
   paperCode: string;
   pages?: number;
   coverImageUrl?: string;
+  /** When set, the author's own uploaded full-wrap cover PDF (front, spine,
+   * back) is shown here instead of the generated cover, under the same
+   * Margin / Bleed / Folds / Trim guides. */
+  customCoverFileId?: string;
 }) {
   const [showMargin, setShowMargin] = useState(true);
   const [showBleed, setShowBleed] = useState(true);
@@ -54,6 +59,47 @@ export function CoverWrapPreview({
   const [dominantColor, setDominantColor] = useState<string | undefined>(undefined);
 
   const hasRealCoverImage = !!coverImageUrl;
+
+  // The author's own full-wrap cover: its first page is drawn to an image
+  // so it can sit in the very same preview, under the very same guides.
+  const [custom, setCustom] = useState<{ url: string; wIn: number; hIn: number } | null>(null);
+  const [customState, setCustomState] = useState<"idle" | "loading" | "error">("idle");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!customCoverFileId) {
+        await Promise.resolve();
+        if (!cancelled) { setCustom(null); setCustomState("idle"); }
+        return;
+      }
+      await Promise.resolve();
+      if (!cancelled) setCustomState("loading");
+      try {
+        const res = await fetch(`/api/files/${customCoverFileId}`);
+        if (!res.ok) throw new Error("fetch");
+        const buffer = await res.arrayBuffer();
+        const pdfjsLib = await import("pdfjs-dist");
+        pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+        const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
+        const page = await doc.getPage(1);
+        const base = page.getViewport({ scale: 1 });
+        const viewport = page.getViewport({ scale: Math.min(3, 2000 / base.width) });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("canvas");
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+        if (!cancelled) {
+          setCustom({ url: canvas.toDataURL("image/jpeg", 0.88), wIn: base.width / 72, hIn: base.height / 72 });
+          setCustomState("idle");
+        }
+      } catch {
+        if (!cancelled) { setCustom(null); setCustomState("error"); }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [customCoverFileId]);
 
   // Real dominant-color extraction from the uploaded front cover, same
   // as the original's canvas-based color quantization — degrades
@@ -87,8 +133,14 @@ export function CoverWrapPreview({
   // ---- Geometry (real trim/bleed/margin/spine, U = 100 SVG units/inch) ----
   const geo = computeCoverGeometry(trimCode, paperCode, pages);
   const U = 100;
-  const bleed = geo.bleedIn * U, margin = geo.marginIn * U, spineW = geo.spineWidthIn * U;
+  // With a custom cover the spine is whatever that file actually has.
+  const customSpineIn = custom ? custom.wIn - geo.trimWidthIn * 2 - geo.bleedIn * 2 : null;
+  const useCustom = !!custom && customSpineIn !== null && customSpineIn >= 0;
+  const bleed = geo.bleedIn * U, margin = geo.marginIn * U, spineW = (useCustom ? (customSpineIn as number) : geo.spineWidthIn) * U;
   const trimW = geo.trimWidthIn * U, trimH = geo.trimHeightIn * U;
+  const expectedW = geo.trimWidthIn * 2 + geo.spineWidthIn + geo.bleedIn * 2;
+  const expectedH = geo.trimHeightIn + geo.bleedIn * 2;
+  const customMismatch = !!custom && (Math.abs(custom.wIn - expectedW) > 0.1 || Math.abs(custom.hIn - expectedH) > 0.1);
   const totalW = bleed * 2 + trimW * 2 + spineW;
   const totalH = bleed * 2 + trimH;
   const backX = bleed, spineX = bleed + trimW, frontX = bleed + trimW + spineW;
@@ -137,6 +189,22 @@ export function CoverWrapPreview({
         ))}
       </div>
 
+      {customCoverFileId && customState === "loading" && (
+        <p className="field-hint" role="status">Loading your custom cover…</p>
+      )}
+      {customCoverFileId && customState === "error" && (
+        <p className="field-hint" role="alert" style={{ color: "var(--coral-deep)" }}>
+          Your custom cover couldn&apos;t be shown here (the file may be damaged). The generated cover is shown instead; upload the PDF again to retry.
+        </p>
+      )}
+      {useCustom && custom && (
+        <p className="field-hint" style={customMismatch ? { color: "var(--coral-deep)" } : undefined}>
+          {customMismatch
+            ? `Showing your custom cover (${custom.wIn.toFixed(2)} × ${custom.hIn.toFixed(2)} in). For this trim size and page count a full wrap is about ${expectedW.toFixed(2)} × ${expectedH.toFixed(2)} in — check the guides below before submitting.`
+            : "Showing your custom cover. Check that your artwork sits inside the dashed Margin lines and that the fold lines match your spine."}
+        </p>
+      )}
+
       {/* Preview is centered, and sized so the book panel itself renders
           at a true 6in height (a real CSS physical-length unit) — width
           follows automatically from the real trim/spine geometry below. */}
@@ -150,8 +218,12 @@ export function CoverWrapPreview({
           </defs>
           <rect x={0} y={0} width={totalW} height={totalH} fill="#fff" />
 
+          {useCustom && custom && (
+            <image href={custom.url} x={0} y={0} width={totalW} height={totalH} preserveAspectRatio="none" />
+          )}
+
           {/* Back cover */}
-          <g>
+          {!useCustom && <g>
             <rect x={backX} y={bleed} width={trimW} height={trimH} fill={back.background} />
             <text fontFamily="Georgia, 'Times New Roman', serif" fontSize={fit.fontSize} fill="#fff">
               {fit.lines.map((l, i) => (
@@ -169,10 +241,10 @@ export function CoverWrapPreview({
                 ))}
               </g>
             )}
-          </g>
+          </g>}
 
           {/* Spine */}
-          <g>
+          {!useCustom && <g>
             <rect x={spineX} y={bleed} width={spineW} height={trimH} fill={spineColor} />
             {showSpineText && (
               <text
@@ -183,10 +255,10 @@ export function CoverWrapPreview({
                 {(title || "").slice(0, 40)}
               </text>
             )}
-          </g>
+          </g>}
 
           {/* Front cover */}
-          <g>
+          {!useCustom && <g>
             {hasRealCoverImage ? (
               <image href={coverImageUrl} x={frontX} y={bleed} width={trimW} height={trimH} preserveAspectRatio="xMidYMid slice" />
             ) : (
@@ -218,7 +290,7 @@ export function CoverWrapPreview({
             >
               {authorName.toUpperCase()}
             </text>
-          </g>
+          </g>}
 
           {/* Guides */}
           {showMargin && (

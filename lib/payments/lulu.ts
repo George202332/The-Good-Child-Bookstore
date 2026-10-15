@@ -55,6 +55,7 @@ import {
 import { detectTrimFromPageSize, formatInches, trimCodeToInches } from "@/lib/trim-size";
 import { LULU_CONFIG } from "@/lib/lulu-config";
 import { coverLayout, toPoints, buildCoverWrapPdf } from "@/lib/lulu-cover";
+import { parseLuluShippingOptions, pickShippingQuote, type ShippingQuote } from "@/lib/shipping-quote";
 
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
@@ -84,6 +85,92 @@ async function getAccessToken(baseUrl: string): Promise<string> {
 }
 
 export type LuluPrintLineItem = LuluJobLine;
+
+type PrintMeta = {
+  trimSizeCode?: string; interiorColor?: string; printQuality?: string; binding?: string;
+  paperType?: string; coverFinish?: string; linenColor?: string; foilColor?: string;
+  frontCoverImageUrl?: string; backCoverMode?: string; customBackCoverPdfFileId?: string; pages?: number;
+};
+
+/** The Lulu package code for one printed edition of a book. Used for the
+ * print job and for the shipping quote, so both always describe the same
+ * book. */
+export async function podPackageForBook(meta: PrintMeta | null, format: "paperback" | "hardcover", trimCode: string): Promise<string> {
+  const { buildPodPackageId } = await import("@/lib/lulu-config");
+  return toLuluPodPackageId(buildPodPackageId({
+    trimCode,
+    colorCode: meta?.interiorColor || "BW",
+    qualityCode: meta?.printQuality || "STD",
+    bindingCode: format === "hardcover" ? "LW" : (meta?.binding || "PB"),
+    paperCode: meta?.paperType || "060UW444",
+    finishCode: meta?.coverFinish || "M",
+    linenCode: meta?.linenColor || "X",
+    foilCode: meta?.foilColor || "X",
+  }));
+}
+
+export interface ShippingQuoteLine {
+  title: string;
+  format: "paperback" | "hardcover";
+  quantity: number;
+  submissionMetadata: unknown;
+  manuscriptUrl?: string;
+}
+
+/** Asks Lulu what shipping would cost for these printed copies to this
+ * address, for each shipping method. Returns [] when Lulu cannot be asked or
+ * does not answer usefully (the caller then falls back to the store's
+ * estimate). Never throws. */
+export async function quoteLuluShipping(lines: ShippingQuoteLine[], address: LuluAddress): Promise<ShippingQuote[]> {
+  try {
+    const items: { page_count: number; pod_package_id: string; quantity: number }[] = [];
+    for (const l of lines) {
+      const meta = (l.submissionMetadata as PrintMeta | null) ?? null;
+      let pageCount = Number(meta?.pages) || 0;
+      let trimCode = meta?.trimSizeCode || "0600X0900";
+      if (!pageCount || !meta?.trimSizeCode) {
+        const interior = await readInteriorPdf(l.manuscriptUrl);
+        if (interior) {
+          pageCount = pageCount || interior.pageCount;
+          const found = detectTrimFromPageSize(interior.widthIn, interior.heightIn, LULU_CONFIG.trimSizes);
+          if (found) trimCode = found.code;
+        }
+      }
+      if (!pageCount) return [];
+      items.push({ page_count: pageCount, pod_package_id: await podPackageForBook(meta, l.format, trimCode), quantity: l.quantity });
+    }
+    const baseUrl = luluBaseUrl(await getLuluEnvironment());
+    const token = await getAccessToken(baseUrl);
+    const res = await fetch(`${baseUrl}/shipping-options/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        currency: "USD",
+        line_items: items,
+        shipping_address: {
+          city: address.city,
+          country: address.country_code,
+          country_code: address.country_code,
+          postcode: address.postcode,
+          state_code: address.state_code,
+          street1: address.street1,
+          phone_number: address.phone_number,
+        },
+      }),
+    });
+    if (!res.ok) return [];
+    return parseLuluShippingOptions(await res.json());
+  } catch {
+    return [];
+  }
+}
+
+/** The shipping quote for one chosen method: Lulu's live quote when it has
+ * one, otherwise the store's estimate. */
+export async function shippingQuoteForLevel(lines: ShippingQuoteLine[], address: LuluAddress, level: LuluShippingLevel): Promise<ShippingQuote> {
+  const copies = lines.reduce((n, l) => n + l.quantity, 0);
+  return pickShippingQuote(level, await quoteLuluShipping(lines, address), address.country_code, copies);
+}
 
 /** Submits a real print job to Lulu for one order's worth of physical
  * copies. Never throws — a failed submission is reported back as a
@@ -241,7 +328,6 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
     if (claim.count === 0) return { ok: true, state: "already" };
 
     try {
-      const { buildPodPackageId } = await import("@/lib/lulu-config");
       const { resolveFormatPrice } = await import("@/lib/book-visibility");
       const { getPublicSiteUrl } = await import("@/lib/seo/site-url");
       const { countryToIso2 } = await import("@/lib/user-country");
@@ -281,16 +367,7 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
         const pageCount = interior?.pageCount ?? (Number(meta?.pages) || 0);
         if (!pageCount) prelim.push(`"${l.book.title}": the interior page count is unknown`);
 
-        const podPackageId = toLuluPodPackageId(buildPodPackageId({
-          trimCode,
-          colorCode: meta?.interiorColor || "BW",
-          qualityCode: meta?.printQuality || "STD",
-          bindingCode: l.format === "hardcover" ? "LW" : (meta?.binding || "PB"),
-          paperCode: meta?.paperType || "060UW444",
-          finishCode: meta?.coverFinish || "M",
-          linenCode: meta?.linenColor || "X",
-          foilCode: meta?.foilColor || "X",
-        }));
+        const podPackageId = await podPackageForBook(meta, l.format === "hardcover" ? "hardcover" : "paperback", trimCode);
 
         // The order stores one line per book with the total paid for all
         // copies; the number of copies is that total over the unit price.

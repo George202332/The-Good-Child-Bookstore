@@ -11,6 +11,8 @@ export interface OrderReceiptData {
   purchaseDate: Date;
   items: { title: string; format: string; price: number }[];
   totalAmount: number;
+  /** Postage paid by the customer for printed copies (already inside totalAmount). */
+  shippingAmount?: number;
 }
 
 /**
@@ -66,6 +68,13 @@ export async function generateOrderReceipt(data: OrderReceiptData): Promise<Uint
     text(item.title, margin, y, { size: 11 });
     text(item.format.charAt(0).toUpperCase() + item.format.slice(1), margin + 320, y, { size: 11, color: INK });
     rightText(`$${item.price.toFixed(2)}`, margin + pageWidth, y, { size: 11 });
+    y -= 22;
+  }
+
+  if (data.shippingAmount && data.shippingAmount > 0) {
+    text("Shipping", margin, y, { size: 11 });
+    text("Paid by customer", margin + 320, y, { size: 11, color: INK_SOFT });
+    rightText(`$${data.shippingAmount.toFixed(2)}`, margin + pageWidth, y, { size: 11 });
     y -= 22;
   }
 

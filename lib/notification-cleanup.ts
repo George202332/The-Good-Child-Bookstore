@@ -175,3 +175,65 @@ export async function prepareUserContentNotificationCleanup(userId: string, db: 
     return NOOP;
   }
 }
+
+/* ------------------------------------------------------------------ *
+ * Status changes
+ * ------------------------------------------------------------------ *
+ * The rule above covers an item being DELETED. The same rule applies
+ * when an item's status moves on: a notification that announces a state
+ * the item is no longer in must go too. Example: "Revision requested"
+ * must not stay in the author's list after the book is approved, and
+ * "Your book has been published" must not stay after it is suspended or
+ * deleted; a payout's "Payout rejected" must not sit beside "Payout
+ * sent". These helpers are called by the action that changes the status,
+ * just before it creates the notification for the new status.
+ */
+
+/** Notification types that announce a book being live / needing work. */
+export const BOOK_LIVE_NOTIFICATION_TYPES = ["BOOK_PUBLISHED", "NEW_BOOK_BY_FOLLOWED_AUTHOR"] as const;
+export const BOOK_NOT_LIVE_NOTIFICATION_TYPES = ["REVISION"] as const;
+export const BLOG_LIVE_NOTIFICATION_TYPES = ["BLOG_PUBLISHED"] as const;
+export const BLOG_NOT_LIVE_NOTIFICATION_TYPES = ["BLOG_REVISION"] as const;
+/** Title prefixes of the "an editor proposed…" notices sent to approvers. */
+export const MODERATION_PROPOSAL_TITLE_PREFIXES = ["Suspend proposed", "Withdraw proposed"] as const;
+
+/** Pure: builds the Prisma filter for superseded notifications. */
+export function supersededWhere(recordId: string, types: readonly string[], titlePrefixes?: readonly string[]) {
+  return {
+    relatedRecordId: recordId,
+    type: { in: [...types] },
+    ...(titlePrefixes && titlePrefixes.length > 0 ? { OR: titlePrefixes.map((p) => ({ title: { startsWith: p } })) } : {}),
+  };
+}
+
+/** Deletes the notifications of one record that announce a status it has
+ * now left. Never throws. */
+export async function clearSupersededNotifications(
+  recordId: string,
+  types: readonly string[],
+  titlePrefixes?: readonly string[],
+  db: Db = prisma,
+): Promise<void> {
+  try {
+    await db.notification.deleteMany({ where: supersededWhere(recordId, types, titlePrefixes) });
+  } catch {
+    // Best-effort: never block the status change.
+  }
+}
+
+/** The book is now live: older "revision requested / suspended /
+ * withdrawn / proposed" notices about it are obsolete. */
+export const clearBookNotLiveNotices = (bookId: string) => clearSupersededNotifications(bookId, BOOK_NOT_LIVE_NOTIFICATION_TYPES);
+/** The book is no longer live (rejected, suspended, withdrawn, deleted
+ * by the author): "published" notices (to the author and to followers)
+ * and older revision notices are obsolete. */
+export const clearBookLiveNotices = (bookId: string) =>
+  clearSupersededNotifications(bookId, [...BOOK_LIVE_NOTIFICATION_TYPES, ...BOOK_NOT_LIVE_NOTIFICATION_TYPES]);
+/** An editor's proposal was ratified or declined: the request is closed. */
+export const clearModerationProposalNotices = (bookId: string) =>
+  clearSupersededNotifications(bookId, BOOK_NOT_LIVE_NOTIFICATION_TYPES, MODERATION_PROPOSAL_TITLE_PREFIXES);
+export const clearBlogNotLiveNotices = (blogId: string) => clearSupersededNotifications(blogId, BLOG_NOT_LIVE_NOTIFICATION_TYPES);
+export const clearBlogLiveNotices = (blogId: string) =>
+  clearSupersededNotifications(blogId, [...BLOG_LIVE_NOTIFICATION_TYPES, ...BLOG_NOT_LIVE_NOTIFICATION_TYPES]);
+/** A payout is resolved: any earlier outcome notice for it is replaced. */
+export const clearPayoutNotices = (payoutId: string) => clearSupersededNotifications(payoutId, ["PAYOUT"]);

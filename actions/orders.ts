@@ -222,6 +222,8 @@ export async function createPendingOrder(input: {
   // page asks for every one of these; this is the authoritative check.)
   const hasPrintLine = lines.some((l) => l.format === "paperback" || l.format === "hardcover");
   let shippingLevel: string | null = null;
+  // What the customer pays for postage (the store never absorbs it).
+  let shippingAmount: number | null = null;
   if (hasPrintLine) {
     const { buildLuluAddress, shippingProblems } = await import("@/lib/lulu-order");
     const addr = buildLuluAddress({
@@ -240,6 +242,20 @@ export async function createPendingOrder(input: {
     const { getEnabledShippingLevels } = await import("@/lib/api-keys");
     const { resolveShippingLevel } = await import("@/lib/lulu-order");
     shippingLevel = resolveShippingLevel(input.shippingLevel, shipIso ?? "", await getEnabledShippingLevels());
+
+    // Postage is worked out here, on the server, from the books and address
+    // in the order — the same calculation the checkout page showed — and is
+    // added to what the customer pays. It is never taken from the browser.
+    const { quoteCartShipping } = await import("@/lib/payments/cart-shipping");
+    const [quote] = await quoteCartShipping({
+      lines: lines.map((l) => ({ title: l.book.title, format: l.format, qty: l.qty, submissionMetadata: l.book.submissionMetadata, files: l.book.files })),
+      countryIso: shipIso ?? "",
+      rawAddress: input.shipAddress,
+      phone: input.shipPhone,
+      name: input.shipName || input.guestName,
+      levels: [shippingLevel as import("@/lib/lulu-order").LuluShippingLevel],
+    });
+    shippingAmount = quote ? quote.amount : 0;
   }
 
   const { readerProfileId, error, tempPassword } = await resolveReaderProfileId(input.guestEmail, input.guestName);
@@ -273,7 +289,10 @@ export async function createPendingOrder(input: {
     // malformed/missing cookie — treat as no attribution
   }
 
-  const totalAmount = +subtotal.toFixed(2);
+  // Books plus postage. Postage is not part of any line, so it never enters
+  // the author / affiliate / company split.
+  const { orderTotalWithShipping } = await import("@/lib/shipping-quote");
+  const totalAmount = orderTotalWithShipping(+subtotal.toFixed(2), shippingAmount ?? 0);
   const commissionRates = await getCommissionRates();
 
   // Referral commission is tiered (Hawk/Falcon/Eagle/Phoenix — see
@@ -308,6 +327,7 @@ export async function createPendingOrder(input: {
       shipCountry: input.shipCountry?.trim() || null,
       shipAddress: input.shipAddress?.trim() || null,
       shippingLevel,
+      shippingAmount,
       lines: {
         create: lines.map((l) => {
           const lineGross = +(l.unitPrice * l.qty).toFixed(2);
@@ -413,6 +433,8 @@ export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: b
 export interface OrderSummary {
   id: string;
   totalAmount: number;
+  /** Postage the customer paid (included in totalAmount); 0 when none. */
+  shippingAmount: number;
   printJobStatus: string | null;
   printJobError: string | null;
   items: { title: string; price: number; downloadUrl: string | null; hasEbook: boolean; hasAudiobook: boolean; isPrint: boolean; coverImageUrl: string | null }[];
@@ -435,6 +457,7 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary | n
     return {
       id: order.id,
       totalAmount: Number(order.totalAmount),
+      shippingAmount: order.shippingAmount != null ? Number(order.shippingAmount) : 0,
       printJobStatus: order.printJobStatus,
       printJobError: order.printJobError,
       items: order.lines.map((l) => {

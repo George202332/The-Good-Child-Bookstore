@@ -508,7 +508,7 @@ interface PendingFilesRevision {
   coverImageUrl?: string;
   /** Manuscript-derived details that belong with the held manuscript
    * (page count, trim size, file size) — applied only on approval. */
-  metadataPatch?: Partial<Pick<SubmissionMetadata, "pages" | "dimensions" | "fileSizeKB">>;
+  metadataPatch?: Partial<Pick<SubmissionMetadata, "pages" | "dimensions" | "fileSizeKB" | "trimSizeCode" | "podPackageId">>;
   /** The held manuscript is the title's first (an audiobook-only title
    * gaining an eBook): on approval the eBook edition goes on sale at
    * `ebookPrice`. */
@@ -583,7 +583,15 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
 
   const existing = await prisma.book.findUnique({ where: { id: bookId } });
-  if (!existing || existing.authorId !== user.authorProfile.id) return { ok: false, error: "Book not found." };
+  if (!existing || existing.authorId !== user.authorProfile.id || existing.deletedByAuthorAt) return { ok: false, error: "Book not found." };
+
+  // A print edition: the trim size always follows the interior PDF's real
+  // page size (same rule as a new submission), and a PDF that matches no
+  // printable size is refused when the save sends the book for review.
+  if (input.formats.print && !input.formats.ebook && input.manuscriptFileId) {
+    const fixed = await alignTrimSizeWithPdf({ ...input, submitForReview: true });
+    if (!fixed.ok) return { ok: false, error: fixed.error };
+  }
 
   // A published title keeps its live files when the save sends none, so the
   // eBook / audiobook decision is made against the manuscript that will be
@@ -642,6 +650,19 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
     if (decision.manuscript) {
       // These describe the manuscript; they change when it is approved.
       metadata = { ...metadata, pages: existingMeta.pages, dimensions: existingMeta.dimensions, fileSizeKB: existingMeta.fileSizeKB };
+      if (input.formats.print && existingMeta.trimSizeCode) {
+        // The live print file is still the old one, so the live trim size
+        // and package stay as they are until the new PDF is approved.
+        const newTrim = metadata.trimSizeCode;
+        const livePackage = newTrim && metadata.podPackageId ? metadata.podPackageId.replace(newTrim, existingMeta.trimSizeCode) : metadata.podPackageId;
+        metadata = { ...metadata, trimSizeCode: existingMeta.trimSizeCode, podPackageId: livePackage };
+      }
+    }
+
+    if (decision.cover && input.formats.print && typeof existingMeta.frontCoverImageUrl === "string") {
+      // The print edition's live front cover (used when printing) also
+      // stays the old one until the new cover is approved.
+      metadata = { ...metadata, frontCoverImageUrl: existingMeta.frontCoverImageUrl };
     }
 
     // The revision that stays on hold: this save's replaced files, plus any
@@ -667,7 +688,7 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
           ...(introducesEbook && heldEbookPrice !== null ? { introducesEbook: true, ebookPrice: heldEbookPrice } : {}),
           ...(heldCover ? { coverImageUrl: heldCover } : {}),
           ...(heldManuscript
-            ? { metadataPatch: decision.manuscript ? { pages: prep.metadata.pages, dimensions: prep.metadata.dimensions, fileSizeKB: prep.metadata.fileSizeKB } : prior?.metadataPatch }
+            ? { metadataPatch: decision.manuscript ? { pages: prep.metadata.pages, dimensions: prep.metadata.dimensions, fileSizeKB: prep.metadata.fileSizeKB, ...(input.formats.print ? { trimSizeCode: prep.metadata.trimSizeCode, podPackageId: prep.metadata.podPackageId } : {}) } : prior?.metadataPatch }
             : {}),
         }
       : null;
@@ -803,6 +824,10 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
     }),
   ]);
 
+  // Back in review: an earlier "revision requested" notice is cleared.
+  const { clearBookNotLiveNotices } = await import("@/lib/notification-cleanup");
+  await clearBookNotLiveNotices(bookId);
+
   revalidatePath("/account/books");
   revalidatePath(`/account/books/${bookId}/edit`);
   return { ok: true, outcome: "resubmitted", message: "Your changes were saved and the book was sent for review." };
@@ -838,7 +863,17 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
             ? { hasEbook: true, ebookPrice: held.ebookPrice, price: held.ebookPrice }
             : {}),
           ...(held?.coverImageUrl ? { coverImageUrl: held.coverImageUrl } : {}),
-          ...(held?.manuscriptFileId ? { submissionMetadata: JSON.parse(JSON.stringify({ ...liveMeta, ...patch })), files: { create: [{ kind: "MANUSCRIPT", url: `/api/files/${held.manuscriptFileId}` }] } } : {}),
+          ...(held?.manuscriptFileId || (held?.coverImageUrl && typeof liveMeta.frontCoverImageUrl === "string")
+            ? {
+                submissionMetadata: JSON.parse(JSON.stringify({
+                  ...liveMeta,
+                  ...(held?.manuscriptFileId ? patch : {}),
+                  // A print edition's front cover is also recorded in its print settings.
+                  ...(held?.coverImageUrl && typeof liveMeta.frontCoverImageUrl === "string" ? { frontCoverImageUrl: held.coverImageUrl } : {}),
+                })),
+              }
+            : {}),
+          ...(held?.manuscriptFileId ? { files: { create: [{ kind: "MANUSCRIPT", url: `/api/files/${held.manuscriptFileId}` }] } } : {}),
           pendingRevisionData: null as unknown as object,
         },
       }),
@@ -1013,17 +1048,24 @@ export async function setBookSuspended(bookId: string, suspended: boolean): Prom
     where: { id: bookId },
     data: { status: suspended ? "ARCHIVED" : "PENDING_REVIEW" },
   });
+  // The status moved on: notices about the old status no longer apply.
+  const { clearBookLiveNotices } = await import("@/lib/notification-cleanup");
+  await clearBookLiveNotices(bookId);
 
   revalidatePath("/account/books");
   return { ok: true };
 }
 
-/** Withdraws a book from the catalog — removes it from the public
- * shelf entirely. A real status change (WITHDRAWN), not a hard delete:
- * the book's sales history and royalty records must stay intact for
- * accounting purposes even after it's pulled from sale, and a hard
- * delete would silently break those. */
-export async function withdrawBook(bookId: string): Promise<{ ok: boolean; error?: string }> {
+/** Deletes a title from the author's account.
+ *
+ *  - A title that has never sold a copy is removed completely (with every
+ *    notification about it).
+ *  - A title that HAS sold is taken off sale (status WITHDRAWN) and hidden
+ *    from the author's list, but the record itself is kept: sales,
+ *    royalties and payouts are financial history and must stay intact.
+ *    Its notifications are cleared either way.
+ */
+export async function deleteBook(bookId: string): Promise<{ ok: boolean; error?: string; kept?: boolean }> {
   const session = await auth();
   if (session?.user?.role !== "AUTHOR") return { ok: false, error: "Only author accounts can do this." };
 
@@ -1031,10 +1073,28 @@ export async function withdrawBook(bookId: string): Promise<{ ok: boolean; error
   if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
 
   const book = await prisma.book.findUnique({ where: { id: bookId } });
-  if (!book || book.authorId !== user.authorProfile.id) return { ok: false, error: "Book not found." };
+  if (!book || book.authorId !== user.authorProfile.id || book.deletedByAuthorAt) return { ok: false, error: "Book not found." };
 
-  await prisma.book.update({ where: { id: bookId }, data: { status: "WITHDRAWN" } });
+  const { prepareBookNotificationCleanup } = await import("@/lib/notification-cleanup");
+  const cleanup = await prepareBookNotificationCleanup(bookId);
+  const sales = await prisma.saleLine.count({ where: { bookId } });
+  try {
+    if (sales === 0) {
+      await prisma.book.delete({ where: { id: bookId } });
+    } else {
+      await prisma.book.update({
+        where: { id: bookId },
+        data: { status: "WITHDRAWN", deletedByAuthorAt: new Date(), pendingAction: null, pendingActionBy: null, pendingActionNote: null },
+      });
+    }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't delete this book." };
+  }
+  await cleanup();
 
   revalidatePath("/account/books");
-  return { ok: true };
+  revalidatePath("/account");
+  revalidatePath("/account/notifications");
+  revalidatePath("/bookshelf");
+  return { ok: true, kept: sales > 0 };
 }

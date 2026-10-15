@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { bannerClassName, bannerImageStyle } from "@/lib/banner-style";
+import { bannerClassName } from "@/lib/banner-style";
+import { BannerFrame } from "@/components/BannerFrame";
 
 /** Converted from the repeated `.promo-banner` markup used four times in
  * homeHTML() (the-good-child-bookstore_54_1.html, e.g. lines 3772-3785). */
@@ -23,10 +24,7 @@ export function PromoBanner({
   imageUrl?: string;
 }) {
   return (
-    <div
-      className={bannerClassName(`promo-banner promo-${tone}`, imageUrl)}
-      style={imageUrl ? bannerImageStyle(imageUrl) : undefined}
-    >
+    <BannerFrame className={bannerClassName(`promo-banner promo-${tone}`, imageUrl)} imageUrl={imageUrl}>
       <div className="promo-banner-text">
         <div className="promo-banner-icon">{icon}</div>
         <div>
@@ -39,6 +37,6 @@ export function PromoBanner({
           {ctaLabel}
         </Link>
       )}
-    </div>
+    </BannerFrame>
   );
 }

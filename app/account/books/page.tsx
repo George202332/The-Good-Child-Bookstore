@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
 import { ColHelp } from "@/components/ColHelp";
 import { SuspendButton } from "./SuspendButton";
-import { WithdrawButton } from "./WithdrawButton";
+import { DeleteButton } from "./DeleteButton";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
 interface SaleLineShare {
@@ -57,7 +57,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    include: { authorProfile: { include: { books: { include: { saleLines: true, categories: { include: { category: true } } } } } } },
+    include: { authorProfile: { include: { books: { where: { deletedByAuthorAt: null }, include: { saleLines: true, categories: { include: { category: true } } } } } } },
   });
   const books = (user?.authorProfile?.books ?? []) as AuthorBook[];
 
@@ -89,7 +89,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                 <th style={TABLE_HEAD_STYLE}>Royalties<ColHelp text="Your total lifetime earnings from this book's sales." /></th>
                 <th style={TABLE_HEAD_STYLE}>Edit<ColHelp text="Opens the submission form to update this book's details. For a published book, changes go live on save; a new manuscript or cover is reviewed first." /></th>
                 <th style={TABLE_HEAD_STYLE}>Suspend<ColHelp text="Removes this book from the store shelf without deleting it. You can restore it any time." /></th>
-                <th style={TABLE_HEAD_STYLE}>Withdraw<ColHelp text="Removes this book from the catalog for good — its sales history stays on record, but it's no longer for sale." /></th>
+                <th style={TABLE_HEAD_STYLE}>Delete<ColHelp text="Deletes this book from your account and takes it off sale. If it has already sold copies, its sales and royalty history stays on record." /></th>
               </tr>
             </thead>
             <tbody>
@@ -116,12 +116,12 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                     <td style={TABLE_CELL_STYLE}>${royalties.toFixed(2)}</td>
                     <td style={TABLE_CELL_STYLE}><Link href={`/account/books/${b.id}/edit`} className="btn btn-ghost btn-small">Edit</Link></td>
                     <td style={TABLE_CELL_STYLE}>
-                      {(b.status === "SUSPENDED" || b.status === "WITHDRAWN")
+                      {b.status === "SUSPENDED" || b.status === "WITHDRAWN"
                         ? <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Contact support</span>
                         : <SuspendButton bookId={b.id} suspended={b.status === "ARCHIVED"} />}
                     </td>
                     <td style={TABLE_CELL_STYLE}>
-                      <WithdrawButton bookId={b.id} alreadyWithdrawn={b.status === "WITHDRAWN"} />
+                      <DeleteButton bookId={b.id} title={b.title} />
                     </td>
                   </tr>
                 );

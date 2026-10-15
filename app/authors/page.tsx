@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { BOOKS } from "@/lib/data/catalog";
 import { getPagesContent } from "@/actions/page-content";
-import { bannerClassName, bannerImageStyle } from "@/lib/banner-style";
+import { bannerClassName } from "@/lib/banner-style";
+import { BannerFrame } from "@/components/BannerFrame";
 
 export const dynamic = "force-dynamic";
 
@@ -28,12 +29,11 @@ export default async function AuthorsPage() {
     <main>
       <section className="fade-in-section visible" style={{ paddingTop: "0.5in" }}>
         <div className="wrap">
-          <div
+          <BannerFrame
             className={bannerClassName("promo-banner promo-lavender", authorship.heroImage)}
-            style={{
-              height: 352, overflow: "hidden", boxSizing: "border-box",
-              ...bannerImageStyle(authorship.heroImage),
-            }}
+            imageUrl={authorship.heroImage}
+            priority
+            style={{ height: 352, overflow: "hidden", boxSizing: "border-box" }}
           >
             <div className="promo-banner-text">
               <div className="promo-banner-icon">
@@ -45,7 +45,7 @@ export default async function AuthorsPage() {
               </div>
             </div>
             <Link href="/signup/author" className="btn btn-primary btn-small">Become an author</Link>
-          </div>
+          </BannerFrame>
         </div>
       </section>
 
@@ -79,10 +79,11 @@ export default async function AuthorsPage() {
 
       <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap">
-          <Link
+          <BannerFrame
             href="/signup/author"
             className={bannerClassName("promo-banner promo-pink", authorship.ctaBannerImage)}
-            style={{ height: 352, overflow: "hidden", boxSizing: "border-box", justifyContent: "center", textDecoration: "none", ...bannerImageStyle(authorship.ctaBannerImage) }}
+            imageUrl={authorship.ctaBannerImage}
+            style={{ height: 352, overflow: "hidden", boxSizing: "border-box", justifyContent: "center", textDecoration: "none" }}
           >
             <div className="promo-banner-text">
               <div className="promo-banner-icon">
@@ -95,7 +96,7 @@ export default async function AuthorsPage() {
                 {authorship.ctaBannerBody && <p>{authorship.ctaBannerBody}</p>}
               </div>
             </div>
-          </Link>
+          </BannerFrame>
         </div>
       </section>
 
