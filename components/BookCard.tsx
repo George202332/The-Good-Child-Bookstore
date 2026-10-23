@@ -1,21 +1,10 @@
 import { imageAtWidth } from "@/lib/image-url";
 import Link from "next/link";
 import { CATS, bookSlug, type Book } from "@/lib/data/catalog";
-import { hashStr } from "@/lib/hash";
 
 /** Genre shelf name for a shelf id; "" for a book on no shelf. */
 function catName(id: string): string {
   return CATS.find((c) => c.id === id)?.name ?? "";
-}
-
-/** Ported from computeHomeDiscount() (the-good-child-bookstore_54_1.html:3465-3471):
- * roughly a third of the catalog shows a deterministic homepage discount. */
-function computeHomeDiscount(b: Book): { pct: number; was: number } | null {
-  const seed = hashStr(b.id);
-  if (seed % 3 !== 0) return null;
-  const pct = 10 + (seed % 4) * 5; // 10, 15, 20, or 25
-  const was = +(b.price / (1 - pct / 100)).toFixed(2);
-  return { pct, was };
 }
 
 /**
@@ -27,11 +16,9 @@ function computeHomeDiscount(b: Book): { pct: number; was: number } | null {
  */
 export function BookCard({ book }: { book: Book }) {
   const pct = Math.max(0, Math.min(100, (parseFloat(book.rating) / 5) * 100));
-  const discount = computeHomeDiscount(book);
 
   return (
     <div className="book-card fade-in-section visible">
-      {discount && <span className="discount-badge">-{discount.pct}%</span>}
       <Link href={`/${bookSlug(book)}`}>
         <div className="cover">
           {book.coverImage && (
@@ -48,7 +35,6 @@ export function BookCard({ book }: { book: Book }) {
       <div className="author">{book.author}</div>
       <div className="meta-row">
         <div className="price-group">
-          {discount && <span className="price-was">${discount.was.toFixed(2)}</span>}
           <span className="price">${book.price.toFixed(2)}</span>
         </div>
         <div className="rating" title={`${book.rating} out of 5`}>

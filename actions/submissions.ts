@@ -207,8 +207,6 @@ export interface SubmissionMetadata {
   backCoverDescription?: string;
   learningObjectives?: string;
   educationalBenefits?: string;
-  discountPrice?: number;
-  promoPrice?: number;
   currency?: string;
   taxSetting: string;
   worldwideRights: boolean;
@@ -218,7 +216,6 @@ export interface SubmissionMetadata {
   sellOnStore: boolean;
   includeInPromotions?: boolean;
   featuredRequest: boolean;
-  allowDiscounts?: boolean;
   allowBundles?: boolean;
   affiliateEnabled: boolean;
   seoTitle?: string;

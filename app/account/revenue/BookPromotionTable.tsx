@@ -95,7 +95,7 @@ export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
                 <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The title of the book you promoted and that sold." /></th>
                 <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="The name (or pen name) of whoever wrote this book — not necessarily you, since you can promote any book on the shelf." /></th>
                 <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="Which edition sold through your link: eBook, Paperback, Hardcover, or Audiobook." /></th>
-                <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The book's real listed price for this format — not a discounted checkout price, the actual price it's sold at." /></th>
+                <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The book's regular listed price for this format — the price it's sold at." /></th>
                 <th style={TABLE_HEAD_STYLE}>Copies<ColHelp text="How many copies of this exact book and format sold through your promotional link within the selected time window." /></th>
                 <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="Your total earnings from this book within the selected time window: 10% of the price, multiplied by copies sold." /></th>
               </tr>

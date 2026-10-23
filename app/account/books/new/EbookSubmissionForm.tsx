@@ -186,9 +186,7 @@ export function EbookSubmissionForm({
   // Keywords
   const [keywords, setKeywords] = useState<string[]>(initial?.keywords ?? []);
 
-  // Pricing — USD only; a promotional/discount price is not offered
-  // (currency conversion and any promotional pricing, if ever needed,
-  // happens at checkout, outside this form, per explicit instruction).
+  // Pricing — USD only; one regular price per format (no discounts).
   const [price, setPrice] = useState(initial?.price ?? "12.99");
   const [taxSetting, setTaxSetting] = useState(initial?.taxSetting || TAX_SETTINGS[0]);
 

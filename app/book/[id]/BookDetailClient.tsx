@@ -15,7 +15,7 @@ import { bookJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
-import { categorySlug, isCategory, subcategoriesFor } from "@/lib/taxonomy";
+import { categorySlug, isCategory } from "@/lib/taxonomy";
 import { restrictionMessage } from "@/lib/book-country-restriction";
 
 /** Genre shelf name for a shelf id; "" for the "unknown" shelf. */
@@ -151,10 +151,9 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
     ).filter((o): o is { name: string; price: number } => !!o),
   });
   const shelfName = catName(b.category);
-  // Subcategories of this book's Category that have at least one published book (empty ones never show).
-  const categorySubcategories = b.series
-    ? subcategoriesFor(b.series).filter((sub) => (b.subcategory === sub || allBooks.some((x) => x.series === b.series && x.subcategory === sub)))
-    : [];
+  // The subcategory this book belongs to. This page only exists for a published book, so it
+  // always has at least one published book in it (this one).
+  const bookSubcategories = b.subcategory ? [b.subcategory] : [];
   const seriesHref = b.series && isCategory(b.series) ? `/bookshelf?series=${categorySlug(b.series)}` : null;
   const breadcrumbLd = breadcrumbJsonLd([
     { name: "Home", url: `${siteUrl}/` },
@@ -274,18 +273,9 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                   <strong>{b.language || "English"}</strong><span>Language</span>
                 </div>
                 {b.series && (
-                  <div className="az-detail-item az-detail-item-category">
+                  <div className="az-detail-item az-detail-item-wide">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 3h12v18l-6-4-6 4V3z" /></svg>
-                    <strong>{b.series}</strong><span>Category</span>
-                    {categorySubcategories.length > 0 && (
-                      <small className="az-detail-subs">{categorySubcategories.join(" · ")}</small>
-                    )}
-                  </div>
-                )}
-                {b.subcategory && (
-                  <div className="az-detail-item">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M4 6h16M4 12h10M4 18h6" /></svg>
-                    <strong>{b.subcategory}</strong><span>Subcategory</span>
+                    <strong title={b.series}>{b.series}</strong><span>Category</span>
                   </div>
                 )}
                 <div className="az-detail-item az-detail-item-wide">
@@ -320,6 +310,15 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
               </button>
             </div>
           </div>
+          {/* The book's own subcategory sits on a line of its own under the strip, so the strip's cards stay one size. */}
+          {bookSubcategories.length > 0 && (
+            <div className="az-detail-tags">
+              <span className="az-detail-tags-label">Subcategory</span>
+              {bookSubcategories.map((sub) => (
+                <Link key={sub} className="az-detail-tag" href={seriesHref ? `${seriesHref}&sub=${encodeURIComponent(sub)}` : `/bookshelf?sub=${encodeURIComponent(sub)}`}>{sub}</Link>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="buybox">

@@ -285,7 +285,6 @@ export function PrintSubmissionForm({
         sellOnStore: true,
         includeInPromotions: promotionalCampaignEligible,
         featuredRequest: false,
-        allowDiscounts: true,
         allowBundles: true,
         affiliateEnabled: affiliateEligiblePrint,
         paperbackEnabled,
