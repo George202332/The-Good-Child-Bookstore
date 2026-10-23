@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { isCategory, categoryOfSubcategory, normalizeGenre, isSubcategoryOf } from "@/lib/taxonomy";
+import { canonicalCategory, categoryOfSubcategory, normalizeGenre, isSubcategoryOf } from "@/lib/taxonomy";
 import { parseRestrictedCountries } from "@/lib/book-country-restriction";
 import type { EbookSubmissionInitial } from "../../new/EbookSubmissionForm";
 import type { PrintSubmissionInitial } from "../../new/PrintSubmissionForm";
@@ -20,7 +20,7 @@ const str = (v: unknown): string => (typeof v === "string" ? v : "");
 export function classify(book: BookWithRelations) {
   const legacyShelf = book.categories[0]?.category.name;
   const legacySub = book.genres[0]?.genre.name;
-  const category = isCategory(book.category) ? book.category : categoryOfSubcategory(legacySub) ?? "";
+  const category = canonicalCategory(book.category) ?? categoryOfSubcategory(legacySub) ?? "";
   const subcategoryCandidate = book.subcategory ?? legacySub;
   const subcategory = category && isSubcategoryOf(category, subcategoryCandidate) ? (subcategoryCandidate as string) : "";
   const genre = normalizeGenre(legacyShelf) ?? "";

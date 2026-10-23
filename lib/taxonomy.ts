@@ -10,12 +10,12 @@
 export const CATEGORIES = [
   "Adventure Series",
   "Education Series",
-  "Interactive Activity Series",
-  "Emotional Wellness and Mindfulness Series",
-  "Fun and Humor Series",
-  "Values and Virtues Series",
-  "Community and Society Series",
-  "Religion and Culture Series",
+  "Interactive Activity",
+  "Emotional Wellness and Mindfulness",
+  "Fun and Humor",
+  "Values and Virtues",
+  "Community and Society",
+  "Religion and Culture",
   "Holiday and Festivities",
   "Diversity, Equity, and Inclusion",
 ] as const;
@@ -91,7 +91,7 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
     "Environment and Recycling",
     "School Readiness",
   ],
-  "Interactive Activity Series": [
+  "Interactive Activity": [
     "Coloring",
     "Drawing and Doodling",
     "Mazes and Puzzles",
@@ -114,7 +114,7 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
     "Seek and Find",
     "Role Play and Pretend",
   ],
-  "Emotional Wellness and Mindfulness Series": [
+  "Emotional Wellness and Mindfulness": [
     "Feelings and Emotions",
     "Mindfulness",
     "Calm and Breathing",
@@ -137,7 +137,7 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
     "Self-Care",
     "Imagination and Dreams",
   ],
-  "Fun and Humor Series": [
+  "Fun and Humor": [
     "Humor",
     "Silly Stories",
     "Funny Animals",
@@ -160,7 +160,7 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
     "Silly School Days",
     "Bedtime Giggles",
   ],
-  "Values and Virtues Series": [
+  "Values and Virtues": [
     "Friendship",
     "Family Life",
     "Kindness",
@@ -184,7 +184,7 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
     "Grandparents and Elders",
     "Good Choices",
   ],
-  "Community and Society Series": [
+  "Community and Society": [
     "Diversity and Inclusion",
     "Neighborhood and Community",
     "Helpers and Heroes",
@@ -208,7 +208,7 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
     "Traditions and Festivals",
     "Kids Making a Difference",
   ],
-  "Religion and Culture Series": [
+  "Religion and Culture": [
     "Bible Stories",
     "Faith and Prayer",
     "Islamic Stories",
@@ -276,6 +276,30 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
   ],
 };
 
+/**
+ * Before Round 39 six categories carried the word "Series" ("Fun and Humor
+ * Series"). Books already saved in the database, and links people have
+ * bookmarked, still use those names. They are recognised here and treated as the
+ * current names, so nothing breaks whether or not the stored values have been
+ * tidied up (see docs/category-rename.sql for the optional tidy-up).
+ */
+export const LEGACY_CATEGORY_NAMES: Readonly<Record<string, BookCategory>> = {
+  "Interactive Activity Series": "Interactive Activity",
+  "Emotional Wellness and Mindfulness Series": "Emotional Wellness and Mindfulness",
+  "Fun and Humor Series": "Fun and Humor",
+  "Values and Virtues Series": "Values and Virtues",
+  "Community and Society Series": "Community and Society",
+  "Religion and Culture Series": "Religion and Culture",
+};
+
+/** The current Category for a stored/typed name, accepting the old "... Series" spelling. */
+export function canonicalCategory(v: unknown): BookCategory | undefined {
+  if (typeof v !== "string") return undefined;
+  const name = v.trim();
+  if ((CATEGORIES as readonly string[]).includes(name)) return name as BookCategory;
+  return LEGACY_CATEGORY_NAMES[name];
+}
+
 export function isCategory(v: unknown): v is BookCategory {
   return typeof v === "string" && (CATEGORIES as readonly string[]).includes(v);
 }
@@ -285,7 +309,8 @@ export function isGenre(v: unknown): v is BookGenre {
 }
 
 export function subcategoriesFor(cat: string | null | undefined): readonly string[] {
-  return isCategory(cat) ? SUBCATEGORIES[cat] : [];
+  const c = canonicalCategory(cat);
+  return c ? SUBCATEGORIES[c] : [];
 }
 
 export function isSubcategoryOf(cat: string | null | undefined, sub: string | null | undefined): boolean {
@@ -312,7 +337,11 @@ export function categorySlug(cat: BookCategory): string {
 export function categoryFromSlug(slug: string | null | undefined): BookCategory | undefined {
   if (!slug) return undefined;
   const s = slug.trim().toLowerCase();
-  return CATEGORIES.find((c) => categorySlug(c) === s);
+  const current = CATEGORIES.find((c) => categorySlug(c) === s);
+  if (current) return current;
+  // Old bookmarked links such as ?series=fun-and-humor-series still work.
+  const legacy = Object.keys(LEGACY_CATEGORY_NAMES).find((old) => categorySlug(old as BookCategory) === s);
+  return legacy ? LEGACY_CATEGORY_NAMES[legacy] : undefined;
 }
 
 /** Fuzzy match of a legacy shelf/category label to one of the five genres.

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { canModerateContent } from "@/lib/roles";
-import { isCategory, isGenre, isSubcategoryOf } from "@/lib/taxonomy";
+import { canonicalCategory, isCategory, isGenre, isSubcategoryOf } from "@/lib/taxonomy";
 import { parseRestrictedCountries } from "@/lib/book-country-restriction";
 import { needsReReview, fileRefKey } from "@/lib/revision-trigger";
 import { resolveFormats } from "@/lib/submission-formats";
@@ -339,6 +339,10 @@ interface PreparedSubmission {
 
 function prepareSubmission(input: SubmitBookInput, opts: { lenient?: boolean } = {}): { ok: true; value: PreparedSubmission } | { ok: false; error: string } {
   let taxonomyColumns = true;
+  // An older open form or a stored draft may still carry the old "... Series" spelling:
+  // accept it and save the current name.
+  const knownCategory = canonicalCategory(input.category);
+  if (knownCategory) input = { ...input, category: knownCategory };
   if (!isCategory(input.category) || !isGenre(input.genre) || !input.subcategory) {
     const legacy = opts.lenient && !input.subcategory && !!input.category && !!input.genre;
     if (!legacy) {

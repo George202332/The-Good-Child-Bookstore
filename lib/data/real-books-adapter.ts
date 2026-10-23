@@ -168,6 +168,7 @@ function toCatalogBook(row: RealBookRow): Book {
     // The date the author actually entered at submission, when they set
     // one — falls back to when the row was created for older
     // submissions or books whose author left it blank.
+    addedAt: row.createdAt.toISOString(),
     pubDate: meta?.publicationDate || row.createdAt.toISOString().slice(0, 10),
     sizeMB: (2 + (seed % 8)).toFixed(1),
     rating: avgRating.toFixed(1),
@@ -315,5 +316,21 @@ export async function getPublishedCategoryCounts(visitorCountries?: VisitorCount
     return countBooksByCategory(attributable);
   } catch {
     return countBooksByCategory([]);
+  }
+}
+
+/** How many times each book has been bought, counting ONLY confirmed, paid
+ * orders (pending, failed, cancelled and refunded orders never count). Used to
+ * rank the home page Best Sellers. Empty if the database is unreachable. */
+export async function getPaidSalesByBook(): Promise<Map<string, number>> {
+  try {
+    const rows = await prisma.saleLine.groupBy({
+      by: ["bookId"],
+      where: { order: { status: "PAID" } },
+      _count: { _all: true },
+    });
+    return new Map(rows.map((r) => [r.bookId, r._count._all]));
+  } catch {
+    return new Map();
   }
 }

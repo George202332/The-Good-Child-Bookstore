@@ -17,9 +17,13 @@ import { CATEGORIES, categorySlug, subcategoriesFor } from "@/lib/taxonomy";
 export function ShopSidebar({
   open,
   onClose,
+  availableSubs,
 }: {
   open: boolean;
   onClose: () => void;
+  /** For each Category, the subcategories that have at least one published book.
+   * The pop-up lists only these, so an empty subcategory never appears. */
+  availableSubs: Readonly<Record<string, readonly string[]>>;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -120,12 +124,14 @@ export function ShopSidebar({
           {CATEGORIES.map((cat) => {
             const slug = categorySlug(cat);
             const subs = subcategoriesFor(cat);
-            const count = subs.filter(hasSub).length;
+            // Only subcategories that currently have a published book, in the taxonomy's own order.
+            const shown = subs.filter((s) => (availableSubs[cat] ?? []).includes(s));
+            const count = shown.filter(hasSub).length;
             return (
               <CategoryRow
                 key={cat}
                 cat={cat}
-                subs={subs}
+                subs={shown}
                 selected={has("series", slug)}
                 count={count}
                 open={openCat === cat}
@@ -322,6 +328,7 @@ function CategoryRow({ cat, subs, selected, count, open, onOpen, onClose, onTogg
       </div>
       <div className={`subcat-popover-scroll ${atEnd ? "at-end" : ""}`}>
         <div className="subcat-popover-list" onScroll={onScroll} role="group" aria-labelledby={titleId} tabIndex={-1}>
+          {subs.length === 0 && <p className="subcat-empty">No subcategories yet</p>}
           {subs.map((sub) => (
             <label key={sub} className="filter-option">
               <input type="checkbox" checked={isChecked(sub)} onChange={() => onToggleSub(sub)} />

@@ -1,5 +1,5 @@
 import { redirect, notFound } from "next/navigation";
-import { categoryOfSubcategory } from "@/lib/taxonomy";
+import { canonicalCategory, categoryOfSubcategory } from "@/lib/taxonomy";
 import Link from "next/link";
 import { authAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
@@ -109,7 +109,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
           <div className="map-card" style={{ padding: 20, marginBottom: 20 }}>
             <h3 style={{ fontSize: 15, marginBottom: 12 }}>Submission details</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, fontSize: 13.5, marginBottom: 16 }}>
-              <div><strong>Category</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.category ?? categoryOfSubcategory(book.genres[0]?.genre.name) ?? "—"}</div></div>
+              <div><strong>Category</strong><div style={{ color: "var(--admin-text-faint)" }}>{canonicalCategory(book.category) ?? book.category ?? categoryOfSubcategory(book.genres[0]?.genre.name) ?? "—"}</div></div>
               <div><strong>Genre</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.categories[0]?.category.name ?? "—"}</div></div>
               <div><strong>Subcategory</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.subcategory ?? book.genres[0]?.genre.name ?? "—"}</div></div>
               <div><strong>Age group</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.ageGroup ?? "—"}</div></div>

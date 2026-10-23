@@ -9,13 +9,13 @@ import { hashStr } from "@/lib/hash";
 import { selectHomeBlogs } from "@/lib/blog-ranking";
 import { NewsletterForm } from "@/components/NewsletterForm";
 import { getPagesContent } from "@/actions/page-content";
-import { getRealPublishedBooks, getPublishedCategoryCounts } from "@/lib/data/real-books-adapter";
+import { getRealPublishedBooks, getPublishedCategoryCounts, getPaidSalesByBook } from "@/lib/data/real-books-adapter";
 import { DEFAULT_PAGES_CONTENT } from "@/lib/page-content";
 
 export const dynamic = "force-dynamic";
 import { BookCard } from "@/components/BookCard";
 import { BestSellersCarousel } from "@/components/BestSellersCarousel";
-import { getRotatingBatch } from "@/lib/rotating-batch";
+import { pickBestSellers, pickNewArrivals } from "@/lib/home-books";
 import { FadeInSection } from "@/components/FadeInSection";
 import { PromoBanner } from "@/components/PromoBanner";
 import { StatsBand } from "@/components/StatsBand";
@@ -99,15 +99,19 @@ export default async function HomePage() {
   const visitorCountries = await getVisitorCountries();
   // The independent database reads run together instead of one after another,
   // so the page is ready sooner (it used to wait for each in turn).
-  const [realBooks, seriesCounts, content, platformStats] = await Promise.all([
+  const [realBooks, seriesCounts, content, platformStats, paidSales] = await Promise.all([
     getRealPublishedBooks(visitorCountries),
     // Shop by Category counts: live from the database, same visibility rules.
     getPublishedCategoryCounts(visitorCountries),
     getPagesContent(),
     getPlatformStats(),
+    getPaidSalesByBook(),
   ]);
   const allBooksForArrivals = [...realBooks, ...BOOKS].sort((a, b) => (a.pubDate < b.pubDate ? 1 : -1));
-  const newArrivals = getRotatingBatch(allBooksForArrivals, 12, 20 * 60 * 1000);
+  // Always the 12 newest published books (2 rows of 6), and the 12 best sellers by
+  // confirmed paid sales, topped up with other published books. No rotating "pages".
+  const newArrivals = pickNewArrivals(allBooksForArrivals);
+  const bestSellers = pickBestSellers(allBooksForArrivals, paidSales);
   // Live per-category/per-age counts — the same combined real+demo set
   // /bookshelf itself filters against, so the number on each card always
   // matches what clicking through to it actually shows, and grows the
@@ -200,7 +204,7 @@ export default async function HomePage() {
               <p>What families are reading right now.</p>
             </div>
           </div>
-          <BestSellersCarousel extraBooks={realBooks} />
+          <BestSellersCarousel books={bestSellers} />
         </div>
       </FadeInSection>
 

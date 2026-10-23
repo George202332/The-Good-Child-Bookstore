@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { CATS, PRICE_RANGES, type Book } from "@/lib/data/catalog";
 import { categoryFromSlug, subcategoriesFor } from "@/lib/taxonomy";
+import { subcategoriesWithBooks } from "@/lib/subcategory-availability";
 import { parseShopFilters, filteredSortedBooks, SHOP_PAGE_SIZE } from "@/lib/shop-filters";
 import { formatLabel } from "@/lib/shop-formats";
 import { BookCard } from "@/components/BookCard";
@@ -21,6 +22,7 @@ export function ShopPageClient({ books }: { books: Book[] }) {
 
   const filters = parseShopFilters(searchParams);
   const list = filteredSortedBooks(filters, books);
+  const availableSubs = useMemo(() => subcategoriesWithBooks(books), [books]);
   const totalPages = Math.max(1, Math.ceil(list.length / SHOP_PAGE_SIZE));
   const page = Math.min(filters.page, totalPages);
   const pageList = list.slice((page - 1) * SHOP_PAGE_SIZE, page * SHOP_PAGE_SIZE);
@@ -123,7 +125,7 @@ export function ShopPageClient({ books }: { books: Book[] }) {
       )}
 
       <div className="shop-layout">
-        <ShopSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <ShopSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} availableSubs={availableSubs} />
         <main role="main">
           {pageList.length > 0 ? (
             <div className="book-grid" aria-label="Book listings">

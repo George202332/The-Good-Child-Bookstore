@@ -1,4 +1,4 @@
-import { CATEGORIES, categoryOfSubcategory, isCategory, type BookCategory } from "./taxonomy";
+import { CATEGORIES, canonicalCategory, categoryOfSubcategory, type BookCategory } from "./taxonomy";
 
 /** The fields of a book that decide which Category series it belongs to. */
 export interface CategoryAttributionInput {
@@ -16,7 +16,8 @@ export interface CategoryAttributionInput {
  * legacy Genre name, each looked up in lib/taxonomy.ts.
  */
 export function attributeCategory(book: CategoryAttributionInput): BookCategory | undefined {
-  if (isCategory(book.category)) return book.category;
+  const stored = canonicalCategory(book.category);
+  if (stored) return stored;
   return categoryOfSubcategory(book.subcategory?.trim()) ?? categoryOfSubcategory(book.legacySubcategory?.trim());
 }
 

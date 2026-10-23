@@ -30,13 +30,13 @@ describe("taxonomy", () => {
     assert.ok(isCategory("Adventure Series") && !isCategory("x"));
     assert.ok(isGenre("Picture Books") && !isGenre("Educational"));
     assert.deepEqual(subcategoriesFor("nope"), []);
-    assert.ok(isSubcategoryOf("Values and Virtues Series", "Friendship"));
+    assert.ok(isSubcategoryOf("Values and Virtues", "Friendship"));
     assert.ok(!isSubcategoryOf("Adventure Series", "Friendship"));
-    assert.equal(categoryOfSubcategory("Fable"), "Fun and Humor Series");
+    assert.equal(categoryOfSubcategory("Fable"), "Fun and Humor");
   });
   test("slugs round trip", () => {
     for (const c of CATEGORIES) assert.equal(categoryFromSlug(categorySlug(c)), c);
-    assert.equal(categorySlug("Emotional Wellness and Mindfulness Series"), "emotional-wellness-and-mindfulness-series");
+    assert.equal(categorySlug("Emotional Wellness and Mindfulness"), "emotional-wellness-and-mindfulness");
     assert.equal(categorySlug("Holiday and Festivities"), "holiday-and-festivities");
     assert.equal(categorySlug("Diversity, Equity, and Inclusion"), "diversity-equity-and-inclusion");
     assert.equal(new Set(CATEGORIES.map(categorySlug)).size, CATEGORIES.length);
@@ -53,5 +53,24 @@ describe("taxonomy", () => {
     assert.equal(normalizeGenre("Middle grade"), "Middle Grade");
     assert.equal(normalizeGenre("Educational"), undefined);
     assert.equal(normalizeGenre(null), undefined);
+  });
+});
+
+import { canonicalCategory, LEGACY_CATEGORY_NAMES } from "../lib/taxonomy";
+
+describe("category names (no 'Series' except Adventure and Education)", () => {
+  test("only Adventure and Education keep the word Series", () => {
+    const withSeries = CATEGORIES.filter((c) => /series/i.test(c));
+    assert.deepEqual([...withSeries], ["Adventure Series", "Education Series"]);
+  });
+  test("old stored names and old links still resolve to the new names", () => {
+    assert.equal(canonicalCategory("Fun and Humor Series"), "Fun and Humor");
+    assert.equal(canonicalCategory(" Fun and Humor "), "Fun and Humor");
+    assert.equal(canonicalCategory("Adventure Series"), "Adventure Series");
+    assert.equal(canonicalCategory("nope"), undefined);
+    assert.equal(categoryFromSlug("fun-and-humor-series"), "Fun and Humor");
+    assert.equal(categoryFromSlug("fun-and-humor"), "Fun and Humor");
+    assert.deepEqual(subcategoriesFor("Fun and Humor Series"), subcategoriesFor("Fun and Humor"));
+    for (const v of Object.values(LEGACY_CATEGORY_NAMES)) assert.ok(isCategory(v));
   });
 });

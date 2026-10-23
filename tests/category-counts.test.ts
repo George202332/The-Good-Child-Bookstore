@@ -8,14 +8,14 @@ describe("category counts", () => {
   });
   test("legacy genre name falls back to its category", () => {
     assert.equal(attributeCategory({ category: null, legacySubcategory: "Adventure" }), "Adventure Series");
-    assert.equal(attributeCategory({ category: null, legacySubcategory: "Friendship" }), "Values and Virtues Series");
-    assert.equal(attributeCategory({ category: null, legacySubcategory: "Humor" }), "Fun and Humor Series");
+    assert.equal(attributeCategory({ category: null, legacySubcategory: "Friendship" }), "Values and Virtues");
+    assert.equal(attributeCategory({ category: null, legacySubcategory: "Humor" }), "Fun and Humor");
   });
   test("subcategory column is used before the legacy genre", () => {
     assert.equal(attributeCategory({ category: null, subcategory: "Nature", legacySubcategory: "Adventure" }), "Education Series");
   });
   test("invalid category falls through; unmappable books have no category", () => {
-    assert.equal(attributeCategory({ category: "Bogus", legacySubcategory: "Poetry" }), "Interactive Activity Series");
+    assert.equal(attributeCategory({ category: "Bogus", legacySubcategory: "Poetry" }), "Interactive Activity");
     assert.equal(attributeCategory({ category: null, legacySubcategory: "Nonsense" }), undefined);
     assert.equal(attributeCategory({}), undefined);
   });

@@ -2568,3 +2568,4 @@ html.dark-mode .dashboard-content [style*="background"]:not([style*="width"]):no
 .az-detail-item-category{flex-basis:230px;min-width:230px;}
 .az-detail-item-category strong{white-space:normal;overflow:visible;text-overflow:clip;}
 .az-detail-subs{display:block;margin-top:3px;font-size:11px;line-height:1.35;color:var(--ink-soft);}
+  .subcat-empty{margin:0;padding:14px 12px;font-size:13px;color:var(--ink-soft);text-align:center;}

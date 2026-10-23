@@ -165,6 +165,8 @@ export interface Book {
   audiobookUrl?: string;
   isbn: string;
   pubDate: string;
+  /** When the book was added to the store (ISO). Tie-breaker for "newest" lists. */
+  addedAt?: string;
   sizeMB: string;
   rating: string;
   reviews: number;
