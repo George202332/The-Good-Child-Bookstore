@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { verifyPaystackWebhookSignature, verifyPaystackTransaction } from "@/lib/payments/paystack";
+import { verifyPaystackWebhookSignature } from "@/lib/payments/paystack";
+import { confirmPaystackReference } from "@/lib/payments/paystack-confirm";
 import { finalizeOrderPayment } from "@/lib/payments/finalize";
 import { saveCardIfReusable } from "@/actions/payment-methods";
 
@@ -21,13 +22,14 @@ export async function POST(request: Request) {
   const reference = event.data?.reference;
   if (!reference) return NextResponse.json({ error: "No reference in payload" }, { status: 400 });
 
-  const { success, ourOrderId, authorization } = await verifyPaystackTransaction(reference);
-  if (!success || !ourOrderId) {
+  // Never trust the webhook body alone: ask Paystack, then check order, currency and amount.
+  const confirmed = await confirmPaystackReference(reference);
+  if (!confirmed.ok) {
     return NextResponse.json({ ok: true, verified: false });
   }
 
-  await finalizeOrderPayment(ourOrderId, "PAYSTACK", event);
-  await saveCardIfReusable(ourOrderId, authorization);
+  await finalizeOrderPayment(confirmed.orderId, "PAYSTACK", event);
+  await saveCardIfReusable(confirmed.orderId, confirmed.authorization);
 
   return NextResponse.json({ ok: true });
 }

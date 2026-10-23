@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { preload } from "react-dom";
+import { responsiveImage } from "@/lib/image-url";
 import { HeroBannerCarousel } from "@/components/HeroBannerCarousel";
 import { Motif } from "@/components/Motif";
 import type { MotifKind } from "@/lib/data/catalog";
@@ -95,10 +97,15 @@ export default async function HomePage() {
   // this page (best sellers, new arrivals, tile counts). The page is already
   // force-dynamic, so reading the request adds no cacheability cost.
   const visitorCountries = await getVisitorCountries();
-  const realBooks = await getRealPublishedBooks(visitorCountries);
-  // Shop by Category counts: live from the database, same visibility
-  // rules as the lists above, older books attributed via their legacy genre.
-  const seriesCounts = await getPublishedCategoryCounts(visitorCountries);
+  // The independent database reads run together instead of one after another,
+  // so the page is ready sooner (it used to wait for each in turn).
+  const [realBooks, seriesCounts, content, platformStats] = await Promise.all([
+    getRealPublishedBooks(visitorCountries),
+    // Shop by Category counts: live from the database, same visibility rules.
+    getPublishedCategoryCounts(visitorCountries),
+    getPagesContent(),
+    getPlatformStats(),
+  ]);
   const allBooksForArrivals = [...realBooks, ...BOOKS].sort((a, b) => (a.pubDate < b.pubDate ? 1 : -1));
   const newArrivals = getRotatingBatch(allBooksForArrivals, 12, 20 * 60 * 1000);
   // Live per-category/per-age counts — the same combined real+demo set
@@ -109,12 +116,16 @@ export default async function HomePage() {
   const ageCounts = new Map<string, number>();
   for (const b of allBooksForArrivals) {
     catCounts.set(b.category, (catCounts.get(b.category) ?? 0) + 1);
-    ageCounts.set(b.age, (ageCounts.get(b.age) ?? 0) + 1);
+    for (const a of b.ages ?? [b.age]) ageCounts.set(a, (ageCounts.get(a) ?? 0) + 1);
   }
   const AGE_EXPLORER = AGE_EXPLORER_BASE.map((a) => ({ ...a, count: ageCounts.get(a.range) ?? 0 }));
-  const content = await getPagesContent();
   const hero = content.home;
-  const platformStats = await getPlatformStats();
+  // Tell the browser to fetch the first banner picture immediately, before it
+  // has even finished reading the page.
+  if (hero.heroWelcomeImage) {
+    const first = responsiveImage(hero.heroWelcomeImage, [640, 960, 1280, 1600]);
+    preload(first.src, { as: "image", imageSrcSet: first.srcSet, imageSizes: "(max-width: 1240px) 100vw, 1200px", fetchPriority: "high" });
+  }
   let blogPosts: HomeBlogPost[] = [];
   try {
     // Bounded candidate set (newest 200 live posts) with an explicit
@@ -161,7 +172,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <FadeInSection style={{ paddingTop: 0 }}>
+      <FadeInSection initiallyVisible style={{ paddingTop: 0 }}>
         <div className="wrap">
           <div className="section-head">
             <div>

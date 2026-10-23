@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { verifyPaystackTransaction } from "@/lib/payments/paystack";
+import { confirmPaystackReference } from "@/lib/payments/paystack-confirm";
 import { capturePaypalOrder, evaluatePaypalCapture } from "@/lib/payments/paypal";
 import { finalizeOrderPayment } from "@/lib/payments/finalize";
 import { saveCardIfReusable } from "@/actions/payment-methods";
@@ -30,11 +30,12 @@ export default async function CheckoutReturnPage({
       // unexpected) must never crash this page into a generic error
       // screen for a buyer who may have genuinely already paid.
       try {
-        const { success, ourOrderId, authorization } = await verifyPaystackTransaction(reference);
-        if (success && ourOrderId) {
-          await finalizeOrderPayment(ourOrderId, "PAYSTACK", { source: "return_redirect", reference });
-          await saveCardIfReusable(ourOrderId, authorization);
-          redirect(`/checkout/confirmation?order=${ourOrderId}`);
+        const confirmed = await confirmPaystackReference(reference);
+        // Only a payment that is for this order, in USD, for the exact total is accepted.
+        if (confirmed.ok && confirmed.orderId === orderId) {
+          await finalizeOrderPayment(confirmed.orderId, "PAYSTACK", { source: "return_redirect", reference });
+          await saveCardIfReusable(confirmed.orderId, confirmed.authorization);
+          redirect(`/checkout/confirmation?order=${confirmed.orderId}`);
         }
       } catch (e) {
         // Swallow and fall through to the DB-status fallback below —

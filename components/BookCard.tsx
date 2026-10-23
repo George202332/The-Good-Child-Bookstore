@@ -1,3 +1,4 @@
+import { imageAtWidth } from "@/lib/image-url";
 import Link from "next/link";
 import { CATS, bookSlug, type Book } from "@/lib/data/catalog";
 import { hashStr } from "@/lib/hash";
@@ -35,11 +36,12 @@ export function BookCard({ book }: { book: Book }) {
         <div className="cover">
           {book.coverImage && (
             // eslint-disable-next-line @next/next/no-img-element -- demo/user-uploaded covers, not static assets
-            <img src={book.coverImage} alt={book.coverAltText || `${book.title} cover`} loading="lazy" decoding="async" />
+            <img src={imageAtWidth(book.coverImage, 480)} width={300} height={400} alt={book.coverAltText || `${book.title} cover`} loading="lazy" decoding="async" />
           )}
         </div>
       </Link>
-      <div className="cat-tag">{catName(book.category) || book.series || ""}</div>
+      {/* The book's Category (e.g. "Adventure Series"); the shelf/genre name is only a fallback for books with no Category. */}
+      <div className="cat-tag">{book.series || catName(book.category) || ""}</div>
       <Link href={`/${bookSlug(book)}`}>
         <h3>{book.title}</h3>
       </Link>

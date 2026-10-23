@@ -70,7 +70,8 @@ export function filteredSortedBooks(filters: ShopFilters, books: Book[] = BOOKS)
   let list = books.filter((b) => {
     if (filters.cats.size && !filters.cats.has(b.category)) return false;
     if (!matchesSeriesAndSubs(b, filters, seriesNames)) return false;
-    if (filters.ages.size && !filters.ages.has(b.age)) return false;
+    // A book spanning several age groups matches a filter on ANY of them (6-8 or 9-12).
+    if (filters.ages.size && !(b.ages ?? [b.age]).some((a) => filters.ages.has(a))) return false;
     if (filters.formats.size && !bookMatchesAnyFormat(b, filters.formats)) return false;
     if (filters.minRatings.size) {
       const minReq = Math.max(...Array.from(filters.minRatings).map(Number));

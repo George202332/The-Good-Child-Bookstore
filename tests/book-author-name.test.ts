@@ -55,3 +55,15 @@ describe("bookAuthorDisplayName", () => {
     assert.equal(name, "Jamie");
   });
 });
+
+import { sameAuthorName } from "../lib/book-author-name";
+
+describe("sameAuthorName", () => {
+  test("ignores case, spacing and accents", () => {
+    assert.equal(sameAuthorName("Jamie  Rivers", "jamie rivers"), true);
+    assert.equal(sameAuthorName("José Lee", "Jose Lee"), true);
+  });
+  test("different names are different authors", () => {
+    assert.equal(sameAuthorName("Jamie Rivers", "Jamie Rivera"), false);
+  });
+});

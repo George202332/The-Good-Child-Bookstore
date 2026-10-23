@@ -363,8 +363,13 @@ export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: b
   // paid while a real gateway is configured, never re-confirms an order, and
   // re-checks country restrictions so it cannot be a way around
   // createPendingOrder's authoritative block.
-  const { getPaystackCredentials } = await import("@/lib/api-keys");
+  // There is no demo checkout on the live site: it only works when
+  // ALLOW_DEMO_CHECKOUT=1 is set (local development), and never while a real
+  // gateway (Paystack or PayPal) is configured.
+  if (process.env.ALLOW_DEMO_CHECKOUT !== "1") return { ok: false };
+  const { getPaystackCredentials, getPaypalCredentials } = await import("@/lib/api-keys");
   if ((await getPaystackCredentials()).secretKey) return { ok: false };
+  if ((await getPaypalCredentials()).clientId) return { ok: false };
 
   const pending = await prisma.order.findUnique({
     where: { id: orderId },

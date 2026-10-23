@@ -115,10 +115,21 @@ export async function payWithSavedCard(
   const method = await prisma.savedPaymentMethod.findUnique({ where: { id: savedMethodId } });
   if (!method) return { ok: false, error: "Payment method not found." };
 
+  // The charge is for the total held in OUR order record - never the amount the browser sent -
+  // and the order and the saved card must both belong to the signed-in reader.
+  const reader = await prisma.readerProfile.findUnique({ where: { userId: session.user.id }, select: { id: true } });
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { readerId: true, status: true, totalAmount: true } });
+  if (!reader || !order || order.readerId !== reader.id || method.readerId !== reader.id) return { ok: false, error: "Payment method not found." };
+  if (order.status !== "PENDING") return { ok: false, error: "This order can't be paid for." };
+
   const { chargeAuthorization } = await import("@/lib/payments/paystack");
+  const { evaluatePaystackPayment, expectedMinorUnits } = await import("@/lib/payments/paystack-check");
   const { finalizeOrderPayment } = await import("@/lib/payments/finalize");
-  const result = await chargeAuthorization(method.authorizationCode, email, Math.round(amountUsd * 100), orderId);
-  if (!result.success) return { ok: false, error: "Charge failed. Please try a different payment method." };
+  const total = Number(order.totalAmount);
+  const result = await chargeAuthorization(method.authorizationCode, email, expectedMinorUnits(total), orderId);
+  if (!result.success) return { ok: false, error: result.error ? `Charge failed: ${result.error}` : "Charge failed. Please try a different payment method." };
+  const verdict = evaluatePaystackPayment({ success: true, ourOrderId: orderId, amountMinor: result.amountMinor ?? null, currency: result.currency ?? null }, orderId, total);
+  if (!verdict.ok) return { ok: false, error: "The charge could not be confirmed. Please try again or use a different payment method." };
 
   await finalizeOrderPayment(orderId, "PAYSTACK", { source: "saved_card", reference: result.reference });
   return { ok: true };

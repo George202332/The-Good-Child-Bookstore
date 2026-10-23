@@ -1,35 +1,32 @@
-"use client";
-
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { bannerImageStyle } from "@/lib/banner-style";
+import type { CSSProperties, ReactNode } from "react";
+import { imageAtWidth, isUploadedImage, responsiveImage } from "@/lib/image-url";
 
 /**
- * The one wrapper every banner on the site sits in. It fixes the "banner
- * shows up empty, then the picture pops in" problem:
+ * The one wrapper every banner on the site sits in.
  *
- *  - The picture used to be a CSS background, which the browser only starts
- *    downloading late, after styles are applied, so the banner first showed
- *    as a flat colour with its text and the photo appeared a moment later.
- *  - Now a real (invisible) <img> for the same picture is placed in the page
- *    itself, so the browser starts downloading it while the page loads
- *    (high priority for the first banner on the page).
- *  - Until that picture has loaded, the banner shows a soft shimmering
- *    placeholder in its own colour instead of an empty banner; when the
- *    picture is ready the picture and the banner text appear together.
- *  - If the picture is slow or fails, the banner is revealed anyway after a
- *    few seconds (by script and, with no script, by a CSS fallback), so
- *    text and buttons are never left hidden.
- *  - A banner with no picture is shown straight away.
+ * Banner pictures used to be a CSS background switched on by a script after
+ * the page had loaded, and the banner's text stayed hidden until then - so a
+ * banner first appeared empty and the picture popped in afterwards. Now:
  *
- * The banner's size is fixed by its own styles, so nothing on the page
- * moves while the picture loads.
+ *  - The picture is a real <img> in the page's own HTML (not a script-applied
+ *    background), so the browser starts downloading it the moment the HTML
+ *    arrives; the first banner on the page asks for top priority.
+ *  - It is served at a size that suits the screen (a few hundred KB, not a
+ *    2000-pixel original) via the image route's ?w= copies and srcset.
+ *  - A tiny blurred copy of the same picture sits underneath as a placeholder,
+ *    so even before the full picture is ready the banner shows its colours
+ *    rather than a flat empty box.
+ *  - Text and buttons are always visible straight away - they never wait.
+ *  - The banner's height comes from its own styles, so nothing on the page
+ *    moves while the picture arrives.
  */
 export function BannerFrame({
   className,
   style,
   imageUrl,
   priority = false,
+  eager = false,
   href,
   children,
 }: {
@@ -38,56 +35,48 @@ export function BannerFrame({
   imageUrl?: string | null;
   /** True for the banner at the top of the page: downloaded first. */
   priority?: boolean;
+  /** Download straight away even when not the first banner (stacked carousel slides). */
+  eager?: boolean;
   /** Makes the whole banner a link. */
   href?: string;
   children: ReactNode;
 }) {
-  const [ready, setReady] = useState(!imageUrl);
-  const probe = useRef<HTMLImageElement | null>(null);
+  const classes = `${className} banner-frame`;
+  const uploaded = isUploadedImage(imageUrl);
+  const full = imageUrl ? responsiveImage(imageUrl, [640, 960, 1280, 1600]) : null;
 
-  useEffect(() => {
-    if (!imageUrl) return;
-    const el = probe.current;
-    if (el && el.complete && el.naturalWidth > 0) {
-      // Already in the browser's cache: nothing to wait for.
-      setReady(true);
-      return;
-    }
-    const t = setTimeout(() => setReady(true), 4000);
-    return () => clearTimeout(t);
-  }, [imageUrl]);
-
-  const classes = `${className} banner-frame ${ready ? "banner-ready" : "banner-loading"}`;
-  const merged: CSSProperties = { ...style, ...(ready && imageUrl ? bannerImageStyle(imageUrl) : {}) };
-  const probeImg = imageUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element -- deliberate plain <img>: its only job is to start the download early and report when it is ready
-    <img
-      ref={probe}
-      className="banner-probe"
-      src={imageUrl}
-      alt=""
-      aria-hidden="true"
-      width={1}
-      height={1}
-      loading="eager"
-      decoding="async"
-      fetchPriority={priority ? "high" : "auto"}
-      onLoad={() => setReady(true)}
-      onError={() => setReady(true)}
-    />
+  const pictures = imageUrl && full ? (
+    <>
+      {uploaded && (
+        // eslint-disable-next-line @next/next/no-img-element -- tiny blurred stand-in shown until the full picture is ready
+        <img className="banner-blur" src={imageAtWidth(imageUrl, 24)} alt="" aria-hidden="true" width={24} height={12} decoding="async" fetchPriority={priority ? "high" : "auto"} />
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element -- own image route with explicit srcset, see lib/image-url.ts */}
+      <img
+        className="banner-img"
+        src={full.src}
+        srcSet={full.srcSet}
+        sizes="(max-width: 1240px) 100vw, 1200px"
+        alt=""
+        aria-hidden="true"
+        loading={priority || eager ? "eager" : "lazy"}
+        decoding="async"
+        fetchPriority={priority ? "high" : "auto"}
+      />
+    </>
   ) : null;
 
   if (href) {
     return (
-      <Link href={href} className={classes} style={merged}>
-        {probeImg}
+      <Link href={href} className={classes} style={style}>
+        {pictures}
         {children}
       </Link>
     );
   }
   return (
-    <div className={classes} style={merged}>
-      {probeImg}
+    <div className={classes} style={style}>
+      {pictures}
       {children}
     </div>
   );

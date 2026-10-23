@@ -21,9 +21,13 @@ export async function finalizeOrderPayment(
 ): Promise<void> {
   let order;
   try {
-    order = await prisma.order.update({
+    // Only a PENDING order can become PAID, and only once: the return page and
+    // the webhook both call this, and whichever arrives second must not repeat
+    // the sale notices, print jobs and receipt email.
+    const claimed = await prisma.order.updateMany({ where: { id: orderId, status: "PENDING" }, data: { status: "PAID" } });
+    if (claimed.count === 0) return;
+    order = await prisma.order.findUniqueOrThrow({
       where: { id: orderId },
-      data: { status: "PAID" },
       include: {
         reader: { include: { user: true } },
       },

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { hashStr } from "@/lib/hash";
 import { BOOKS, PALETTES, type Book, type MotifKind } from "@/lib/data/catalog";
+import { parseAgeGroups, mergedAgeRange } from "@/lib/age-groups";
 import { LULU_CONFIG } from "@/lib/lulu-config";
 import { categoryOfSubcategory, type BookCategory } from "@/lib/taxonomy";
 import { attributeCategory, countBooksByCategory, type CategoryAttributionInput } from "@/lib/category-counts";
@@ -42,8 +43,9 @@ const MOTIF_KINDS: MotifKind[] = [
 ];
 
 function ageFromAgeGroup(ageGroup: string | null | undefined): string {
-  const digits = (ageGroup ?? "").match(/[\d-]+/);
-  return digits ? digits[0] : "3-5";
+  const tiers = parseAgeGroups(ageGroup);
+  // One merged range for display (6-8 + 9-12 -> "6-12"); an unreadable or empty value keeps the old default.
+  return tiers.length > 0 ? mergedAgeRange(tiers) : "3-5";
 }
 
 interface RealBookRow {
@@ -139,6 +141,7 @@ function toCatalogBook(row: RealBookRow): Book {
     subcategory,
     restrictedCountries: effectiveRestrictedCountries(row),
     age: ageFromAgeGroup(row.ageGroup),
+    ages: parseAgeGroups(row.ageGroup).length > 0 ? parseAgeGroups(row.ageGroup) : [ageFromAgeGroup(row.ageGroup)],
     price,
     formats: {
       ebook: resolveFormatPrice(row, "ebook") ?? price,

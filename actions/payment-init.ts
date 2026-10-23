@@ -7,19 +7,10 @@ import { prisma } from "@/lib/prisma";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 
 /**
- * Starts a real hosted Paystack checkout when credentials are
- * configured; otherwise reports back so the caller (checkout page) can
- * fall back to demo mode (confirmOrderPaidDirectly in
- * actions/orders.ts) — the same behavior this app has had all along.
- *
- * PayPal removed entirely per explicit instruction — checkout only
- * takes cards via Paystack now. "mpesa" is not a separate gateway
- * integration — Paystack supports M-Pesa directly as a mobile money
- * channel, so selecting it just calls Paystack with
- * channels: ["mobile_money"] instead of the default card flow. The
- * charge itself stays in USD (our one true currency) — Paystack
- * converts to KES at their own standard rates when settling to M-Pesa,
- * so no manual USD->KES conversion happens on our side.
+ * Payment start-up for checkout: Paystack (cards) and PayPal. Everything
+ * here runs on the server. If no gateway is configured, checkout says
+ * payments are unavailable - there is no demo mode that marks orders paid.
+ * "mpesa" is Paystack's mobile-money channel, not a separate gateway.
  */
 
 export interface InitiateGatewayResult {
@@ -29,10 +20,24 @@ export interface InitiateGatewayResult {
   error?: string;
 }
 
+/** Which online payment methods are switched on. Yes/no only - no keys leave the server. */
+export async function getPaymentAvailability(): Promise<{ paystack: boolean; paypal: boolean }> {
+  const [{ secretKey }, paypal] = await Promise.all([getPaystackCredentials(), getPaypalCredentials()]);
+  return { paystack: !!secretKey, paypal: !!paypal.clientId && !!paypal.clientSecret };
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/**
+ * Starts the hosted Paystack payment for an already-created pending order.
+ * Runs on the server only: the secret key is read here and never reaches the
+ * browser. The amount charged is read from OUR order record - the amount the
+ * browser sends is ignored, so it cannot be tampered with.
+ */
 export async function initiateGatewayCheckout(
   orderId: string,
   method: "paystack" | "mpesa",
-  amountUsd: number,
+  _clientAmountUsd: number,
   email: string
 ): Promise<InitiateGatewayResult> {
   const base = getPublicSiteUrl();
@@ -41,10 +46,21 @@ export async function initiateGatewayCheckout(
   if (!paystackKey) {
     return { ok: true, configured: false };
   }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { status: true, totalAmount: true, reader: { select: { user: { select: { email: true } } } } },
+  });
+  if (!order || order.status !== "PENDING") return { ok: false, configured: true, error: "This order can't be paid for." };
+
+  // Paystack rejects a missing or malformed email with a 400.
+  const payerEmail = EMAIL_PATTERN.test(email.trim()) ? email.trim() : order.reader?.user?.email ?? "";
+  if (!EMAIL_PATTERN.test(payerEmail)) return { ok: false, configured: true, error: "Enter a valid email address to receive your receipt." };
+
   try {
     const { authorizationUrl } = await initializePaystackTransaction(
-      email,
-      Math.round(amountUsd * 100),
+      payerEmail,
+      Math.round(Number(order.totalAmount) * 100),
       orderId,
       `${base}/checkout/return?gateway=paystack&orderId=${orderId}`,
       method === "mpesa" ? { channels: ["mobile_money"] } : undefined

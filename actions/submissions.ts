@@ -10,6 +10,7 @@ import { needsReReview, fileRefKey } from "@/lib/revision-trigger";
 import { resolveFormats } from "@/lib/submission-formats";
 import { detectTrimFromPageSize, formatInches } from "@/lib/trim-size";
 import { LULU_CONFIG } from "@/lib/lulu-config";
+import { ageGroupProblem } from "@/lib/age-groups";
 
 export interface AuthorAliasRow {
   id: string;
@@ -349,6 +350,11 @@ function prepareSubmission(input: SubmitBookInput, opts: { lenient?: boolean } =
   } else if (!isSubcategoryOf(input.category, input.subcategory)) {
     return { ok: false, error: "That Subcategory doesn't belong to the selected Category — please choose it again." };
   }
+
+  // Several age groups are allowed, but only neighbouring ones. Checked here too, not just
+  // in the form, so a hand-made request can't store (for example) 3-5 together with 9-12.
+  const ageProblem = ageGroupProblem(input.ageGroup);
+  if (ageProblem && !(opts.lenient && !(input.ageGroup ?? "").trim())) return { ok: false, error: ageProblem };
 
   const meta = input.metadata;
   const worldwide = meta.worldwideRights !== false;

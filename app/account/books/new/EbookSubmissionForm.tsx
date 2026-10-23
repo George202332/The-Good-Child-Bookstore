@@ -9,13 +9,14 @@ import { FileUploadField } from "@/components/FileUploadField";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 import { PublisherField } from "./PublisherField";
+import { AgeGroupField } from "./AgeGroupField";
+import { ageGroupProblem } from "@/lib/age-groups";
 import { AuthorAliasField } from "./AuthorAliasField";
 import { KeywordsField } from "./KeywordsField";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 import { CountryRestrictionField } from "./CountryRestrictionField";
 import { CATEGORIES, GENRES, subcategoriesFor } from "@/lib/taxonomy";
 import { DIMENSION_OPTIONS, DEFAULT_DIMENSION, nearestDimensionOption } from "@/lib/book-dimensions";
-const AGE_RANGES = ["0-2 years", "3-5 years", "6-8 years", "9-12 years", "12-15 years"];
 const READING_LEVELS = ["Pre-reader", "Beginner", "Early Reader", "Independent Reader", "Fluent Reader"];
 const LANGUAGES = ["English", "Spanish", "French", "Swahili"];
 const LICENSE_TYPES = ["All rights reserved", "Exclusive Distribution", "Non-Exclusive Distribution"];
@@ -154,7 +155,7 @@ export function EbookSubmissionForm({
   const [category, setCategory] = useState(initial?.category ?? "");
   const [genre, setGenre] = useState(initial?.genre ?? "");
   const [subcategory, setSubcategory] = useState(initial?.subcategory ?? "");
-  const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || AGE_RANGES[0]);
+  const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || "0-2 years");
   const [readingLevel, setReadingLevel] = useState(initial?.readingLevel || READING_LEVELS[0]);
   // Pages, Dimensions, and File size all auto-fill from the uploaded
   // manuscript itself (see the Files section's onFileMeta below) but
@@ -260,6 +261,7 @@ export function EbookSubmissionForm({
     { label: "Cover image uploaded", ok: !!coverImageUrl },
     { label: "Book title", ok: !!title.trim() },
     { label: "Author name", ok: !!authorFirstName.trim() && !!authorLastName.trim() },
+    { label: "Age groups are consecutive", ok: !ageGroupProblem(ageGroup) },
     { label: "Category selected", ok: !!category },
     { label: "Genre selected", ok: !!genre },
     { label: "Subcategory selected", ok: !!subcategory },
@@ -275,6 +277,11 @@ export function EbookSubmissionForm({
   const metadataMismatch = !!manuscriptFileId && !!title.trim() && metadataCheck.checked && (!metadataCheck.titleFound || !metadataCheck.authorFound);
 
   async function handleSubmit(submitForReview: boolean) {
+    const ageProblem = ageGroupProblem(ageGroup);
+    if (ageProblem) {
+      setError(ageProblem);
+      return;
+    }
     setSubmitting(true);
     setError(null);
     const payload = {
@@ -578,12 +585,7 @@ export function EbookSubmissionForm({
           </div>
         </div>
         <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="f-age">Age group</label>
-            <select className="field" id="f-age" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)}>
-              {AGE_RANGES.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
+          <AgeGroupField id="f-age" value={ageGroup} onChange={setAgeGroup} />
           <div>
             <label className="field-label" htmlFor="f-readinglevel">Reading level</label>
             <select className="field" id="f-readinglevel" value={readingLevel} onChange={(e) => setReadingLevel(e.target.value)}>
@@ -837,7 +839,7 @@ export function EbookSubmissionForm({
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginTop: 12 }}>{error}</div>}
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
           {!editingPublished && (
-            <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={() => handleSubmit(false)}>
+            <button type="button" className="btn btn-ghost btn-small" disabled={submitting || !!ageGroupProblem(ageGroup)} onClick={() => handleSubmit(false)}>
               Save as draft
             </button>
           )}

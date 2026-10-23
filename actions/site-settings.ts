@@ -106,15 +106,33 @@ export async function testPaystackConnection(): Promise<{ ok: boolean; message: 
   const session = await auth();
   if (session?.user?.role !== "ADMIN") return { ok: false, message: "Only Admins can do this." };
 
+  const { paystackKeyMode, PAYSTACK_CURRENCY } = await import("@/lib/payments/paystack");
   const settings = await getSiteSettings();
-  const secretKey = settings.apiKeys.paystackSecretKey?.trim() || process.env.PAYSTACK_SECRET_KEY;
-  const mode = settings.apiKeys.paymentMode;
+  const storedSecret = settings.apiKeys.paystackSecretKey?.trim();
+  const envSecret = process.env.PAYSTACK_SECRET_KEY?.trim();
+  const secretKey = storedSecret || envSecret;
+  const publicKey = settings.apiKeys.paystackPublicKey?.trim() || process.env.PAYSTACK_PUBLIC_KEY?.trim();
 
   if (!secretKey) {
     return {
       ok: false,
-      message: "No Paystack secret key found — not in Site Settings, and not in the PAYSTACK_SECRET_KEY environment variable either. Enter one above and save first.",
+      message: "No Paystack secret key found - not in Site Settings, and not in the PAYSTACK_SECRET_KEY environment variable either. Enter one above and save first.",
     };
+  }
+
+  const notes: string[] = [];
+  const source = storedSecret ? "Site Settings" : "the PAYSTACK_SECRET_KEY environment variable";
+  const secretMode = paystackKeyMode(secretKey);
+  notes.push(`Secret key comes from ${source} (${secretMode} key).`);
+  // Site Settings wins over the Vercel variable. A forgotten old key saved here silently overrides the live one in Vercel.
+  if (storedSecret && envSecret && storedSecret !== envSecret) {
+    notes.push("WARNING: the key saved in Site Settings is DIFFERENT from the PAYSTACK_SECRET_KEY set in Vercel, and Site Settings takes priority. Clear the Site Settings key if you want the Vercel one used.");
+  }
+  if (publicKey) {
+    const publicMode = paystackKeyMode(publicKey);
+    if (publicMode !== "unknown" && secretMode !== "unknown" && publicMode !== secretMode) {
+      notes.push(`WARNING: the public key is a ${publicMode} key but the secret key is a ${secretMode} key - they must both be live or both be test, from the same Paystack account.`);
+    }
   }
 
   try {
@@ -122,14 +140,39 @@ export async function testPaystackConnection(): Promise<{ ok: boolean; message: 
       headers: { Authorization: `Bearer ${secretKey}` },
       cache: "no-store",
     });
-    if (res.ok) {
-      const source = settings.apiKeys.paystackSecretKey?.trim() ? "Site Settings" : "the PAYSTACK_SECRET_KEY environment variable";
-      return { ok: true, message: `Connected successfully using the key from ${source} (labeled as ${mode} mode). Paystack accepted it.` };
-    }
     if (res.status === 401) {
-      return { ok: false, message: "Paystack rejected this key as invalid (401 Unauthorized). Double-check it was copied correctly." };
+      return { ok: false, message: [...notes, "Paystack rejected this secret key as invalid (401 Unauthorized). Double-check it was copied correctly."].join(" ") };
     }
-    return { ok: false, message: `Paystack responded with an unexpected status (${res.status}). The key format may be valid, but something else is wrong — check Paystack's own dashboard for account issues.` };
+    if (!res.ok) {
+      return { ok: false, message: [...notes, `Paystack responded with an unexpected status (${res.status}). Check Paystack's own dashboard for account issues.`].join(" ") };
+    }
+
+    // The same request checkout makes, for $1.00 in USD. Paystack only creates an unpaid, harmless
+    // pending transaction; its answer tells us whether USD is switched on for this account.
+    const probe = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "connection-test@thegoodchildbookstore.com", amount: 100, currency: PAYSTACK_CURRENCY }),
+      cache: "no-store",
+    });
+    if (probe.ok) {
+      return { ok: true, message: [...notes, `Paystack accepted the key AND accepted a ${PAYSTACK_CURRENCY} payment request, so ${PAYSTACK_CURRENCY} is enabled on this account.`].join(" ") };
+    }
+    let reason = `HTTP ${probe.status}`;
+    try {
+      const body = (await probe.json()) as { message?: string };
+      if (body?.message) reason = body.message;
+    } catch {
+      // keep the status text
+    }
+    return {
+      ok: false,
+      message: [
+        ...notes,
+        `The key works, but Paystack REFUSED a ${PAYSTACK_CURRENCY} payment request: "${reason}". This is the same error customers hit at checkout.`,
+        "If it mentions currency, ask Paystack to enable USD on your account (Paystack dashboard > Settings > Preferences, or contact Paystack support).",
+      ].join(" "),
+    };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? `Could not reach Paystack: ${e.message}` : "Could not reach Paystack." };
   }

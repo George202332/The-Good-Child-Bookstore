@@ -144,6 +144,8 @@ export interface Book {
    * current visitor (account country or request geo). */
   restricted?: boolean;
   age: string;
+  /** Every age group the book is for (a book may span neighbouring groups, e.g. 6-8 and 9-12). `age` is the one merged range shown to readers; the Bookshelf age filter matches against this list. */
+  ages?: string[];
   price: number;
   formats: { ebook: number; print: number; paperback: number; audiobook: number };
   /** Which of the 4 formats this specific book actually has published —

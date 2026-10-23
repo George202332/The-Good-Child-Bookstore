@@ -7,8 +7,8 @@ import { useSession } from "next-auth/react";
 import type { Book } from "@/lib/data/catalog";
 import { Motif } from "@/components/Motif";
 import { useCart, type CartItem } from "@/hooks/useCart";
-import { createPendingOrder, confirmOrderPaidDirectly } from "@/actions/orders";
-import { initiateGatewayCheckout, initiatePayPalCheckout, isPaypalAvailable } from "@/actions/payment-init";
+import { createPendingOrder } from "@/actions/orders";
+import { initiateGatewayCheckout, initiatePayPalCheckout, getPaymentAvailability } from "@/actions/payment-init";
 import { resolveCartBooks } from "@/actions/cart-books";
 import { getShippingOptions, type ShippingOptionRow } from "@/actions/shipping-options";
 import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } from "@/actions/payment-methods";
@@ -30,14 +30,13 @@ import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-setting
  * a reader profile-editing page yet. PDF receipt generation
  * (downloadReceiptPDF, jsPDF-based) is also not ported.
  *
- * Payment: if PayPal/Paystack credentials are configured (see
- * actions/payment-init.ts), "Complete purchase" creates a PENDING order
- * and redirects to the gateway's real hosted checkout page; the buyer
- * lands back on /checkout/return, which verifies payment and marks the
- * order PAID before showing /checkout/confirmation. Without credentials
- * configured, it falls back to demo mode: the order is marked PAID
- * immediately and the buyer goes straight to the confirmation page —
- * the same behavior this checkout has always had.
+ * Payment: "Pay by card" creates a PENDING order and sends the buyer to
+ * Paystack's own hosted payment page (PayPal likewise); the buyer lands back
+ * on /checkout/return, which asks the gateway server-side whether the payment
+ * really happened - right order, USD, exact total - and only then marks the
+ * order PAID before showing /checkout/confirmation. Card details are only
+ * ever typed on the gateway's page, never on this site. There is no demo
+ * mode: with no gateway configured, checkout says payments are unavailable.
  */
 
 interface CheckoutData {
@@ -55,10 +54,6 @@ interface CheckoutData {
   state: string;
   postcode: string;
   paymentMethod: "paystack" | "mpesa";
-  cardName: string;
-  cardNumber: string;
-  cardExpiry: string;
-  cardCvv: string;
 }
 
 const STEPS = [
@@ -98,16 +93,14 @@ function CheckoutPageInner() {
     state: "",
     postcode: "",
     paymentMethod: "paystack",
-    cardName: "",
-    cardNumber: "",
-    cardExpiry: "",
-    cardCvv: "",
   });
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [paypalReady, setPaypalReady] = useState(false);
+  // null = still checking which payment methods are switched on.
+  const [availability, setAvailability] = useState<{ paystack: boolean; paypal: boolean } | null>(null);
   useEffect(() => {
-    isPaypalAvailable().then(setPaypalReady).catch(() => setPaypalReady(false));
+    getPaymentAvailability().then(setAvailability).catch(() => setAvailability({ paystack: false, paypal: false }));
   }, []);
+  const paypalReady = !!availability?.paypal;
   const [submitting, setSubmitting] = useState(false);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethodRow[]>([]);
   const [resolvedBooks, setResolvedBooks] = useState<Book[] | null>(null);
@@ -274,15 +267,6 @@ function CheckoutPageInner() {
     setPaymentError(null);
     if (hasRestricted) return;
 
-    if (!data.cardName.trim()) { setPaymentError("Enter the name on your card."); return; }
-    const digitsOnly = data.cardNumber.replace(/\s+/g, "");
-    if (digitsOnly.length < 13 || digitsOnly.length > 19 || !/^\d+$/.test(digitsOnly)) {
-      setPaymentError("Enter a valid card number.");
-      return;
-    }
-    if (!/^\d{2}\/\d{2}$/.test(data.cardExpiry.trim())) { setPaymentError("Enter the expiry date as MM/YY."); return; }
-    if (!/^\d{3,4}$/.test(data.cardCvv.trim())) { setPaymentError("Enter a valid CVV."); return; }
-
     setSubmitting(true);
 
     const created = await createPendingOrder({
@@ -316,9 +300,9 @@ function CheckoutPageInner() {
       return;
     }
 
-    // Demo mode: no gateway credentials configured, so confirm directly.
-    await confirmOrderPaidDirectly(created.orderId);
-    router.push(`/checkout/confirmation?order=${created.orderId}`);
+    // No gateway is configured: there is no demo mode on the live site.
+    setSubmitting(false);
+    setPaymentError("Card payments aren't available right now. Please try again later or contact support.");
   }
 
   if (resolvedBooks === null) {
@@ -346,6 +330,11 @@ function CheckoutPageInner() {
   return (
     <div className="wrap cart-wrap" style={{ maxWidth: step === 1 ? undefined : 820 }}>
       <h1 style={{ marginBottom: 24, textAlign: "center" }}>Checkout</h1>
+      {searchParams.get("payment_failed") === "1" && (
+        <div className="checkout-error" role="alert" style={{ marginBottom: 16 }}>
+          Your payment wasn&apos;t completed, so you have not been charged for this order. You can try again below.
+        </div>
+      )}
       <div className="checkout-steps">
         {STEPS.map((s) => (
           <div key={s.n} className={`checkout-step-dot ${step > s.n ? "done" : ""} ${step === s.n ? "active" : ""}`}>
@@ -579,6 +568,8 @@ function CheckoutPageInner() {
             </div>
           )}
 
+          {availability?.paystack !== false && (
+            <>
           <p style={{ textAlign: "center", fontSize: 12.5, fontWeight: 700, color: "var(--ink-soft)", marginBottom: 10 }}>
             Pay securely with Paystack cards
           </p>
@@ -592,32 +583,31 @@ function CheckoutPageInner() {
               )
             )}
           </div>
-
-          <label className="field-label field-label-compact" htmlFor="co-card-name">Name on card</label>
-          <input className="field field-compact" id="co-card-name" type="text" value={data.cardName} onChange={(e) => setData((d) => ({ ...d, cardName: e.target.value }))} />
-          <label className="field-label field-label-compact" htmlFor="co-card-number">Card number</label>
-          <input className="field field-compact" id="co-card-number" type="text" inputMode="numeric" maxLength={19} placeholder="0000 0000 0000 0000" value={data.cardNumber} onChange={(e) => setData((d) => ({ ...d, cardNumber: e.target.value }))} />
-          <div className="form-grid-2">
-            <div>
-              <label className="field-label field-label-compact" htmlFor="co-card-expiry">Expiry</label>
-              <input className="field field-compact" id="co-card-expiry" type="text" placeholder="MM/YY" value={data.cardExpiry} onChange={(e) => setData((d) => ({ ...d, cardExpiry: e.target.value }))} />
-            </div>
-            <div>
-              <label className="field-label field-label-compact" htmlFor="co-card-cvv">CVV</label>
-              <input className="field field-compact" id="co-card-cvv" type="text" maxLength={4} value={data.cardCvv} onChange={(e) => setData((d) => ({ ...d, cardCvv: e.target.value }))} />
-            </div>
-          </div>
-          <p style={{ fontSize: 11, color: "var(--ink-faint)" }}>
-            This is a demo checkout; card details are never sent anywhere or stored.
+          <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-faint)", margin: "0 0 14px" }}>
+            You&apos;ll enter your card details on Paystack&apos;s secure payment page. We never see or store your card number.
           </p>
 
+            </>
+          )}
+
           {restrictedNotice}
-          {paymentError && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{paymentError}</div>}
+          {paymentError && (
+            <div className="checkout-error" role="alert">
+              {paymentError}
+            </div>
+          )}
+          {availability && !availability.paystack && !paypalReady && (
+            <div className="checkout-error" role="alert">
+              Online payments aren&apos;t available right now. Please try again later or contact support.
+            </div>
+          )}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 16 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(3)}>← Back</button>
-            <button className="btn btn-primary btn-small" onClick={completeOrder} disabled={submitting || hasRestricted}>
-              {submitting ? "Processing…" : "Complete purchase"}
-            </button>
+            {(availability === null || availability.paystack) && (
+              <button className="btn btn-primary btn-small" onClick={completeOrder} disabled={submitting || hasRestricted || availability === null}>
+                {submitting ? "Processing…" : "Pay by card"}
+              </button>
+            )}
           </div>
         </div>
       )}

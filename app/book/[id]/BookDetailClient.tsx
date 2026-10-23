@@ -15,7 +15,7 @@ import { bookJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
-import { categorySlug, isCategory } from "@/lib/taxonomy";
+import { categorySlug, isCategory, subcategoriesFor } from "@/lib/taxonomy";
 import { restrictionMessage } from "@/lib/book-country-restriction";
 
 /** Genre shelf name for a shelf id; "" for the "unknown" shelf. */
@@ -151,11 +151,14 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
     ).filter((o): o is { name: string; price: number } => !!o),
   });
   const shelfName = catName(b.category);
+  // Subcategories of this book's Category that have at least one published book (empty ones never show).
+  const categorySubcategories = b.series
+    ? subcategoriesFor(b.series).filter((sub) => (b.subcategory === sub || allBooks.some((x) => x.series === b.series && x.subcategory === sub)))
+    : [];
   const seriesHref = b.series && isCategory(b.series) ? `/bookshelf?series=${categorySlug(b.series)}` : null;
   const breadcrumbLd = breadcrumbJsonLd([
     { name: "Home", url: `${siteUrl}/` },
     { name: "Bookshelf", url: `${siteUrl}/bookshelf` },
-    ...(shelfName ? [{ name: shelfName, url: `${siteUrl}/bookshelf?cat=${b.category}` }] : []),
     ...(b.series && seriesHref ? [{ name: b.series, url: `${siteUrl}${seriesHref}` }] : []),
     { name: b.title, url: `${siteUrl}/${bookSlug(b)}` },
   ]);
@@ -170,7 +173,6 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
       </Suspense>
       <div className="breadcrumb">
         <Link href="/">Home</Link> › <Link href="/bookshelf">Bookshelf</Link> ›{" "}
-        {shelfName && (<><Link href={`/bookshelf?cat=${b.category}`}>{shelfName}</Link> › </>)}
         {b.series && seriesHref && (<><Link href={seriesHref}>{b.series}</Link> › </>)}
         {b.subcategory ?? b.title}
       </div>
@@ -190,9 +192,6 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
           </div>
           <div className="az-sample-btns">
             {!audiobookOnly && <ReadSampleViewer manuscriptUrl={b.manuscriptUrl} title={b.title} />}
-            {b.formatAvailable?.audiobook && (
-              <button type="button" className="btn btn-ghost btn-small btn-block">Listen to sample</button>
-            )}
           </div>
           <div className="az-author-card">
             <div className="az-author-card-label">About the Author</div>
@@ -211,7 +210,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
         </div>
 
         <div className="detail-info">
-          <div className="detail-cat-tag">{shelfName || b.series || ""}</div>
+          <div className="detail-cat-tag">{b.series || shelfName || ""}</div>
           <div className="az-title-row">
             <h1>{b.title}</h1>
             <button type="button" className="az-share-btn" title="Share">
@@ -233,7 +232,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
           </div>
           <div className="detail-isbn">ISBN {b.isbn}</div>
           <div className="detail-tags">
-            <span className="age-pill">Ages {b.age}</span>
+            <span className="age-pill">Ages {b.age} years</span>
             {b.subcategory && (
               <span className="age-pill" style={{ background: "var(--mint)", color: "#165236" }}>{b.subcategory}</span>
             )}
@@ -275,15 +274,12 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                   <strong>{b.language || "English"}</strong><span>Language</span>
                 </div>
                 {b.series && (
-                  <div className="az-detail-item">
+                  <div className="az-detail-item az-detail-item-category">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 3h12v18l-6-4-6 4V3z" /></svg>
                     <strong>{b.series}</strong><span>Category</span>
-                  </div>
-                )}
-                {shelfName && (
-                  <div className="az-detail-item">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M20 12l-8 8-9-9V4h7l9 9z" /><circle cx={7.5} cy={7.5} r={1.3} fill="currentColor" /></svg>
-                    <strong>{shelfName}</strong><span>Genre</span>
+                    {categorySubcategories.length > 0 && (
+                      <small className="az-detail-subs">{categorySubcategories.join(" · ")}</small>
+                    )}
                   </div>
                 )}
                 {b.subcategory && (

@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { breadcrumbJsonLd } from "@/lib/seo/json-ld";
-import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { bookAuthorDisplayName, sameAuthorName } from "@/lib/book-author-name";
 
 export const dynamic = "force-dynamic";
 
@@ -101,6 +101,13 @@ export default async function AuthorProfilePage({
   if (!author) notFound();
 
   const displayName = resolveDisplayName(name, author, author.books);
+  // This profile is for ONE author name under ONE posting account: only the books
+  // whose Author field carries this name are listed. Books of the same account
+  // under another name, and books of other accounts using the same name, are
+  // never mixed in (each account has its own profile id).
+  const namedBooks = author.books.filter((b: ProfileBook) =>
+    sameAuthorName(bookAuthorDisplayName({ submissionMetadata: b.submissionMetadata, author }), displayName),
+  );
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Person",
@@ -167,11 +174,11 @@ export default async function AuthorProfilePage({
         )}
 
         <h3 style={{ marginTop: 32, marginBottom: 16 }}>Books by {displayName}</h3>
-        {author.books.length === 0 ? (
+        {namedBooks.length === 0 ? (
           <p style={{ color: "var(--ink-faint)", fontSize: 13.5 }}>No published books yet.</p>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 16 }}>
-            {author.books.map((b: ProfileBook) => (
+            {namedBooks.map((b: ProfileBook) => (
               <Link key={b.id} href={`/${b.slug}`} style={{ textAlign: "center" }}>
                 {b.coverImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element

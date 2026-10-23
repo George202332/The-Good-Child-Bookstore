@@ -15,3 +15,13 @@ export function bookAuthorDisplayName(book: {
     : null;
   return submittedName || book.author.penName || book.author.user.name;
 }
+
+/** Two author names count as the same person when they match ignoring case,
+ * extra spaces and accents ("Jamie  Rivers" = "jamie rivers"). */
+export function normaliseAuthorName(name: string): string {
+  return name.normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+export function sameAuthorName(a: string, b: string): boolean {
+  return normaliseAuthorName(a) === normaliseAuthorName(b);
+}

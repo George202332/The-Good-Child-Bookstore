@@ -396,22 +396,14 @@
     display:flex;align-items:center;justify-content:space-between;gap:24px;
     border-radius:24px;padding:131px 44px;flex-wrap:wrap;min-height:352px;box-sizing:border-box;
   }
-  /* Banner loading (see components/BannerFrame.tsx): a soft shimmering
-     placeholder in the banner's own colour until its picture is ready, then
-     picture and text appear together. The CSS fallback reveals the content
-     after 3.5s even if no script runs. */
-  .banner-frame{position:relative;overflow:hidden;}
-  .banner-frame > .banner-probe{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;}
-  .banner-frame > :not(.banner-probe){transition:opacity .4s ease;}
-  .banner-loading > :not(.banner-probe){opacity:0;animation:bannerReveal 0s linear 3.5s forwards;}
-  .banner-loading::before{
-    content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-    background:linear-gradient(100deg,transparent 30%,rgba(255,255,255,0.45) 50%,transparent 70%);
-    transform:translateX(-100%);animation:bannerShimmer 1.4s ease-in-out infinite;
-  }
-  @keyframes bannerShimmer{to{transform:translateX(100%);}}
-  @keyframes bannerReveal{to{opacity:1;}}
-  @media (prefers-reduced-motion:reduce){ .banner-loading::before{animation:none;} .banner-frame > :not(.banner-probe){transition:none;} }
+  /* Banner pictures (see components/BannerFrame.tsx): a real <img> filling the
+     banner, over a tiny blurred copy of itself, behind the text. The text and
+     buttons are always visible; nothing waits for a script. */
+  .banner-frame{position:relative;overflow:hidden;isolation:isolate;}
+  .banner-frame > .banner-img,
+  .banner-frame > .banner-blur{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;pointer-events:none;}
+  .banner-frame > .banner-blur{z-index:-2;filter:blur(14px);transform:scale(1.08);}
+  .banner-frame > .banner-img{z-index:-1;}
   .promo-banner-text{display:flex;align-items:center;gap:20px;}
   .promo-banner-icon{
     width:56px;height:56px;border-radius:50%;flex-shrink:0;
@@ -2566,6 +2558,13 @@ html.dark-mode .dashboard-content [style*="background"]:not([style*="width"]):no
   border-color:var(--line) !important;
 }
 
-/* Book Club banner: a second (outline) button beside the main one. */
-.promo-banner .btn-ghost{background:rgba(255,255,255,0.7);border-color:#000;color:#000;}
-.promo-banner .btn-ghost:hover{background:#fff;}
+
+/* Checkout: payment errors sit in their own clear box (the general .field-hint
+   style pulls up by 14px, which is what used to print errors on top of the line above). */
+.checkout-error{margin:14px 0 0;padding:10px 14px;border-radius:10px;border:1px solid var(--coral-deep);background:rgba(255,140,107,0.14);color:var(--ink);font-size:13.5px;line-height:1.45;}
+
+/* Product page details card: the Category tile names the category and lists its
+   subcategories (only those with a published book), so it needs room to wrap. */
+.az-detail-item-category{flex-basis:230px;min-width:230px;}
+.az-detail-item-category strong{white-space:normal;overflow:visible;text-overflow:clip;}
+.az-detail-subs{display:block;margin-top:3px;font-size:11px;line-height:1.35;color:var(--ink-soft);}

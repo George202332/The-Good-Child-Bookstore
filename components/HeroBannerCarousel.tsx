@@ -66,6 +66,7 @@ export function HeroBannerCarousel({
             className={bannerClassName(`promo-banner promo-${slide.tone}`, slide.imageUrl)}
             imageUrl={slide.imageUrl}
             priority={i === 0}
+            eager
             style={{
               position: "absolute", inset: 0, height: 352, minHeight: 0, overflow: "hidden", boxSizing: "border-box",
               opacity: active ? 1 : 0,

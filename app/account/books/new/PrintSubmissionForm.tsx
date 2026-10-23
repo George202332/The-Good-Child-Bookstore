@@ -1,6 +1,8 @@
 "use client";
 
 import { PublisherField } from "./PublisherField";
+import { AgeGroupField } from "./AgeGroupField";
+import { ageGroupProblem } from "@/lib/age-groups";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitBook, updateBookFull } from "@/actions/submissions";
@@ -16,7 +18,6 @@ import { detectTrimFromPageSize, formatInches, type DetectedTrim } from "@/lib/t
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 
 import { CATEGORIES, GENRES, subcategoriesFor } from "@/lib/taxonomy";
-const AGE_RANGES = ["0-2 years", "3-5 years", "6-8 years", "9-12 years", "12-15 years"];
 const READING_LEVELS = ["Pre-reader", "Beginner", "Early Reader", "Independent Reader", "Fluent Reader"];
 const LANGUAGES = ["English", "Spanish", "French", "Swahili"];
 
@@ -120,7 +121,7 @@ export function PrintSubmissionForm({
   const [category, setCategory] = useState(initial?.category ?? prefill?.category ?? "");
   const [genre, setGenre] = useState(initial?.genre ?? prefill?.genre ?? "");
   const [subcategory, setSubcategory] = useState(initial?.subcategory ?? prefill?.subcategory ?? "");
-  const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || prefill?.ageGroup || AGE_RANGES[0]);
+  const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || prefill?.ageGroup || "0-2 years");
   const [readingLevel, setReadingLevel] = useState(initial?.readingLevel || prefill?.readingLevel || READING_LEVELS[0]);
   const [description, setDescription] = useState(initial?.description ?? prefill?.description ?? "");
   const descriptionWordCount = description.trim() ? description.trim().split(/\s+/).filter(Boolean).length : 0;
@@ -241,6 +242,11 @@ export function PrintSubmissionForm({
   const hardcoverPricing = computePrintPricing(Number(hardcoverRetailPrice) || 0, "LW");
 
   async function handleSubmit(submitForReview: boolean) {
+    const ageProblem = ageGroupProblem(ageGroup);
+    if (ageProblem) {
+      setError(ageProblem);
+      return;
+    }
     setSubmitting(true);
     setError(null);
     const payload = {
@@ -395,12 +401,7 @@ export function PrintSubmissionForm({
           </div>
         </div>
         <div className="form-grid-3">
-          <div>
-            <label className="field-label" htmlFor="p-age">Age group</label>
-            <select className="field" id="p-age" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)}>
-              {AGE_RANGES.map((a) => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
+          <AgeGroupField id="p-age" value={ageGroup} onChange={setAgeGroup} />
         </div>
         <label className="field-label" htmlFor="p-readinglevel">Reading level</label>
         <select className="field" id="p-readinglevel" value={readingLevel} onChange={(e) => setReadingLevel(e.target.value)}>
@@ -798,7 +799,7 @@ export function PrintSubmissionForm({
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       <div>
-        <button type="button" className="btn btn-primary btn-small" disabled={submitting} onClick={() => handleSubmit(true)}>
+        <button type="button" className="btn btn-primary btn-small" disabled={submitting || !!ageGroupProblem(ageGroup)} onClick={() => handleSubmit(true)}>
           {submitting
             ? (editing ? "Saving…" : "Submitting…")
             : editing
