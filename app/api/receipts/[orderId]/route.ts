@@ -16,6 +16,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ ord
   if (!order || order.reader.user.id !== session.user.id) {
     return new NextResponse("Not found.", { status: 404 });
   }
+  // A receipt is proof of payment: never issued for an order that is not paid.
+  if (order.status !== "PAID") {
+    return new NextResponse("This order has not been paid.", { status: 409 });
+  }
 
   const { generateOrderReceipt } = await import("@/lib/pdf/order-receipt");
   const bytes = await generateOrderReceipt({

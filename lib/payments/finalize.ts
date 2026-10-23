@@ -20,12 +20,14 @@ export async function finalizeOrderPayment(
   rawPayload: unknown
 ): Promise<void> {
   let order;
+  let claimedHere = false;
   try {
     // Only a PENDING order can become PAID, and only once: the return page and
     // the webhook both call this, and whichever arrives second must not repeat
     // the sale notices, print jobs and receipt email.
     const claimed = await prisma.order.updateMany({ where: { id: orderId, status: "PENDING" }, data: { status: "PAID" } });
     if (claimed.count === 0) return;
+    claimedHere = true;
     order = await prisma.order.findUniqueOrThrow({
       where: { id: orderId },
       include: {
@@ -36,6 +38,10 @@ export async function finalizeOrderPayment(
       data: { orderId, gateway, rawPayload: rawPayload as object, verified: true },
     });
   } catch (e) {
+    // Put the order back to PENDING so Paystack's retry (or the buyer's return) can finish the job.
+    if (claimedHere) {
+      await prisma.order.updateMany({ where: { id: orderId, status: "PAID" }, data: { status: "PENDING" } }).catch(() => undefined);
+    }
     await reportSystemError("CHECKOUT", e, { orderId, gateway });
     throw e;
   }

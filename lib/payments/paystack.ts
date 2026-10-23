@@ -100,6 +100,8 @@ export async function initializePaystackTransaction(
  * never raw card data. */
 export async function verifyPaystackTransaction(reference: string): Promise<{
   success: boolean;
+  /** Paystack's own word for the transaction: success, failed, abandoned, ongoing, pending... */
+  paystackStatus: string | null;
   ourOrderId: string | null;
   /** What Paystack says was actually paid: minor units (cents) and currency. */
   amountMinor: number | null;
@@ -111,7 +113,7 @@ export async function verifyPaystackTransaction(reference: string): Promise<{
     headers: { Authorization: `Bearer ${secretKey}` },
     cache: "no-store",
   });
-  if (!res.ok) return { success: false, ourOrderId: null, amountMinor: null, currency: null, authorization: null };
+  if (!res.ok) return { success: false, paystackStatus: null, ourOrderId: null, amountMinor: null, currency: null, authorization: null };
   const data = await res.json();
   const success = data.data?.status === "success";
   const ourOrderId = data.data?.metadata?.ourOrderId ?? null;
@@ -122,7 +124,8 @@ export async function verifyPaystackTransaction(reference: string): Promise<{
       : null;
   const amountMinor = typeof data.data?.amount === "number" ? data.data.amount : null;
   const currency = typeof data.data?.currency === "string" ? data.data.currency : null;
-  return { success, ourOrderId, amountMinor, currency, authorization };
+  const paystackStatus = typeof data.data?.status === "string" ? data.data.status : null;
+  return { success, paystackStatus, ourOrderId, amountMinor, currency, authorization };
 }
 
 /** Charges a previously-saved, reusable authorization token directly —

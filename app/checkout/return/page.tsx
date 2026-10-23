@@ -37,6 +37,17 @@ export default async function CheckoutReturnPage({
           await saveCardIfReusable(confirmed.orderId, confirmed.authorization);
           redirect(`/checkout/confirmation?order=${confirmed.orderId}`);
         }
+        if (!confirmed.ok) {
+          const st = confirmed.paystackStatus;
+          // Paystack says the payment is still being processed: show the honest "waiting" page.
+          if (st === "pending" || st === "ongoing" || st === "processing" || st === "queued") {
+            redirect(`/checkout/confirmation?order=${orderId}`);
+          }
+          // Paystack says the payment definitely failed: record that (only a PENDING order moves).
+          if (st === "failed") {
+            await prisma.order.updateMany({ where: { id: orderId, status: "PENDING" }, data: { status: "FAILED" } });
+          }
+        }
       } catch (e) {
         // Swallow and fall through to the DB-status fallback below —
         // re-throwing here (including Next.js's own redirect() control
@@ -44,6 +55,7 @@ export default async function CheckoutReturnPage({
         // since that's exactly what would crash the page. redirect()
         // calls above already exited before this catch if they ran.
         if (e instanceof Error && e.message === "NEXT_REDIRECT") throw e;
+        if (typeof e === "object" && e && "digest" in e && String((e as { digest: unknown }).digest).startsWith("NEXT_REDIRECT")) throw e;
       }
     }
 

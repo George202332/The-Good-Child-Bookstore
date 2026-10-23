@@ -9,16 +9,16 @@ import { evaluatePaystackPayment } from "@/lib/payments/paystack-check";
  */
 export async function confirmPaystackReference(reference: string): Promise<
   | { ok: true; orderId: string; authorization: Awaited<ReturnType<typeof verifyPaystackTransaction>>["authorization"] }
-  | { ok: false; reason: string }
+  | { ok: false; reason: string; paystackStatus: string | null }
 > {
   const paid = await verifyPaystackTransaction(reference);
-  if (!paid.success || !paid.ourOrderId) return { ok: false, reason: "Paystack has not confirmed this payment." };
+  if (!paid.success || !paid.ourOrderId) return { ok: false, reason: "Paystack has not confirmed this payment.", paystackStatus: paid.paystackStatus };
   const order = await prisma.order.findUnique({ where: { id: paid.ourOrderId }, select: { totalAmount: true } });
-  if (!order) return { ok: false, reason: "No matching order." };
+  if (!order) return { ok: false, reason: "No matching order.", paystackStatus: paid.paystackStatus };
   const verdict = evaluatePaystackPayment(paid, paid.ourOrderId, Number(order.totalAmount));
   if (!verdict.ok) {
     console.error(`[paystack] payment for order ${paid.ourOrderId} rejected: ${verdict.reason}`);
-    return { ok: false, reason: verdict.reason };
+    return { ok: false, reason: verdict.reason, paystackStatus: paid.paystackStatus };
   }
   return { ok: true, orderId: paid.ourOrderId, authorization: paid.authorization };
 }

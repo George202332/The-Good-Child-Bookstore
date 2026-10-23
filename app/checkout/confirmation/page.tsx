@@ -32,6 +32,30 @@ export default async function CheckoutConfirmationPage({
     );
   }
 
+  // This page only ever celebrates a payment Paystack/PayPal has really
+  // confirmed. Anything else (still waiting, failed, cancelled) gets an honest
+  // message with no download buttons, no "thank you" and no cleared cart.
+  if (order.status !== "PAID") {
+    const stillWaiting = order.status === "PENDING";
+    return (
+      <div className="wrap cart-wrap" style={{ maxWidth: 520, margin: "0 auto", textAlign: "center" }}>
+        <h2 style={{ marginBottom: 6 }}>{stillWaiting ? "We're waiting for your payment to be confirmed" : "This payment was not completed"}</h2>
+        <p style={{ color: "var(--ink-soft)", marginBottom: 24 }}>
+          Order #{order.id.slice(0, 8).toUpperCase()} —{" "}
+          {stillWaiting
+            ? "your bank or card provider hasn't confirmed it yet. If you were charged, your order will appear in your Library the moment it is confirmed; you don't need to pay again. Please check again in a minute."
+            : "you have not been charged for this order. Your cart is still saved, so you can try again."}
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {stillWaiting && (
+            <Link href={`/checkout/confirmation?order=${order.id}`} className="btn btn-primary" style={{ textAlign: "center" }}>Check again</Link>
+          )}
+          <Link href="/checkout" className={stillWaiting ? "see-all" : "btn btn-primary"} style={{ display: "block", textAlign: "center" }}>Back to checkout</Link>
+        </div>
+      </div>
+    );
+  }
+
   const hasDigitalItems = order.items.some((it) => it.hasEbook || it.hasAudiobook);
 
   return (

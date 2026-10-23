@@ -437,6 +437,8 @@ export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: b
 
 export interface OrderSummary {
   id: string;
+  /** PENDING / PAID / FAILED / CANCELLED / REFUNDED: the confirmation page only celebrates PAID. */
+  status: string;
   totalAmount: number;
   /** Postage the customer paid (included in totalAmount); 0 when none. */
   shippingAmount: number;
@@ -459,8 +461,10 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary | n
       include: { lines: { include: { book: { include: { files: true } } } } },
     });
     if (!order || !Array.isArray(order.lines)) return null;
+    const isPaid = order.status === "PAID";
     return {
       id: order.id,
+      status: order.status,
       totalAmount: Number(order.totalAmount),
       shippingAmount: order.shippingAmount != null ? Number(order.shippingAmount) : 0,
       printJobStatus: order.printJobStatus,
@@ -475,7 +479,7 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary | n
           // eBook: the manuscript (as before). Audiobook: its own AUDIOBOOK
           // file, via the purchase-checked download route — the audio file
           // is never served from a public URL.
-          downloadUrl: isEbook
+          downloadUrl: !isPaid ? null : isEbook
             ? (l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url ?? null)
             : isAudiobook
             ? (l.book.files.some((f) => f.kind === "AUDIOBOOK") ? `/api/downloads/${l.bookId}?format=audiobook` : null)
