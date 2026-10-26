@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 export interface AffiliateEarningsSummary {
   referralEarnings: number;
@@ -44,8 +45,8 @@ export async function getAffiliateEarningsSummary(): Promise<AffiliateEarningsSu
       include: {
         affiliateProfile: {
           include: {
-            authorReferralEarnings: true,
-            affiliateLinks: { include: { saleLines: true } },
+            authorReferralEarnings: PAID_ONLY,
+            affiliateLinks: { include: { saleLines: PAID_ONLY } },
           },
         },
       },

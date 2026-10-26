@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { firstNameOnly } from "@/lib/first-name";
 import { maskAccountNumber } from "@/lib/mask-account-number";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 export interface ReferredAuthorRow {
   maskedAccountId: string;
@@ -27,7 +28,7 @@ export async function getReferredAuthorsDetail(): Promise<ReferredAuthorRow[]> {
     where: { referredById: affiliateProfile.id },
     include: {
       user: true,
-      books: { include: { saleLines: true } },
+      books: { include: { saleLines: PAID_ONLY } },
     },
   });
 

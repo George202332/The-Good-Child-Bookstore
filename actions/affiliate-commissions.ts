@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 export interface CommissionRow {
   id: string;
@@ -29,8 +30,8 @@ export async function getMyCommissions(): Promise<CommissionRow[]> {
       include: {
         affiliateProfile: {
           include: {
-            affiliateLinks: { include: { saleLines: { include: { book: true } } } },
-            authorReferralEarnings: { include: { book: true } },
+            affiliateLinks: { include: { saleLines: { ...PAID_ONLY, include: { book: true } } } },
+            authorReferralEarnings: { ...PAID_ONLY, include: { book: true } },
           },
         },
       },

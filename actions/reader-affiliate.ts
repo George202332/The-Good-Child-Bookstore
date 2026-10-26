@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 /**
  * A Reader's affiliate snapshot for the dashboard stat card — affiliate
@@ -26,7 +27,7 @@ export async function getReaderAffiliateStatus(): Promise<ReaderAffiliateStatus>
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { affiliateProfile: { include: { affiliateLinks: { include: { saleLines: true } } } } },
+      include: { affiliateProfile: { include: { affiliateLinks: { include: { saleLines: PAID_ONLY } } } } },
     });
     if (!user?.affiliateProfile) return { enabled: true, totalEarnings: 0 };
 

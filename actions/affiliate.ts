@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { getRequestGeo } from "@/lib/geo";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 /**
  * Real affiliate link + click tracking, replacing the original's fully
@@ -87,7 +88,7 @@ export async function listMyAffiliateLinks(): Promise<AffiliateLinkWithStats[]> 
 
     const links = await prisma.affiliateLink.findMany({
       where: { affiliateId: user.affiliateProfile.id },
-      include: { book: true, clicks: true, saleLines: true },
+      include: { book: true, clicks: true, saleLines: PAID_ONLY },
       orderBy: { createdAt: "desc" },
     });
 

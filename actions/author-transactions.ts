@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 /** An author's own transaction history — every sale line on their
  * books plus their own payout requests, in one combined, chronological
@@ -24,7 +25,7 @@ export async function getAuthorTransactions(): Promise<AuthorTransactionRow[]> {
   try {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { authorProfile: { include: { books: { include: { saleLines: { include: { book: true } } } } } } },
+      include: { authorProfile: { include: { books: { include: { saleLines: { ...PAID_ONLY, include: { book: true } } } } } } },
     });
     const books = user?.authorProfile?.books ?? [];
     const saleRows: AuthorTransactionRow[] = books.flatMap((b: { saleLines: { id: string; createdAt: Date; authorShare: unknown; book: { title: string }; saleType: string }[] }) =>

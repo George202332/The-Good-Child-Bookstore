@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 export interface AuthorBookTableRow {
   title: string;
@@ -28,7 +29,7 @@ export async function getAuthorBooksTable(): Promise<AuthorBookTableRow[]> {
         include: {
           books: {
             include: {
-              saleLines: true,
+              saleLines: PAID_ONLY,
               categories: { include: { category: true } },
             },
           },

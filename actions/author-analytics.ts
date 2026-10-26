@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 /**
  * Real per-author ANALYTICS — deliberately pure numbers (sale counts,
@@ -55,6 +56,7 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
             books: {
               include: {
                 saleLines: {
+                  ...PAID_ONLY,
                   include: { order: { include: { reader: { include: { addresses: true } } } } },
                 },
               },

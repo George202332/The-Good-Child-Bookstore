@@ -10,6 +10,7 @@ import { firstNameOnly } from "@/lib/first-name";
 import { maskAccountNumber } from "@/lib/mask-account-number";
 import { bumpLastViewedRevenueAt } from "@/actions/revenue-last-viewed";
 import { RevenueHighlightProvider, BlinkStatCard } from "@/components/RevenueHighlight";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 interface SaleLineRow {
   id: string;
@@ -73,7 +74,7 @@ export default async function RevenuePage() {
         include: {
           books: {
             include: {
-              saleLines: { include: { book: true }, orderBy: { createdAt: "desc" } },
+              saleLines: { ...PAID_ONLY, include: { book: true }, orderBy: { createdAt: "desc" } },
             },
           },
         },
@@ -81,6 +82,7 @@ export default async function RevenuePage() {
       affiliateProfile: {
         include: {
           authorReferralEarnings: {
+            ...PAID_ONLY,
             include: {
               book: {
                 include: {
@@ -96,7 +98,7 @@ export default async function RevenuePage() {
           },
           affiliateLinks: {
             include: {
-              saleLines: { include: { book: { include: { author: { include: { user: true } } } } }, orderBy: { createdAt: "desc" } },
+              saleLines: { ...PAID_ONLY, include: { book: { include: { author: { include: { user: true } } } } }, orderBy: { createdAt: "desc" } },
             },
           },
         },

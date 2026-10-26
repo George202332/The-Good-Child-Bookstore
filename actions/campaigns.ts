@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 /**
  * Campaigns — a named grouping of referral links so an affiliate can
@@ -34,7 +35,7 @@ export async function listMyCampaigns(): Promise<CampaignRow[]> {
   try {
     const campaigns = await prisma.campaign.findMany({
       where: { affiliateId },
-      include: { links: { include: { clicks: true, saleLines: true } } },
+      include: { links: { include: { clicks: true, saleLines: PAID_ONLY } } },
       orderBy: { createdAt: "desc" },
     });
     return campaigns.map((c: { id: string; name: string; createdAt: Date; links: { clicks: unknown[]; saleLines: unknown[] }[] }) => ({

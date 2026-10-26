@@ -34,8 +34,8 @@ export async function loadDashboardData(role: Role) {
   const { start: monthStart, label: monthLabel } = currentMonthStart();
   if (canViewFinancials(role)) {
     const [agg, monthAgg, orderCount] = await Promise.all([
-      prisma.saleLine.aggregate({ _sum: { companyShare: true, authorShare: true, affiliateShare: true }, where: { order: { isTestData } } }),
-      prisma.saleLine.aggregate({ _sum: { companyShare: true, authorShare: true, affiliateShare: true }, where: { order: { isTestData }, createdAt: { gte: monthStart } } }),
+      prisma.saleLine.aggregate({ _sum: { companyShare: true, authorShare: true, affiliateShare: true }, where: { order: { isTestData, status: "PAID" } } }),
+      prisma.saleLine.aggregate({ _sum: { companyShare: true, authorShare: true, affiliateShare: true }, where: { order: { isTestData, status: "PAID" }, createdAt: { gte: monthStart } } }),
       // "Total orders" means orders with a real sale behind them —
       // requiring at least one SaleLine (lines: { some: {} }), not just
       // a PAID status, so it moves in lockstep with real transactions.

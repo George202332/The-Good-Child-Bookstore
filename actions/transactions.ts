@@ -4,6 +4,7 @@ import { saleModeLabel, payoutModeLabel } from "@/lib/payment-mode";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { PAID_ONLY } from "@/lib/paid-sales";
 import { authEither as auth } from "@/lib/auth-either";
 import { BACKEND_ROLES, canViewFinancials } from "@/lib/roles";
 import { deleteNotificationsForRecords } from "@/lib/notification-cleanup";
@@ -51,6 +52,8 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
   try {
     const [saleLines, payouts] = await Promise.all([
       prisma.saleLine.findMany({
+        // Only confirmed-paid sales are transactions; a pending or failed checkout is not.
+        ...PAID_ONLY,
         include: {
           book: true,
           order: { include: { reader: { include: { user: true } }, paymentLogs: { orderBy: { createdAt: "desc" }, take: 1 } } },

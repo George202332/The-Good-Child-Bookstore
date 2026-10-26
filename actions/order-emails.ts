@@ -23,6 +23,8 @@ export async function sendOrderReceiptEmail(orderId: string): Promise<void> {
       },
     });
     if (!order) return;
+    // A receipt is only ever sent for a confirmed-paid order.
+    if (order.status !== "PAID") return;
 
     const siteUrl = getSiteUrl();
     const itemsHtml = order.lines

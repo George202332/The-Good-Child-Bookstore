@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 export interface AffiliateAnalytics {
   totalClicks: number;
@@ -42,7 +43,7 @@ export async function getAffiliateAnalytics(): Promise<AffiliateAnalytics> {
       affiliateProfile: {
         include: {
           affiliateLinks: {
-            include: { book: { include: { author: { include: { user: true } } } }, clicks: true, saleLines: true },
+            include: { book: { include: { author: { include: { user: true } } } }, clicks: true, saleLines: PAID_ONLY },
           },
         },
       },

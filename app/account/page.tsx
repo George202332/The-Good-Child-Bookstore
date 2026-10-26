@@ -14,6 +14,7 @@ import { LiveRefresher } from "@/components/LiveRefresher";
 import { PayoutHoldBanner } from "@/components/PayoutHoldBanner";
 import { computePayoutStatCards } from "@/lib/payout-monthly";
 import { hasFileDownload } from "@/lib/delivery-format";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 export const dynamic = "force-dynamic";
 
@@ -199,11 +200,11 @@ export default async function AccountPage() {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       include: {
-        authorProfile: { include: { books: { include: { saleLines: true, ratings: true } } } },
+        authorProfile: { include: { books: { include: { saleLines: PAID_ONLY, ratings: true } } } },
         affiliateProfile: {
           include: {
-            authorReferralEarnings: true,
-            affiliateLinks: { include: { saleLines: true } },
+            authorReferralEarnings: PAID_ONLY,
+            affiliateLinks: { include: { saleLines: PAID_ONLY } },
           },
         },
       },

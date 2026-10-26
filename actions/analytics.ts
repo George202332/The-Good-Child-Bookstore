@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { BACKEND_ROLES, canViewFinancials } from "@/lib/roles";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 /**
  * Real platform analytics — the brief's "Analytics" section (Revenue,
@@ -67,7 +68,7 @@ export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
       // point), so there's never a separate "orders" number that can
       // drift from the underlying sale records.
       prisma.order.findMany({ where: { status: "PAID", lines: { some: {} } }, select: { createdAt: true } }),
-      prisma.saleLine.findMany({ include: { book: true }, orderBy: { createdAt: "asc" } }),
+      prisma.saleLine.findMany({ ...PAID_ONLY, include: { book: true }, orderBy: { createdAt: "asc" } }),
     ]);
 
     const orderList = Array.isArray(orders) ? orders : [];

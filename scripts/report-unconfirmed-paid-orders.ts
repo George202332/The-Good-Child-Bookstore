@@ -31,6 +31,8 @@ async function main() {
       totalAmount: true,
       createdAt: true,
       isTestData: true,
+      reader: { select: { user: { select: { name: true, email: true } } } },
+      lines: { select: { authorShare: true, affiliateShare: true, authorReferralShare: true, book: { select: { title: true } } } },
       paymentLogs: { select: { gateway: true, verified: true, rawPayload: true } },
     },
     orderBy: { createdAt: "asc" },
@@ -51,16 +53,27 @@ async function main() {
   const show = (title: string, rows: typeof paid) => {
     console.log(`\n${title}: ${rows.length} order(s), $${sum(rows)} in total`);
     console.log(`  of which test-data orders: ${rows.filter((r) => r.isTestData).length}`);
-    for (const r of rows.slice(0, 40)) {
-      console.log(`  #${r.id.slice(0, 8).toUpperCase()}  ${r.createdAt.toISOString().slice(0, 10)}  $${Number(r.totalAmount).toFixed(2)}${r.isTestData ? "  (test data)" : ""}`);
+    for (const r of rows) {
+      const owed = r.lines.reduce((t, l) => t + Number(l.authorShare) + Number(l.affiliateShare) + Number(l.authorReferralShare), 0);
+      console.log(`  #${r.id.slice(0, 8).toUpperCase()} (full id ${r.id})  ${r.createdAt.toISOString().slice(0, 10)}  $${Number(r.totalAmount).toFixed(2)}${r.isTestData ? "  (test data)" : ""}`);
+      console.log(`      customer: ${r.reader.user.name} <${r.reader.user.email}>`);
+      console.log(`      items: ${r.lines.map((l) => l.book.title).join("; ") || "(none)"}`);
+      console.log(`      author/affiliate earnings credited from this order: $${owed.toFixed(2)}`);
     }
-    if (rows.length > 40) console.log(`  ...and ${rows.length - 40} more`);
   };
 
   console.log(`Orders marked PAID: ${paid.length}`);
   console.log(`With a verified payment record: ${confirmed.length}`);
   show("A) PAID but NO verified payment record at all (never confirmed by a gateway)", noLog);
   show("B) PAID with a Paystack record that has no Paystack reference", logNoRef);
+  const earningsAtRisk = [...noLog, ...logNoRef].reduce(
+    (t, o) => t + o.lines.reduce((x, l) => x + Number(l.authorShare) + Number(l.affiliateShare) + Number(l.authorReferralShare), 0),
+    0,
+  );
+  console.log(`\nTotal author + affiliate earnings credited from these orders: $${earningsAtRisk.toFixed(2)}`);
+
+  const pending = await prisma.order.count({ where: { status: "PENDING" } });
+  console.log(`Orders still PENDING (checkout started, never paid): ${pending}. These are not counted as sales.`);
   console.log("\nNothing was changed.");
 }
 

@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 /** Real per-link performance (clicks, conversions, commission) —
  * splitting "Performance" out from the combined Earnings page, matching
@@ -23,7 +24,7 @@ export async function getMyLinkPerformance(): Promise<LinkPerformanceRow[]> {
   try {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      include: { affiliateProfile: { include: { affiliateLinks: { include: { book: true, clicks: true, saleLines: true } } } } },
+      include: { affiliateProfile: { include: { affiliateLinks: { include: { book: true, clicks: true, saleLines: PAID_ONLY } } } } },
     });
     const links = user?.affiliateProfile?.affiliateLinks ?? [];
     return links.map((l: { id: string; code: string; book: { title: string } | null; clicks: unknown[]; saleLines: { affiliateShare: unknown }[] }) => ({

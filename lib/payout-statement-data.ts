@@ -89,7 +89,7 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
         include: {
           books: {
             include: {
-              saleLines: { where: { createdAt: { gte: start, lt: end } } },
+              saleLines: { where: { createdAt: { gte: start, lt: end }, order: { status: "PAID" } } },
             },
           },
         },
@@ -99,11 +99,11 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
           affiliateLinks: {
             include: {
               book: true,
-              saleLines: { where: { createdAt: { gte: start, lt: end } } },
+              saleLines: { where: { createdAt: { gte: start, lt: end }, order: { status: "PAID" } } },
             },
           },
           authorReferralEarnings: {
-            where: { createdAt: { gte: start, lt: end } },
+            where: { createdAt: { gte: start, lt: end }, order: { status: "PAID" } },
             include: { book: { include: { author: { include: { user: true } } } } },
           },
         },

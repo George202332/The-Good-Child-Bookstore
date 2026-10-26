@@ -7,6 +7,7 @@ import { ColHelp } from "@/components/ColHelp";
 import { SuspendButton } from "./SuspendButton";
 import { DeleteButton } from "./DeleteButton";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
+import { PAID_ONLY } from "@/lib/paid-sales";
 
 interface SaleLineShare {
   authorShare: unknown;
@@ -57,7 +58,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    include: { authorProfile: { include: { books: { where: { deletedByAuthorAt: null }, include: { saleLines: true, categories: { include: { category: true } } } } } } },
+    include: { authorProfile: { include: { books: { where: { deletedByAuthorAt: null }, include: { saleLines: PAID_ONLY, categories: { include: { category: true } } } } } } },
   });
   const books = (user?.authorProfile?.books ?? []) as AuthorBook[];
 

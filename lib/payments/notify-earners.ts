@@ -84,6 +84,8 @@ export async function notifyRevenueEarners(orderId: string): Promise<void> {
       },
     });
     if (!order) return;
+    // Defence in depth: sale notices are only ever for a confirmed-paid order.
+    if (order.status !== "PAID") return;
 
     type LineWithEarners = {
       id: string;
