@@ -217,7 +217,7 @@ function EpubManuscriptView({ buffer, title, sampleMode, isAdminTheme }: { buffe
         ref={containerRef}
         aria-label={`${title} — EPUB preview`}
         style={{
-          height: "70vh", maxWidth: 520, margin: "0 auto",
+          height: "calc(70 * var(--vh, 1vh))", maxWidth: 520, margin: "0 auto",
           background: isAdminTheme ? "var(--admin-panel)" : "#fff",
           borderRadius: 10, overflow: "hidden",
           border: isAdminTheme ? "1px solid var(--admin-border)" : "1px solid var(--line)",
@@ -364,14 +364,14 @@ function PdfManuscriptView({ buffer, title, maxPages, spread, isAdminTheme, scal
           <div
             className="sample-viewer-viewport no-scrollbar"
             style={{
-              height: "70vh", overflowY: "auto",
+              height: "calc(70 * var(--vh, 1vh))", overflowY: "auto",
               background: "#171320", borderRadius: 10,
               maxWidth: 440, margin: "0 auto",
             }}
             onContextMenu={(e) => e.preventDefault()}
           >
             {Array.from({ length: numPages ?? 0 }, (_, i) => i + 1).map((p) => (
-              <div key={p} className="sample-viewer-page" style={{ height: "70vh", width: "100%", padding: "10px 0", boxSizing: "border-box" }}>
+              <div key={p} className="sample-viewer-page" style={{ height: "calc(70 * var(--vh, 1vh))", width: "100%", padding: "10px 0", boxSizing: "border-box" }}>
                 <canvas
                   ref={(el) => { sampleCanvasRefs.current[p - 1] = el; }}
                   aria-label={`${title} — page ${p}`}

@@ -42,7 +42,7 @@ export function Modal({
       <div
         onClick={(e) => e.stopPropagation()}
         className={`map-card${hideScrollbar ? " no-scrollbar" : ""}${cardClassName ? ` ${cardClassName}` : ""}`}
-        style={{ maxWidth, width: "100%", padding: 24, maxHeight: "85vh", overflowY: "auto" }}
+        style={{ maxWidth, width: "100%", padding: 24, maxHeight: "calc(85 * var(--vh, 1vh))", overflowY: "auto" }}
       >
         {children}
       </div>

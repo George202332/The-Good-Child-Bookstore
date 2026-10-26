@@ -249,9 +249,12 @@ function CategoryRow({ cat, subs, selected, count, open, onOpen, onClose, onTogg
     const row = rowRef.current;
     if (!row) return;
     const r = row.getBoundingClientRect();
+    // On desktop the page is drawn at 90% (see site.css). The browser reports positions in
+    // real screen pixels but a fixed pop-up is placed in the page's own (scaled) pixels, so divide.
+    const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1;
     const panelH = panelRef.current?.offsetHeight ?? 340;
-    const maxTop = Math.max(8, window.innerHeight - panelH - 8);
-    setPos({ left: r.right + 10, top: Math.min(Math.max(8, r.top - 8), maxTop) });
+    const maxTop = Math.max(8, window.innerHeight / zoom - panelH - 8);
+    setPos({ left: r.right / zoom + 10, top: Math.min(Math.max(8, r.top / zoom - 8), maxTop) });
   }, []);
 
   useLayoutEffect(() => {

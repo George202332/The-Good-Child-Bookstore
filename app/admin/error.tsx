@@ -8,7 +8,7 @@ export default function AdminError({ error, reset }: { error: Error & { digest?:
   }, [error]);
 
   return (
-    <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
+    <div style={{ minHeight: "calc(60 * var(--vh, 1vh))", display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
       <div style={{ maxWidth: 440, textAlign: "center" }}>
         <h2 style={{ fontSize: 20, marginBottom: 10, color: "var(--admin-text, #E8EBF2)" }}>Something went wrong</h2>
         <p style={{ fontSize: 13.5, color: "var(--admin-text-faint, #6B7385)", marginBottom: 20, lineHeight: 1.6 }}>

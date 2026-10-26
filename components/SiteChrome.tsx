@@ -41,7 +41,7 @@ export function SiteChrome({ children, settings }: { children: ReactNode; settin
   if (isBackend) return <>{children}</>;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100 * var(--vh, 1vh))" }}>
       <Suspense fallback={null}>
         <Header logoImageUrl={settings.logoImageUrl} />
       </Suspense>

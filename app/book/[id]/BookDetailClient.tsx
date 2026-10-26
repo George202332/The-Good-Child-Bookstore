@@ -151,9 +151,6 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
     ).filter((o): o is { name: string; price: number } => !!o),
   });
   const shelfName = catName(b.category);
-  // The subcategory this book belongs to. This page only exists for a published book, so it
-  // always has at least one published book in it (this one).
-  const bookSubcategories = b.subcategory ? [b.subcategory] : [];
   const seriesHref = b.series && isCategory(b.series) ? `/bookshelf?series=${categorySlug(b.series)}` : null;
   const breadcrumbLd = breadcrumbJsonLd([
     { name: "Home", url: `${siteUrl}/` },
@@ -173,7 +170,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
       <div className="breadcrumb">
         <Link href="/">Home</Link> › <Link href="/bookshelf">Bookshelf</Link> ›{" "}
         {b.series && seriesHref && (<><Link href={seriesHref}>{b.series}</Link> › </>)}
-        {b.subcategory ?? b.title}
+        {b.title}
       </div>
       <div className="az-grid">
         <div className="az-left">
@@ -232,9 +229,6 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
           <div className="detail-isbn">ISBN {b.isbn}</div>
           <div className="detail-tags">
             <span className="age-pill">Ages {b.age} years</span>
-            {b.subcategory && (
-              <span className="age-pill" style={{ background: "var(--mint)", color: "#165236" }}>{b.subcategory}</span>
-            )}
           </div>
 
           <div className="az-desc">
@@ -310,15 +304,6 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
               </button>
             </div>
           </div>
-          {/* The book's own subcategory sits on a line of its own under the strip, so the strip's cards stay one size. */}
-          {bookSubcategories.length > 0 && (
-            <div className="az-detail-tags">
-              <span className="az-detail-tags-label">Subcategory</span>
-              {bookSubcategories.map((sub) => (
-                <Link key={sub} className="az-detail-tag" href={seriesHref ? `${seriesHref}&sub=${encodeURIComponent(sub)}` : `/bookshelf?sub=${encodeURIComponent(sub)}`}>{sub}</Link>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="buybox">

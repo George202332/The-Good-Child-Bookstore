@@ -42,7 +42,7 @@
   --lavender-deep: #A892E6;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 
-  min-height: 100vh;
+  min-height: calc(100 * var(--vh, 1vh));
   background: var(--admin-bg);
   color: var(--admin-text);
   font-family: "Times New Roman", Times, serif;

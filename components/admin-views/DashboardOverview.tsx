@@ -29,7 +29,6 @@ export function DashboardOverview({
   monthCompanyRevenue,
   monthAuthorRevenue,
   monthAffiliateRevenue,
-  monthLabel,
   recentTransactions,
   transactionsHref,
 }: {
@@ -48,7 +47,8 @@ export function DashboardOverview({
   monthCompanyRevenue: number;
   monthAuthorRevenue: number;
   monthAffiliateRevenue: number;
-  monthLabel: string;
+  /** No longer shown (the month heading was removed); kept so existing callers still compile. */
+  monthLabel?: string;
   recentTransactions: TransactionRow[];
   transactionsHref: string;
 }) {
@@ -91,7 +91,6 @@ export function DashboardOverview({
       {canViewFinancials(role) && (
         <>
           <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Who the money belongs to</h3>
-          <h3 style={{ fontSize: 14, margin: "0 0 14px", color: "var(--ink-soft)" }}>All time</h3>
           <div className="stat-grid" style={{ marginBottom: 24 }}>
             <div className="stat-card">
               <div className="stat-label">Company revenue</div>
@@ -114,7 +113,6 @@ export function DashboardOverview({
               <div className="stat-sub">Company + author + affiliate</div>
             </div>
           </div>
-          <h3 style={{ fontSize: 14, margin: "0 0 14px", color: "var(--ink-soft)" }}>This month ({monthLabel})</h3>
           <div className="stat-grid" style={{ marginBottom: 24 }}>
             <div className="stat-card">
               <div className="stat-label">Company revenue</div>

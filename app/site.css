@@ -18,6 +18,24 @@
     --line-strong: rgba(46,36,64,0.55);
     --shadow: 0 10px 30px rgba(46,36,64,0.18);
   }
+  /* ---- Desktop display at 90% -------------------------------------------
+     On desktop screens only (a wide window AND a mouse/trackpad - never phones
+     or tablets), the whole site is drawn at 90%, the same look as 90% zoom in
+     Chrome. It uses the standard CSS "zoom" property on the page root, which
+     scales everything together (text, images, spacing, fixed headers, pop-ups,
+     the admin dashboard) so there is no empty space and no sideways scrolling,
+     and it leaves the visitor's own browser zoom fully working.
+     Anything sized from the screen height has to be told about the 90% or it
+     comes up 10% short, so those places use var(--vh) instead of "vh":
+     --vh is 1vh normally and 1vh/0.9 while the 90% is switched on.
+     To switch the 90% off again, delete the html{zoom:.9} line below. */
+  :root{--vh:1vh;--page-zoom:1;}
+  @media (min-width:1025px) and (hover:hover) and (pointer:fine){
+    @supports (zoom:0.9){
+      html{zoom:0.9;}
+      :root{--vh:calc(1vh / 0.9);--page-zoom:0.9;}
+    }
+  }
   html.dark-mode{
     --cream:#16121D;
     --paper:#241E2E;
@@ -530,9 +548,8 @@
   .blog-article-body ul, .blog-article-body ol{margin:0 0 20px 22px;}
   .blog-article-end-mark{display:flex;align-items:center;gap:14px;margin:36px 0 8px;color:var(--ink-faint);}
   .blog-article-end-mark::before, .blog-article-end-mark::after{content:"";flex:1;height:1px;background:var(--line);}
-  .blog-article-footer{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;padding:24px 0 8px;border-top:1px solid var(--line);margin-top:8px;}
-  .blog-article-footer-meta{font-size:13.5px;color:var(--ink-faint);display:flex;align-items:center;gap:8px;}
-  .blog-article-footer-meta svg{width:14px;height:14px;}
+  /* The ending is marked once, by the dotted divider above (.blog-article-end-mark). No second plain line. */
+  .blog-article-footer{display:flex;justify-content:flex-start;align-items:center;flex-wrap:wrap;gap:14px;padding:20px 0 8px;margin-top:0;}
 
   .blog-rating-block{display:flex;flex-wrap:wrap;align-items:center;gap:28px;background:var(--paper);border-radius:16px;padding:20px 24px;}
   .blog-rating-average{display:flex;align-items:center;gap:12px;}
@@ -1182,29 +1199,30 @@
   }
   .buy-tab:hover{border-color:var(--ink-faint);}
 
+  /* Details strip. Every card has the same fixed width class (standard 108px, wide
+     150px) and the same layout: icon, then a two-line-high value box, then the label.
+     A long value (for example "Emotional Wellness and Mindfulness") wraps onto a second
+     line INSIDE its own card instead of running into the next one, and because every
+     value box is the same height the labels line up across the whole strip. */
   .az-details-card{
-    margin-top:auto;border:1px solid var(--line);border-radius:14px;padding:16px 14px;height:96px;flex-shrink:0;min-width:0;
+    margin-top:auto;border:1px solid var(--line);border-radius:14px;padding:14px 14px;min-height:112px;flex-shrink:0;min-width:0;
     display:flex;align-items:center;box-sizing:border-box;overflow:visible;
   }
   .az-details-card .carousel-outer{width:100%;min-width:0;}
   .az-details-row{
-    display:flex;gap:6px;width:100%;min-width:0;overflow-x:auto;scroll-behavior:smooth;
+    display:flex;gap:10px;width:100%;min-width:0;overflow-x:auto;scroll-behavior:smooth;
     scrollbar-width:none;-ms-overflow-style:none;
   }
   .az-details-row::-webkit-scrollbar{display:none;}
-  /* Explicit column flex (rather than relying on inline default display +
-     inherited text-align) so the icon reliably stacks centered above its
-     label instead of sitting beside it. */
-  .az-detail-item{display:flex;flex-direction:column;align-items:center;text-align:center;flex:0 0 92px;min-width:92px;padding:0 2px;}
-  /* Published and Publisher get noticeably more room than the other
-     detail items — a date is short, but "The Good Child Bookstore" (the
-     default publisher name) was overrunning/crowding the standard 92px
-     slot next to it. Shorter publisher names still center fine in the
-     extra space. */
-  .az-detail-item-wide{flex-basis:132px;min-width:132px;}
+  .az-detail-item{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;flex:0 0 108px;width:108px;min-width:108px;box-sizing:border-box;padding:0 6px;}
+  .az-detail-item-wide{flex-basis:150px;width:150px;min-width:150px;}
   .az-detail-item svg{display:block;width:19px;height:19px;color:var(--ink-soft);margin-bottom:5px;flex-shrink:0;}
-  .az-detail-item strong{display:block;font-size:12.5px;font-weight:700;color:var(--ink);margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .az-detail-item span{font-size:11px;color:var(--ink-faint);white-space:nowrap;}
+  .az-detail-item strong{
+    display:flex;align-items:center;justify-content:center;width:100%;min-height:2.5em;
+    font-size:12.5px;line-height:1.25;font-weight:700;color:var(--ink);margin-bottom:2px;
+    text-align:center;white-space:normal;overflow-wrap:anywhere;
+  }
+  .az-detail-item span{font-size:11px;line-height:1.2;color:var(--ink-faint);white-space:nowrap;}
 
   /* Right column (buy box) */
   .buybox{border:1px solid var(--line);border-radius:14px;padding:20px;min-height:612px;box-sizing:border-box;}
@@ -1678,7 +1696,7 @@
   }
 
   /* ---------- Auth pages ---------- */
-  .auth-section{padding:32px 0 60px;display:flex;justify-content:center;align-items:center;min-height:calc(100vh - 200px);}
+  .auth-section{padding:32px 0 60px;display:flex;justify-content:center;align-items:center;min-height:calc(100 * var(--vh) - 200px);}
   .auth-card{
     background:var(--paper);border-radius:20px;box-shadow:var(--shadow);
     padding:32px 44px;width:100%;max-width:440px;
@@ -2333,7 +2351,7 @@
   .autosave-dot.saved{background:#165236;}
 
   .modal-overlay{position:fixed;inset:0;background:rgba(63,51,80,0.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;}
-  .modal-box{background:var(--paper);border-radius:18px;padding:28px;max-width:600px;width:100%;max-height:88vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.25);}
+  .modal-box{background:var(--paper);border-radius:18px;padding:28px;max-width:600px;width:100%;max-height:calc(88 * var(--vh));overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.25);}
   .modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;line-height:1;cursor:pointer;color:var(--ink-faint);width:32px;height:32px;border-radius:50%;}
   .modal-close:hover{background:var(--cream);color:var(--ink);}
 
@@ -2468,7 +2486,7 @@
      layout fits laptop viewports (1366x768 and up); only on very short
      (<= 560px tall) or narrow (<= 760px wide, columns stack) screens does it
      scroll, with the scrollbar itself hidden. */
-  .payout-detail-modal{overflow-y:hidden !important;max-height:calc(100vh - 40px) !important;padding:20px 24px !important;}
+  .payout-detail-modal{overflow-y:hidden !important;max-height:calc(100 * var(--vh) - 40px) !important;padding:20px 24px !important;}
   .payout-detail-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 28px;align-items:start;}
   @media (max-width:760px){
     .payout-detail-grid{grid-template-columns:1fr;}
@@ -2507,7 +2525,7 @@
   }
   .subcat-popover-scroll.at-end::after{opacity:0;}
   .subcat-popover-list{
-    max-height:min(60vh, 420px);overflow-y:auto;padding-bottom:18px;
+    max-height:min(calc(60 * var(--vh)), 420px);overflow-y:auto;padding-bottom:18px;
     scrollbar-width:none;-ms-overflow-style:none;outline:none;
   }
   .subcat-popover-list::-webkit-scrollbar{display:none;}
@@ -2559,10 +2577,4 @@ html.dark-mode .dashboard-content [style*="background"]:not([style*="width"]):no
    style pulls up by 14px, which is what used to print errors on top of the line above). */
 .checkout-error{margin:14px 0 0;padding:10px 14px;border-radius:10px;border:1px solid var(--coral-deep);background:rgba(255,140,107,0.14);color:var(--ink);font-size:13.5px;line-height:1.45;}
 
-/* Product page details strip: every card is the same size. The book's subcategory
-   sits on its own line under the strip instead of inside a card. */
-.az-detail-tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px;}
-.az-detail-tags-label{font-size:11.5px;font-weight:700;color:var(--ink-faint);margin-right:2px;}
-.az-detail-tag{display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid var(--line);font-size:12px;color:var(--ink);text-decoration:none;background:transparent;}
-.az-detail-tag:hover{border-color:var(--ink-faint);}
   .subcat-empty{margin:0;padding:14px 12px;font-size:13px;color:var(--ink-soft);text-align:center;}

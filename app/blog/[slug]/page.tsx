@@ -184,7 +184,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             )}
 
             <div className="blog-article-footer">
-              {post.allowComments && <div className="blog-article-footer-meta">{comments.length} comment{comments.length === 1 ? "" : "s"}</div>}
               <Link href="/blog" className="btn btn-ghost btn-small">Back to the journal</Link>
             </div>
 

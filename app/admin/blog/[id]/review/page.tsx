@@ -69,7 +69,7 @@ export default async function BlogReviewPage({ params }: { params: Promise<{ id:
             </p>
             <div
               style={{
-                maxHeight: "60vh", overflowY: "auto", padding: 20, borderRadius: 10,
+                maxHeight: "calc(60 * var(--vh, 1vh))", overflowY: "auto", padding: 20, borderRadius: 10,
                 background: "var(--admin-panel)", color: "var(--admin-text)", fontSize: 14, lineHeight: 1.7,
               }}
             >
