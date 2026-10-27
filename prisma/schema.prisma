@@ -285,6 +285,11 @@ model Settings {
   notifyPayouts     Boolean @default(true)
   notifyReviews     Boolean @default(true)
   notifyBlogComments Boolean @default(true)
+  /** Account-area look (reader, author and backend accounts), chosen on the
+   * Settings page. Keys come from lib/account-fonts.ts; "default" = the
+   * current look. Applies only inside the account area, never public pages. */
+  fontFamily        String  @default("default")
+  fontSize          String  @default("default")
 }
 
 // ---------- Role-specific profiles ----------

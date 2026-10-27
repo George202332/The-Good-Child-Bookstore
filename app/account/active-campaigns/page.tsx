@@ -28,6 +28,9 @@ export default async function ActiveCampaignsPage() {
 
   const [links, realBooks] = await Promise.all([listMyAffiliateLinks(), getRealPublishedBooks()]);
   const siteUrl = getPublicSiteUrl();
+  // Totals count every link (commission already earned is never hidden), but the table only
+  // lists promotions whose book still exists and is live, so an "Unknown book" row can never appear.
+  const visibleLinks = links.filter((l) => l.bookLive && l.bookId);
   const totalClicks = links.reduce((s, l) => s + l.clicks, 0);
   const totalConversions = links.reduce((s, l) => s + l.conversions, 0);
   const totalEarned = links.reduce((s, l) => s + l.commissionEarned, 0);
@@ -80,7 +83,7 @@ export default async function ActiveCampaignsPage() {
 
       <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Books on Promotion</h3>
       <div className="map-card" style={{ padding: 20 }}>
-        {links.length === 0 ? (
+        {visibleLinks.length === 0 ? (
           <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
             You&apos;re not promoting any books yet — browse all books above to generate your first link.
           </div>
@@ -103,7 +106,7 @@ export default async function ActiveCampaignsPage() {
                 </tr>
               </thead>
               <tbody>
-                {links.map((l) => {
+                {visibleLinks.map((l) => {
                   const matchedBook = realBooks.find((b) => b.id === l.bookId);
                   const url = `${siteUrl}/${matchedBook ? bookSlug(matchedBook) : l.bookId}?aff=${l.code}`;
                   return (

@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { authEither as auth } from "@/lib/auth-either";
+import { authEither } from "@/lib/auth-either";
+import { auth as accountAuth } from "@/lib/auth";
 import { canModerateContent } from "@/lib/roles";
 
 /**
@@ -65,8 +66,11 @@ function scheduledPublishAt(input: SaveBlogInput): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/** Author-side actions (save, edit, submit) use ONLY the signed-in ACCOUNT session, never the
+ * staff session: a browser that is also signed in to /admin must not have a reader's or author's
+ * post filed under the admin's account (that is what left authors' My Blogs pages empty). */
 export async function saveBlogPost(input: SaveBlogInput): Promise<{ ok: boolean; error?: string; blogId?: string }> {
-  const session = await auth();
+  const session = await accountAuth();
   if (!session?.user) {
     return { ok: false, error: "You need to be signed in to write a blog post." };
   }
@@ -109,7 +113,7 @@ export async function saveBlogPost(input: SaveBlogInput): Promise<{ ok: boolean;
  * DRAFT or REJECTED — once a post is PENDING_REVIEW or PUBLISHED it's
  * out of the writer's hands, same logic book submissions already use. */
 export async function updateBlogPost(blogId: string, input: SaveBlogInput): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
+  const session = await accountAuth();
   if (!session?.user) {
     return { ok: false, error: "You need to be signed in to write a blog post." };
   }
@@ -157,7 +161,7 @@ export async function updateBlogPost(blogId: string, input: SaveBlogInput): Prom
 }
 
 export async function submitBlogForReview(blogId: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
+  const session = await accountAuth();
   if (!session?.user) return { ok: false, error: "Not authorized." };
 
   const blog = await prisma.blog.findUnique({ where: { id: blogId } });
@@ -171,7 +175,7 @@ export async function submitBlogForReview(blogId: string): Promise<{ ok: boolean
 }
 
 export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
+  const session = await authEither();
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
   const existing = await prisma.blog.findUnique({ where: { id: blogId } });
@@ -198,7 +202,7 @@ export async function approveBlog(blogId: string): Promise<{ ok: boolean; error?
 }
 
 export async function rejectBlog(blogId: string, comments?: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
+  const session = await authEither();
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
   const blog = await prisma.blog.update({
@@ -230,7 +234,7 @@ export async function rejectBlog(blogId: string, comments?: string): Promise<{ o
  * is the same, worded for a more permanent removal — neither is a hard
  * delete. */
 export async function suspendBlog(blogId: string, comments?: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
+  const session = await authEither();
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
   const blog = await prisma.blog.update({ where: { id: blogId }, data: { status: "SUSPENDED" }, include: { author: true } });
@@ -244,7 +248,7 @@ export async function suspendBlog(blogId: string, comments?: string): Promise<{ 
 }
 
 export async function withdrawBlog(blogId: string, comments?: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
+  const session = await authEither();
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
   const blog = await prisma.blog.update({ where: { id: blogId }, data: { status: "WITHDRAWN" }, include: { author: true } });

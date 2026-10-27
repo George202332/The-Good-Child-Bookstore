@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getMySettings, getMarketingOptIn } from "@/actions/settings";
 import { getMyTwoFactorStatus } from "@/actions/two-factor";
+import { getAppearanceForUser } from "@/actions/appearance";
+import { FontSettingsForm } from "@/components/FontSettingsForm";
 import { SettingsForm } from "./SettingsForm";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 import { MarketingOptInToggle } from "./MarketingOptInToggle";
@@ -17,6 +19,7 @@ export default async function SettingsPage() {
   const settings = await getMySettings();
   const marketingOptIn = role === "READER" ? await getMarketingOptIn() : false;
   const twoFactorStatus = await getMyTwoFactorStatus();
+  const appearance = await getAppearanceForUser(session.user.id);
 
   return (
     <DashboardShell role={role} activeKey="settings" displayName={session.user.name ?? ""}>
@@ -27,6 +30,7 @@ export default async function SettingsPage() {
         </div>
       </div>
       <SettingsForm initial={settings} />
+      <FontSettingsForm area="account" initial={appearance} />
       <div style={{ marginTop: 20 }}>
         <ChangePasswordForm />
       </div>

@@ -1,0 +1,24 @@
+/*
+ * Account-area font + size (see lib/account-fonts.ts). Everything is scoped
+ * under .acct-font-scope, which only the account and backend layouts render,
+ * so public pages are never touched.
+ *
+ * Size uses the same standard CSS "zoom" the desktop 90% display uses: it
+ * scales text, buttons, cards, tables and pop-ups together, so nothing is left
+ * behind at the old size and layouts reflow like browser zoom. Places sized
+ * from the screen height use var(--vh); inside the scope it is divided by the
+ * extra zoom so full-height panels still fit the screen exactly.
+ */
+.acct-font-scope { --acct-zoom: 1; }
+@supports (zoom: 1) {
+  .acct-font-scope { zoom: var(--acct-zoom); --vh: calc(1vh / (var(--page-zoom, 1) * var(--acct-zoom))); }
+  .acct-font-scope .dashboard-sidebar { height: calc(100 * var(--vh)); }
+}
+@media (max-width: 600px) {
+  .acct-font-scope { --acct-zoom: var(--acct-zoom-small, 1); }
+}
+
+/* A chosen font replaces the font everywhere in the account area, except code. */
+.acct-font-scope[data-font]:not([data-font="default"]) *:not(code):not(pre):not(kbd):not(samp) {
+  font-family: var(--acct-font) !important;
+}

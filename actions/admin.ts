@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { createNotification } from "@/actions/notifications";
+import { removeBookPromotions } from "@/lib/promotion-cleanup";
 import { clearBookNotLiveNotices, clearBookLiveNotices, clearModerationProposalNotices, clearPayoutNotices } from "@/lib/notification-cleanup";
 import { submitUrlToIndexNow } from "@/lib/indexnow";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
@@ -124,6 +125,7 @@ export async function rejectBook(bookId: string, comments?: string): Promise<{ o
       include: { author: { include: { user: true } } },
     });
     await clearBookLiveNotices(bookId);
+    await removeBookPromotions(bookId);
     await createNotification(
       book.author.user.id,
       `Revision requested: "${book.title}"`,
@@ -164,6 +166,7 @@ async function proposeOrApplyModeration(bookId: string, action: "SUSPEND" | "WIT
         data: { status: action === "SUSPEND" ? "SUSPENDED" : "WITHDRAWN", pendingAction: null, pendingActionBy: null, pendingActionNote: null },
       });
       await clearBookLiveNotices(bookId);
+    await removeBookPromotions(bookId);
       await clearModerationProposalNotices(bookId);
       await createNotification(
         book.author.user.id,
@@ -220,6 +223,7 @@ export async function ratifyPendingModeration(bookId: string, approve: boolean):
       data: { status: book.pendingAction === "SUSPEND" ? "SUSPENDED" : "WITHDRAWN", pendingAction: null, pendingActionBy: null, pendingActionNote: null },
     });
     await clearBookLiveNotices(bookId);
+    await removeBookPromotions(bookId);
     await clearModerationProposalNotices(bookId);
     await createNotification(
       book.author.user.id,

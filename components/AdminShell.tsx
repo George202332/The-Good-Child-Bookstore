@@ -20,6 +20,7 @@ function navItemsForRole(role: Role) {
       { key: "analytics", label: "Sales Analytics", href: "/admin/analytics" },
       { key: "transactions", label: "Transactions", href: "/admin/transactions" },
       { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },
+      { key: "settings", label: "Settings", href: "/admin/settings" },
     ];
   }
 
@@ -46,12 +47,14 @@ function navItemsForRole(role: Role) {
       { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },
       { key: "transactions", label: "Transactions", href: "/admin/transactions" },
       { key: "messages", label: "Messages", href: "/admin/messages" },
+      { key: "settings", label: "Settings", href: "/admin/settings" },
     ];
   }
+  const settingsLink = { key: "settings", label: "Settings", href: "/admin/settings" };
   if (role === "CHIEF_EDITOR") {
-    return [...base, { key: "books-checklist", label: "Review Checklist", href: "/admin/books/checklist-settings" }];
+    return [...base, { key: "books-checklist", label: "Review Checklist", href: "/admin/books/checklist-settings" }, settingsLink];
   }
-  return base;
+  return [...base, settingsLink];
 }
 
 export function AdminShell({

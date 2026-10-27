@@ -1100,6 +1100,11 @@ export async function setBookSuspended(bookId: string, suspended: boolean): Prom
   // The status moved on: notices about the old status no longer apply.
   const { clearBookLiveNotices } = await import("@/lib/notification-cleanup");
   await clearBookLiveNotices(bookId);
+  // Taking a book off sale also removes the promotions (affiliate links) for it.
+  if (suspended) {
+    const { removeBookPromotions } = await import("@/lib/promotion-cleanup");
+    await removeBookPromotions(bookId);
+  }
 
   revalidatePath("/account/books");
   return { ok: true };
@@ -1127,6 +1132,9 @@ export async function deleteBook(bookId: string): Promise<{ ok: boolean; error?:
   const { prepareBookNotificationCleanup } = await import("@/lib/notification-cleanup");
   const cleanup = await prepareBookNotificationCleanup(bookId);
   const sales = await prisma.saleLine.count({ where: { bookId } });
+  // Its promotions (affiliate links) go first; ones that already earned commission stay as history, hidden.
+  const { removeBookPromotions } = await import("@/lib/promotion-cleanup");
+  await removeBookPromotions(bookId);
   try {
     if (sales === 0) {
       await prisma.book.delete({ where: { id: bookId } });

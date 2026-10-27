@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { authEither as auth } from "@/lib/auth-either";
+import { auth } from "@/lib/auth";
 import { logSelfServiceEvent } from "@/lib/audit-log";
 import { canWithdraw } from "@/lib/blog-status";
 import { prepareBlogNotificationCleanup } from "@/lib/notification-cleanup";
 
 /**
- * Writer-side row actions for the My Blogs table (app/account/blog).
+ * Writer-side row actions for the My Blogs table (app/account/blog). They use the
+ * signed-in ACCOUNT session only, never a staff (admin) session.
  * Open to every account type that can blog (Reader, Author, Affiliate);
  * the real gate is that the signed-in user must be the post's own
  * author. Moderation actions (approve / reject / suspend / moderator

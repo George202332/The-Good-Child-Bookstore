@@ -1,5 +1,6 @@
 "use server";
 
+import { removeBookPromotions } from "@/lib/promotion-cleanup";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
@@ -148,6 +149,7 @@ export async function deleteBookFromCatalog(bookId: string): Promise<{ ok: boole
 
   try {
     const cleanupNotifications = await prepareBookNotificationCleanup(bookId);
+    await removeBookPromotions(bookId);
     await prisma.book.delete({ where: { id: bookId } });
     // Published / revision / suspended / new-book-by-followed-author and
     // review notifications for this book are removed with it.

@@ -27,6 +27,8 @@ export interface AffiliateLinkWithStats {
   bookId: string | null;
   bookTitle: string;
   bookCoverUrl: string | null;
+  /** True only while the book exists and is live on the shelf. The Promotions table shows only these rows. */
+  bookLive: boolean;
   clicks: number;
   conversions: number;
   commissionEarned: number;
@@ -92,12 +94,13 @@ export async function listMyAffiliateLinks(): Promise<AffiliateLinkWithStats[]> 
       orderBy: { createdAt: "desc" },
     });
 
-    return links.map((l: { id: string; code: string; bookId: string | null; book: { title: string; coverImageUrl: string | null } | null; clicks: unknown[]; saleLines: { affiliateShare: unknown }[] }) => ({
+    return links.map((l: { id: string; code: string; bookId: string | null; book: { title: string; coverImageUrl: string | null; status: string; deletedByAuthorAt: Date | null } | null; clicks: unknown[]; saleLines: { affiliateShare: unknown }[] }) => ({
       id: l.id,
       code: l.code,
       bookId: l.bookId,
       bookTitle: l.book?.title ?? "Unknown book",
       bookCoverUrl: l.book?.coverImageUrl ?? null,
+      bookLive: !!l.book && l.book.status === "PUBLISHED" && !l.book.deletedByAuthorAt,
       clicks: l.clicks.length,
       conversions: l.saleLines.length,
       commissionEarned: l.saleLines.reduce((sum: number, s) => sum + Number(s.affiliateShare), 0),
