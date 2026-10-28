@@ -4,6 +4,7 @@ import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { getBlogStats, listBlogsForModeration } from "@/actions/blog-management";
 import { ColHelp } from "@/components/ColHelp";
+import { DeleteBlogButton } from "./DeleteBlogButton";
 
 const STATUS_TABS: { key: "ALL" | "PUBLISHED" | "PENDING_REVIEW" | "DRAFT" | "REJECTED"; label: string }[] = [
   { key: "ALL", label: "All" },
@@ -98,7 +99,7 @@ export default async function BlogModerationPage({
               <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Status<ColHelp text="Where this post is in the moderation pipeline: Draft (not submitted), Pending Review, Published (live on the journal), or Rejected (sent back for revision)." /></th>
               <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Submitted<ColHelp text="The date this post was created or last submitted for review." /></th>
               <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Comments<ColHelp text="How many comments this post has received." /></th>
-              <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Open<ColHelp text="Open this post's full submission for review: content preview, details, comments, and Approve/Attention/Suspend/Withdraw." /></th>
+              <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Actions<ColHelp text="Open this post's full submission for review: content preview, details, comments, and Approve/Attention/Suspend/Withdraw. Admins can also delete a post here." /></th>
             </tr>
           </thead>
           <tbody>
@@ -119,7 +120,10 @@ export default async function BlogModerationPage({
                   </td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{p.commentCount}</td>
                   <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
-                    <Link href={`/admin/blog/${p.id}/review`} className="btn btn-primary btn-small">Open</Link>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <Link href={`/admin/blog/${p.id}/review`} className="btn btn-primary btn-small">Open</Link>
+                      {role === "ADMIN" && <DeleteBlogButton blogId={p.id} title={p.title} />}
+                    </div>
                   </td>
                 </tr>
               ))

@@ -26,7 +26,14 @@ export async function finalizeOrderPayment(
     // the webhook both call this, and whichever arrives second must not repeat
     // the sale notices, print jobs and receipt email.
     const claimed = await prisma.order.updateMany({ where: { id: orderId, status: "PENDING" }, data: { status: "PAID" } });
-    if (claimed.count === 0) return;
+    if (claimed.count === 0) {
+      // Already confirmed by the other path (webhook vs return page). Nothing else
+      // to repeat, but if the purchase email failed the first time this is a
+      // chance to send it; it is a no-op when it was already sent.
+      const { sendOrderReceiptEmail } = await import("@/actions/order-emails");
+      await sendOrderReceiptEmail(orderId, { onlyIfRecent: true });
+      return;
+    }
     claimedHere = true;
     order = await prisma.order.findUniqueOrThrow({
       where: { id: orderId },

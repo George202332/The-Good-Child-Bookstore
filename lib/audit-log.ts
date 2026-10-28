@@ -41,7 +41,9 @@ export type AuditAction =
   | "PAYOUT_METHOD_ACTIVATED"
   // A writer withdrawing / deleting their own blog post.
   | "BLOG_WITHDRAWN"
-  | "BLOG_DELETED";
+  | "BLOG_DELETED"
+  // An admin permanently deleting any blog post from Blog Moderation.
+  | "BLOG_DELETED_BY_ADMIN";
 
 export async function logAuditEvent(actorId: string, action: AuditAction, metadata?: Record<string, unknown>): Promise<void> {
   try {

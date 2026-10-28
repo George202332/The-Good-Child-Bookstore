@@ -114,6 +114,10 @@ model User {
    * every new signup going forward is real/live data by default. */
   isTestData    Boolean  @default(false)
   mustChangePassword Boolean @default(false)
+  /** True for an account the checkout created automatically for a first-time
+   * guest buyer who has not yet chosen a password. The paid-order email gives
+   * them a one-time "set your password" link; setting a password clears it. */
+  guestSetupPending Boolean @default(false)
   /** Set once the account's email address is confirmed via the
    * verification link sent at signup (see lib/email/verification.ts).
    * Null means unverified — used for both readers/authors generally
@@ -709,6 +713,11 @@ model Order {
   // gateway and back, so this can't just live in client-side state).
   // Nulled out immediately after that email is sent.
   guestTempPassword String?
+  /** Set the moment the purchase email for this order has been handed to the
+   * email service, so a webhook retry or a second visit to the confirmation
+   * page can never send it twice. Cleared again if sending fails, so a later
+   * retry can try again. */
+  purchaseEmailSentAt DateTime?
   lines         SaleLine[]
   paymentLogs   PaymentLog[]
   // Real IP-based geotagging (see lib/geo.ts) captured at the moment of
@@ -1053,7 +1062,7 @@ model AnalyticsEvent {
  */
 model SystemErrorLog {
   id        String    @id @default(cuid())
-  /** Which pipeline this came from — "CHECKOUT" | "PAYOUT" |
+  /** Which pipeline this came from — "CHECKOUT" | "EMAIL" | "PAYOUT" |
    * "FILE_UPLOAD" | "AUTH" | "OTHER". Plain string, not an enum,
    * matching Notification.type's reasoning: a new source should never
    * be blocked by a missing enum value. */

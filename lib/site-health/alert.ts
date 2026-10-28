@@ -29,7 +29,7 @@ import { sendEmail } from "@/lib/email";
  * call site here is already inside a catch block.
  */
 
-export type SystemErrorSource = "CHECKOUT" | "PAYOUT" | "FILE_UPLOAD" | "AUTH" | "DATABASE" | "OTHER";
+export type SystemErrorSource = "CHECKOUT" | "EMAIL" | "PAYOUT" | "FILE_UPLOAD" | "AUTH" | "DATABASE" | "OTHER";
 
 const ALERT_DEDUP_MINUTES = 15;
 const SUPPORT_EMAIL = "support@thegoodchildbookstore.com";

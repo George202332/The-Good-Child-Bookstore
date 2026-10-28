@@ -3,6 +3,9 @@
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent } from "@/lib/roles";
+import { authAdmin } from "@/lib/auth-admin";
+import { logAuditEvent } from "@/lib/audit-log";
+import { deleteBlogEverything } from "@/lib/blog-delete";
 
 /**
  * Blog Moderation — a real summary (Approved/Under Review/Draft/Under
@@ -102,5 +105,24 @@ export async function deleteCommentAsModerator(commentId: string): Promise<{ ok:
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
   await prisma.blogComment.delete({ where: { id: commentId } });
+  return { ok: true };
+}
+
+/**
+ * Permanently deletes any blog post (draft, pending review, published,
+ * rejected, suspended or withdrawn) together with everything linked to it.
+ * ADMIN only, checked here on the server against the backend (staff)
+ * session, so hiding the button is never the only protection. Editors, Chief
+ * Editors, Accountants and every reader/author login are refused.
+ */
+export async function adminDeleteBlog(blogId: string): Promise<{ ok: boolean; error?: string }> {
+  const session = await authAdmin();
+  if (!session?.user || session.user.role !== "ADMIN") return { ok: false, error: "Only an admin can delete a blog post." };
+  if (typeof blogId !== "string" || !blogId) return { ok: false, error: "Not found." };
+
+  const res = await deleteBlogEverything(blogId);
+  if (!res.ok) return { ok: false, error: res.error };
+
+  await logAuditEvent(session.user.id, "BLOG_DELETED_BY_ADMIN", { blogId, title: res.title, authorId: res.authorId, removedMedia: res.removedMedia });
   return { ok: true };
 }

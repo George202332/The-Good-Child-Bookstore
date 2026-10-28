@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -99,18 +100,7 @@ export interface CreateOrderResult {
  * (any role) — or, for a guest, finds-or-creates a lightweight account
  * from the checkout email/name. Never returns null: the only failure
  * mode is a missing guest email with no session at all. */
-/** Generates a real, readable temporary password (8 characters,
- * unambiguous alphanumeric) — this is what actually gets emailed to a
- * guest so they can sign in, not just a random hash nobody could ever
- * type in. */
-function generateTempPassword(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I, avoids confusion
-  let out = "";
-  for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
-  return out;
-}
-
-async function resolveReaderProfileId(guestEmail?: string, guestName?: string): Promise<{ readerProfileId?: string; error?: string; tempPassword?: string; isNewAccount?: boolean }> {
+async function resolveReaderProfileId(guestEmail?: string, guestName?: string): Promise<{ readerProfileId?: string; error?: string; isNewAccount?: boolean }> {
   const session = await auth();
 
   // Any signed-in account — Reader or Author — checks out under its own
@@ -139,32 +129,44 @@ async function resolveReaderProfileId(guestEmail?: string, guestName?: string): 
     return { readerProfileId: readerProfile.id };
   }
 
+  // A first-time guest. No password is ever emailed: the account gets a random
+  // password nobody knows (so it cannot be logged into yet) and is flagged
+  // guestSetupPending. Once the order is confirmed paid, the purchase email
+  // carries a one-time "set your password" link (lib/email/purchase.ts).
   const accountNumber = await generateAccountNumber("READER");
-  const tempPassword = generateTempPassword();
-  const passwordHash = await bcrypt.hash(tempPassword, 10);
-  const guestUser = await prisma.user.create({
-    data: {
-      accountNumber,
-      email,
-      name: guestName?.trim() || "Guest",
-      passwordHash,
-      role: "READER",
-      mustChangePassword: true,
-      // Guest checkout already has its own proof of email ownership —
-      // the temporary password is only useful to whoever actually
-      // received the order-confirmation email at this address. Adding
-      // the new signup-flow email-verification gate (see
-      // app/account/layout.tsx) on top of that would lock every guest
-      // account out of the dashboard it was just created for, since
-      // no one ever sends this account a verification link. Marking
-      // it verified at creation preserves the existing guest-checkout
-      // flow exactly as it worked before that gate existed.
-      emailVerifiedAt: new Date(),
-      readerProfile: { create: {} },
-    },
-    include: { readerProfile: true },
-  });
-  return { readerProfileId: guestUser.readerProfile!.id, tempPassword, isNewAccount: true };
+  const unusablePassword = randomBytes(32).toString("hex");
+  const passwordHash = await bcrypt.hash(unusablePassword, 10);
+  try {
+    const guestUser = await prisma.user.create({
+      data: {
+        accountNumber,
+        email,
+        name: guestName?.trim() || "Guest",
+        passwordHash,
+        role: "READER",
+        guestSetupPending: true,
+        // The guest proves they own this address by using the emailed link, so
+        // the signup email-verification gate would only lock them out of the
+        // dashboard they just paid for; mark it verified at creation.
+        emailVerifiedAt: new Date(),
+        readerProfile: { create: {} },
+      },
+      include: { readerProfile: true },
+    });
+    return { readerProfileId: guestUser.readerProfile!.id, isNewAccount: true };
+  } catch (e) {
+    // Two checkouts for the same new email at the same moment: the database
+    // allows only one account per email, so the loser simply uses the winner's.
+    if ((e as { code?: string })?.code === "P2002") {
+      const winner = await prisma.user.findUnique({ where: { email }, include: { readerProfile: true } });
+      if (winner) {
+        if (winner.readerProfile) return { readerProfileId: winner.readerProfile.id };
+        const rp = await prisma.readerProfile.create({ data: { userId: winner.id } });
+        return { readerProfileId: rp.id };
+      }
+    }
+    throw e;
+  }
 }
 
 export async function createPendingOrder(input: {
@@ -258,7 +260,7 @@ export async function createPendingOrder(input: {
     shippingAmount = quote ? quote.amount : 0;
   }
 
-  const { readerProfileId, error, tempPassword } = await resolveReaderProfileId(input.guestEmail, input.guestName);
+  const { readerProfileId, error } = await resolveReaderProfileId(input.guestEmail, input.guestName);
   if (!readerProfileId) {
     return { ok: false, error: error ?? "Couldn't start checkout." };
   }
@@ -319,7 +321,6 @@ export async function createPendingOrder(input: {
       status: "PENDING",
       totalAmount,
       isTestData: siteMode === "test",
-      guestTempPassword: tempPassword ?? null,
       country: geo.country,
       region: geo.region,
       shipName: input.shipName?.trim() || null,
