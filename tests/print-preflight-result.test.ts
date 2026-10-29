@@ -73,3 +73,15 @@ test("gate: an old pass is not trusted, but an edit with the same files keeps it
   assert.equal(decidePreflightGate({ keys, latest: null, saved, requirePass: true }).ok, true);
   assert.equal(decidePreflightGate({ keys: { ...keys, interiorFileId: "f2" }, latest: null, saved, requirePass: true }).ok, false);
 });
+
+test("each file gets its own verdict", () => {
+  const site = summarizePreflight({ siteIssues: [{ code: "FONTS", message: "m", fix: "f" }], jobs: [], startedAt: started });
+  assert.equal(site.interior, "FAILED");
+  assert.equal(site.cover, "WAITING");
+  const lulu = summarizePreflight({ siteIssues: [], jobs: [job({ kind: "cover", state: "failed", errors: ["bad"] }), job({ state: "passed" })], startedAt: started });
+  assert.equal(lulu.cover, "FAILED");
+  assert.equal(lulu.interior, "PASSED");
+  const running = summarizePreflight({ siteIssues: [], jobs: [job({ state: "passed" }), job({ kind: "cover", state: "running" })], startedAt: started, now: new Date(started.getTime() + 1000) });
+  assert.equal(running.interior, "PASSED");
+  assert.equal(running.cover, "CHECKING");
+});

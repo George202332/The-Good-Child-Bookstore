@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { EbookSubmissionForm } from "./EbookSubmissionForm";
 import { PrintSubmissionForm } from "./PrintSubmissionForm";
 import type { SharedSubmissionFields } from "./shared";
@@ -23,11 +24,14 @@ type Format = "ebook" | "print";
  * "Autofill from eBook" button copies them (and the cover and file) on request. */
 export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: boolean; print: boolean; audiobook: boolean } }) {
   const ALL_FORMATS: { key: Format; label: string }[] = [
-    { key: "ebook", label: "eBook / Audiobook" },
-    { key: "print", label: "Print Copy" },
+    { key: "ebook", label: "eBook and Audiobook" },
+    { key: "print", label: "Print" },
   ];
   const visibleFormats = ALL_FORMATS.filter((f) => enabledFormats[f.key]);
   const [activeFormat, setActiveFormat] = useState<Format>(visibleFormats[0]?.key ?? "ebook");
+  const router = useRouter();
+  // Set once the eBook / Audiobook part has been saved: the wizard then asks whether to continue on Print.
+  const [ebookSaved, setEbookSaved] = useState(false);
   const [sharedFields, setSharedFields] = useState<SharedSubmissionFields | undefined>(undefined);
 
   if (visibleFormats.length === 0) {
@@ -57,8 +61,8 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
         </div>
         <p style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
           {activeFormat === "print"
-            ? "A dedicated workflow for printed books, fulfilled through our print-on-demand partner. Use the Autofill from eBook button on this tab to copy what you entered on the eBook / Audiobook tab, including the cover and file."
-            : "Publish an eBook with an optional audiobook edition right on this tab. Publishing a printed book? The Print Copy tab opens our dedicated print publishing workflow, including cover wrap preview and print-on-demand fulfillment."}
+            ? "A dedicated workflow for printed books, fulfilled through our print-on-demand partner. Use the Autofill from eBook button on this tab to copy what you entered on the eBook and Audiobook tab, including the cover and file."
+            : "Publish an eBook with an optional audiobook edition right on this tab. Publishing a printed book? The Print tab opens our dedicated print publishing workflow, including cover wrap preview and print-on-demand fulfillment."}
         </p>
       </div>
 
@@ -67,7 +71,26 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
           eBook details to copy. */}
       {enabledFormats.ebook && (
         <div style={{ display: activeFormat === "ebook" ? "block" : "none" }}>
-          <EbookSubmissionForm audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setSharedFields} />
+          {ebookSaved ? (
+            <div className="form-section" role="status" style={{ background: "var(--cream)" }}>
+              <h3 style={{ fontSize: 15, marginBottom: 6 }}>Your eBook and Audiobook are saved</h3>
+              {enabledFormats.print ? (
+                <>
+                  <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 12 }}>
+                    Would you like to move on to the Print tab now and add a printed edition of this book? Your title, author, description and cover can be filled in for you.
+                  </p>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button type="button" className="btn btn-primary btn-small" onClick={() => setActiveFormat("print")}>Yes, go to the Print tab</button>
+                    <button type="button" className="btn btn-ghost btn-small" onClick={() => router.push("/account/books")}>No, take me to My Books</button>
+                  </div>
+                </>
+              ) : (
+                <button type="button" className="btn btn-primary btn-small" onClick={() => router.push("/account/books")}>Go to My Books</button>
+              )}
+            </div>
+          ) : (
+            <EbookSubmissionForm audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setSharedFields} onSubmitted={() => { setEbookSaved(true); window.scrollTo?.({ top: 0 }); }} />
+          )}
         </div>
       )}
       {enabledFormats.print && (

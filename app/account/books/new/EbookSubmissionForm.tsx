@@ -102,8 +102,12 @@ export function EbookSubmissionForm({
   initial,
   audiobookEnabled = true,
   onSharedFieldsChange,
+  onSubmitted,
 }: {
   initial?: EbookSubmissionInitial;
+  /** New-title wizard only: called once the eBook / audiobook part has been saved, instead
+   * of leaving for My Books, so the wizard can offer to continue on the Print tab. */
+  onSubmitted?: () => void;
   /** Admin's "Formats open for submission" toggle for Audio book (see
    * PublishingFormatToggles) — when off, the Audiobook upload slot is
    * still shown (so nothing disappears silently) but disabled, with a
@@ -366,6 +370,10 @@ export function EbookSubmissionForm({
     setSubmitting(false);
     if (!res.ok) {
       setError(res.error ?? "Something went wrong.");
+      return;
+    }
+    if (onSubmitted) {
+      onSubmitted();
       return;
     }
     router.push("/account/books");

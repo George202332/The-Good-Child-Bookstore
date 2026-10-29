@@ -8,8 +8,8 @@ import { buildEbookInitial, buildPrintInitial, classify, sharedPrefill, type Boo
 
 /**
  * Edit an existing book — genuinely the same page used to submit a new
- * title, in edit mode, with the same two tabs ("eBook / Audiobook" and
- * "Print Copy"). Each format of a title is its own edition (its own book
+ * title, in edit mode, with the same two tabs ("eBook and Audiobook" and
+ * "Print"). Each format of a title is its own edition (its own book
  * record), so each tab edits its own edition: every field pre-filled from
  * that edition, not a separate, simplified form. Saving resubmits an
  * unpublished edition for review; a published edition saves live and only
@@ -51,8 +51,8 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
   const ebookBook = thisIsPrint ? sibling : book;
   const printBook = thisIsPrint ? book : sibling;
 
-  const ebookTab: EditTab = ebookBook ? { mode: "edit", status: ebookBook.status } : { mode: "add" };
-  const printTab: EditTab = printBook ? { mode: "edit", status: printBook.status } : { mode: "add" };
+  const ebookTab: EditTab = ebookBook ? { mode: "edit", status: ebookBook.status, bookId: ebookBook.id } : { mode: "add" };
+  const printTab: EditTab = printBook ? { mode: "edit", status: printBook.status, bookId: printBook.id } : { mode: "add" };
   const ebookInitial = ebookBook ? buildEbookInitial(ebookBook) : undefined;
   const printInitial = printBook ? buildPrintInitial(printBook) : undefined;
   const sharedSource = ebookBook ?? printBook ?? book;
@@ -84,8 +84,8 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
         <EditBookTabs
           startOn="ebook"
           enabledFormats={settings.publishingFormatsEnabled}
-          ebookTab={{ mode: "edit", status: book.status }}
-          printTab={{ mode: "edit", status: book.status }}
+          ebookTab={{ mode: "edit", status: book.status, bookId: book.id }}
+          printTab={{ mode: "edit", status: book.status, bookId: book.id }}
           ebookInitial={buildEbookInitial(book)}
           printInitial={undefined}
           addPrefill={sharedPrefill(book, classification, sharedMeta)}

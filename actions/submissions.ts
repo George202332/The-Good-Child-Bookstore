@@ -257,8 +257,10 @@ export interface SubmissionMetadata {
    * whichever of the two cover uploads the author actually used most
    * recently — matches the original's own backCoverMode behavior. */
   backCoverMode?: "auto" | "custom";
-  /** Per-format print ISBNs, as given by the author (or entered by an admin).
-   * Never shared between formats: paperback and hardcover each carry their own. */
+  /** The ONE ISBN of the print edition (Paperback and Hardcover), as given by the author
+   * or entered by an admin. Lulu's API does not issue ISBNs, so it is never made up here. */
+  printIsbn?: string;
+  /** Older saves kept a separate ISBN per print format. Read only; no longer written. */
   printIsbns?: { paperback?: string; hardcover?: string };
   /** Saved by the server (never trusted from the browser): the result of the
    * print file check - see lib/print-preflight-server.ts. */
@@ -459,11 +461,10 @@ async function ownIsbnProblem(isbn: string | undefined, exceptBookId?: string): 
 function sanitizePrintMetadata(input: SubmitBookInput): void {
   const meta = input.metadata as SubmissionMetadata & Record<string, unknown>;
   delete meta.printPreflight;
-  const raw = (meta.printIsbns ?? {}) as { paperback?: unknown; hardcover?: unknown };
-  const pb = cleanIsbn(raw.paperback);
-  const hc = cleanIsbn(raw.hardcover);
-  if (!input.formats.print || (!pb && !hc)) delete meta.printIsbns;
-  else meta.printIsbns = { ...(pb ? { paperback: pb } : {}), ...(hc ? { hardcover: hc } : {}) };
+  delete meta.printIsbns; // older per-format entries are no longer written
+  const one = cleanIsbn(meta.printIsbn);
+  if (!input.formats.print || !one) delete meta.printIsbn;
+  else meta.printIsbn = one;
 }
 
 export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
@@ -553,7 +554,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       slug,
       description: input.description.trim(),
       // The identifier belongs to the format: eBook + Audiobook share one SN number (or the
-      // author's own ISBN); a print edition carries its ISBNs in printIsbns instead, so no
+      // author's own ISBN); a print edition carries its single ISBN in printIsbn instead, so no
       // made-up ISBN is ever stored for print.
       isbn: input.formats.print ? null : input.isbn?.trim() || (prep.hasEbook || prep.hasAudiobook ? await generateUniqueSerialNumber() : null),
       price: prep.basePrice,
@@ -1256,4 +1257,79 @@ export async function deleteBook(bookId: string): Promise<{ ok: boolean; error?:
   revalidatePath("/account/notifications");
   revalidatePath("/bookshelf");
   return { ok: true, kept: sales > 0 };
+}
+
+/** Removes uploaded files that only this record used. A file also used by another book
+ * (the same file may serve the eBook and the print edition) is kept. */
+async function removeUnsharedUploads(fileIds: string[], exceptBookId: string | null): Promise<void> {
+  for (const fileId of fileIds) {
+    const [used] = await prisma.$queryRaw<{ n: number }[]>`
+      SELECT COUNT(*)::int AS n FROM "Book" b
+      WHERE (${exceptBookId}::text IS NULL OR b.id <> ${exceptBookId})
+        AND (b."coverImageUrl" LIKE ${"%" + fileId + "%"}
+          OR b."submissionMetadata"::text LIKE ${"%" + fileId + "%"}
+          OR b."pendingRevisionData"::text LIKE ${"%" + fileId + "%"}
+          OR EXISTS (SELECT 1 FROM "BookFile" f WHERE f."bookId" = b.id AND f.url LIKE ${"%" + fileId + "%"}))`;
+    if ((used?.n ?? 0) === 0) await prisma.uploadedFile.deleteMany({ where: { id: fileId } });
+  }
+}
+
+/** Deletes ONE edition of a book from its tab: "digital" (eBook and Audiobook together) or
+ *  "print" (Paperback and Hardcover together). The other edition is never touched.
+ *
+ *  - Each edition is normally its own record: deleting it removes that record with everything
+ *    linked to it (promotions, notifications, files). If it has already sold copies, the record
+ *    is kept as withdrawn history, as deleteBook() does.
+ *  - An older record that holds both editions has only the chosen edition's part cleared.
+ *  - If no edition is left afterwards, no empty book is left behind: the whole book is gone.
+ *
+ * Returns the id of the edition record that remains (to open next), or null if the book is gone. */
+export async function deleteEdition(bookId: string, edition: "digital" | "print"): Promise<{ ok: boolean; error?: string; remainingBookId?: string | null; kept?: boolean }> {
+  const session = await auth();
+  if (session?.user?.role !== "AUTHOR") return { ok: false, error: "Only author accounts can do this." };
+  const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
+  if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
+
+  const book = await prisma.book.findUnique({ where: { id: bookId }, include: { files: true } });
+  if (!book || book.authorId !== user.authorProfile.id || book.deletedByAuthorAt) return { ok: false, error: "Book not found." };
+
+  const { planEditionDelete, uploadedFileIdsIn } = await import("@/lib/edition-delete");
+  const plan = planEditionDelete(book, edition);
+  if (plan.kind === "wrong-tab") return { ok: false, error: "This tab has no edition to delete." };
+
+  // The other edition of the same title, if it is its own record (to open after this one is gone).
+  const others = await prisma.book.findMany({
+    where: { authorId: book.authorId, id: { not: book.id }, deletedByAuthorAt: null, title: { equals: book.title, mode: "insensitive" } },
+    select: { id: true, hasEbook: true, hasAudiobook: true, hasPrint: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const otherEdition = others.find((o: { hasEbook: boolean; hasAudiobook: boolean; hasPrint: boolean }) =>
+    edition === "print" ? o.hasEbook || o.hasAudiobook : o.hasPrint);
+
+  if (plan.kind === "remove-record") {
+    const metaText = JSON.stringify(book.submissionMetadata ?? {});
+    const fileIds = uploadedFileIdsIn([book.coverImageUrl, metaText, ...book.files.map((f: { url: string }) => f.url)]);
+    const result = await deleteBook(bookId);
+    if (!result.ok) return { ok: false, error: result.error };
+    // A record that was kept as sales history keeps its files; a removed one does not.
+    if (!result.kept) await removeUnsharedUploads(fileIds, bookId);
+    return { ok: true, kept: result.kept, remainingBookId: otherEdition?.id ?? null };
+  }
+
+  // An older record holding both editions: clear only this edition's part.
+  const { PRINT_METADATA_KEYS, DIGITAL_METADATA_KEYS } = await import("@/lib/format-scope");
+  const clearKeys: readonly string[] = edition === "print" ? PRINT_METADATA_KEYS : DIGITAL_METADATA_KEYS;
+  const meta = { ...((book.submissionMetadata as Record<string, unknown> | null) ?? {}) };
+  for (const k of clearKeys) delete meta[k];
+  await prisma.$transaction(async (tx) => {
+    if (edition === "print") {
+      await tx.book.update({ where: { id: bookId }, data: { hasPrint: false, paperbackPrice: null, hardcoverPrice: null, submissionMetadata: meta as object } });
+    } else {
+      await tx.book.update({ where: { id: bookId }, data: { hasEbook: false, ebookPrice: null, hasAudiobook: false, audiobookPrice: null, isbn: null, submissionMetadata: meta as object } });
+      await tx.bookFile.deleteMany({ where: { bookId, kind: { in: ["AUDIOBOOK", "SAMPLE"] } } });
+    }
+  });
+  revalidatePath("/account/books");
+  revalidatePath("/bookshelf");
+  return { ok: true, remainingBookId: bookId };
 }

@@ -61,16 +61,25 @@ export function PieChart({ data, size = 160, donut = true, legendOffset }: { dat
           </div>
         )}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginLeft: legendOffset }}>
-        {data.map((d) => (
-          <div key={d.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: d.color, flexShrink: 0 }} />
-            <span style={{ color: "var(--ink-soft)" }}>{d.label}</span>
-            <span style={{ fontWeight: 700 }}>{d.value}</span>
-            <span style={{ color: "var(--ink-faint)" }}>({total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%)</span>
-          </div>
-        ))}
-      </div>
+      <ChartLegend data={data} total={total} marginLeft={legendOffset} />
+    </div>
+  );
+}
+
+/** The legend beside a pie/donut chart. Every row is one neat line: a coloured dot and the
+ * name on the left, then the count and the percentage in straight, right-aligned columns so
+ * the figures line up vertically down all rows. Used by every pie chart so they all match. */
+export function ChartLegend({ data, total, marginLeft }: { data: PieSlice[]; total: number; marginLeft?: string }) {
+  return (
+    <div className="chart-legend-grid" style={{ marginLeft }} role="list">
+      {data.map((d) => (
+        <div key={d.label} className="chart-legend-row" role="listitem">
+          <span className="chart-legend-swatch" style={{ background: d.color }} aria-hidden />
+          <span className="chart-legend-name" title={d.label}>{d.label}</span>
+          <span className="chart-legend-count">{d.value}</span>
+          <span className="chart-legend-pct">{total > 0 ? ((d.value / total) * 100).toFixed(0) : 0}%</span>
+        </div>
+      ))}
     </div>
   );
 }

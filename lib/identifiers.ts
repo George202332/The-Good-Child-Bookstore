@@ -42,7 +42,9 @@ export interface IdentifierSource {
   hasEbook: boolean;
   hasAudiobook: boolean;
   hasPrint: boolean;
-  /** submissionMetadata.printIsbns */
+  /** submissionMetadata.printIsbn: the ONE ISBN of the print edition (Paperback and Hardcover). */
+  printIsbn?: string | null;
+  /** Older saves (Round 46) kept a separate entry per print format; read only, never written. */
   printIsbns?: { paperback?: string; hardcover?: string } | null;
 }
 
@@ -53,13 +55,33 @@ export interface FormatIdentifier {
   value: string | null;
 }
 
+/** The print edition's single ISBN, or null. Reads `printIsbn`; older records that kept a
+ * per-format entry fall back to the Paperback one, then the Hardcover one. */
+export function printIsbnOf(src: IdentifierSource): string | null {
+  const one = (src.printIsbn ?? "").trim();
+  if (one) return one;
+  const old = src.printIsbns;
+  const legacy = (old?.paperback ?? "").trim() || (old?.hardcover ?? "").trim();
+  if (legacy) return legacy;
+  const printOnly = src.hasPrint && !src.hasEbook && !src.hasAudiobook;
+  const record = (src.isbn ?? "").trim();
+  // Oldest print-only records stored their ISBN in the record's own isbn field.
+  if (printOnly && record && !src.printIsbns && src.printIsbn === undefined) return record;
+  return null;
+}
+
+/** Reads the print ISBN fields out of a book's submissionMetadata. */
+export function printFieldsOf(meta: unknown): Pick<IdentifierSource, "printIsbn" | "printIsbns"> {
+  const m = (meta ?? {}) as { printIsbn?: unknown; printIsbns?: { paperback?: string; hardcover?: string } };
+  return { printIsbn: typeof m.printIsbn === "string" ? m.printIsbn : null, printIsbns: m.printIsbns ?? null };
+}
+
 /**
  * The identifier to show for one format.
  *  - eBook / Audiobook: Book.isbn. Labelled "ISBN" when it is a real ISBN the author
  *    entered, otherwise "SN number".
- *  - Paperback / Hardcover: that format's own printIsbns entry. For older print-only
- *    records (no printIsbns) the record's own isbn is the print ISBN. Otherwise null,
- *    which the product page shows as "ISBN pending".
+ *  - Paperback / Hardcover: ONE ISBN for the whole print edition (the same value on both
+ *    tabs), or null, which the product page shows as "ISBN pending".
  */
 export function identifierFor(src: IdentifierSource, format: IdentifierFormat): FormatIdentifier {
   if (format === "ebook" || format === "audiobook") {
@@ -67,12 +89,7 @@ export function identifierFor(src: IdentifierSource, format: IdentifierFormat): 
     if (!v || (!src.hasEbook && !src.hasAudiobook)) return { label: "SN number", value: null };
     return { label: isRealIsbn(v) ? "ISBN" : "SN number", value: v };
   }
-  const own = src.printIsbns?.[format];
-  if (own && own.trim()) return { label: "ISBN", value: own.trim() };
-  const printOnly = src.hasPrint && !src.hasEbook && !src.hasAudiobook;
-  const legacy = (src.isbn ?? "").trim();
-  if (printOnly && legacy && !src.printIsbns) return { label: "ISBN", value: legacy };
-  return { label: "ISBN", value: null };
+  return { label: "ISBN", value: src.hasPrint ? printIsbnOf(src) : null };
 }
 
 /** The "SN number" column of the admin table: eBook/Audiobook identifier, or null. */
@@ -80,12 +97,7 @@ export function snColumn(src: IdentifierSource): string | null {
   return identifierFor(src, src.hasEbook ? "ebook" : "audiobook").value;
 }
 
-/** The "ISBN" column of the admin table: the print ISBN(s), or null. When both formats
- * have one and they differ, both are listed. */
+/** The "ISBN" column of the admin table: the print edition's single ISBN, or null. */
 export function isbnColumn(src: IdentifierSource): string | null {
-  if (!src.hasPrint) return null;
-  const pb = identifierFor(src, "paperback").value;
-  const hc = identifierFor(src, "hardcover").value;
-  if (pb && hc) return pb === hc ? pb : `${pb} (paperback), ${hc} (hardcover)`;
-  return pb ?? hc;
+  return src.hasPrint ? printIsbnOf(src) : null;
 }

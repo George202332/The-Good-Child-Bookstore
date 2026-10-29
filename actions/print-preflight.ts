@@ -13,6 +13,8 @@ import {
   type PreflightJob,
   type PreflightStatus,
   type ShownIssue,
+  type FileVerdict,
+  type PreflightSummary,
 } from "@/lib/print-preflight-result";
 import { getLuluValidation, luluExpectedCoverSize, luluIsConfigured, startLuluValidation, storeGeneratedCoverWrap } from "@/lib/payments/lulu";
 import { reportSystemError } from "@/lib/site-health/alert";
@@ -52,6 +54,9 @@ export interface PrintPreflightView {
   checkId?: string;
   status?: PreflightStatus;
   issues?: ShownIssue[];
+  /** The verdict for each file (shown under its preview). */
+  interior?: FileVerdict;
+  cover?: FileVerdict;
   /** Set when the request itself could not be handled (not signed in, bad input). */
   error?: string;
 }
@@ -63,9 +68,9 @@ function asIssues(value: unknown): PreflightIssue[] {
   return Array.isArray(value) ? (value as PreflightIssue[]) : [];
 }
 
-function view(row: { id: string; status: string; siteIssues: unknown; luluJobs: unknown; createdAt: Date; reasons: unknown }, summary?: { status: PreflightStatus; issues: ShownIssue[] }): PrintPreflightView {
+function view(row: { id: string; status: string; siteIssues: unknown; luluJobs: unknown; createdAt: Date; reasons: unknown }, summary?: PreflightSummary): PrintPreflightView {
   const s = summary ?? summarizePreflight({ siteIssues: asIssues(row.siteIssues), jobs: asJobs(row.luluJobs), startedAt: row.createdAt });
-  return { ok: true, checkId: row.id, status: s.status, issues: s.issues };
+  return { ok: true, checkId: row.id, status: s.status, issues: s.issues, interior: s.interior, cover: s.cover };
 }
 
 async function requireAuthor() {

@@ -4,18 +4,20 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
 import { ColHelp } from "@/components/ColHelp";
-import { SuspendButton } from "./SuspendButton";
-import { DeleteButton } from "./DeleteButton";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import { PAID_ONLY } from "@/lib/paid-sales";
 import { groupEditions } from "@/lib/book-groups";
-import { formatTabsOf, missingFormatsOf, type FormatViewRow } from "@/lib/book-format-views";
-import { BookFormatTabs } from "@/components/BookFormatTabs";
+import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
 interface SaleLineShare {
   authorShare: unknown;
 }
-interface AuthorBook extends FormatViewRow {
+interface AuthorBook {
+  hasEbook: boolean;
+  hasPrint: boolean;
+  hasAudiobook: boolean;
+  coverImageUrl: string | null;
+  submissionMetadata: unknown;
   authorId: string;
   createdAt: Date;
   id: string;
@@ -43,9 +45,9 @@ const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px
 /**
  * "My Books" — a real table: status (color-coded tab matching where the
  * book actually is in the review pipeline), category, units sold across
- * every format, total royalties, and two actions: Edit (a published
- * book saves live; only a new manuscript or cover goes to review) and Suspend (pulls it off the store
- * shelf without deleting anything).
+ * every format, total royalties, and one action: Edit. One book is one row, even when
+ * it has several formats; Edit opens it with an "eBook and Audiobook" tab and a "Print"
+ * tab, each with its own Delete book button.
  */
 const SAVED_NOTICES: Record<string, string> = {
   live: "Your changes were saved and are live now.",
@@ -68,6 +70,8 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
   const records = (user?.authorProfile?.books ?? []) as unknown as AuthorBook[];
   // One entry per book: the editions of a title (eBook / print / audiobook records) are
   // shown together. Display only; no record is changed.
+  const authorPenName = user?.authorProfile?.penName ?? null;
+  const accountName = user?.name ?? "";
   const groups = groupEditions(records.map((r) => ({ ...r, authorId: r.authorId ?? "me" })));
 
   return (
@@ -91,14 +95,13 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title." /></th>
-                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Attention: sent back for revision. Published: live in the store. On Review: awaiting moderation. Draft: not yet submitted. Suspended: pulled off the shelf by you." /></th>
+                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title. One book is one row, even when it has several formats." /></th>
+                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="The author name entered on this book. It can differ from your account name." /></th>
+                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Attention: sent back for revision. Published: live in the store. On Review: awaiting moderation. Draft: not yet submitted. Suspended: pulled off the shelf." /></th>
                 <th style={TABLE_HEAD_STYLE}>Category<ColHelp text="The book's primary category." /></th>
                 <th style={TABLE_HEAD_STYLE}>Units Sold<ColHelp text="Total copies sold across every format (eBook, print, audiobook) combined." /></th>
                 <th style={TABLE_HEAD_STYLE}>Royalties<ColHelp text="Your total lifetime earnings from this book's sales." /></th>
-                <th style={TABLE_HEAD_STYLE}>Edit<ColHelp text="Opens the submission form to update this book's details. For a published book, changes go live on save; a new manuscript or cover is reviewed first." /></th>
-                <th style={TABLE_HEAD_STYLE}>Suspend<ColHelp text="Removes this book from the store shelf without deleting it. You can restore it any time." /></th>
-                <th style={TABLE_HEAD_STYLE}>Delete<ColHelp text="Deletes this book from your account and takes it off sale. If it has already sold copies, its sales and royalty history stays on record." /></th>
+                <th style={TABLE_HEAD_STYLE}>Edit<ColHelp text="Opens the book. The eBook and Audiobook tab and the Print tab each show that edition's details, price, files and status, and each has its own Delete book button." /></th>
               </tr>
             </thead>
             <tbody>
@@ -106,50 +109,53 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                 const b = group[0];
                 const units = group.reduce((n, r) => n + r.saleLines.length, 0);
                 const royalties = group.reduce((sum, r) => sum + r.saleLines.reduce((s2, l) => s2 + Number(l.authorShare), 0), 0);
-                const tabs = formatTabsOf(group);
-                const missing = missingFormatsOf(group);
+                const statuses = [...new Set(group.map((r) => r.status))];
+                const authorName = bookAuthorDisplayName({ submissionMetadata: b.submissionMetadata, author: { penName: authorPenName, user: { name: accountName } } });
+                const cover = group.map((r) => r.coverImageUrl).find(Boolean);
+                const labelOf = (r: AuthorBook) => [r.hasEbook && "eBook", r.hasAudiobook && "Audiobook", r.hasPrint && "Print"].filter(Boolean).join(" + ");
                 return (
                   <tr key={b.id}>
                     <td style={TABLE_CELL_STYLE}>
-                      <strong>{b.title}</strong>
-                      {group.some((r) => r.status === "PUBLISHED" && r.pendingRevisionData != null) && (
-                        <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 4 }}>New manuscript or cover under review</div>
-                      )}
-                      {group.filter((r) => r.status === "REJECTED" && r.revisionNotes).map((r) => (
-                        <div key={r.id} style={{ fontSize: 12, color: "#6F1A28", marginTop: 4, maxWidth: 260 }}>
-                          &quot;{r.revisionNotes}&quot;
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {cover ? (
+                          // eslint-disable-next-line @next/next/no-img-element -- author-uploaded cover served from our own file route
+                          <img src={cover} alt="" width={36} height={48} style={{ objectFit: "cover", borderRadius: 3, flex: "none", background: "var(--cream)" }} />
+                        ) : (
+                          <span aria-hidden style={{ width: 36, height: 48, borderRadius: 3, background: "var(--cream)", flex: "none" }} />
+                        )}
+                        <div>
+                          <strong>{b.title}</strong>
+                          {group.some((r) => r.status === "PUBLISHED" && r.pendingRevisionData != null) && (
+                            <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 4 }}>New manuscript or cover under review</div>
+                          )}
+                          {group.filter((r) => r.status === "REJECTED" && r.revisionNotes).map((r) => (
+                            <div key={r.id} style={{ fontSize: 12, color: "#6F1A28", marginTop: 4, maxWidth: 260 }}>
+                              &quot;{r.revisionNotes}&quot;
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                      <BookFormatTabs tabs={tabs} missing={missing} addHref={`/account/books/${b.id}/edit`} />
+                      </div>
                     </td>
+                    <td style={TABLE_CELL_STYLE}>{authorName}</td>
                     <td style={TABLE_CELL_STYLE}>
-                      {group.map((r) => {
-                        const rp = STATUS_PILL[r.status] ?? { label: r.status, className: "status-draft" };
-                        return <div key={r.id} style={{ marginBottom: 4 }}><span className={`status-pill ${rp.className}`}>{rp.label}</span></div>;
-                      })}
+                      {statuses.length === 1 ? (
+                        (() => { const pill = STATUS_PILL[statuses[0]] ?? { label: statuses[0], className: "status-draft" }; return <span className={`status-pill ${pill.className}`}>{pill.label}</span>; })()
+                      ) : (
+                        group.map((r) => {
+                          const pill = STATUS_PILL[r.status] ?? { label: r.status, className: "status-draft" };
+                          return (
+                            <div key={r.id} style={{ marginBottom: 4 }}>
+                              <span className={`status-pill ${pill.className}`}>{pill.label}</span>
+                              <span style={{ fontSize: 11, color: "var(--ink-faint)", marginLeft: 6 }}>{labelOf(r)}</span>
+                            </div>
+                          );
+                        })
+                      )}
                     </td>
-                    <td style={TABLE_CELL_STYLE}>{b.categories[0]?.category.name ?? "—"}</td>
+                    <td style={TABLE_CELL_STYLE}>{group.map((r) => r.categories[0]?.category.name).find(Boolean) ?? "—"}</td>
                     <td style={TABLE_CELL_STYLE}>{units}</td>
                     <td style={TABLE_CELL_STYLE}>${royalties.toFixed(2)}</td>
-                    <td style={TABLE_CELL_STYLE}>
-                      {group.map((r) => (
-                        <div key={r.id} style={{ marginBottom: 4 }}><Link href={`/account/books/${r.id}/edit`} className="btn btn-ghost btn-small">Edit</Link></div>
-                      ))}
-                    </td>
-                    <td style={TABLE_CELL_STYLE}>
-                      {group.map((r) => (
-                        <div key={r.id} style={{ marginBottom: 4 }}>
-                          {r.status === "SUSPENDED" || r.status === "WITHDRAWN"
-                            ? <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Contact support</span>
-                            : <SuspendButton bookId={r.id} suspended={r.status === "ARCHIVED"} />}
-                        </div>
-                      ))}
-                    </td>
-                    <td style={TABLE_CELL_STYLE}>
-                      {group.map((r) => (
-                        <div key={r.id} style={{ marginBottom: 4 }}><DeleteButton bookId={r.id} title={r.title} /></div>
-                      ))}
-                    </td>
+                    <td style={TABLE_CELL_STYLE}><Link href={`/account/books/${b.id}/edit`} className="btn btn-ghost btn-small">Edit</Link></td>
                   </tr>
                 );
               })}

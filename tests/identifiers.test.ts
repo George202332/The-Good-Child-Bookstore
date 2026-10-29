@@ -16,16 +16,26 @@ test("an author's own ISBN replaces the SN number and is labelled ISBN", () => {
   assert.deepEqual(identifierFor(src, "ebook"), { label: "ISBN", value: "9780306406157" });
 });
 
-test("print ISBNs are per format and never shared implicitly", () => {
-  const src = { ...base, hasPrint: true, printIsbns: { paperback: "9780306406157" } };
+test("a print edition has ONE ISBN, shown on both Paperback and Hardcover", () => {
+  const src = { ...base, hasPrint: true, printIsbn: "9780306406157" };
   assert.equal(identifierFor(src, "paperback").value, "9780306406157");
-  assert.equal(identifierFor(src, "hardcover").value, null);
+  assert.equal(identifierFor(src, "hardcover").value, "9780306406157");
   assert.equal(isbnColumn(src), "9780306406157");
+});
+
+test("older per-format saves read as one ISBN (paperback first), never two", () => {
+  const src = { ...base, hasPrint: true, printIsbns: { paperback: "9780306406157", hardcover: "9780306406158" } };
+  assert.equal(identifierFor(src, "hardcover").value, "9780306406157");
+  assert.equal(isbnColumn(src), "9780306406157");
+});
+
+test("no print ISBN yet reads as pending (null)", () => {
+  assert.equal(identifierFor({ ...base, hasPrint: true, printIsbn: null }, "paperback").value, null);
 });
 
 test("admin columns show a dash (null) where not applicable", () => {
   assert.equal(isbnColumn({ ...base, isbn: "SN-1", hasEbook: true }), null);
-  assert.equal(snColumn({ ...base, hasPrint: true, printIsbns: {} }), null);
+  assert.equal(snColumn({ ...base, hasPrint: true, printIsbn: "9780306406157" }), null);
 });
 
 test("tabs and columns for a group of separate records", () => {

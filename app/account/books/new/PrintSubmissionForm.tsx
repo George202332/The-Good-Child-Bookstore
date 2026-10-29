@@ -14,6 +14,7 @@ import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { CoverWrapPreview } from "@/components/CoverWrapPreview";
+import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 import { Ean13Barcode } from "@/components/Ean13Barcode";
 import { LULU_CONFIG, buildPodPackageId, labelForCode } from "@/lib/lulu-config";
 import { computePrintPricing } from "@/lib/lulu-pricing";
@@ -37,8 +38,7 @@ export interface PrintSubmissionInitial {
   seriesName?: string;
   edition?: string;
   /** The print ISBN of each format, when it has one (never shared between formats). */
-  paperbackIsbn?: string;
-  hardcoverIsbn?: string;
+  printIsbn?: string;
   /** The saved result of the last print file check. */
   preflight?: SavedPreflight;
   language?: string;
@@ -121,10 +121,9 @@ export function PrintSubmissionForm({
   const [subtitle, setSubtitle] = useState(initial?.subtitle ?? prefill?.subtitle ?? "");
   const [seriesName, setSeriesName] = useState(initial?.seriesName ?? prefill?.seriesName ?? "");
   const [edition, setEdition] = useState(initial?.edition ?? prefill?.edition ?? "");
-  // Each print format has its own ISBN (never shared). Optional: an author with their own
-  // ISBNs enters them here; otherwise the product page shows "ISBN pending" until one is added.
-  const [paperbackIsbn, setPaperbackIsbn] = useState(initial?.paperbackIsbn ?? "");
-  const [hardcoverIsbn, setHardcoverIsbn] = useState(initial?.hardcoverIsbn ?? "");
+  // A print edition has ONE ISBN, covering both Paperback and Hardcover. Lulu's API does not
+  // issue ISBNs, so it is entered here (optional); until then the product page shows "ISBN pending".
+  const [printIsbn, setPrintIsbn] = useState(initial?.printIsbn ?? "");
   const [language, setLanguage] = useState(initial?.language || prefill?.language || LANGUAGES[0]);
   const [publisher, setPublisher] = useState(initial?.publisher ?? "");
   const [publicationDate, setPublicationDate] = useState(initial?.publicationDate ?? prefill?.publicationDate ?? "");
@@ -241,7 +240,7 @@ export function PrintSubmissionForm({
   const [autofilling, setAutofilling] = useState(false);
   async function autofillFromEbook() {
     if (!prefill || !prefill.title.trim()) {
-      setAutofillNote("Nothing to copy yet - fill in the eBook / Audiobook tab first (title, description, cover...).");
+      setAutofillNote("Nothing to copy yet - fill in the eBook and Audiobook tab first (title, description, cover...).");
       return;
     }
     setAutofilling(true);
@@ -412,10 +411,7 @@ export function PrintSubmissionForm({
         frontCoverImageUrl,
         customBackCoverPdfFileId,
         backCoverMode,
-        printIsbns: {
-          ...(paperbackEnabled && paperbackIsbn.trim() ? { paperback: paperbackIsbn.trim() } : {}),
-          ...(hardcoverEnabled && hardcoverIsbn.trim() ? { hardcover: hardcoverIsbn.trim() } : {}),
-        },
+        printIsbn: printIsbn.trim() || undefined,
         sellThroughWebsite: true,
         luluGlobalDistribution,
         privatePrinting,
@@ -498,15 +494,9 @@ export function PrintSubmissionForm({
             <input className="field" id="p-edition" type="text" value={edition} onChange={(e) => setEdition(e.target.value)} />
           </div>
           <div>
-            <label className="field-label" htmlFor="p-isbn-pb">{hardcoverEnabled && paperbackEnabled ? "Paperback ISBN (optional)" : "ISBN (optional)"}</label>
-            {paperbackEnabled && <input className="field" id="p-isbn-pb" type="text" placeholder="Leave empty if you have none yet" value={paperbackIsbn} onChange={(e) => setPaperbackIsbn(e.target.value)} />}
-            {hardcoverEnabled && (
-              <>
-                {paperbackEnabled && <label className="field-label" htmlFor="p-isbn-hc" style={{ marginTop: 8 }}>Hardcover ISBN (optional)</label>}
-                <input className="field" id="p-isbn-hc" type="text" placeholder="Leave empty if you have none yet" value={hardcoverIsbn} onChange={(e) => setHardcoverIsbn(e.target.value)} />
-              </>
-            )}
-            <div className="field-hint">Each print format has its own ISBN. If you leave this empty the product page shows &ldquo;ISBN pending&rdquo; until one is added.</div>
+            <label className="field-label" htmlFor="p-isbn">ISBN (optional)</label>
+            <input className="field" id="p-isbn" type="text" placeholder="Leave empty if you have none yet" value={printIsbn} onChange={(e) => setPrintIsbn(e.target.value)} />
+            <div className="field-hint">One ISBN covers both Paperback and Hardcover. If you leave this empty the product page shows &ldquo;ISBN pending&rdquo; until one is added.</div>
           </div>
           <div>
             <label className="field-label" htmlFor="p-lang">Language</label>
@@ -674,6 +664,71 @@ export function PrintSubmissionForm({
           savedFromBook={unchangedSaved ? initial?.preflight : undefined}
           onRetry={() => { checkedKeys.current = ""; void runPreflight(); }}
         />
+
+        {/* Interior: a page-by-page preview of the file as uploaded (it refreshes by itself when
+            the file is replaced), with the site's checks and Lulu's verdict underneath. */}
+        <div style={{ marginTop: 22 }}>
+          <h3 style={{ fontSize: 16, marginBottom: 4 }}>Interior preview</h3>
+          {printReadyPdfFileId ? (
+            <>
+              <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 12 }}>
+                Read-only. This is the interior file as uploaded; page through it to check it.
+              </p>
+              <ManuscriptReviewViewer key={printReadyPdfFileId} url={`/api/files/${printReadyPdfFileId}`} title={title || "Print interior preview"} spread theme="light" scale={2} />
+            </>
+          ) : (
+            <p className="field-hint">Upload the print-ready PDF above to preview it page by page.</p>
+          )}
+          <FileVerdictBox
+            title="Interior file check"
+            verdict={printReadyPdfFileId ? preflight?.interior : "NONE"}
+            issues={(preflight?.issues ?? []).filter((i) => i.file === "interior")}
+            saved={unchangedSaved && !preflight ? initial?.preflight : undefined}
+          />
+        </div>
+
+        {/* Cover: the full wrap (back, spine, front), uploaded by the author or generated by the
+            site. A generated wrap is rebuilt from the page count, so it is redrawn and re-checked
+            whenever the interior file changes. */}
+        <div style={{ marginTop: 22 }}>
+          <h3 style={{ fontSize: 16, marginBottom: 4 }}>Full wrap cover preview</h3>
+          <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 12 }}>
+            {backCoverMode === "custom"
+              ? "Your uploaded wraparound cover (back cover, spine and front)."
+              : "Back cover, spine and front, generated by the site from your front cover. The spine width follows the page count, so this is redrawn and checked again whenever you replace the interior file."}
+            {" "}Check the margin, bleed and fold guides.
+          </p>
+          {customBackCoverPdfFileId && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+              <button type="button" className={`btn btn-small ${backCoverMode === "auto" ? "btn-primary" : "btn-ghost"}`} onClick={() => setBackCoverMode("auto")}>
+                Auto-generated cover
+              </button>
+              <button type="button" className={`btn btn-small ${backCoverMode === "custom" ? "btn-primary" : "btn-ghost"}`} onClick={() => setBackCoverMode("custom")}>
+                My custom cover
+              </button>
+            </div>
+          )}
+          <CoverWrapPreview
+            key={`${printReadyPdfFileId ?? ""}|${printPages}`}
+            customCoverFileId={backCoverMode === "custom" ? customBackCoverPdfFileId : undefined}
+            pages={Number(printPages) || 32}
+            title={title}
+            subtitle={subtitle}
+            authorFirstName={authorFirstName}
+            authorLastName={authorLastName}
+            description={description}
+            isbn={printIsbn}
+            trimCode={trimCode}
+            paperCode={paperType}
+            coverImageUrl={frontCoverImageUrl}
+          />
+          <FileVerdictBox
+            title="Cover check"
+            verdict={frontCoverImageUrl || customBackCoverPdfFileId ? preflight?.cover : "NONE"}
+            issues={(preflight?.issues ?? []).filter((i) => i.file === "cover")}
+            saved={unchangedSaved && !preflight ? initial?.preflight : undefined}
+          />
+        </div>
       </Card>
 
       {/* Section 4 */}
@@ -881,38 +936,10 @@ export function PrintSubmissionForm({
         </div>
       </Card>
 
-      {/* Section 9 */}
-      <Card>
-        <SectionHeader n={8} title="Book Preview" sub="Use this preview window to see how your book will look. Carefully review the margin, bleed, and fold areas to ensure your book will print correctly." />
-        {customBackCoverPdfFileId && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-            <button type="button" className={`btn btn-small ${backCoverMode === "auto" ? "btn-primary" : "btn-ghost"}`} onClick={() => setBackCoverMode("auto")}>
-              Auto-generated cover
-            </button>
-            <button type="button" className={`btn btn-small ${backCoverMode === "custom" ? "btn-primary" : "btn-ghost"}`} onClick={() => setBackCoverMode("custom")}>
-              My custom cover
-            </button>
-          </div>
-        )}
-        <CoverWrapPreview
-          customCoverFileId={backCoverMode === "custom" ? customBackCoverPdfFileId : undefined}
-          pages={Number(printPages) || 32}
-          title={title}
-          subtitle={subtitle}
-          authorFirstName={authorFirstName}
-          authorLastName={authorLastName}
-          description={description}
-          isbn={paperbackIsbn || hardcoverIsbn}
-          trimCode={trimCode}
-          paperCode={paperType}
-          coverImageUrl={frontCoverImageUrl}
-        />
-      </Card>
-
       {/* Section 10 */}
       <Card>
-        <SectionHeader n={9} title="ISBN Barcode" sub="Generated from the print ISBN once one is entered." />
-        <Ean13Barcode isbn={paperbackIsbn || hardcoverIsbn} />
+        <SectionHeader n={8} title="ISBN Barcode" sub="Generated from the print ISBN once one is entered." />
+        <Ean13Barcode isbn={printIsbn} />
       </Card>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
@@ -934,7 +961,7 @@ export function PrintSubmissionForm({
             {!hasPrintFiles
               ? "Upload the print-ready PDF and a cover in the Files section first; they are checked for printing straight away."
               : preflight?.status === "FAILED"
-              ? "This print edition can be submitted once the print file check above passes."
+              ? `Publishing is blocked until ${[preflight.interior === "FAILED" && "the interior file", preflight.cover === "FAILED" && "the cover"].filter(Boolean).join(" and ") || "the print files"} ${preflight.interior === "FAILED" && preflight.cover === "FAILED" ? "are" : "is"} replaced with a file that passes the check above.`
               : "Waiting for the print file check above to finish."}
           </div>
         )}
@@ -985,11 +1012,58 @@ function PreflightPanel({ hasFiles, busy, result, savedFromBook, onRetry }: {
         </p>
       )}
       {result?.error && <p className="field-hint" style={{ margin: "8px 0 0", color: "var(--coral-deep)" }}>{result.error}</p>}
-      {result?.issues && result.issues.length > 0 && (
+      {result?.issues && result.issues.some((i) => i.file === "both") && (
         <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 13 }}>
-          {result.issues.map((i, n) => (
+          {result.issues.filter((i) => i.file === "both").map((i, n) => (
             <li key={n} style={{ marginBottom: 8 }}>
               <div style={{ fontWeight: 600 }}>{i.message}</div>
+              <div style={{ color: "var(--ink-soft)" }}>How to fix it: {i.fix}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const VERDICT_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
+  PASSED: { bg: "#E3F5EA", fg: "#165236", label: "Passed" },
+  FAILED: { bg: "#FCE4E4", fg: "#6F1A28", label: "Rejected" },
+  CHECKING: { bg: "#FFF3D6", fg: "#6E4A00", label: "Checking…" },
+  UNAVAILABLE: { bg: "#EEE9F6", fg: "#3F3350", label: "Could not finish" },
+  WAITING: { bg: "#EEE9F6", fg: "#3F3350", label: "Waiting for the other file" },
+};
+
+/** The result for ONE file, shown directly under its preview: the site's own checks and
+ * Lulu's verdict, with the reasons and how to fix each, in plain language. */
+function FileVerdictBox({ title, verdict, issues, saved }: {
+  title: string;
+  verdict?: "PASSED" | "FAILED" | "CHECKING" | "UNAVAILABLE" | "WAITING" | "NONE";
+  issues: { source: "site" | "lulu"; message: string; fix: string }[];
+  saved?: SavedPreflight;
+}) {
+  const shown = verdict && verdict !== "NONE" ? verdict : saved ? saved.status : undefined;
+  const style = shown ? VERDICT_STYLE[shown] : undefined;
+  return (
+    <div style={{ marginTop: 12, border: "1px solid var(--line)", borderRadius: 12, padding: "12px 16px", background: "var(--paper)" }} aria-live="polite">
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <strong style={{ fontSize: 14 }}>{title}</strong>
+        {style && <span style={{ background: style.bg, color: style.fg, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 700 }}>{style.label}</span>}
+      </div>
+      {!style && <p className="field-hint" style={{ margin: "8px 0 0" }}>Checked automatically as soon as the file is uploaded.</p>}
+      {shown === "PASSED" && (
+        <p className="field-hint" style={{ margin: "8px 0 0", color: "#165236" }}>Our checks and Lulu&apos;s file validation both passed.</p>
+      )}
+      {shown === "CHECKING" && <p className="field-hint" style={{ margin: "8px 0 0" }}>Lulu is checking this file. This usually takes under a minute.</p>}
+      {shown === "WAITING" && <p className="field-hint" style={{ margin: "8px 0 0" }}>This file is sent to Lulu once the other file&apos;s problems are fixed.</p>}
+      {issues.length > 0 && (
+        <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 13 }}>
+          {issues.map((i, n) => (
+            <li key={n} style={{ marginBottom: 8 }}>
+              <div style={{ fontWeight: 600 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-faint)", marginRight: 6 }}>{i.source === "lulu" ? "LULU" : "OUR CHECK"}</span>
+                {i.message}
+              </div>
               <div style={{ color: "var(--ink-soft)" }}>How to fix it: {i.fix}</div>
             </li>
           ))}

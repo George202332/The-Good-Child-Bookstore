@@ -571,6 +571,9 @@ export function CheckoutClient({
                 <PaymentBadgeIcon type="paypal" width={44} height={28} />
                 {submitting ? "Processing…" : `Pay $${grandTotal.toFixed(2)} with PayPal`}
               </button>
+              <p style={{ textAlign: "center", fontSize: 12, color: "var(--ink-faint)", margin: "8px 0 0" }}>
+                On PayPal&apos;s secure page, log in with your PayPal email or pay with a debit or credit card. We never see your card number.
+              </p>
               <div className="auth-divider" style={{ marginTop: 14 }}><span /><small>Or pay with a card</small><span /></div>
             </div>
           )}

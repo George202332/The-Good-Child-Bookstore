@@ -57,6 +57,12 @@ export async function getPaystackCredentials(): Promise<{ secretKey: string | un
 }
 
 
+/** The id PayPal gives a webhook when you add it in the PayPal dashboard. Only ever read
+ * from the PAYPAL_WEBHOOK_ID environment variable (Vercel), never stored in the database. */
+export function getPaypalWebhookId(): string | undefined {
+  return process.env.PAYPAL_WEBHOOK_ID?.trim() || undefined;
+}
+
 export async function getPaypalCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined; environment: "sandbox" | "live" }> {
   const stored = await getStoredApiKeys();
   const envName = (stored?.paypalEnvironment ?? process.env.PAYPAL_ENV ?? "sandbox").toLowerCase();

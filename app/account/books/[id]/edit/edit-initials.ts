@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { canonicalCategory, categoryOfSubcategory, normalizeGenre, isSubcategoryOf } from "@/lib/taxonomy";
 import { parseRestrictedCountries } from "@/lib/book-country-restriction";
-import { identifierFor } from "@/lib/identifiers";
+import { identifierFor, printFieldsOf } from "@/lib/identifiers";
 import type { SavedPreflight } from "@/lib/print-preflight-result";
 import type { EbookSubmissionInitial } from "../../new/EbookSubmissionForm";
 import type { PrintSubmissionInitial } from "../../new/PrintSubmissionForm";
@@ -100,8 +100,7 @@ export function buildPrintInitial(book: BookWithRelations): PrintSubmissionIniti
     subtitle: book.subtitle ?? "",
     seriesName: str(meta.seriesName),
     edition: str(meta.edition),
-    paperbackIsbn: identifierFor({ isbn: book.isbn, hasEbook: book.hasEbook, hasAudiobook: book.hasAudiobook, hasPrint: book.hasPrint, printIsbns: meta.printIsbns as { paperback?: string; hardcover?: string } | undefined }, "paperback").value ?? "",
-    hardcoverIsbn: identifierFor({ isbn: book.isbn, hasEbook: book.hasEbook, hasAudiobook: book.hasAudiobook, hasPrint: book.hasPrint, printIsbns: meta.printIsbns as { paperback?: string; hardcover?: string } | undefined }, "hardcover").value ?? "",
+    printIsbn: identifierFor({ isbn: book.isbn, hasEbook: book.hasEbook, hasAudiobook: book.hasAudiobook, hasPrint: book.hasPrint, ...printFieldsOf(meta) }, "paperback").value ?? "",
     preflight: meta.printPreflight as SavedPreflight | undefined,
     language: book.language ?? "English",
     publisher: str(meta.publisher),

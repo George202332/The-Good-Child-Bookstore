@@ -4,13 +4,14 @@ import { useState } from "react";
 import { EbookSubmissionForm, type EbookSubmissionInitial } from "../../new/EbookSubmissionForm";
 import { PrintSubmissionForm, type PrintSubmissionInitial } from "../../new/PrintSubmissionForm";
 import type { SharedSubmissionFields } from "../../new/shared";
+import { DeleteEditionButton } from "./DeleteEditionButton";
 
 type Format = "ebook" | "print";
 
 /** What one tab holds: an existing edition to edit, or nothing yet (the
  * author can add that edition from here, pre-filled from the other one). */
 export type EditTab =
-  | { mode: "edit"; status: string }
+  | { mode: "edit"; status: string; bookId: string }
   | { mode: "add" };
 
 /**
@@ -48,8 +49,8 @@ export function EditBookTabs({
   const [shared, setShared] = useState<SharedSubmissionFields | undefined>(undefined);
 
   const tabs: { key: Format; label: string; tab: EditTab }[] = [
-    { key: "ebook", label: "eBook / Audiobook", tab: ebookTab },
-    { key: "print", label: "Print Copy", tab: printTab },
+    { key: "ebook", label: "eBook and Audiobook", tab: ebookTab },
+    { key: "print", label: "Print", tab: printTab },
   ];
 
   function hint(key: Format, tab: EditTab): string {
@@ -63,9 +64,6 @@ export function EditBookTabs({
       : "You are editing the eBook / audiobook edition. Changes here only affect the eBook and audiobook.";
   }
 
-  if (combined && ebookInitial) {
-    return <EbookSubmissionForm initial={ebookInitial} audiobookEnabled={enabledFormats.audiobook} />;
-  }
 
   const current = tabs.find((t) => t.key === active) ?? tabs[0];
 
@@ -92,7 +90,10 @@ export function EditBookTabs({
 
       <div style={{ display: active === "ebook" ? "block" : "none" }}>
         {ebookTab.mode === "edit" && ebookInitial ? (
-          <EbookSubmissionForm initial={ebookInitial} audiobookEnabled={enabledFormats.audiobook} />
+          <>
+            <EbookSubmissionForm initial={ebookInitial} audiobookEnabled={enabledFormats.audiobook} />
+            <DeleteEditionButton bookId={ebookTab.bookId} edition="digital" editionLabel="eBook and Audiobook" otherEditionExists={printTab.mode === "edit"} />
+          </>
         ) : enabledFormats.ebook ? (
           <EbookSubmissionForm audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setShared} />
         ) : (
@@ -100,8 +101,20 @@ export function EditBookTabs({
         )}
       </div>
       <div style={{ display: active === "print" ? "block" : "none" }}>
-        {printTab.mode === "edit" && printInitial ? (
-          <PrintSubmissionForm initial={printInitial} />
+        {combined && printTab.mode === "edit" ? (
+          <>
+            <div className="form-section" style={{ background: "var(--cream)" }}>
+              <p style={{ fontSize: 13.5, color: "var(--ink-soft)" }}>
+                This book was created with its eBook and print editions together, so its print settings are kept as they were created. You can delete the print edition below without touching the eBook and Audiobook.
+              </p>
+            </div>
+            <DeleteEditionButton bookId={printTab.bookId} edition="print" editionLabel="Print" otherEditionExists />
+          </>
+        ) : printTab.mode === "edit" && printInitial ? (
+          <>
+            <PrintSubmissionForm initial={printInitial} />
+            <DeleteEditionButton bookId={printTab.bookId} edition="print" editionLabel="Print" otherEditionExists={ebookTab.mode === "edit"} />
+          </>
         ) : enabledFormats.print ? (
           <PrintSubmissionForm prefill={shared ?? addPrefill} />
         ) : (

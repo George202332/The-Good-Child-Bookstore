@@ -6,7 +6,7 @@ import { LULU_CONFIG } from "@/lib/lulu-config";
 import { categoryOfSubcategory, type BookCategory } from "@/lib/taxonomy";
 import { attributeCategory, countBooksByCategory, type CategoryAttributionInput } from "@/lib/category-counts";
 import { groupEditions } from "@/lib/book-groups";
-import { identifierFor, type IdentifierFormat } from "@/lib/identifiers";
+import { identifierFor, printFieldsOf, type IdentifierFormat } from "@/lib/identifiers";
 import { genreLabelFromShelfId, shelfIdFromGenreLabel } from "@/lib/shelf-mapping";
 import {
   effectiveRestrictedCountries,
@@ -194,12 +194,10 @@ function toCatalogBook(row: RealBookRow): Book {
   };
 }
 
-type PrintIsbns = { paperback?: string; hardcover?: string };
-
 function identifiersOf(row: RealBookRow): NonNullable<Book["identifiers"]> {
   const src = {
     isbn: row.isbn, hasEbook: row.hasEbook, hasAudiobook: row.hasAudiobook, hasPrint: row.hasPrint,
-    printIsbns: ((row.submissionMetadata as { printIsbns?: PrintIsbns } | null)?.printIsbns) ?? undefined,
+    ...printFieldsOf(row.submissionMetadata),
   };
   const out: NonNullable<Book["identifiers"]> = {};
   for (const f of ["ebook", "audiobook", "paperback", "hardcover"] as IdentifierFormat[]) out[f] = identifierFor(src, f);

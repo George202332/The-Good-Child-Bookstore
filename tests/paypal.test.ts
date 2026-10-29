@@ -40,3 +40,32 @@ test("sandbox and live use different PayPal addresses", () => {
   assert.match(paypalBaseUrl("sandbox"), /sandbox/);
   assert.doesNotMatch(paypalBaseUrl("live"), /sandbox/);
 });
+
+import { buildVerifyBody, isSuccessfulVerification, planPaypalEvent } from "../lib/payments/paypal-webhook";
+
+test("webhook verification body needs every signature header", () => {
+  const full = new Headers({ "paypal-auth-algo": "a", "paypal-cert-url": "c", "paypal-transmission-id": "i", "paypal-transmission-sig": "s", "paypal-transmission-time": "t" });
+  const body = buildVerifyBody(full, "WH-1", { id: "E1" });
+  assert.equal(body?.webhook_id, "WH-1");
+  assert.deepEqual(body?.webhook_event, { id: "E1" });
+  const missing = new Headers({ "paypal-auth-algo": "a" });
+  assert.equal(buildVerifyBody(missing, "WH-1", {}), null);
+});
+
+test("only SUCCESS counts as a verified signature", () => {
+  assert.equal(isSuccessfulVerification({ verification_status: "SUCCESS" }), true);
+  assert.equal(isSuccessfulVerification({ verification_status: "FAILURE" }), false);
+  assert.equal(isSuccessfulVerification(null), false);
+});
+
+test("webhook events: approved orders are captured, completed captures are checked, the rest ignored", () => {
+  assert.deepEqual(planPaypalEvent({ event_type: "CHECKOUT.ORDER.APPROVED", resource: { id: "PO1" } }), { action: "capture", paypalOrderId: "PO1" });
+  assert.deepEqual(planPaypalEvent({ event_type: "PAYMENT.CAPTURE.COMPLETED", resource: { supplementary_data: { related_ids: { order_id: "PO2" } } } }), { action: "check", paypalOrderId: "PO2" });
+  assert.equal(planPaypalEvent({ event_type: "PAYMENT.CAPTURE.DENIED", resource: { id: "x" } }), null);
+  assert.equal(planPaypalEvent({ event_type: "CHECKOUT.ORDER.APPROVED" }), null);
+});
+
+test("the order asks PayPal to offer both PayPal login and card", () => {
+  const b = buildPaypalOrderBody("o", 1, "r", "c");
+  assert.equal(b.payment_source.paypal.experience_context.landing_page, "NO_PREFERENCE");
+});

@@ -60,7 +60,7 @@ export const PRINT_METADATA_KEYS = [
   "hardcoverRetailPrice", "foilStampTitleText", "foilStampAuthorText", "printReadyPdfFileId",
   "frontCoverImageUrl", "customBackCoverPdfFileId", "backCoverMode", "sellThroughWebsite",
   "luluGlobalDistribution", "privatePrinting", "affiliateEligiblePrint", "promotionalCampaignEligible",
-  "printPreflight", "printIsbns",
+  "printPreflight", "printIsbns", "printIsbn",
 ] as const;
 
 /** Metadata keys that belong to the eBook / audiobook edition (kept when the Print form saves). */

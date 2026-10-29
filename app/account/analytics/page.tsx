@@ -4,7 +4,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { getAuthorAnalytics } from "@/actions/author-analytics";
 import { getAuthorBooksTable } from "@/actions/author-books-table";
 import { BarChart } from "@/components/charts/BarChart";
-import { PieChart } from "@/components/charts/PieChart";
+import { PieChart, ChartLegend } from "@/components/charts/PieChart";
 import { WorldMap } from "@/components/charts/WorldMap";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
@@ -80,14 +80,10 @@ export default async function AuthorAnalyticsPage() {
             <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No sales recorded yet.</p>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {data.topCountriesWithPct.map((c, i) => (
-                  <div key={c.country} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: REGION_COLORS[i], display: "inline-block" }} />
-                    <span style={{ fontSize: 13.5, fontWeight: 600 }}>{c.country}: {c.count} {c.count === 1 ? "copy" : "copies"}</span>
-                  </div>
-                ))}
-              </div>
+              <ChartLegend
+                total={data.topCountriesWithPct.reduce((n, c) => n + c.count, 0)}
+                data={data.topCountriesWithPct.map((c, i) => ({ label: c.country, value: c.count, color: REGION_COLORS[i] }))}
+              />
               <PieChart
                 size={140}
                 data={data.topCountriesWithPct.map((c, i) => ({ label: c.country, value: c.count, color: REGION_COLORS[i] }))}

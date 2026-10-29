@@ -3,7 +3,7 @@
  * author's My Books and in the admin books table. Display only: it reads the records of
  * one title (see lib/book-groups.ts) and never changes them.
  */
-import { identifierFor, snColumn, isbnColumn } from "@/lib/identifiers";
+import { identifierFor, snColumn, isbnColumn, printFieldsOf } from "@/lib/identifiers";
 
 export type TabKey = "ebook" | "print" | "audiobook";
 
@@ -53,8 +53,7 @@ export function preflightOf(meta: unknown): PreflightView | null {
 }
 
 function src(r: FormatViewRow) {
-  const meta = r.submissionMetadata as { printIsbns?: { paperback?: string; hardcover?: string } } | null;
-  return { isbn: r.isbn, hasEbook: r.hasEbook, hasAudiobook: r.hasAudiobook, hasPrint: r.hasPrint, printIsbns: meta?.printIsbns ?? null };
+  return { isbn: r.isbn, hasEbook: r.hasEbook, hasAudiobook: r.hasAudiobook, hasPrint: r.hasPrint, ...printFieldsOf(r.submissionMetadata) };
 }
 
 /** One tab per format that exists in the group, each from the record that sells it. */
@@ -75,15 +74,13 @@ export function formatTabsOf(group: readonly FormatViewRow[]): FormatTabView[] {
   }
   const p = owner((r) => r.hasPrint);
   if (p) {
-    const pb = identifierFor(src(p), "paperback").value;
-    const hc = identifierFor(src(p), "hardcover").value;
+    const isbn = identifierFor(src(p), "paperback").value;
     tabs.push({
       key: "print", label: LABEL.print, bookId: p.id, status: p.status,
       details: [
         { label: "Paperback price", value: money(p.paperbackPrice) ?? "Not offered" },
         { label: "Hardcover price", value: money(p.hardcoverPrice) ?? "Not offered" },
-        { label: "Paperback ISBN", value: pb ?? "ISBN pending" },
-        { label: "Hardcover ISBN", value: hc ?? "ISBN pending" },
+        { label: "ISBN", value: isbn ?? "ISBN pending" },
       ],
       preflight: preflightOf(p.submissionMetadata),
     });

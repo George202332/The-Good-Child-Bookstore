@@ -38,6 +38,9 @@ export function buildPaypalOrderBody(orderId: string, amountUsd: number, returnU
         experience_context: {
           brand_name: "The Good Child Bookstore",
           shipping_preference: "NO_SHIPPING",
+          // PayPal's own page lets the buyer either log in with their PayPal account or
+          // pay with a debit/credit card (guest checkout). Card numbers are only typed there.
+          landing_page: "NO_PREFERENCE",
           user_action: "PAY_NOW",
           return_url: returnUrl,
           cancel_url: cancelUrl,
@@ -85,7 +88,7 @@ export function evaluatePaypalCapture(
   return { ok: true };
 }
 
-async function getAccessToken(): Promise<{ token: string; base: string }> {
+export async function getAccessToken(): Promise<{ token: string; base: string }> {
   const { clientId, clientSecret, environment } = await getPaypalCredentials();
   if (!clientId || !clientSecret) throw new Error("PayPal isn't set up yet.");
   const base = paypalBaseUrl(environment);
@@ -144,4 +147,15 @@ export async function capturePaypalOrder(paypalOrderId: string): Promise<PaypalO
     if (get.ok) return (await get.json()) as PaypalOrderResponse;
   }
   throw new Error(`PayPal could not capture the payment (${res.status}).`);
+}
+
+/** Reads an order back from PayPal (used by the webhook to check a payment for itself). */
+export async function getPaypalOrder(paypalOrderId: string): Promise<PaypalOrderResponse> {
+  const { token, base } = await getAccessToken();
+  const res = await fetch(`${base}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`PayPal could not return the order (${res.status}).`);
+  return (await res.json()) as PaypalOrderResponse;
 }
