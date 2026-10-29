@@ -40,7 +40,7 @@ export function GetLinkButton({ bookId, bookSlug, existingCode }: { bookId: stri
           })
         }
       >
-        {isPending ? "Generating…" : "Get link"}
+        {isPending ? "Generating…" : "Get Link"}
       </button>
       {error && <div style={{ fontSize: 11.5, color: "var(--coral-deep)" }}>{error}</div>}
     </div>

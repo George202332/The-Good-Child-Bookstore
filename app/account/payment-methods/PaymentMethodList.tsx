@@ -19,7 +19,7 @@ export function PaymentMethodList({ initial }: { initial: SavedPaymentMethodRow[
           <div style={{ display: "flex", gap: 8 }}>
             {!m.isDefault && (
               <button type="button" className="btn btn-ghost btn-small" onClick={async () => { await setDefaultPaymentMethod(m.id); router.refresh(); }}>
-                Make default
+                Make Default
               </button>
             )}
             <button type="button" className="btn btn-ghost btn-small" onClick={async () => { await deleteSavedPaymentMethod(m.id); router.refresh(); }}>

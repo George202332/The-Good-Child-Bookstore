@@ -66,7 +66,7 @@ export default async function PerformancePage() {
 
       <div className="dash-grid-perf" style={{ marginBottom: 24 }}>
         <div className="map-card" style={{ padding: 20, margin: 0 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Clicks per month</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Clicks per Month</h3>
           <p className="field-hint" style={{ margin: "0 0 14px" }}>January through December, {new Date().getFullYear()}.</p>
           <div>
             {data.monthlyClicks.map((m) => (
@@ -82,7 +82,7 @@ export default async function PerformancePage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 20, height: "100%" }}>
           <div className="map-card" style={{ padding: 20, margin: 0, flex: 1 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Clicks by region</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Clicks by Region</h3>
             {data.countryBreakdown.length === 0 ? (
               <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No clicks yet.</p>
             ) : (
@@ -90,7 +90,7 @@ export default async function PerformancePage() {
             )}
           </div>
           <div className="map-card" style={{ padding: 20, margin: 0, flex: 1 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Conversions by book</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Conversions by Book</h3>
             {data.linkBreakdown.filter((l) => l.conversions > 0).length === 0 ? (
               <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No conversions yet.</p>
             ) : (
@@ -105,14 +105,14 @@ export default async function PerformancePage() {
       </div>
 
       <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
-        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Where your clicks come from</h3>
+        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Where Your Clicks Come From</h3>
         <p className="field-hint" style={{ margin: "0 0 14px" }}>Countries highlighted below have at least one click on one of your links.</p>
         <div style={{ height: 280, marginLeft: -20, marginRight: -20, width: "calc(100% + 40px)" }}>
           <WorldMap highlightedCountryCodes={countryCodes} />
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Link performance</h3>
+      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Link Performance</h3>
       <div className="map-card tinted-red" style={{ padding: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>

@@ -119,10 +119,10 @@ export function LibraryClient({ items }: { items: LibraryItem[] }) {
           </p>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <button type="button" className="btn btn-primary btn-small" onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}>
-              Choose files
+              Choose Files
             </button>
             <button type="button" className="btn btn-ghost btn-small" onClick={(e) => { e.stopPropagation(); dirInputRef.current?.click(); }}>
-              Choose a folder
+              Choose a Folder
             </button>
           </div>
           <input ref={fileInputRef} type="file" multiple hidden onChange={(e) => handleFiles(e.target.files)} />
@@ -140,7 +140,7 @@ export function LibraryClient({ items }: { items: LibraryItem[] }) {
         <div style={{ display: "flex", gap: 8 }}>
           {visible.length > 0 && (
             <button type="button" className="btn btn-ghost btn-small" onClick={selected.size === visible.length ? clearSelection : selectAll}>
-              {selected.size === visible.length ? "Deselect all" : "Select all"}
+              {selected.size === visible.length ? "Deselect All" : "Select All"}
             </button>
           )}
           {selected.size > 0 && (

@@ -75,8 +75,8 @@ export function GoogleIndexingTable({ rows }: { rows: GoogleIndexingRow[] }) {
     <div>
       <div className="stat-grid" style={{ marginBottom: 16 }}>
         <div className="stat-card"><div className="stat-label">Healthy</div><div className="stat-value">{healthyCount}</div><div className="stat-sub">Public, indexable, no issues</div></div>
-        <div className="stat-card"><div className="stat-label">Needs attention</div><div className="stat-value">{warningCount}</div><div className="stat-sub">Eligible but a submission failed</div></div>
-        <div className="stat-card"><div className="stat-label">Intentionally excluded</div><div className="stat-value">{excludedCount}</div><div className="stat-sub">Private/auth/API — expected, not a problem</div></div>
+        <div className="stat-card"><div className="stat-label">Needs Attention</div><div className="stat-value">{warningCount}</div><div className="stat-sub">Eligible but a submission failed</div></div>
+        <div className="stat-card"><div className="stat-label">Intentionally Excluded</div><div className="stat-value">{excludedCount}</div><div className="stat-sub">Private/auth/API — expected, not a problem</div></div>
       </div>
 
       <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>

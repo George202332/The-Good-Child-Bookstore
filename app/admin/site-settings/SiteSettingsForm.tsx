@@ -85,7 +85,7 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
         onChange={(e) => setSettings((s) => ({ ...s, footerCopyright: e.target.value }))}
       />
 
-      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Payment badge images (footer)</h3>
+      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Payment Badge Images (Footer)</h3>
       <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>
         Each of these already shows a real card-style icon by default. Upload an image here to replace it — for
         example, if you have the rights to use the official logo for that brand.
@@ -104,7 +104,7 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
 
       <PayoutMethodToggles initial={{ paypalPayoutsEnabled: settings.paypalPayoutsEnabled, mpesaPayoutsEnabled: settings.mpesaPayoutsEnabled }} />
 
-      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Social media icons (footer)</h3>
+      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Social Media Icons (Footer)</h3>
       <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>
         6 slots total. Each one needs a destination link to show up in the footer at all — set that first, then
         optionally upload a logo image to replace the plain built-in icon.
@@ -138,7 +138,7 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
         </div>
       ))}
 
-      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>API credentials moved</h3>
+      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>API Credentials Moved</h3>
       <p className="field-hint" style={{ margin: "0 0 12px" }}>
         All third-party API keys and credentials (Paystack, Lulu, Resend, Google Workspace) now live
         in their own dedicated page — see <Link href="/admin/api-management">Admin → API Management</Link>.
@@ -148,7 +148,7 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
       {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved — live on the site now.</div>}
       {warning && <div className="field-hint" style={{ color: "#6B4503" }}>{warning}</div>}
       <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
-        {submitting ? "Saving…" : "Save branding & site settings"}
+        {submitting ? "Saving…" : "Save Branding & Site Settings"}
       </button>
     </form>
   );

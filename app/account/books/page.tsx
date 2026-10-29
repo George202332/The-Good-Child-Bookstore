@@ -81,7 +81,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
           <h2 style={{ fontSize: 15.5 }}>My Books</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Your titles and how each is performing.</p>
         </div>
-        <Link href="/account/books/new" className="btn btn-primary btn-small">Submit a new title</Link>
+        <Link href="/account/books/new" className="btn btn-primary btn-small">Submit a New Title</Link>
       </div>
       {savedNotice && (
         <div role="status" className="field-hint" style={{ marginBottom: 14 }}>{savedNotice}</div>

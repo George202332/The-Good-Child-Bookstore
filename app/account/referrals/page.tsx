@@ -83,7 +83,7 @@ export default async function ReferralsPage() {
           <div className="stat-sub">All time</div>
         </div>
         <div className="stat-card stat-card-total">
-          <div className="stat-label">Company Revenue From Them</div>
+          <div className="stat-label">Company Revenue from Them</div>
           <div className="stat-value">${summary.companyRevenueFromReferredAuthors.toFixed(2)}</div>
           <div className="stat-sub">All time</div>
         </div>
@@ -96,7 +96,7 @@ export default async function ReferralsPage() {
 
       {profile?.referralCode && (
         <div className="map-card tinted-peach" style={{ padding: 24, marginBottom: 20 }}>
-          <h3 style={{ fontSize: 17, marginBottom: 8 }}>We reward the work you put in</h3>
+          <h3 style={{ fontSize: 17, marginBottom: 8 }}>We Reward the Work You Put In</h3>
           <p style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.7, marginBottom: "4mm" }}>
             Every author you introduce to this platform becomes a lasting partnership, not just a single
             referral—and we believe our partnership with you should be just as enduring. As you refer more authors,
@@ -106,7 +106,7 @@ export default async function ReferralsPage() {
             lifetime income alongside us.
           </p>
           <div style={{ background: "#fff", borderRadius: 10, padding: 16 }}>
-            <h4 style={{ fontSize: 14, marginBottom: 6 }}>Refer an author</h4>
+            <h4 style={{ fontSize: 14, marginBottom: 6 }}>Refer an Author</h4>
             <p style={{ fontSize: 13, color: "var(--ink-soft)", marginBottom: 10 }}>
               Share this link with any author: if they sign up through it, you earn {referralPctLabel} of the
               company&apos;s revenue from their book sales, for as long as they publish with us — your current tier
@@ -174,7 +174,7 @@ export default async function ReferralsPage() {
         })}
       </div>
 
-      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Authors you&apos;ve referred</h3>
+      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Authors You&apos;ve Referred</h3>
       <div className="map-card tinted-peach" style={{ padding: 20 }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

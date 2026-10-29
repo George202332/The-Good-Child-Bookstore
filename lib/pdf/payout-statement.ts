@@ -143,14 +143,15 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
           { label: "Gross", w: 0.12, align: "right" as const }, { label: "Earnings", w: 0.12, align: "right" as const },
         ]
       : [
-          { label: "Title", w: 0.3 }, { label: "Format", w: 0.14 },
-          { label: "Price", w: 0.12, align: "right" as const }, { label: "Copies", w: 0.1, align: "right" as const },
-          { label: "Gross", w: 0.14, align: "right" as const }, { label: "Company", w: 0.1, align: "right" as const }, { label: "Earnings", w: 0.1, align: "right" as const },
+          { label: "Title", w: 0.26 }, { label: "Format", w: 0.12 },
+          { label: "Price", w: 0.1, align: "right" as const }, { label: "Copies", w: 0.08, align: "right" as const },
+          { label: "Gross", w: 0.13, align: "right" as const }, { label: "Printing Cost", w: 0.13, align: "right" as const },
+          { label: "Company", w: 0.09, align: "right" as const }, { label: "Earnings", w: 0.09, align: "right" as const },
         ];
     const rowValues = rows.map((r) =>
       hideCompanyColumn
         ? [r.title, r.format, money(r.price), String(r.copies), money(r.gross), money(r.yourEarnings)]
-        : [r.title, r.format, money(r.price), String(r.copies), money(r.gross), money(r.companyShare), money(r.yourEarnings)]
+        : [r.title, r.format, money(r.price), String(r.copies), money(r.gross), r.printingCost > 0 ? money(r.printingCost) : "—", money(r.companyShare), money(r.yourEarnings)]
     );
     drawTable(columns, rowValues, [{ label: totalLabel, value: money(totals.earnings) }]);
   }

@@ -34,7 +34,7 @@ export function AutoPayoutInfo({
   const pendingAvailable = Math.max(0, available - rolledOver);
   return (
     <div className="form-section" style={{ background: "var(--cream)" }}>
-      <h3 style={{ fontSize: 15, marginBottom: 8 }}>How payouts work now</h3>
+      <h3 style={{ fontSize: 15, marginBottom: 8 }}>How Payouts Work Now</h3>
       <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 14 }}>
         Nothing to request — everything you earn is reviewed once it&apos;s confirmed and, once it clears the $30
         minimum, is released by the 15th. An admin reviews and sends the payment from there.

@@ -328,7 +328,7 @@ export function CheckoutClient({
           <svg className="motif-big" viewBox="0 0 100 100"><Motif kind="star" color="#DED2F5" /></svg>
           <h2>Your cart is empty.</h2>
           <p style={{ color: "var(--ink-soft)", margin: "10px 0 24px" }}>Add a few books before checking out.</p>
-          <Link href="/bookshelf" className="btn btn-primary">Browse the bookshelf</Link>
+          <Link href="/bookshelf" className="btn btn-primary">Browse the Bookshelf</Link>
         </div>
       </div>
     );
@@ -371,7 +371,7 @@ export function CheckoutClient({
                     {isDigital ? (
                       <div className="cart-item-digital-note">Instant digital delivery — no shipping</div>
                     ) : (
-                      <div className="cart-item-digital-note">Printed and shipped by Lulu Publishing</div>
+                      <div className="cart-item-digital-note">Fulfilled by Lulu</div>
                     )}
                   </div>
                   {isDigital || isDirectBuy ? (
@@ -402,7 +402,7 @@ export function CheckoutClient({
             })}
           </div>
           <div className="checkout-summary-card">
-            <h3>Order summary</h3>
+            <h3>Order Summary</h3>
             <div className="summary-row"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
             {hasPrintItem && <div className="summary-row"><span>Shipping (printed copies)</span><span>Added at checkout</span></div>}
             <div className="summary-row total"><span>{hasPrintItem ? "Total before shipping" : "Total"}</span><span>${subtotal.toFixed(2)}</span></div>
@@ -473,30 +473,37 @@ export function CheckoutClient({
                 {shippingOptions.length === 0 ? (
                   <div className="field-hint">Choose your country above to see the shipping methods and prices available to you.</div>
                 ) : (
-                  shippingOptions.map((o) => (
-                    <label key={o.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13.5, marginBottom: 6, cursor: "pointer" }}>
-                      <input
-                        type="radio"
-                        name="co-shipping-level"
-                        value={o.id}
-                        checked={shippingLevel === o.id}
-                        onChange={() => setShippingLevel(o.id)}
-                        style={{ marginTop: 3 }}
-                      />
-                      <span><strong>{o.label}</strong> — ${o.amount.toFixed(2)}{o.source === "estimate" ? " (estimate)" : ""} · {o.detail}</span>
-                    </label>
-                  ))
+                  <div className="ship-options">
+                    {shippingOptions.map((o) => (
+                      <label key={o.id} className={`ship-option${shippingLevel === o.id ? " selected" : ""}`}>
+                        <input
+                          type="radio"
+                          name="co-shipping-level"
+                          value={o.id}
+                          checked={shippingLevel === o.id}
+                          onChange={() => setShippingLevel(o.id)}
+                        />
+                        <span className="ship-option-body">
+                          <span className="ship-option-top">
+                            <strong>{o.label}</strong>
+                            <span className="ship-option-price">${o.amount.toFixed(2)}{o.source === "estimate" ? " (estimate)" : ""}</span>
+                          </span>
+                          <span className="ship-option-detail">{o.detail}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 )}
               </fieldset>
             </>
           )}
-          <div className="field-hint">
+          <div className="field-hint ship-note">
             {hasPrintItem
               ? "Your print copy will be printed and shipped to this address. Shipping is paid by you and is added to your total."
               : "Books are delivered digitally; this address is used for billing and tax purposes only."}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 10 }}>
-            <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(1)}>← Back to cart</button>
+            <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(1)}>← Back to Cart</button>
             <button className="btn btn-primary btn-small" type="submit">Continue</button>
           </div>
         </form>
@@ -505,7 +512,7 @@ export function CheckoutClient({
       {step === 3 && (
         <div style={{ maxWidth: 440, margin: "0 auto" }}>
           <div className="checkout-summary-card" style={{ position: "static" }}>
-            <h3>Order summary</h3>
+            <h3>Order Summary</h3>
             {lines.map((l) => (
               <div className="checkout-summary-item" key={l.book.id}>
                 <div className="mini-cover">
@@ -517,14 +524,17 @@ export function CheckoutClient({
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 13.5 }}>{l.book.title}</div>
                   <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Qty {l.qty}</div>
+                  {(l.format === "paperback" || l.format === "hardcover") && (
+                    <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Fulfilled by Lulu</div>
+                  )}
                 </div>
                 <div style={{ fontWeight: 700, fontSize: 13.5 }}>${(priceFor(l.book, l.format) * l.qty).toFixed(2)}</div>
               </div>
             ))}
-            <div className="summary-row" style={{ marginTop: 14 }}><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
+            <div className="summary-row" style={{ marginTop: 14 }}><span>{hasPrintItem ? "Books" : "Subtotal"}</span><span>${subtotal.toFixed(2)}</span></div>
             {hasPrintItem && (
               <div className="summary-row">
-                <span>Shipping{chosenShipping ? ` (${chosenShipping.label})` : ""}</span>
+                <span>Shipping{chosenShipping ? ` (${chosenShipping.label}, as quoted by Lulu)` : ""}</span>
                 <span>{chosenShipping ? `$${chosenShipping.amount.toFixed(2)}${chosenShipping.source === "estimate" ? " (estimate)" : ""}` : "Choose a method"}</span>
               </div>
             )}
@@ -534,7 +544,7 @@ export function CheckoutClient({
           {restrictedNotice && <div style={{ marginTop: 16 }}>{restrictedNotice}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 20 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(2)}>← Back</button>
-            <button className="btn btn-primary btn-small" disabled={hasRestricted} onClick={() => goTo(4)}>Continue to payment</button>
+            <button className="btn btn-primary btn-small" disabled={hasRestricted} onClick={() => goTo(4)}>Continue to Payment</button>
           </div>
         </div>
       )}
@@ -543,7 +553,7 @@ export function CheckoutClient({
         <div style={{ maxWidth: 400, margin: "0 auto" }}>
           {savedMethods.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <h4 style={{ fontSize: 13.5, marginBottom: 8 }}>Pay with a saved card</h4>
+              <h4 style={{ fontSize: 13.5, marginBottom: 8 }}>Pay with a Saved Card</h4>
               {savedMethods.map((m) => (
                 <div key={m.id} className="payment-method-card payment-method-card-compact" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
@@ -615,7 +625,7 @@ export function CheckoutClient({
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(3)}>← Back</button>
             {(availability === null || availability.paystack) && (
               <button className="btn btn-primary btn-small" onClick={completeOrder} disabled={submitting || hasRestricted || availability === null}>
-                {submitting ? "Processing…" : "Pay by card"}
+                {submitting ? "Processing…" : "Pay by Card"}
               </button>
             )}
           </div>

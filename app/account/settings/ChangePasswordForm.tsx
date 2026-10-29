@@ -35,7 +35,7 @@ export function ChangePasswordForm() {
 
   return (
     <form onSubmit={handleSubmit} className="map-card" style={{ padding: 24 }}>
-      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Change password</h3>
+      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Change Password</h3>
       <p className="field-hint" style={{ margin: "0 0 16px" }}>
         If you checked out as a guest, use the temporary password from your confirmation email as your current
         password here, then set a real one.
@@ -49,7 +49,7 @@ export function ChangePasswordForm() {
       {error && <p className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</p>}
       {saved && <p className="field-hint" style={{ color: "#165236" }}>Password changed.</p>}
       <button type="submit" className="btn btn-primary btn-small" disabled={submitting} style={{ marginTop: 8 }}>
-        {submitting ? "Saving…" : "Change password"}
+        {submitting ? "Saving…" : "Change Password"}
       </button>
     </form>
   );

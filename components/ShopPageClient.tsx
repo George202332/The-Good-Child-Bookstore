@@ -119,7 +119,7 @@ export function ShopPageClient({ books, query }: { books: Book[]; query: string 
           ))}
           {chips.length > 1 && (
             <button className="clear-filters" style={{ fontSize: 12.5 }} onClick={() => goTo(new URLSearchParams())}>
-              Clear all
+              Clear All
             </button>
           )}
         </div>
@@ -147,10 +147,10 @@ export function ShopPageClient({ books, query }: { books: Book[]; query: string 
             </div>
           ) : (
             <div className="empty-state">
-              <h3>No books match those filters yet</h3>
+              <h3>No Books Match Those Filters Yet</h3>
               <p>Try widening the age range or clearing a filter.</p>
               <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => goTo(new URLSearchParams())}>
-                Clear filters
+                Clear Filters
               </button>
             </div>
           )}

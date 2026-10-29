@@ -58,10 +58,15 @@ export async function getShippingOptions(input: ShippingOptionsInput): Promise<S
   const quotes = await quoteCartShipping({
     lines, countryIso: iso, rawAddress: input.address, phone: input.phone, name: input.name, levels: levels.map((l) => l.id),
   });
-  const rows: ShippingOptionRow[] = levels.map((l) => {
+  let rows: ShippingOptionRow[] = levels.map((l) => {
     const q = quotes.find((x) => x.level === l.id);
     return { id: l.id, label: l.label, detail: l.detail, amount: q?.amount ?? 0, source: q?.source ?? "estimate" };
   });
+  // Once Lulu has priced this address, only the methods Lulu itself offers are shown, each at
+  // Lulu's exact price. A method Lulu does not offer for this address is never shown with the
+  // store's estimate (estimates are only shown until the address is complete). The customer
+  // is charged exactly what Lulu quotes: no markup, no free-shipping rules.
+  if (rows.some((r) => r.source === "lulu")) rows = rows.filter((r) => r.source === "lulu");
   if (cache.size > 200) cache.clear();
   cache.set(key, { at: Date.now(), rows });
   return rows;

@@ -56,22 +56,22 @@ export default async function BlogAnalyticsPage() {
       </div>
 
       <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
-        <h3 style={{ fontSize: 15, marginBottom: 16 }}>Reads by month</h3>
+        <h3 style={{ fontSize: 15, marginBottom: 16 }}>Reads by Month</h3>
         <BarChart data={data.monthlyReads.map((m) => ({ label: m.month, value: m.reads }))} color="#1B3C8F" />
       </div>
 
       <div className="dash-grid-2" style={{ marginBottom: 24 }}>
         <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Reads by region</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Reads by Region</h3>
           <PieChart data={data.regionBreakdown.map((c, i) => ({ label: c.country, value: c.reads, color: REGION_COLORS[i % REGION_COLORS.length] }))} />
         </div>
         <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Top posts by reads</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Top Posts by Reads</h3>
           <BarChart data={data.topPosts.map((p) => ({ label: p.title, value: p.reads }))} color="#8C2F16" />
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Post performance</h3>
+      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Post Performance</h3>
       <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>

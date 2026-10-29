@@ -48,7 +48,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <PasswordField id="rp-confirm" required minLength={6} value={confirm} onChange={setConfirm} />
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       <button className="btn btn-primary" type="submit" disabled={submitting} style={{ width: "100%", justifyContent: "center", marginTop: 8 }}>
-        {submitting ? "Saving…" : "Set new password"}
+        {submitting ? "Saving…" : "Set New Password"}
       </button>
       <div className="auth-switch" style={{ marginTop: 16 }}>
         <Link href="/login">Back to sign in</Link>

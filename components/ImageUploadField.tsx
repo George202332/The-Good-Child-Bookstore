@@ -144,7 +144,7 @@ export function ImageUploadField({
           style={{ marginTop: 6, width: "100%", justifyContent: "center" }}
           onClick={() => document.getElementById(inputId)?.click()}
         >
-          Replace image
+          Replace Image
         </button>
       )}
     </div>

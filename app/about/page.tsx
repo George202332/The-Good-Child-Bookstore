@@ -47,7 +47,7 @@ export default async function AboutPage() {
           ) : (
             <p>{about.introText}</p>
           )}
-          <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 10 }}>Browse the bookshelf</Link>
+          <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 10 }}>Browse the Bookshelf</Link>
         </div>
         <div className="about-illustration">
           <svg viewBox="0 0 100 100"><Motif kind="owl" color="#9A7EDD" /></svg>
@@ -55,7 +55,7 @@ export default async function AboutPage() {
       </div>
 
       <div className="section-head" style={{ justifyContent: "center", textAlign: "center" }}>
-        <div style={{ margin: "0 auto" }}><h2>What we hold onto</h2></div>
+        <div style={{ margin: "0 auto" }}><h2>What We Hold Onto</h2></div>
       </div>
       <div className="value-grid">
         {VALUES.map((v, i) => (
@@ -69,7 +69,7 @@ export default async function AboutPage() {
 
       <div className="section-head" style={{ justifyContent: "center", textAlign: "center" }}>
         <div style={{ margin: "0 auto" }}>
-          <h2>The shelf team</h2>
+          <h2>The Shelf Team</h2>
           <p>Five people, one very full bookcase in the break room.</p>
         </div>
       </div>

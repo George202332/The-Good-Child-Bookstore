@@ -226,6 +226,10 @@ export async function createPendingOrder(input: {
   let shippingLevel: string | null = null;
   // What the customer pays for postage (the store never absorbs it).
   let shippingAmount: number | null = null;
+  // Lulu's quoted production printing cost per printed line, and its shipping / fulfilment charges.
+  const printingCostByLine = new Map<(typeof lines)[number], number>();
+  let luluShippingCost: number | null = null;
+  let luluFulfillmentCost: number | null = null;
   if (hasPrintLine) {
     const { buildLuluAddress, shippingProblems } = await import("@/lib/lulu-order");
     const addr = buildLuluAddress({
@@ -258,6 +262,46 @@ export async function createPendingOrder(input: {
       levels: [shippingLevel as import("@/lib/lulu-order").LuluShippingLevel],
     });
     shippingAmount = quote ? quote.amount : 0;
+
+    // The customer is charged EXACTLY what Lulu quotes for this address and method: an estimate
+    // is never charged. If Lulu cannot quote this method for this address, the order is not
+    // created (the checkout page only offers methods Lulu has priced for the address).
+    const { luluIsConfigured, quoteLuluCosts } = await import("@/lib/payments/lulu");
+    if (!(await luluIsConfigured())) {
+      return { ok: false, error: "Printed copies can't be ordered right now. Please try again later." };
+    }
+    if (!quote || quote.source !== "lulu") {
+      return { ok: false, error: "Lulu could not quote shipping for this address and method. Please check the address or choose another shipping method." };
+    }
+
+    // Lulu's production printing cost for each printed line, from Lulu's own cost calculator,
+    // saved on the sale line below so the royalty always matches what Lulu quoted at the time
+    // and is never recalculated later. Shipping is kept apart and never enters the split.
+    const printLines = lines.filter((l) => l.format === "paperback" || l.format === "hardcover");
+    const costAddress = buildLuluAddress({
+      name: input.shipName || input.guestName || "Customer",
+      email: "quote@thegoodchildbookstore.com",
+      rawAddress: input.shipAddress,
+      countryIso: shipIso ?? "",
+      phone: input.shipPhone,
+    });
+    const costs = await quoteLuluCosts(
+      printLines.map((l) => ({
+        title: l.book.title,
+        format: l.format as "paperback" | "hardcover",
+        quantity: l.qty,
+        submissionMetadata: l.book.submissionMetadata,
+        manuscriptUrl: l.book.files.find((f: { kind: string; url: string }) => f.kind === "MANUSCRIPT")?.url,
+      })),
+      costAddress,
+      shippingLevel as import("@/lib/lulu-order").LuluShippingLevel,
+    );
+    if (!costs.ok) {
+      return { ok: false, error: "We couldn't get Lulu's printing price for this order right now. Please try again in a moment." };
+    }
+    printLines.forEach((l, i) => printingCostByLine.set(l, costs.quote.lineCosts[i]));
+    luluShippingCost = costs.quote.shippingCost;
+    luluFulfillmentCost = costs.quote.fulfillmentCost;
   }
 
   const { readerProfileId, error } = await resolveReaderProfileId(input.guestEmail, input.guestName);
@@ -329,11 +373,15 @@ export async function createPendingOrder(input: {
       shipAddress: input.shipAddress?.trim() || null,
       shippingLevel,
       shippingAmount,
+      luluShippingCost,
+      luluFulfillmentCost,
       lines: {
         create: lines.map((l) => {
           const lineGross = +(l.unitPrice * l.qty).toFixed(2);
           const isAffiliateSale = affiliateBookId !== null && affiliateBookId === l.bookId;
-          let split = calculateSplits(lineGross, isAffiliateSale, commissionRates.promotionPct);
+          // Printed copies: Lulu's printing cost comes off the price before anything is split.
+          const printingCost = printingCostByLine.get(l) ?? null;
+          let split = calculateSplits(lineGross, isAffiliateSale, commissionRates.promotionPct, printingCost ?? 0);
           const referredById = l.book.author.referredById;
           if (referredById) split = applyAuthorReferralCarveOut(split, referralPctByAffiliateId.get(referredById) ?? 0);
           return {
@@ -342,6 +390,7 @@ export async function createPendingOrder(input: {
             affiliateLinkId: isAffiliateSale ? affiliateLinkId : null,
             saleType: split.saleType,
             grossAmount: split.gross,
+            printingCost,
             companyShare: split.companyShare,
             authorShare: split.authorShare,
             affiliateShare: split.affiliateShare,

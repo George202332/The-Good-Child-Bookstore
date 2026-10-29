@@ -28,7 +28,7 @@ export function SignOutButton({ className, callbackUrl = "/", isAdmin = false }:
   }
   return (
     <button type="button" className={className ?? "dashboard-sidebar-logout"} onClick={handleSignOut}>
-      Sign out
+      Sign Out
     </button>
   );
 }

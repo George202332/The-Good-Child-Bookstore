@@ -53,7 +53,7 @@ export function ReviewActions({
   if (pendingAction) {
     return (
       <div className="map-card" style={{ padding: 18, background: "#F5D98F" }}>
-        <h3 style={{ fontSize: 14, marginBottom: 8, color: "#6B4503" }}>Awaiting ratification</h3>
+        <h3 style={{ fontSize: 14, marginBottom: 8, color: "#6B4503" }}>Awaiting Ratification</h3>
         <p style={{ fontSize: 13, color: "#6B4503", marginBottom: 12 }}>
           {pendingActionBy ?? "An editor"} proposed to <strong>{pendingAction === "SUSPEND" ? "Suspend" : "Withdraw"}</strong> this book — Chief Editor and Admin have been notified.
         </p>

@@ -100,12 +100,12 @@ export function BlogPageTabs({ posts, defaultAuthorName }: { posts: BlogListItem
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Write a new post, or manage your existing ones.</p>
         </div>
         <button type="button" className="btn btn-primary btn-small" onClick={startNewPost}>
-          Submit a new blog
+          Submit a New Blog
         </button>
       </div>
       {tab === "submit" && (
         <button type="button" className="btn btn-ghost btn-small" style={{ marginBottom: 14 }} onClick={() => backToList()}>
-          ← Back to posts
+          ← Back to Posts
         </button>
       )}
 
@@ -121,7 +121,7 @@ export function BlogPageTabs({ posts, defaultAuthorName }: { posts: BlogListItem
           {posts.length === 0 ? (
             <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
               You haven&apos;t written any blogs yet.{" "}
-              <button type="button" className="btn btn-ghost btn-small" onClick={startNewPost}>Write your first blog</button>
+              <button type="button" className="btn btn-ghost btn-small" onClick={startNewPost}>Write Your First Blog</button>
             </div>
           ) : (
             <>

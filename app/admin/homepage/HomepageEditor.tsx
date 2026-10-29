@@ -54,7 +54,7 @@ export function HomepageEditor({ initial }: { initial: HomepageContent }) {
         onChange={(e) => setContent((c) => ({ ...c, lede: e.target.value }))}
       />
 
-      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Promo banners</h3>
+      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Promo Banners</h3>
 
       <label className="field-label" htmlFor="banner-bookclub-title">Book Club banner title</label>
       <input className="field" id="banner-bookclub-title" type="text" value={content.bookClubBannerTitle} onChange={(e) => setContent((c) => ({ ...c, bookClubBannerTitle: e.target.value }))} />
@@ -79,7 +79,7 @@ export function HomepageEditor({ initial }: { initial: HomepageContent }) {
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       {saved && <div className="field-hint" style={{ color: "#1F6B48" }}>Saved — live on the homepage now.</div>}
       <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
-        {submitting ? "Saving…" : "Save changes"}
+        {submitting ? "Saving…" : "Save Changes"}
       </button>
     </form>
   );

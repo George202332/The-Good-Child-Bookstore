@@ -33,17 +33,17 @@ export default async function InvestorOverviewPage() {
         <a className="btn btn-ghost btn-small" href="/api/investor/overview">Export CSV</a>
       </div>
 
-      <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Revenue growth (gross, monthly)</h3>
+      <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Revenue Growth (Gross, Monthly)</h3>
       <div className="map-card" style={{ padding: 16, marginBottom: 24 }}>
         <BarChart data={growth.map((g) => ({ label: g.month, value: Math.round(g.revenue) }))} color="var(--coral)" valueSuffix="" />
       </div>
 
-      <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Order volume growth (monthly)</h3>
+      <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Order Volume Growth (Monthly)</h3>
       <div className="map-card" style={{ padding: 16, marginBottom: 24 }}>
         <BarChart data={growth.map((g) => ({ label: g.month, value: g.orders }))} color="var(--mint-deep)" />
       </div>
 
-      <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>New user signups (all roles, monthly)</h3>
+      <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>New User Signups (All Roles, Monthly)</h3>
       <div className="map-card" style={{ padding: 16, marginBottom: 24 }}>
         <BarChart data={growth.map((g) => ({ label: g.month, value: g.newUsers }))} color="var(--lavender-deep)" />
       </div>

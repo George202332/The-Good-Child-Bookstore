@@ -37,7 +37,7 @@ export function ResetOrdersButton() {
   return (
     <>
       <button type="button" className="btn btn-ghost btn-small" onClick={() => { setError(null); setOpen(true); }}>
-        Reset all orders
+        Reset All Orders
       </button>
       {done && (
         <p className="field-hint" style={{ color: "#165236", marginTop: 6 }}>
@@ -46,7 +46,7 @@ export function ResetOrdersButton() {
       )}
       {open && (
         <Modal onClose={() => !isPending && setOpen(false)} maxWidth={440}>
-            <h3 style={{ fontSize: 16, marginBottom: 8 }}>Permanently delete every order?</h3>
+            <h3 style={{ fontSize: 16, marginBottom: 8 }}>Permanently Delete Every Order?</h3>
             <p style={{ fontSize: 13.5, color: "var(--admin-text-faint, #6B7385)", marginBottom: 16 }}>
               This deletes <strong>every order</strong> on the platform — real or test — along with every sale line,
               payment log, and invoice tied to them. Revenue, royalty, and commission totals across the dashboard,
@@ -57,7 +57,7 @@ export function ResetOrdersButton() {
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => setOpen(false)}>Cancel</button>
               <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={handleConfirm}>
-                {isPending ? "Deleting…" : "Yes, delete every order"}
+                {isPending ? "Deleting…" : "Yes, Delete Every Order"}
               </button>
             </div>
         </Modal>

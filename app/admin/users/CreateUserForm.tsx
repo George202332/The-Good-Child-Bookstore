@@ -66,7 +66,7 @@ export function CreateUserForm() {
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       {success && <div className="field-hint" style={{ color: "#165236" }}>{success}</div>}
       <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
-        {submitting ? "Creating…" : "Create account"}
+        {submitting ? "Creating…" : "Create Account"}
       </button>
     </form>
   );

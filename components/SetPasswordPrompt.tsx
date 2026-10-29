@@ -49,7 +49,7 @@ export function SetPasswordPrompt({ highlight }: { highlight?: boolean }) {
       <PasswordField id="sp-confirm" required minLength={6} value={confirm} onChange={setConfirm} autoComplete="new-password" />
       {error && <p role="alert" style={{ fontSize: 12.5, color: "var(--coral-deep)", margin: "6px 0 0" }}>{error}</p>}
       <button type="submit" className="btn btn-primary btn-small" disabled={busy} style={{ marginTop: 10 }}>
-        {busy ? "Saving…" : "Save my password"}
+        {busy ? "Saving…" : "Save My Password"}
       </button>
     </form>
   );

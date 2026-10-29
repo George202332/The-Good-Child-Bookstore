@@ -186,7 +186,7 @@ export function FileUploadField({
           style={{ marginTop: 6 }}
           onClick={() => { setFileNames([]); setError(null); onRemove(); }}
         >
-          Remove file
+          Remove File
         </button>
       )}
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}

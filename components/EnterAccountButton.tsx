@@ -42,7 +42,7 @@ export function EnterAccountButton({ orderId, accessKey }: { orderId: string; ac
   return (
     <div>
       <button type="button" className="btn btn-primary" style={{ width: "100%", textAlign: "center" }} disabled={busy} onClick={go}>
-        {busy ? "Signing you in…" : "Go to my new account"}
+        {busy ? "Signing You In…" : "Go to My New Account"}
       </button>
       {error && <p role="alert" style={{ fontSize: 12.5, color: "var(--coral-deep)", margin: "8px 0 0", textAlign: "center" }}>{error}</p>}
     </div>

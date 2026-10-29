@@ -52,7 +52,7 @@ export function BrowseBooksSection({ books }: { books: BrowsableBook[] }) {
   return (
     <div className="map-card" style={{ padding: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
-        <h3 style={{ fontSize: 15, margin: 0 }}>Browse all books</h3>
+        <h3 style={{ fontSize: 15, margin: 0 }}>Browse All Books</h3>
         {/* flexWrap here (missing before) is what keeps "Latest Published" —
            the longest of these three tab labels, and white-space:nowrap by
            design (see .view-tab) — from spilling out past the card's edge

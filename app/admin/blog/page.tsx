@@ -50,7 +50,7 @@ export default async function BlogModerationPage({
           <div className="stat-sub">Live on the journal</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Under review</div>
+          <div className="stat-label">Under Review</div>
           <div className="stat-value">{stats.pendingReview}</div>
           <div className="stat-sub">Waiting on a decision</div>
         </div>
@@ -60,7 +60,7 @@ export default async function BlogModerationPage({
           <div className="stat-sub">Not yet submitted</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Under revision</div>
+          <div className="stat-label">Under Revision</div>
           <div className="stat-value">{stats.rejected}</div>
           <div className="stat-sub">Sent back to the author</div>
         </div>

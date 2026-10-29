@@ -349,7 +349,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
             className="btn btn-ghost btn-small"
             onClick={() => { setQuery(""); setAffiliateFilter("ALL"); setStatusFilter("ALL"); setMonth("ALL"); setYear("ALL"); }}
           >
-            Clear filters
+            Clear Filters
           </button>
         )}
       </div>
@@ -375,11 +375,11 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
             title={summary.payableCount === 0 ? "None of the selected rows can be marked paid yet (only Pending payouts can)" : `Mark the ${summary.payableCount} payable selected payout${summary.payableCount === 1 ? "" : "s"} as paid`}
             onClick={runBulkMarkPaid}
           >
-            {isBulkPending ? "Marking…" : "Mark selected as paid"}
+            {isBulkPending ? "Marking…" : "Mark Selected as Paid"}
           </button>
           {summary.count > 0 && (
             <button type="button" className="btn btn-ghost btn-small" onClick={() => setSelected(new Set())} disabled={isBulkPending}>
-              Clear selection
+              Clear Selection
             </button>
           )}
           {bulkMessage && <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{bulkMessage}</span>}
@@ -418,7 +418,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                   </th>
                 )}
                 <th style={TH_STYLE}>Account #<ColHelp text="This recipient's account number on the platform." /></th>
-                <th style={TH_STYLE}>Account holder<ColHelp text="The name on file for this payout — who the money is actually sent to." /></th>
+                <th style={TH_STYLE}>Account Holder<ColHelp text="The name on file for this payout — who the money is actually sent to." /></th>
                 <th style={TH_STYLE}>Email<ColHelp text="The recipient's account email." /></th>
                 <th style={TH_STYLE}>Royalties<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
                 <th style={TH_STYLE}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>
@@ -593,7 +593,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 href={`/api/payout-report?month=${detailRow.reportMonthKey}&userId=${detailRow.userId}`}
                 title={`Download the ${detailRow.reportMonthKey} statement as a PDF`}
               >
-                Download report
+                Download Report
               </a>
               {(detailRow.status === "REQUESTED" || detailRow.status === "APPROVED") && canModerate && <ModerationActions payoutId={actionableIds(detailRow)} />}
             </div>

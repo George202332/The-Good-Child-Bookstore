@@ -42,7 +42,7 @@ export function BlogCommentSection({ blogId, initial }: { blogId: string; initia
           />
           {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
           <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
-            {submitting ? "Posting…" : "Post comment"}
+            {submitting ? "Posting…" : "Post Comment"}
           </button>
         </form>
       ) : (

@@ -164,7 +164,7 @@ export function ShopSidebar({
           ))}
         </div>
         <div className="filter-block">
-          <h4>Age range</h4>
+          <h4>Age Range</h4>
           {AGE_RANGES.map((a) => (
             <label key={a} className="filter-option">
               <input type="checkbox" checked={has("age", a)} onChange={() => toggle("age", a)} />
@@ -203,7 +203,7 @@ export function ShopSidebar({
             </label>
           ))}
         </div>
-        <button className="clear-filters" onClick={clearAll}>Clear all filters</button>
+        <button className="clear-filters" onClick={clearAll}>Clear All Filters</button>
       </aside>
     </>
   );

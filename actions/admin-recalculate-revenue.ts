@@ -44,6 +44,7 @@ export async function recalculateAllRevenueSplits(): Promise<RecalculateResult> 
         grossAmount: true,
         saleType: true,
         authorReferralAffiliateId: true,
+        printingCost: true,
       },
     });
 
@@ -59,9 +60,10 @@ export async function recalculateAllRevenueSplits(): Promise<RecalculateResult> 
     }
 
     let updated = 0;
-    for (const line of lines as { id: string; grossAmount: unknown; saleType: string; authorReferralAffiliateId: string | null }[]) {
+    for (const line of lines as { id: string; grossAmount: unknown; saleType: string; authorReferralAffiliateId: string | null; printingCost: unknown }[]) {
       const gross = Number(line.grossAmount);
-      let split = calculateSplits(gross, line.saleType === "AFFILIATE", rates.promotionPct);
+      // A print line keeps the printing cost saved when it was ordered; it is never re-quoted.
+      let split = calculateSplits(gross, line.saleType === "AFFILIATE", rates.promotionPct, line.printingCost != null ? Number(line.printingCost) : 0);
       if (line.authorReferralAffiliateId) {
         const rate = await referralRateFor(line.authorReferralAffiliateId);
         split = applyAuthorReferralCarveOut(split, rate);

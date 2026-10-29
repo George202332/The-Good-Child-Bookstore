@@ -46,7 +46,7 @@ export default async function IndexingPage() {
       <div className="stat-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card"><div className="stat-label">Submitted</div><div className="stat-value">{submittedCount}</div><div className="stat-sub">Accepted by IndexNow</div></div>
         <div className="stat-card"><div className="stat-label">Failed</div><div className="stat-value">{failedCount}</div><div className="stat-sub">Submission rejected or errored</div></div>
-        <div className="stat-card"><div className="stat-label">Not yet submitted</div><div className="stat-value">{notYetCount}</div><div className="stat-sub">No IndexNow ping on record</div></div>
+        <div className="stat-card"><div className="stat-label">Not Yet Submitted</div><div className="stat-value">{notYetCount}</div><div className="stat-sub">No IndexNow ping on record</div></div>
       </div>
 
       <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
@@ -57,7 +57,7 @@ export default async function IndexingPage() {
               <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The page's title." /></th>
               <th style={TABLE_HEAD_STYLE}>URL<ColHelp text="The page's live URL." /></th>
               <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Submitted means IndexNow accepted the ping. Failed means it was rejected or errored. Not yet submitted means no ping has been sent for this page." /></th>
-              <th style={TABLE_HEAD_STYLE}>Last submitted<ColHelp text="When this page was last pinged to IndexNow." /></th>
+              <th style={TABLE_HEAD_STYLE}>Last Submitted<ColHelp text="When this page was last pinged to IndexNow." /></th>
             </tr>
           </thead>
           <tbody>

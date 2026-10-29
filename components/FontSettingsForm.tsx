@@ -39,7 +39,7 @@ export function FontSettingsForm({ area, initial }: { area: "account" | "admin";
 
   return (
     <section className="form-section" style={{ maxWidth: 560, marginTop: 20 }} aria-labelledby="font-settings-title">
-      <h3 id="font-settings-title" style={{ fontSize: 15, marginBottom: 4 }}>Font and text size</h3>
+      <h3 id="font-settings-title" style={{ fontSize: 15, marginBottom: 4 }}>Font and Text Size</h3>
       <p className="field-hint" style={{ marginBottom: 12 }}>
         Applies only inside your account pages. The public website stays the same.
       </p>
@@ -101,7 +101,7 @@ export function FontSettingsForm({ area, initial }: { area: "account" | "admin";
       )}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button type="button" className="btn btn-primary btn-small" onClick={save} disabled={busy || !dirty}>
-          {busy ? "Saving…" : "Save display settings"}
+          {busy ? "Saving…" : "Save Display Settings"}
         </button>
         <button
           type="button"
@@ -109,7 +109,7 @@ export function FontSettingsForm({ area, initial }: { area: "account" | "admin";
           disabled={busy || (draft.fontFamily === "default" && draft.fontSize === "default")}
           onClick={() => setDraft({ fontFamily: "default", fontSize: "default" })}
         >
-          Reset to default
+          Reset to Default
         </button>
       </div>
     </section>

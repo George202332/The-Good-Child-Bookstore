@@ -53,7 +53,7 @@ export function GenerateLinkForm() {
         </>
       )}
       <button type="button" className="btn btn-primary btn-small" onClick={handleGenerate} disabled={submitting}>
-        {submitting ? "Generating…" : "Generate link"}
+        {submitting ? "Generating…" : "Generate Link"}
       </button>
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       {result && (

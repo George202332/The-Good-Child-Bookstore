@@ -138,7 +138,7 @@ export function Footer({
             </ul>
           </div>
           <div>
-            <h4>Get involved</h4>
+            <h4>Get Involved</h4>
             <ul>
               <li><Link href="/signup/author">Become an author</Link></li>
               <li><Link href="/affiliate">Affiliate program</Link></li>

@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
   return (
     <section className="auth-section">
       <div className="auth-card" style={{ maxWidth: 420 }}>
-        <h1>Reset your password</h1>
+        <h1>Reset Your Password</h1>
         {submitted ? (
           <p style={{ color: "var(--ink-soft)", marginTop: 12 }}>
             If an account exists for that email, a password reset link has been sent — check your inbox.
@@ -35,7 +35,7 @@ export default function ForgotPasswordPage() {
             <label className="field-label" htmlFor="fp-email">Email</label>
             <input className="field" id="fp-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
             <button className="btn btn-primary" type="submit" disabled={submitting} style={{ width: "100%", justifyContent: "center", marginTop: 8 }}>
-              {submitting ? "Sending…" : "Send reset link"}
+              {submitting ? "Sending…" : "Send Reset Link"}
             </button>
           </form>
         )}

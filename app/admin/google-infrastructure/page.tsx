@@ -114,12 +114,12 @@ export default async function GoogleInfrastructurePage() {
             <div className="stat-sub">{gaDiag.configured ? "Tag renders on every page" : "gtag.js is not injected"}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Tag Manager container</div>
+            <div className="stat-label">Tag Manager Container</div>
             <div className="stat-value" style={{ fontSize: 18 }}>{gaDiag.gtmId ?? "Not set"}</div>
             <div className="stat-sub">{gaDiag.gtmConfigured ? "Optional — active" : "Optional — not in use"}</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Local ecommerce events logged</div>
+            <div className="stat-label">Local Ecommerce Events Logged</div>
             <div className="stat-value">{gaDiag.ecommerceEventCount}</div>
             <div className="stat-sub">Diagnostic count only</div>
           </div>

@@ -22,7 +22,7 @@ export function ReviewChecklist({ bookId, groups, initial }: { bookId: string; g
   return (
     <div className="map-card" style={{ padding: 18 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-        <h3 style={{ fontSize: 14, margin: 0 }}>Review checklist</h3>
+        <h3 style={{ fontSize: 14, margin: 0 }}>Review Checklist</h3>
         <span style={{ fontSize: 11.5, color: "var(--admin-text-faint)" }}>{checkedCount}/{totalItems}{saving ? " · saving…" : ""}</span>
       </div>
       {groups.map((g) => (

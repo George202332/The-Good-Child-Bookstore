@@ -89,7 +89,7 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
           This button saves the page content below (all tabs) — it&apos;s separate from the branding form above.
         </span>
         <button type="submit" className="btn btn-primary btn-small" disabled={submitting} style={{ flexShrink: 0 }}>
-          {submitting ? "Saving…" : "Save page content"}
+          {submitting ? "Saving…" : "Save Page Content"}
         </button>
       </div>
 
@@ -217,7 +217,7 @@ export function PageContentForm({ initial }: { initial: PagesContent }) {
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved — live on the site now.</div>}
       <button type="submit" className="btn btn-primary btn-small" style={{ marginTop: 16 }} disabled={submitting}>
-        {submitting ? "Saving…" : "Save page content"}
+        {submitting ? "Saving…" : "Save Page Content"}
       </button>
     </form>
   );

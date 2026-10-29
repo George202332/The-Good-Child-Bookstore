@@ -27,14 +27,14 @@ export default function SubscriptionPage() {
 
       <div className="section-head" style={{ justifyContent: "center", textAlign: "center", marginBottom: 40 }}>
         <div style={{ margin: "0 auto" }}>
-          <h2>How the box works</h2>
+          <h2>How the Box Works</h2>
           <p>Three steps, zero guesswork.</p>
         </div>
       </div>
       <div className="steps-row">
-        <div className="step-card"><div className="step-num">1</div><h4>Tell us their age and taste</h4><p>A short quiz on reading level, favorite animals, and how brave a story they like.</p></div>
-        <div className="step-card"><div className="step-num">2</div><h4>We pick, wrap, and ship</h4><p>Our shelf team curates each box by hand: never an algorithm, never a duplicate.</p></div>
-        <div className="step-card"><div className="step-num">3</div><h4>Adjust anytime</h4><p>Swap a title before it ships, skip a month, or cancel; no phone calls required.</p></div>
+        <div className="step-card"><div className="step-num">1</div><h4>Tell Us Their Age and Taste</h4><p>A short quiz on reading level, favorite animals, and how brave a story they like.</p></div>
+        <div className="step-card"><div className="step-num">2</div><h4>We Pick, Wrap, and Ship</h4><p>Our shelf team curates each box by hand: never an algorithm, never a duplicate.</p></div>
+        <div className="step-card"><div className="step-num">3</div><h4>Adjust Anytime</h4><p>Swap a title before it ships, skip a month, or cancel; no phone calls required.</p></div>
       </div>
 
       <div className="section-head" style={{ justifyContent: "center", textAlign: "center", marginBottom: 26 }}>

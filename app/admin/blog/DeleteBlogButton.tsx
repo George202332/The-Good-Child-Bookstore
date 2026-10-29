@@ -37,7 +37,7 @@ export function DeleteBlogButton({ blogId, title, redirectTo }: { blogId: string
       </button>
       {open && (
         <Modal onClose={() => (isPending ? undefined : setOpen(false))} maxWidth={440}>
-          <h3 style={{ fontSize: 16, marginBottom: 8 }}>Delete this blog post?</h3>
+          <h3 style={{ fontSize: 16, marginBottom: 8 }}>Delete This Blog Post?</h3>
           <p style={{ fontSize: 13.5, lineHeight: 1.6, marginBottom: 8 }}>
             <strong>&ldquo;{title}&rdquo;</strong> will be permanently deleted, together with its comments, notifications and uploaded pictures.
           </p>
@@ -48,7 +48,7 @@ export function DeleteBlogButton({ blogId, title, redirectTo }: { blogId: string
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => setOpen(false)}>Cancel</button>
             <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={confirmDelete}>
-              {isPending ? "Deleting…" : "Confirm delete"}
+              {isPending ? "Deleting…" : "Confirm Delete"}
             </button>
           </div>
         </Modal>

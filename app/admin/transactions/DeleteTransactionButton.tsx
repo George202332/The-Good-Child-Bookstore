@@ -30,7 +30,7 @@ export function DeleteTransactionButton({ id, type, detail, onDeleted }: { id: s
       </button>
       {open && (
         <Modal onClose={() => !isPending && setOpen(false)} maxWidth={420}>
-            <h3 style={{ fontSize: 16, marginBottom: 8 }}>Delete this transaction?</h3>
+            <h3 style={{ fontSize: 16, marginBottom: 8 }}>Delete This Transaction?</h3>
             <p style={{ fontSize: 13.5, color: "var(--admin-text-faint, #6B7385)", marginBottom: 16 }}>
               &quot;{detail}&quot; — this permanently removes the transaction, including any royalty or affiliate
               commission share tied to it. It&apos;s removed from every view that reads it, including the author&apos;s own
@@ -39,7 +39,7 @@ export function DeleteTransactionButton({ id, type, detail, onDeleted }: { id: s
             {error && <p style={{ fontSize: 12.5, color: "var(--admin-danger, #8C2F16)", marginBottom: 12 }}>{error}</p>}
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
               <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => setOpen(false)}>Cancel</button>
-              <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={handleConfirm}>{isPending ? "Deleting…" : "Confirm delete"}</button>
+              <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={handleConfirm}>{isPending ? "Deleting…" : "Confirm Delete"}</button>
             </div>
         </Modal>
       )}

@@ -53,7 +53,7 @@ export default async function ClassPage() {
       </div>
 
       <div className="map-card" style={{ padding: 24, marginBottom: 24, background: "var(--cream)" }}>
-        <h3 style={{ fontSize: 17, marginBottom: 8 }}>We reward the work you put in</h3>
+        <h3 style={{ fontSize: 17, marginBottom: 8 }}>We Reward the Work You Put In</h3>
         <p style={{ fontSize: 13.5, color: "var(--ink-soft)", lineHeight: 1.7, maxWidth: 720 }}>
           Every author you bring onto this platform is a long-term relationship, not a one-time transaction — and we
           want our relationship with you to be the same. The more authors you refer, the higher your class climbs,

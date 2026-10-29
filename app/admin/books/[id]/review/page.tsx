@@ -79,7 +79,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
       {/* Top row: 2-page preview (left) — decision (right) */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 20, marginBottom: 24, alignItems: "start" }}>
         <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 4, textAlign: "center" }}>Manuscript preview</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 4, textAlign: "center" }}>Manuscript Preview</h3>
           <p className="field-hint" style={{ margin: "0 0 12px", textAlign: "center" }}>
             Read-only — this opens the manuscript for review here, it doesn&apos;t offer a download.
           </p>
@@ -107,7 +107,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
 
         <div>
           <div className="map-card" style={{ padding: 20, marginBottom: 20 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 12 }}>Submission details</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 12 }}>Submission Details</h3>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, fontSize: 13.5, marginBottom: 16 }}>
               <div><strong>Category</strong><div style={{ color: "var(--admin-text-faint)" }}>{canonicalCategory(book.category) ?? book.category ?? categoryOfSubcategory(book.genres[0]?.genre.name) ?? "—"}</div></div>
               <div><strong>Genre</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.categories[0]?.category.name ?? "—"}</div></div>
@@ -151,13 +151,13 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
 
           {book.revisionNotes && (
             <div className="map-card" style={{ padding: 20, background: "#F5D98F" }}>
-              <h3 style={{ fontSize: 15, marginBottom: 8, color: "#6B4503" }}>Existing revision notes</h3>
+              <h3 style={{ fontSize: 15, marginBottom: 8, color: "#6B4503" }}>Existing Revision Notes</h3>
               <p style={{ fontSize: 13.5, color: "#6B4503", lineHeight: 1.6 }}>{book.revisionNotes}</p>
             </div>
           )}
 
           <div className="map-card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 14 }}>Customer reviews ({reviews.length})</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 14 }}>Customer Reviews ({reviews.length})</h3>
             <ReviewModerationList reviews={reviews} />
           </div>
         </div>

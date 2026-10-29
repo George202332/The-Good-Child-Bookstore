@@ -24,7 +24,7 @@ export function MarketingPageEditor({
 }) {
   return (
     <div style={{ marginBottom: 24 }}>
-      <h3 style={{ fontSize: 15, marginBottom: 10 }}>{label} — Banner 1 (top of the page)</h3>
+      <h3 style={{ fontSize: 15, marginBottom: 10 }}>{label} — Banner 1 (Top of the Page)</h3>
       <p className="field-hint" style={{ margin: "0 0 10px" }}>
         The banner at the very top of the page.
       </p>
@@ -56,7 +56,7 @@ export function MarketingPageEditor({
         onChange={(url) => onChange({ ...value, ctaBannerImage: url })}
       />
 
-      <h3 style={{ fontSize: 15, margin: "22px 0 10px" }}>{label} — page content</h3>
+      <h3 style={{ fontSize: 15, margin: "22px 0 10px" }}>{label} — Page Content</h3>
       <PageBodyEditor value={value.bodyHtml} onChange={(html) => onChange({ ...value, bodyHtml: html })} />
     </div>
   );

@@ -138,7 +138,7 @@ function MobiFallbackView({ url, isAdminTheme }: { url: string; isAdminTheme: bo
         that supports MOBI (e.g. Kindle).
       </p>
       <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-small">
-        Open / download file
+        Open / Download File
       </a>
     </div>
   );

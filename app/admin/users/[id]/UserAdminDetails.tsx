@@ -76,7 +76,7 @@ export function UserAdminDetails({ profile, country }: { profile: UserAdminProfi
   return (
     <>
       <div className="map-card" style={CARD}>
-        <h3 style={HEADING}>Account information</h3>
+        <h3 style={HEADING}>Account Information</h3>
         <p style={SUBTEXT}>Identity details held for this account.</p>
         <div style={GRID}>
           <Row label="Account ID" value={profile.accountNumber} />

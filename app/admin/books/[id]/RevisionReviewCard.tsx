@@ -38,7 +38,7 @@ export function RevisionReviewCard({ bookId, revision, files }: { bookId: string
 
   return (
     <div className="map-card" style={{ padding: 20, background: "rgba(91,141,239,0.08)", border: "1px solid var(--admin-accent, #5B8DEF)" }}>
-      <h3 style={{ fontSize: 15, marginBottom: 8, color: "var(--admin-accent, #5B8DEF)" }}>Pending revision</h3>
+      <h3 style={{ fontSize: 15, marginBottom: 8, color: "var(--admin-accent, #5B8DEF)" }}>Pending Revision</h3>
       {files ? (
         <>
           <p className="field-hint" style={{ margin: "0 0 14px" }}>
@@ -75,10 +75,10 @@ export function RevisionReviewCard({ bookId, revision, files }: { bookId: string
       {error && <p style={{ fontSize: 12.5, color: "var(--admin-danger, #8C2F16)", marginBottom: 10 }}>{error}</p>}
       <div style={{ display: "flex", gap: 8 }}>
         <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={handleApprove}>
-          {isPending ? "…" : "Approve revision"}
+          {isPending ? "…" : "Approve Revision"}
         </button>
         <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={handleReject}>
-          Reject revision
+          Reject Revision
         </button>
       </div>
     </div>

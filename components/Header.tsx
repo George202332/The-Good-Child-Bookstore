@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { href: "/authors", label: "Authorship", match: "authors" },
   { href: "/affiliate", label: "Affiliate", match: "affiliate" },
   { href: "/blog", label: "Blog", match: "blog" },
-  { href: "/contact", label: "Contact us", match: "contact" },
+  { href: "/contact", label: "Contact Us", match: "contact" },
 ];
 
 function routeMatch(pathname: string): string {

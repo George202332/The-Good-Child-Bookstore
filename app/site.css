@@ -1248,6 +1248,7 @@
   .buybox-tile .bt-name{font-size:15px;font-weight:700;display:flex;align-items:center;gap:5px;color:var(--ink-soft);}
   .buybox-tile .bt-price{font-size:20px;font-weight:700;color:var(--ink);}
   .buybox-tile .bt-sub{font-size:10.5px;color:var(--ink-faint);margin-top:2px;}
+  .buybox-tile .bt-fulfilled{margin-top:auto;padding-top:4px;}
 
   .buybox-price-row{display:flex;align-items:baseline;gap:8px;margin-bottom:2px;flex-wrap:wrap;}
   .buybox-price{font-size:26px;font-weight:700;color:var(--ink);}
@@ -2168,10 +2169,24 @@
   .chart-legend-name{color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .chart-legend-count{font-weight:700;text-align:right;font-variant-numeric:tabular-nums;}
   .chart-legend-pct{color:var(--ink-faint);text-align:right;font-variant-numeric:tabular-nums;}
+  /* Compact legend: stays beside the donut in a narrow card, never makes the card taller. */
+  .chart-legend-compact{flex:1 1 120px;min-width:120px;max-width:none;gap:9px;}
+  .chart-legend-compact .chart-legend-row{grid-template-columns:10px minmax(0,1fr) 1.8em 3em;column-gap:7px;font-size:13px;}
   @media (max-width:520px){
-    .chart-legend-grid{flex-basis:100%;max-width:none;}
+    .chart-legend-grid:not(.chart-legend-compact){flex-basis:100%;max-width:none;}
     .chart-legend-row{font-size:13px;column-gap:10px;}
   }
+  /* Checkout shipping step: evenly spaced options, long text wraps inside its own row,
+     and the note below sits on its own line. */
+  .ship-options{display:flex;flex-direction:column;gap:10px;margin-top:6px;}
+  .ship-option{display:grid;grid-template-columns:20px minmax(0,1fr);column-gap:10px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:13.5px;cursor:pointer;background:var(--paper);}
+  .ship-option.selected{border-color:var(--ink-soft);}
+  .ship-option input{margin:3px 0 0;}
+  .ship-option-body{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .ship-option-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .ship-option-price{font-weight:700;white-space:nowrap;}
+  .ship-option-detail{color:var(--ink-soft);font-size:12.5px;line-height:1.4;overflow-wrap:anywhere;}
+  .ship-note{margin-top:18px;line-height:1.5;clear:both;}
   .pie-legend{display:flex;flex-direction:column;gap:10px;flex:1;min-width:110px;}
   .pie-legend-row{display:flex;align-items:center;gap:9px;font-size:13.5px;}
   .pie-swatch{width:12px;height:12px;border-radius:3px;flex-shrink:0;}

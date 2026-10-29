@@ -771,6 +771,22 @@ model Order {
   printJobId     String?
   printJobError  String?
 
+  /// What Lulu quoted to charge US for shipping this order, saved when the order was placed
+  /// (the customer's own shipping charge is shippingAmount). Null on older / digital orders.
+  luluShippingCost    Decimal? @db.Decimal(10, 2)
+  /// Lulu's per-order fulfilment fee from the same quote. Not charged to authors.
+  luluFulfillmentCost Decimal? @db.Decimal(10, 2)
+  /// Lulu's own status for the print job (CREATED, UNPAID, PRODUCTION_READY, IN_PRODUCTION,
+  /// SHIPPED, REJECTED, CANCELED ...), refreshed from Lulu (Admin > Lulu). Never used for royalties.
+  luluStatus          String?
+  luluStatusAt        DateTime?
+  luluShippedAt       DateTime?
+  /// What Lulu says it actually charged, read back from the print job (for matching invoices).
+  luluActualProduction  Decimal? @db.Decimal(10, 2)
+  luluActualShipping    Decimal? @db.Decimal(10, 2)
+  luluActualFulfillment Decimal? @db.Decimal(10, 2)
+  luluSyncedAt          DateTime?
+
   @@index([readerId])
   @@index([status])
 }
@@ -796,6 +812,10 @@ model SaleLine {
   companyShare       Decimal  @db.Decimal(10, 2)
   authorShare        Decimal  @db.Decimal(10, 2)
   affiliateShare     Decimal  @db.Decimal(10, 2) @default(0)
+  /** Lulu's production printing cost for this line (all copies), quoted by Lulu and saved
+   * when the order was placed. Printed copies only; null for eBooks, audiobooks and for
+   * print sales made before this was recorded. Shipping is never part of it. */
+  printingCost       Decimal? @db.Decimal(10, 2)
 
   /** Lifetime referral commission (5% of the company's share) credited
    * to the affiliate who referred this book's author onto the platform

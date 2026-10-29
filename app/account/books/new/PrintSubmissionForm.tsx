@@ -102,12 +102,15 @@ export interface PrintSubmissionInitial {
 export function PrintSubmissionForm({
   prefill,
   initial,
+  extraActions,
 }: {
   /** The eBook's details (the title is being added as a print edition of it). When given,
    * an "Autofill from eBook" button inside this tab copies them - text, cover and the
    * uploaded file - into this form. */
   prefill?: SharedSubmissionFields;
   initial?: PrintSubmissionInitial;
+  /** Edit view only: extra buttons shown in the same row, to the right of Save / Submit. */
+  extraActions?: React.ReactNode;
 } = {}) {
   const router = useRouter();
   const editing = !!initial?.bookId;
@@ -475,7 +478,7 @@ export function PrintSubmissionForm({
       )}
       {/* Section 1 */}
       <Card>
-        <SectionHeader n={1} title="Book information" sub="Core bibliographic details for the print edition." />
+        <SectionHeader n={1} title="Book Information" sub="Core bibliographic details for the print edition." />
         <label className="field-label" htmlFor="p-title">Book title</label>
         <input className="field" id="p-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
         <div className="form-grid-2">
@@ -563,7 +566,7 @@ export function PrintSubmissionForm({
 
       {/* Section 2 */}
       <Card>
-        <SectionHeader n={2} title="Author information" sub="Everyone credited on this edition." />
+        <SectionHeader n={2} title="Author Information" sub="Everyone credited on this edition." />
         <div className="form-grid-2">
           <div>
             <label className="field-label" htmlFor="p-authfirst">Primary author: first name</label>
@@ -668,7 +671,7 @@ export function PrintSubmissionForm({
         {/* Interior: a page-by-page preview of the file as uploaded (it refreshes by itself when
             the file is replaced), with the site's checks and Lulu's verdict underneath. */}
         <div style={{ marginTop: 22 }}>
-          <h3 style={{ fontSize: 16, marginBottom: 4 }}>Interior preview</h3>
+          <h3 style={{ fontSize: 16, marginBottom: 4 }}>Interior Preview</h3>
           {printReadyPdfFileId ? (
             <>
               <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 12 }}>
@@ -680,7 +683,7 @@ export function PrintSubmissionForm({
             <p className="field-hint">Upload the print-ready PDF above to preview it page by page.</p>
           )}
           <FileVerdictBox
-            title="Interior file check"
+            title="Interior File Check"
             verdict={printReadyPdfFileId ? preflight?.interior : "NONE"}
             issues={(preflight?.issues ?? []).filter((i) => i.file === "interior")}
             saved={unchangedSaved && !preflight ? initial?.preflight : undefined}
@@ -691,7 +694,7 @@ export function PrintSubmissionForm({
             site. A generated wrap is rebuilt from the page count, so it is redrawn and re-checked
             whenever the interior file changes. */}
         <div style={{ marginTop: 22 }}>
-          <h3 style={{ fontSize: 16, marginBottom: 4 }}>Full wrap cover preview</h3>
+          <h3 style={{ fontSize: 16, marginBottom: 4 }}>Full Wrap Cover Preview</h3>
           <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 12 }}>
             {backCoverMode === "custom"
               ? "Your uploaded wraparound cover (back cover, spine and front)."
@@ -701,10 +704,10 @@ export function PrintSubmissionForm({
           {customBackCoverPdfFileId && (
             <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
               <button type="button" className={`btn btn-small ${backCoverMode === "auto" ? "btn-primary" : "btn-ghost"}`} onClick={() => setBackCoverMode("auto")}>
-                Auto-generated cover
+                Auto-Generated Cover
               </button>
               <button type="button" className={`btn btn-small ${backCoverMode === "custom" ? "btn-primary" : "btn-ghost"}`} onClick={() => setBackCoverMode("custom")}>
-                My custom cover
+                My Custom Cover
               </button>
             </div>
           )}
@@ -723,7 +726,7 @@ export function PrintSubmissionForm({
             coverImageUrl={frontCoverImageUrl}
           />
           <FileVerdictBox
-            title="Cover check"
+            title="Cover Check"
             verdict={frontCoverImageUrl || customBackCoverPdfFileId ? preflight?.cover : "NONE"}
             issues={(preflight?.issues ?? []).filter((i) => i.file === "cover")}
             saved={unchangedSaved && !preflight ? initial?.preflight : undefined}
@@ -733,7 +736,7 @@ export function PrintSubmissionForm({
 
       {/* Section 4 */}
       <Card>
-        <SectionHeader n={4} title="Publication format" sub="Choose Paperback, Hardcover, or both as separate printable editions of this title." />
+        <SectionHeader n={4} title="Publication Format" sub="Choose Paperback, Hardcover, or both as separate printable editions of this title." />
         <div style={{ display: "flex", gap: 32 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}>
             <input type="checkbox" checked={paperbackEnabled} onChange={(e) => setPaperbackEnabled(e.target.checked)} /> Paperback
@@ -746,7 +749,7 @@ export function PrintSubmissionForm({
 
       {/* Section 5 */}
       <Card>
-        <SectionHeader n={5} title="Book specifications" sub="Every option here maps directly to a Lulu Print API POD Package code." />
+        <SectionHeader n={5} title="Book Specifications" sub="Every option here maps directly to a Lulu Print API POD Package code." />
         <label className="field-label">Trim size</label>
         <ButtonGroup options={LULU_CONFIG.trimSizes} value={trimCode} onChange={setTrimCode} />
         {detectedTrim && detectedTrim.code === trimCode && (
@@ -893,18 +896,18 @@ export function PrintSubmissionForm({
         </div>
         {paperbackEnabled && (
           <div className="stat-grid" style={{ marginTop: 12, marginBottom: 0 }}>
-            <div><div className="stat-label">Paperback printing cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Via Lulu print partner</div></div>
-            <div><div className="stat-label">Company revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of retail price</div></div>
-            <div><div className="stat-label">Author profit</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.authorProfit.toFixed(2)}</div><div className="stat-sub">After printing cost</div></div>
-            <div><div className="stat-label">Estimated royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold</div></div>
+            <div><div className="stat-label">Paperback Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Via Lulu print partner</div></div>
+            <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of retail price</div></div>
+            <div><div className="stat-label">Author Profit</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.authorProfit.toFixed(2)}</div><div className="stat-sub">After printing cost</div></div>
+            <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold</div></div>
           </div>
         )}
         {hardcoverEnabled && (
           <div className="stat-grid" style={{ marginTop: paperbackEnabled ? 20 : 12, marginBottom: 0 }}>
-            <div><div className="stat-label">Hardcover printing cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Via Lulu print partner</div></div>
-            <div><div className="stat-label">Company revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of retail price</div></div>
-            <div><div className="stat-label">Author profit</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.authorProfit.toFixed(2)}</div><div className="stat-sub">After printing cost</div></div>
-            <div><div className="stat-label">Estimated royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold</div></div>
+            <div><div className="stat-label">Hardcover Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Via Lulu print partner</div></div>
+            <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of retail price</div></div>
+            <div><div className="stat-label">Author Profit</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.authorProfit.toFixed(2)}</div><div className="stat-sub">After printing cost</div></div>
+            <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold</div></div>
           </div>
         )}
       </Card>
@@ -944,6 +947,7 @@ export function PrintSubmissionForm({
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       <div>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
         <button
           type="button"
           className="btn btn-primary btn-small"
@@ -953,9 +957,11 @@ export function PrintSubmissionForm({
           {submitting
             ? (editing ? "Saving…" : "Submitting…")
             : editing
-            ? (editingPublished ? "Save changes" : "Save and resubmit for review")
-            : "Submit print copy"}
+            ? (editingPublished ? "Save Changes" : "Save and Resubmit for Review")
+            : "Submit Print Copy"}
         </button>
+        {extraActions}
+        </div>
         {!preflightPassed && (
           <div className="field-hint" style={{ marginTop: 6 }}>
             {!hasPrintFiles
@@ -993,7 +999,7 @@ function PreflightPanel({ hasFiles, busy, result, savedFromBook, onRetry }: {
         <strong style={{ fontSize: 14 }}>Print file check</strong>
         {style && <span style={{ background: style.bg, color: style.fg, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 700 }}>{style.label}</span>}
         {hasFiles && status !== "CHECKING" && (
-          <button type="button" className="btn btn-ghost btn-small" onClick={onRetry} disabled={busy}>Check again</button>
+          <button type="button" className="btn btn-ghost btn-small" onClick={onRetry} disabled={busy}>Check Again</button>
         )}
       </div>
       {!hasFiles && (

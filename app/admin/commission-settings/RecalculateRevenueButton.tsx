@@ -19,7 +19,7 @@ export function RecalculateRevenueButton() {
 
   return (
     <div className="form-section" style={{ maxWidth: 640, marginTop: 20 }}>
-      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Recalculate historical transactions</h3>
+      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Recalculate Historical Transactions</h3>
       <p className="field-hint" style={{ marginBottom: 14 }}>
         Changing the percentages above only affects new sales — it doesn&apos;t change numbers already stored for
         past sales. Use this to recompute every existing sale&apos;s company/author/affiliate/referral split using
@@ -29,13 +29,13 @@ export function RecalculateRevenueButton() {
       </p>
       {!confirming ? (
         <button type="button" className="btn btn-ghost btn-small" onClick={() => setConfirming(true)}>
-          Recalculate all transactions
+          Recalculate All Transactions
         </button>
       ) : (
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <span style={{ fontSize: 13, fontWeight: 700 }}>This rewrites every sale&apos;s stored breakdown. Continue?</span>
           <button type="button" className="btn btn-primary btn-small" disabled={running} onClick={run}>
-            {running ? "Recalculating…" : "Yes, recalculate"}
+            {running ? "Recalculating…" : "Yes, Recalculate"}
           </button>
           <button type="button" className="btn btn-ghost btn-small" disabled={running} onClick={() => setConfirming(false)}>
             Cancel

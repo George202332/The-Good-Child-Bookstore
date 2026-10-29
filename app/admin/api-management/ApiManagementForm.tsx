@@ -123,7 +123,7 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
       {/* ---------------------------------------------------------- */}
       <h3 style={{ fontSize: 15, margin: "24px 0 10px" }}>Payment Gateways</h3>
 
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Paystack (checkout — card payments)</h4>
+      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Paystack (Checkout — Card Payments)</h4>
       <label className="field-label" htmlFor="api-mode">Key mode</label>
       <select
         className="field"
@@ -149,7 +149,7 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
           currently typed above, so it tells you for certain whether it stuck.
         </p>
         <button type="button" className="btn btn-ghost btn-small" disabled={testing} onClick={handleTestPaystack}>
-          {testing ? "Testing…" : "Test Paystack connection"}
+          {testing ? "Testing…" : "Test Paystack Connection"}
         </button>
         {testResult && (
           <div className="field-hint" style={{ color: testResult.ok ? "#165236" : "var(--coral-deep)", marginTop: 8 }}>
@@ -158,7 +158,7 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
         )}
       </div>
 
-      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>PayPal (checkout — pay with PayPal)</h4>
+      <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>PayPal (Checkout — Pay with PayPal)</h4>
       <p className="field-hint" style={{ margin: "0 0 10px" }}>
         Create a &quot;REST API app&quot; at developer.paypal.com (Apps &amp; Credentials), then paste its Client ID and
         Secret here. The PayPal button only appears at checkout once both are saved.
@@ -179,7 +179,7 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
       </div>
       <div style={{ marginTop: 8, marginBottom: 20 }}>
         <button type="button" className="btn btn-ghost btn-small" disabled={testingPaypal} onClick={handleTestPaypal}>
-          {testingPaypal ? "Testing…" : "Test PayPal connection"}
+          {testingPaypal ? "Testing…" : "Test PayPal Connection"}
         </button>
         {paypalResult && (
           <div className="field-hint" style={{ color: paypalResult.ok ? "#165236" : "var(--coral-deep)", marginTop: 8 }}>
@@ -286,7 +286,7 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
             style={{ maxWidth: 280 }}
           />
           <button type="button" className="btn btn-ghost btn-small" disabled={testingEmail} onClick={handleTestEmail}>
-            {testingEmail ? "Sending…" : "Send test email"}
+            {testingEmail ? "Sending…" : "Send Test Email"}
           </button>
         </div>
         {emailTestResult && (
@@ -308,7 +308,7 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
       {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved — live on the site now.</div>}
       {warning && <div className="field-hint" style={{ color: "#6B4503" }}>{warning}</div>}
       <button type="submit" className="btn btn-primary btn-small" style={{ marginTop: 10 }} disabled={submitting}>
-        {submitting ? "Saving…" : "Save changes"}
+        {submitting ? "Saving…" : "Save Changes"}
       </button>
     </form>
   );

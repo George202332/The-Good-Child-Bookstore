@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { buildEan13Layout } from "@/lib/ean13-barcode";
 import {
   PALETTES, MOTIFS, hashStr, deriveBackCoverPalette, extractDominantColor,
-  motifSvgInner, fitDescriptionText, wrapTextToLines, computeCoverGeometry,
+  motifSvgInner, fitDescriptionText, computeCoverGeometry,
 } from "@/lib/cover-preview";
 
 /**
@@ -26,9 +26,6 @@ import {
  */
 export function CoverWrapPreview({
   title,
-  subtitle,
-  authorFirstName,
-  authorLastName,
   description,
   isbn,
   trimCode,
@@ -38,6 +35,7 @@ export function CoverWrapPreview({
   customCoverFileId,
 }: {
   title: string;
+  /** Kept so existing callers still compile; nothing is drawn over the front cover. */
   subtitle?: string;
   authorFirstName?: string;
   authorLastName?: string;
@@ -151,8 +149,6 @@ export function CoverWrapPreview({
   const back = deriveBackCoverPalette(palette, dominantColor);
   const motif = MOTIFS[seed % MOTIFS.length];
 
-  const authorName = `${authorFirstName || ""} ${authorLastName || ""}`.trim();
-
   // ---- Back cover: description text + barcode, bottom-left of the safe area ----
   const boxX = backX + margin, boxY = bleed + margin;
   const boxW = trimW - margin * 2;
@@ -171,8 +167,7 @@ export function CoverWrapPreview({
   const spineColor = back.spine;
   const showSpineText = spineW > 14;
 
-  // ---- Front cover: real image if uploaded, else gradient + motif; title/subtitle/author always overlay ----
-  const titleLines = wrapTextToLines((title || "").toUpperCase(), Math.floor(trimW / 13), 3);
+  // ---- Front cover: the real image if uploaded, else a plain gradient + motif. Nothing is written over it. ----
   const gradId = `bp-front-gradient-${seed}`;
 
   return (
@@ -271,25 +266,6 @@ export function CoverWrapPreview({
                 />
               </>
             )}
-            <text fontFamily="Georgia, 'Times New Roman', serif" fontWeight={700} fontSize={Math.max(14, trimW / 11)} fill="#fff" textAnchor="middle">
-              {titleLines.map((l, i) => (
-                <tspan key={i} x={frontX + trimW / 2} y={bleed + 40 + i * (trimW / 9)}>{l}</tspan>
-              ))}
-            </text>
-            {subtitle && (
-              <text
-                x={frontX + trimW / 2} y={bleed + 40 + titleLines.length * (trimW / 9) + 18}
-                fontFamily="Georgia, serif" fontSize={12} fill="#fff" textAnchor="middle" opacity={0.9}
-              >
-                {subtitle}
-              </text>
-            )}
-            <text
-              x={frontX + trimW / 2} y={bleed + trimH - 24}
-              fontFamily="Georgia, serif" fontWeight={700} fontSize={Math.max(12, trimW / 16)} fill="#fff" textAnchor="middle"
-            >
-              {authorName.toUpperCase()}
-            </text>
           </g>}
 
           {/* Guides */}

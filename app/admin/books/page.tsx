@@ -57,7 +57,7 @@ export default async function BookManagementPage({
           <div className="stat-sub">Published on the shelf</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Under review</div>
+          <div className="stat-label">Under Review</div>
           <div className="stat-value">{stats.pendingReview}</div>
           <div className="stat-sub">Waiting on a decision</div>
         </div>
@@ -67,7 +67,7 @@ export default async function BookManagementPage({
           <div className="stat-sub">Not yet submitted</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Under revision</div>
+          <div className="stat-label">Under Revision</div>
           <div className="stat-value">{stats.rejected}</div>
           <div className="stat-sub">Sent back to the author</div>
         </div>
@@ -101,7 +101,7 @@ export default async function BookManagementPage({
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>SN number<ColHelp text="The reference number of the eBook and Audiobook (the site-generated SN number, or the author's own ISBN if they entered one). A dash means the book has no eBook or Audiobook." /></th>
+                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>SN Number<ColHelp text="The reference number of the eBook and Audiobook (the site-generated SN number, or the author's own ISBN if they entered one). A dash means the book has no eBook or Audiobook." /></th>
                 <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>ISBN<ColHelp text="The ISBN of the print edition. A dash means the book has no print edition; 'ISBN pending' on the Print tab means it has not been entered yet." /></th>
                 <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Title<ColHelp text="The book's title." /></th>
                 <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Author<ColHelp text="The author's display name on this book." /></th>

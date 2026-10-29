@@ -20,7 +20,7 @@ export function SubmitButton({ blogId }: { blogId: string }) {
         })
       }
     >
-      Submit for review
+      Submit for Review
     </button>
   );
 }

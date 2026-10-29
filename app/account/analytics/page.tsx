@@ -4,7 +4,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { getAuthorAnalytics } from "@/actions/author-analytics";
 import { getAuthorBooksTable } from "@/actions/author-books-table";
 import { BarChart } from "@/components/charts/BarChart";
-import { PieChart, ChartLegend } from "@/components/charts/PieChart";
+import { PieChart } from "@/components/charts/PieChart";
 import { WorldMap } from "@/components/charts/WorldMap";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
@@ -64,35 +64,29 @@ export default async function AuthorAnalyticsPage() {
 
       <div className="dash-grid-2" style={{ marginBottom: 24 }}>
         <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by month: {new Date().getFullYear()}</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by Month: {new Date().getFullYear()}</h3>
           <BarChart data={data.monthlySales.map((m) => ({ label: m.month, value: m.units }))} color="#1B3C8F" />
         </div>
         <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by format</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales by Format</h3>
           <PieChart data={data.formatBreakdown.map((f) => ({ label: f.format, value: f.count, color: FORMAT_COLORS[f.format] ?? "#7C7490" }))} />
         </div>
       </div>
 
       <div className="dash-grid-2" style={{ marginBottom: 24 }}>
         <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Top regions</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Top Regions</h3>
           {data.topCountriesWithPct.length === 0 ? (
             <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No sales recorded yet.</p>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
-              <ChartLegend
-                total={data.topCountriesWithPct.reduce((n, c) => n + c.count, 0)}
-                data={data.topCountriesWithPct.map((c, i) => ({ label: c.country, value: c.count, color: REGION_COLORS[i] }))}
-              />
-              <PieChart
-                size={140}
-                data={data.topCountriesWithPct.map((c, i) => ({ label: c.country, value: c.count, color: REGION_COLORS[i] }))}
-              />
-            </div>
+            <PieChart
+              size={140}
+              data={data.topCountriesWithPct.map((c, i) => ({ label: c.country, value: c.count, color: REGION_COLORS[i] }))}
+            />
           )}
         </div>
         <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Organic vs affiliate</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Organic vs Affiliate</h3>
           <PieChart data={data.saleTypeBreakdown.map((s) => ({ label: s.type, value: s.count, color: SALE_TYPE_COLORS[s.type] ?? "#7C7490" }))} />
         </div>
       </div>
@@ -104,7 +98,7 @@ export default async function AuthorAnalyticsPage() {
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, marginBottom: 14 }}>All books</h3>
+      <h3 style={{ fontSize: 16, marginBottom: 14 }}>All Books</h3>
       <div className="map-card tinted-blue" style={{ padding: 0, marginBottom: 24 }}>
         <div className="no-scrollbar" style={{ maxHeight: 520, overflowY: "auto", overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

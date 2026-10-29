@@ -15,6 +15,7 @@ import { PAID_ONLY } from "@/lib/paid-sales";
 interface SaleLineRow {
   id: string;
   grossAmount: unknown;
+  printingCost?: unknown;
   companyShare: unknown;
   affiliateShare: unknown;
   authorShare: unknown;
@@ -132,7 +133,8 @@ export default async function RevenuePage() {
   const bookSalesByCondition = new Map<string, BookSalesRow>();
   for (const l of bookSaleLines) {
     const price = Number(l.grossAmount);
-    const key = `${l.book.title}:${formatLabelFor(l.format, l.book)}:${l.saleType}:${price.toFixed(2)}`;
+    const printingCost = l.printingCost != null ? Number(l.printingCost) : null;
+    const key = `${l.book.title}:${formatLabelFor(l.format, l.book)}:${l.saleType}:${price.toFixed(2)}:${printingCost === null ? "none" : printingCost.toFixed(2)}`;
     const existing = bookSalesByCondition.get(key);
     const lineIsNew = isNewSince(l.createdAt);
     if (existing) {
@@ -146,6 +148,7 @@ export default async function RevenuePage() {
         format: formatLabelFor(l.format, l.book),
         saleType: l.saleType,
         price,
+        printingCost,
         company: Number(l.companyShare),
         affiliate: Number(l.affiliateShare),
         share: Number(l.authorShare),
@@ -274,23 +277,23 @@ export default async function RevenuePage() {
       <div className="stat-grid" style={{ marginBottom: 12 }}>
         {isAuthor && (
           <BlinkStatCard blink={hasNewRoyalty} className="stat-card stat-card-referral">
-            <div className="stat-label">Lifetime royalties</div>
+            <div className="stat-label">Lifetime Royalties</div>
             <div className="stat-value">${bookSalesTotal.toFixed(2)}</div>
             <div className="stat-sub">All time</div>
           </BlinkStatCard>
         )}
         <BlinkStatCard blink={hasNewReferral} className="stat-card stat-card-promotion">
-          <div className="stat-label">Referral revenue</div>
+          <div className="stat-label">Referral Revenue</div>
           <div className="stat-value">${referralTotal.toFixed(2)}</div>
           <div className="stat-sub">All time</div>
         </BlinkStatCard>
         <BlinkStatCard blink={hasNewPromotion} className="stat-card stat-card-total">
-          <div className="stat-label">Book promotion</div>
+          <div className="stat-label">Book Promotion</div>
           <div className="stat-value">${promotionTotal.toFixed(2)}</div>
           <div className="stat-sub">All time</div>
         </BlinkStatCard>
         <div className="stat-card stat-card-due">
-          <div className="stat-label">Total earnings</div>
+          <div className="stat-label">Total Earnings</div>
           <div className="stat-value">${grandTotal.toFixed(2)}</div>
           <div className="stat-sub">All time</div>
         </div>
@@ -305,17 +308,17 @@ export default async function RevenuePage() {
           </div>
         )}
         <div className="stat-card stat-card-promotion">
-          <div className="stat-label">Referral revenue</div>
+          <div className="stat-label">Referral Revenue</div>
           <div className="stat-value">${referralMonthly.toFixed(2)}</div>
           <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
         </div>
         <div className="stat-card stat-card-total">
-          <div className="stat-label">Book promotions</div>
+          <div className="stat-label">Book Promotions</div>
           <div className="stat-value">${promotionMonthly.toFixed(2)}</div>
           <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
         </div>
         <div className="stat-card stat-card-due">
-          <div className="stat-label">Total earnings</div>
+          <div className="stat-label">Total Earnings</div>
           <div className="stat-value">${monthlyTotal.toFixed(2)}</div>
           <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
         </div>

@@ -53,7 +53,7 @@ export function ChecklistSettingsForm({ initial }: { initial: ChecklistGroup[] }
         <div key={g.id} className="map-card" style={{ padding: 16, marginBottom: 16, background: "var(--cream, var(--admin-panel))" }}>
           <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
             <input className="field" style={{ margin: 0, fontWeight: 700 }} placeholder="Group name (e.g. Metadata)" value={g.label} onChange={(e) => updateGroupLabel(gi, e.target.value)} />
-            <button type="button" className="btn btn-ghost btn-small" onClick={() => removeGroup(gi)}>Remove group</button>
+            <button type="button" className="btn btn-ghost btn-small" onClick={() => removeGroup(gi)}>Remove Group</button>
           </div>
           {g.items.map((it, ii) => (
             <div key={it.id} style={{ display: "flex", gap: 8, marginBottom: 8, paddingLeft: 16 }}>
@@ -61,16 +61,16 @@ export function ChecklistSettingsForm({ initial }: { initial: ChecklistGroup[] }
               <button type="button" className="btn btn-ghost btn-small" onClick={() => removeItem(gi, ii)}>Remove</button>
             </div>
           ))}
-          <button type="button" className="btn btn-ghost btn-small" style={{ marginLeft: 16 }} onClick={() => addItem(gi)}>+ Add item</button>
+          <button type="button" className="btn btn-ghost btn-small" style={{ marginLeft: 16 }} onClick={() => addItem(gi)}>+ Add Item</button>
         </div>
       ))}
-      <button type="button" className="btn btn-ghost btn-small" onClick={addGroup}>+ Add group</button>
+      <button type="button" className="btn btn-ghost btn-small" onClick={addGroup}>+ Add Group</button>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginTop: 12 }}>{error}</div>}
       {saved && <div className="field-hint" style={{ color: "#165236", marginTop: 12 }}>Saved.</div>}
       <div style={{ marginTop: 16 }}>
         <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
-          {submitting ? "Saving…" : "Save changes"}
+          {submitting ? "Saving…" : "Save Changes"}
         </button>
       </div>
     </form>

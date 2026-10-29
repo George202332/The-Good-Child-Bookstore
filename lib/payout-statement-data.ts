@@ -21,6 +21,8 @@ export interface PayoutStatementFormatRow {
   price: number;
   copies: number;
   gross: number;
+  /** Lulu's production printing cost saved on these sales (printed copies only, else 0). */
+  printingCost: number;
   companyShare: number;
   yourEarnings: number;
 }
@@ -117,26 +119,27 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
   const organicByTitle = new Map<string, PayoutStatementFormatRow>();
   const affiliateByTitle = new Map<string, PayoutStatementFormatRow>();
 
-  function addRow(map: Map<string, PayoutStatementFormatRow>, key: string, title: string, format: string, price: number, gross: number, companyShare: number, earnings: number) {
-    if (!map.has(key)) map.set(key, { title, format, price, copies: 0, gross: 0, companyShare: 0, yourEarnings: 0 });
+  function addRow(map: Map<string, PayoutStatementFormatRow>, key: string, title: string, format: string, price: number, gross: number, companyShare: number, earnings: number, printingCost = 0) {
+    if (!map.has(key)) map.set(key, { title, format, price, copies: 0, gross: 0, printingCost: 0, companyShare: 0, yourEarnings: 0 });
     const row = map.get(key)!;
     row.copies += 1;
     row.gross += gross;
+    row.printingCost += printingCost;
     row.companyShare += companyShare;
     row.yourEarnings += earnings;
     row.format = format || row.format;
   }
 
-  for (const b of books as { title: string; price: unknown; saleLines: { format: string | null; grossAmount: unknown; companyShare: unknown; authorShare: unknown; affiliateLinkId: string | null }[] }[]) {
+  for (const b of books as { title: string; price: unknown; saleLines: { format: string | null; grossAmount: unknown; companyShare: unknown; authorShare: unknown; printingCost?: unknown; affiliateLinkId: string | null }[] }[]) {
     for (const l of b.saleLines) {
-      const gross = Number(l.grossAmount), companyShare = Number(l.companyShare), earnings = Number(l.authorShare);
+      const gross = Number(l.grossAmount), companyShare = Number(l.companyShare), earnings = Number(l.authorShare), printingCost = l.printingCost != null ? Number(l.printingCost) : 0;
       const format = l.format || "—";
       if (l.affiliateLinkId) {
         affiliateChannelRevenue += earnings;
-        addRow(affiliateByTitle, b.title, b.title, format, Number(b.price), gross, companyShare, earnings);
+        addRow(affiliateByTitle, b.title, b.title, format, Number(b.price), gross, companyShare, earnings, printingCost);
       } else {
         organicRevenue += earnings;
-        addRow(organicByTitle, b.title, b.title, format, Number(b.price), gross, companyShare, earnings);
+        addRow(organicByTitle, b.title, b.title, format, Number(b.price), gross, companyShare, earnings, printingCost);
       }
     }
   }

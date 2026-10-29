@@ -49,7 +49,7 @@ export default async function UsersPage({
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, marginBottom: 12 }}>Create a new account</h3>
+      <h3 style={{ fontSize: 16, marginBottom: 12 }}>Create a New Account</h3>
       <CreateUserForm />
 
       <UsersDirectory users={users} currentUserId={session.user.id}>

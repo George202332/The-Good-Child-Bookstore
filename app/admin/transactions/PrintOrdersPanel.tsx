@@ -26,7 +26,7 @@ export function PrintOrdersPanel({ rows }: { rows: PrintOrderRow[] }) {
 
   return (
     <div style={{ border: "1.5px solid var(--admin-danger, #8C2F16)", borderRadius: 12, padding: 16, marginBottom: 20, background: "#fff" }}>
-      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Print orders not yet at Lulu ({rows.length})</h3>
+      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Print Orders Not Yet at Lulu ({rows.length})</h3>
       <p style={{ fontSize: 12.5, color: "var(--admin-text-faint, #6B7385)", margin: "0 0 12px" }}>
         Paid paperback/hardcover orders that were never sent, failed, or got stuck. Sending an order creates its print
         job in the Lulu system selected in API Management. Test orders are marked — sending one to Production would

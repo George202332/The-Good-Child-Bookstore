@@ -30,7 +30,7 @@ export function EmailVerificationRequired({ email }: { email: string }) {
   return (
     <section className="auth-section">
       <div className="auth-card">
-        <h1>Verify your email</h1>
+        <h1>Verify Your Email</h1>
         <p>
           We sent a verification link to <strong>{email}</strong>. Please check your inbox and click{" "}
           <strong>Activate account</strong> before you can access your dashboard.
@@ -44,7 +44,7 @@ export function EmailVerificationRequired({ email }: { email: string }) {
           <p style={{ color: "var(--coral-deep)", fontSize: 13.5, textAlign: "center", marginBottom: 16 }}>{error}</p>
         )}
         <button type="button" className="btn btn-primary" disabled={status === "sending"} onClick={handleResend}>
-          {status === "sending" ? "Sending…" : "Resend verification email"}
+          {status === "sending" ? "Sending…" : "Resend Verification Email"}
         </button>
         <div style={{ marginTop: 16, textAlign: "center" }}>
           <SignOutButton className="btn btn-ghost btn-small" />

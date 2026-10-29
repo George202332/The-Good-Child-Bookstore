@@ -10,7 +10,7 @@ export default function AdminError({ error, reset }: { error: Error & { digest?:
   return (
     <div style={{ minHeight: "calc(60 * var(--vh, 1vh))", display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
       <div style={{ maxWidth: 440, textAlign: "center" }}>
-        <h2 style={{ fontSize: 20, marginBottom: 10, color: "var(--admin-text, #E8EBF2)" }}>Something went wrong</h2>
+        <h2 style={{ fontSize: 20, marginBottom: 10, color: "var(--admin-text, #E8EBF2)" }}>Something Went Wrong</h2>
         <p style={{ fontSize: 13.5, color: "var(--admin-text-faint, #6B7385)", marginBottom: 20, lineHeight: 1.6 }}>
           This page hit an unexpected error while loading. It&apos;s usually temporary — try again, and if it keeps
           happening, note what you were doing right before it appeared.
@@ -21,7 +21,7 @@ export default function AdminError({ error, reset }: { error: Error & { digest?:
           </p>
         )}
         <button type="button" className="btn btn-primary btn-small" onClick={() => reset()}>
-          Try again
+          Try Again
         </button>
       </div>
     </div>

@@ -30,7 +30,7 @@ export function NewsletterForm() {
         >
           <input type="text" placeholder="Your name" required aria-label="Your name" />
           <input type="email" placeholder="you@example.com" required aria-label="Your email" />
-          <button className="btn btn-primary" type="submit">Join the list</button>
+          <button className="btn btn-primary" type="submit">Join the List</button>
         </form>
       )}
     </div>

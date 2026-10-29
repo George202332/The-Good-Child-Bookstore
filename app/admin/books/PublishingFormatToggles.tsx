@@ -40,7 +40,7 @@ export function PublishingFormatToggles({ initial }: { initial: PublishingFormat
 
   return (
     <div className="map-card" style={{ padding: 20, marginBottom: 20 }}>
-      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Formats open for submission</h3>
+      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Formats Open for Submission</h3>
       <p className="field-hint" style={{ margin: "0 0 14px" }}>
         Turn eBook or Print off to remove that whole tab from the &quot;Submit a new title&quot; page. Audio book
         isn&apos;t its own tab — turning it off just hides the optional audiobook upload field on the eBook tab.

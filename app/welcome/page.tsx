@@ -28,7 +28,7 @@ export default async function WelcomePage({ searchParams }: { searchParams: Prom
           </>
         ) : (
           <>
-            <h1>This link can&apos;t be used</h1>
+            <h1>This Link Can&apos;t Be Used</h1>
             <p style={{ color: "var(--ink-soft)", margin: "10px 0 20px" }}>
               {state === "used"
                 ? "This one-time link has already been used."
@@ -37,7 +37,7 @@ export default async function WelcomePage({ searchParams }: { searchParams: Prom
                 : "This link isn't valid."}{" "}
               You can set your password from the link in your email, or ask for a new one.
             </p>
-            <Link href="/forgot-password" className="btn btn-primary" style={{ display: "block", textAlign: "center", marginBottom: 10 }}>Forgot password</Link>
+            <Link href="/forgot-password" className="btn btn-primary" style={{ display: "block", textAlign: "center", marginBottom: 10 }}>Forgot Password</Link>
             <Link href="/login" className="see-all" style={{ display: "block", textAlign: "center" }}>Go to sign in</Link>
           </>
         )}

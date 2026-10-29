@@ -70,7 +70,7 @@ export default function AdminLoginPage() {
           </div>
           {error && <div className="field-hint" style={{ color: "var(--admin-danger)" }}>{error}</div>}
           <button type="submit" className="btn btn-primary btn-block" disabled={submitting} style={{ marginTop: 8 }}>
-            {submitting ? "Signing in…" : "Sign in"}
+            {submitting ? "Signing In…" : "Sign In"}
           </button>
         </form>
       </div>

@@ -105,7 +105,7 @@ export default async function LibraryPage() {
                       it.hasAudio ? (
                         <div style={{ display: "flex", gap: 6 }}>
                           <a href={`/api/downloads/${it.id}?format=audiobook&inline=1`} target="_blank" rel="noreferrer" className="btn btn-ghost btn-small">Play</a>
-                          <a href={`/api/downloads/${it.id}?format=audiobook`} className="btn btn-ghost btn-small">Download audio</a>
+                          <a href={`/api/downloads/${it.id}?format=audiobook`} className="btn btn-ghost btn-small">Download Audio</a>
                         </div>
                       ) : (
                         <span style={{ color: "var(--ink-faint)", fontSize: 12.5 }}>Audio file not available yet</span>

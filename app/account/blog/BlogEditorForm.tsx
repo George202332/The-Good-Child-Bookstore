@@ -207,7 +207,7 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
       <div className="form-section">
         <div className="form-section-header">
           <div className="form-section-num">1</div>
-          <div><h3>Basic information</h3><p>The title, image, and short copy readers see first.</p></div>
+          <div><h3>Basic Information</h3><p>The title, image, and short copy readers see first.</p></div>
         </div>
         <ImageUploadField
           label="Featured image"
@@ -257,7 +257,7 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
       <div className="form-section">
         <div className="form-section-header">
           <div className="form-section-num">2</div>
-          <div><h3>Blog content</h3><p>Write the post. Use the toolbar for formatting, tables, media, and more.</p></div>
+          <div><h3>Blog Content</h3><p>Write the post. Use the toolbar for formatting, tables, media, and more.</p></div>
         </div>
         <div style={{ display: "flex", gap: 16, fontSize: 12.5, fontWeight: 700, color: "var(--ink-soft)", background: "var(--cream)", borderRadius: 10, padding: "8px 14px", marginBottom: 10 }}>
           <span>{words} words</span>
@@ -294,7 +294,7 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
       <div className="form-section">
         <div className="form-section-header">
           <div className="form-section-num">3</div>
-          <div><h3>Categories &amp; tags</h3><p>Helps readers browse and helps search engines understand the post.</p></div>
+          <div><h3>Categories &amp; Tags</h3><p>Helps readers browse and helps search engines understand the post.</p></div>
         </div>
         <label className="field-label">Categories</label>
         <div className="blog-cat-pills">
@@ -364,7 +364,7 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
       <div className="form-section">
         <div className="form-section-header">
           <div className="form-section-num">5</div>
-          <div><h3>Publishing options</h3><p>Control when and how this post goes live.</p></div>
+          <div><h3>Publishing Options</h3><p>Control when and how this post goes live.</p></div>
         </div>
         <div className="form-grid-2">
           <label className="toggle-row">
@@ -387,9 +387,9 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
 
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
         <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-          <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={() => handleSave(false)}>Save draft</button>
-          <button type="button" className="btn btn-ghost btn-small" onClick={() => setShowPreview((v) => !v)}>{showPreview ? "Hide preview" : "Preview"}</button>
-          <button type="button" className="btn btn-primary btn-small" disabled={submitting} onClick={() => handleSave(true)}>Publish / submit for review</button>
+          <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={() => handleSave(false)}>Save Draft</button>
+          <button type="button" className="btn btn-ghost btn-small" onClick={() => setShowPreview((v) => !v)}>{showPreview ? "Hide Preview" : "Preview"}</button>
+          <button type="button" className="btn btn-primary btn-small" disabled={submitting} onClick={() => handleSave(true)}>Publish / Submit for Review</button>
           {onDone && <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={() => onDone()}>Cancel</button>}
         </div>
       </div>

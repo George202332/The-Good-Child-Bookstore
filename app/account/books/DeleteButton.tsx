@@ -30,7 +30,7 @@ export function DeleteButton({ bookId, title }: { bookId: string; title: string 
               })
             }
           >
-            {isPending ? "…" : "Yes, delete"}
+            {isPending ? "…" : "Yes, Delete"}
           </button>
           <button type="button" className="btn btn-ghost btn-small" disabled={isPending} onClick={() => { setConfirming(false); setError(""); }}>
             Cancel

@@ -91,8 +91,11 @@ export function EditBookTabs({
       <div style={{ display: active === "ebook" ? "block" : "none" }}>
         {ebookTab.mode === "edit" && ebookInitial ? (
           <>
-            <EbookSubmissionForm initial={ebookInitial} audiobookEnabled={enabledFormats.audiobook} />
-            <DeleteEditionButton bookId={ebookTab.bookId} edition="digital" editionLabel="eBook and Audiobook" otherEditionExists={printTab.mode === "edit"} />
+            <EbookSubmissionForm
+              initial={ebookInitial}
+              audiobookEnabled={enabledFormats.audiobook}
+              extraActions={<DeleteEditionButton inline bookId={ebookTab.bookId} edition="digital" editionLabel="eBook and Audiobook" otherEditionExists={printTab.mode === "edit"} />}
+            />
           </>
         ) : enabledFormats.ebook ? (
           <EbookSubmissionForm audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setShared} />
@@ -112,8 +115,10 @@ export function EditBookTabs({
           </>
         ) : printTab.mode === "edit" && printInitial ? (
           <>
-            <PrintSubmissionForm initial={printInitial} />
-            <DeleteEditionButton bookId={printTab.bookId} edition="print" editionLabel="Print" otherEditionExists={ebookTab.mode === "edit"} />
+            <PrintSubmissionForm
+              initial={printInitial}
+              extraActions={<DeleteEditionButton inline bookId={printTab.bookId} edition="print" editionLabel="Print" otherEditionExists={ebookTab.mode === "edit"} />}
+            />
           </>
         ) : enabledFormats.print ? (
           <PrintSubmissionForm prefill={shared ?? addPrefill} />

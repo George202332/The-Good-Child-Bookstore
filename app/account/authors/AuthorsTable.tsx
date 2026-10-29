@@ -21,8 +21,8 @@ export function AuthorsTable({ authors }: { authors: AuthorsDirectoryRow[] }) {
           <tr>
             <th style={TH_STYLE}>Author</th>
             <th style={TH_STYLE}>Followers</th>
-            <th style={TH_STYLE}>Published books</th>
-            <th style={TH_STYLE}>Primary genre</th>
+            <th style={TH_STYLE}>Published Books</th>
+            <th style={TH_STYLE}>Primary Genre</th>
           </tr>
         </thead>
         <tbody>

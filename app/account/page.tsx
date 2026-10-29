@@ -135,7 +135,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </div>
         <div className="stat-grid" style={{ marginBottom: 34 }}>
           <div className="stat-card">
-            <div className="stat-label">Books purchased</div>
+            <div className="stat-label">Books Purchased</div>
             <div className="stat-value">{booksPurchased}</div>
             <div className="stat-sub">Lifetime library</div>
           </div>
@@ -150,13 +150,13 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             <div className="stat-sub">Saved on this device</div>
           </div>
           <div className="stat-card">
-            <div className="stat-label">Affiliate earnings</div>
+            <div className="stat-label">Affiliate Earnings</div>
             <div className="stat-value">{affiliateStatus.enabled ? `$${affiliateStatus.totalEarnings.toFixed(2)}` : "—"}</div>
             <div className="stat-sub">{affiliateStatus.enabled ? "All time" : "Not enrolled"}</div>
           </div>
         </div>
 
-        <h3 style={{ fontSize: 16, marginBottom: 14 }}>Recent orders</h3>
+        <h3 style={{ fontSize: 16, marginBottom: 14 }}>Recent Orders</h3>
         <div className="map-card" style={{ padding: "6px 16px", marginBottom: 34 }}>
           {recentOrders.length > 0 ? (
             recentOrders.map((o: OrderWithLines) => (
@@ -177,7 +177,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           )}
         </div>
 
-        <h3 style={{ fontSize: 16, marginBottom: 14 }}>Quick actions</h3>
+        <h3 style={{ fontSize: 16, marginBottom: 14 }}>Quick Actions</h3>
         <div className="account-links">
           <Link href="/account/library" className="account-link-card">
             <h4>My Library</h4>
@@ -342,17 +342,17 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
             <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
           </div>
           <div className="stat-card stat-card-promotion">
-            <div className="stat-label">Referral revenue</div>
+            <div className="stat-label">Referral Revenue</div>
             <div className="stat-value">${referralMonthly.toFixed(2)}</div>
             <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
           </div>
           <div className="stat-card stat-card-total">
-            <div className="stat-label">Book promotions</div>
+            <div className="stat-label">Book Promotions</div>
             <div className="stat-value">${promotionMonthly.toFixed(2)}</div>
             <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
           </div>
           <div className="stat-card stat-card-due">
-            <div className="stat-label">Total earnings</div>
+            <div className="stat-label">Total Earnings</div>
             <div className="stat-value">${monthlyTotal.toFixed(2)}</div>
             <div className="stat-sub">{now.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</div>
           </div>
@@ -360,13 +360,15 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
         <div className="dash-grid-main dash-aligned" style={{ marginBottom: 20 }}>
           <div className="map-card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales trend: {now.getFullYear()}</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Sales Trend: {now.getFullYear()}</h3>
             <BarChart data={monthBuckets.map((m) => ({ label: m.label, value: m.count }))} color="#165236" />
           </div>
 
           <div className="map-card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Format split</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Format Split</h3>
             <PieChart
+              compact
+              size={140}
               data={[
                 { label: "eBook", value: formatCounts.ebook, color: "#1B3C8F" },
                 { label: "Paperback", value: formatCounts.paperback, color: "#8A5B9E" },
@@ -379,7 +381,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
         <div className="dash-grid-2-tight dash-aligned" style={{ marginBottom: 20 }}>
           <div className="map-card" style={{ padding: 14 }}>
-            <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Affiliate snapshot</h3>
+            <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Affiliate Snapshot</h3>
             {isAffiliateToo ? (
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--line)", fontSize: 13 }}><span>Under promotion</span><strong>{affiliateLinks.length}</strong></div>
@@ -396,7 +398,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </div>
 
           <div className="map-card" style={{ padding: 14 }}>
-            <h3 style={{ fontSize: 13.5, marginBottom: 4 }}>Titles on shelf</h3>
+            <h3 style={{ fontSize: 13.5, marginBottom: 4 }}>Titles on Shelf</h3>
             <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 2 }}>{booksPublished}</div>
             <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 12 }}>Currently live in the store</div>
             {recentTitles.length === 0 ? (
@@ -426,7 +428,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
 
         <div className="dash-grid-2-tight dash-aligned">
           <div className="map-card" style={{ padding: 14 }}>
-            <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Average rating</h3>
+            <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Average Rating</h3>
             <div className="rb-card" style={{ border: "none", padding: 0 }}>
               <div className="rb-score">
                 <div className="big">{ratingTotal > 0 ? ratingAvg.toFixed(1) : "—"}</div>
@@ -446,7 +448,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
           </div>
 
           <div className="map-card" style={{ padding: 14 }}>
-            <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Recent activity</h3>
+            <h3 style={{ fontSize: 13.5, marginBottom: 12 }}>Recent Activity</h3>
             {recentActivity.length === 0 ? (
               <p style={{ fontSize: 12, color: "var(--ink-faint)" }}>Nothing new yet.</p>
             ) : (
@@ -509,7 +511,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
         </div>
       </div>
       <div className="form-section" style={{ background: "var(--cream)" }}>
-        <h3 style={{ marginBottom: 6 }}>Dashboard: in progress</h3>
+        <h3 style={{ marginBottom: 6 }}>Dashboard: In Progress</h3>
         <p style={{ color: "var(--ink-soft)", fontSize: 13.5 }}>
           This account type doesn&apos;t have a dashboard here yet; see docs/architecture.md.
         </p>

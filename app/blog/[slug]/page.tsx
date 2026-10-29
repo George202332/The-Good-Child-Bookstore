@@ -184,7 +184,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             )}
 
             <div className="blog-article-footer">
-              <Link href="/blog" className="btn btn-ghost btn-small">Back to the journal</Link>
+              <Link href="/blog" className="btn btn-ghost btn-small">Back to the Journal</Link>
             </div>
 
             {post.allowComments && (
@@ -223,7 +223,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       {related.length > 0 && (
         <section className="section" style={{ paddingBottom: 70 }}>
           <div className="wrap">
-            <div className="section-head" style={{ marginBottom: 20 }}><div><h2 style={{ fontSize: 21 }}>More from the journal</h2></div></div>
+            <div className="section-head" style={{ marginBottom: 20 }}><div><h2 style={{ fontSize: 21 }}>More from the Journal</h2></div></div>
             <div className="blog-grid">
               {related.map((p) => (
                 <div key={p.slug} className="blog-card-v2">

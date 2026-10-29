@@ -84,7 +84,7 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
       </div>
 
       <div className="form-section">
-        <h3 style={{ fontSize: 14.5, marginBottom: 14 }}>Basic information</h3>
+        <h3 style={{ fontSize: 14.5, marginBottom: 14 }}>Basic Information</h3>
         <div className="profile-info-grid">
           <div>
             <label className="field-label" htmlFor="pf-name">Full name</label>
@@ -105,7 +105,7 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
 
       {initial.role === "AUTHOR" && (
         <div className="form-section">
-          <h3 style={{ fontSize: 14.5, marginBottom: 14 }}>Author details</h3>
+          <h3 style={{ fontSize: 14.5, marginBottom: 14 }}>Author Details</h3>
           <div className="profile-info-grid" style={{ marginBottom: 4 }}>
             <div>
               <label className="field-label" htmlFor="pf-genre">Primary genre</label>
@@ -145,7 +145,7 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
 
       {initial.role === "READER" && (
         <div className="form-section">
-          <h3 style={{ fontSize: 14.5, marginBottom: 14 }}>Reading preferences</h3>
+          <h3 style={{ fontSize: 14.5, marginBottom: 14 }}>Reading Preferences</h3>
           <div className="profile-info-grid">
             <div>
               <label className="field-label" htmlFor="pf-format">Preferred format</label>
@@ -174,7 +174,7 @@ export function ProfileForm({ initial }: { initial: MyProfile }) {
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
         {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved.</div>}
         <button type="submit" className="btn btn-primary btn-small" disabled={submitting} style={{ marginTop: 6 }}>
-          {submitting ? "Saving…" : "Save changes"}
+          {submitting ? "Saving…" : "Save Changes"}
         </button>
       </div>
     </form>

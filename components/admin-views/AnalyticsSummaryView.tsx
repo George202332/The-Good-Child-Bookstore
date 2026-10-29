@@ -27,20 +27,20 @@ export function AnalyticsSummaryView({ data }: { data: AnalyticsSummary }) {
           <div className="stat-sub">Paid, all time</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Books sold</div>
+          <div className="stat-label">Books Sold</div>
           <div className="stat-value">{data.totalBooksSold}</div>
           <div className="stat-sub">Units, all time</div>
         </div>
         {data.totalCompanyRevenue !== null && (
           <div className="stat-card">
-            <div className="stat-label">Company revenue</div>
+            <div className="stat-label">Company Revenue</div>
             <div className="stat-value">${data.totalCompanyRevenue.toFixed(2)}</div>
             <div className="stat-sub">30% share, all time</div>
           </div>
         )}
         {data.totalAuthorRevenue !== null && (
           <div className="stat-card">
-            <div className="stat-label">Author payouts</div>
+            <div className="stat-label">Author Payouts</div>
             <div className="stat-value">${data.totalAuthorRevenue.toFixed(2)}</div>
             <div className="stat-sub">All time</div>
           </div>
@@ -49,7 +49,7 @@ export function AnalyticsSummaryView({ data }: { data: AnalyticsSummary }) {
 
       {data.monthlyRevenue.length > 0 ? (
         <>
-          <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Monthly revenue (gross)</h3>
+          <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Monthly Revenue (Gross)</h3>
           <div className="map-card" style={{ padding: "16px 16px", display: "flex", alignItems: "flex-end", gap: 10, height: 160 }}>
             {data.monthlyRevenue.map((m) => (
               <div key={m.month} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1 }}>
@@ -69,14 +69,14 @@ export function AnalyticsSummaryView({ data }: { data: AnalyticsSummary }) {
         </>
       ) : (
         <>
-          <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Monthly revenue (gross)</h3>
+          <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Monthly Revenue (Gross)</h3>
           <div className="map-card" style={{ padding: "20px 16px", height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13 }}>
             No revenue yet — this chart fills in once sales start coming through.
           </div>
         </>
       )}
 
-      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Revenue breakdown by month</h3>
+      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Revenue Breakdown by Month</h3>
       <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 24 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
@@ -120,7 +120,7 @@ export function AnalyticsSummaryView({ data }: { data: AnalyticsSummary }) {
         </table>
       </div>
 
-      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Top books</h3>
+      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Top Books</h3>
       <div className="map-card" style={{ padding: "6px 16px" }}>
         {data.topBooks.length === 0 ? (
           <div style={{ padding: "20px 0", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>

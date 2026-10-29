@@ -60,7 +60,7 @@ export function TwoFactorChallengeScreen() {
   return (
     <section className="auth-section">
       <div className="auth-card">
-        <h1>Verification code</h1>
+        <h1>Verification Code</h1>
         {sent ? (
           <p>
             We sent a 6-digit code to <strong>{sent.maskedDestination}</strong>{" "}
@@ -92,7 +92,7 @@ export function TwoFactorChallengeScreen() {
         </form>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16 }}>
           <button type="button" className="btn btn-ghost btn-small" disabled={status === "sending"} onClick={handleSend}>
-            {status === "sending" ? "Sending…" : "Resend code"}
+            {status === "sending" ? "Sending…" : "Resend Code"}
           </button>
           <SignOutButton className="btn btn-ghost btn-small" />
         </div>

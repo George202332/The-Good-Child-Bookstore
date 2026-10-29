@@ -19,6 +19,10 @@ export interface BookSalesRow {
    * clear whether a sale was affiliate-referred. */
   saleType: string;
   price: number;
+  /** Lulu's production printing cost for a printed copy, saved when it was ordered. null =
+   * not a printed copy (shown as a dash) or a print sale made before this was recorded.
+   * Never includes shipping. */
+  printingCost: number | null;
   company: number;
   affiliate: number;
   share: number;
@@ -33,6 +37,7 @@ export interface BookSalesRow {
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
 const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
+const isPrintFormat = (format: string) => /paperback|hardcover/i.test(format);
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 /** Always renders inside its own card, whether there's real data or
@@ -96,9 +101,10 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
                 <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The title of the book that was sold." /></th>
                 <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="The edition purchased: eBook, Paperback, Hardcover, or Audiobook. Each format can have its own price, so it's tracked separately." /></th>
                 <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The price the customer paid for one copy in this format. If this book's price ever changes, sales at the old and new price appear as separate rows." /></th>
+                <th style={TABLE_HEAD_STYLE}>Printing Cost<ColHelp text="Lulu's production printing cost for a printed copy (Paperback or Hardcover), taken off the price before your royalty is worked out. eBook and Audiobook rows show a dash. Shipping is paid by the customer and is never included here." /></th>
                 <th style={TABLE_HEAD_STYLE}>Company<ColHelp text="The company's cut of a single copy at this price: normally 30%, or a smaller share if part of it was carved out to pay an affiliate's referral commission." /></th>
                 <th style={TABLE_HEAD_STYLE}>Affiliate<ColHelp text="The commission an affiliate earns on a single copy sold through their link: 10% of the price. Always $0.00 for organic sales, since no affiliate was involved." /></th>
-                <th style={TABLE_HEAD_STYLE}>Share<ColHelp text="Your royalty rate for a single copy at this price: what you personally earn per book sold, before multiplying by how many were sold." /></th>
+                <th style={TABLE_HEAD_STYLE}>Share<ColHelp text="Your royalty for a single copy at this price: what you personally earn per book sold, before multiplying by how many were sold. For printed copies it is worked out after Lulu's printing cost is taken off the price." /></th>
                 <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many copies were sold at exactly this price, in this format, under this sale type. If the price changes, or a sale happens through an affiliate instead of organically, that becomes its own separate row with its own count." /></th>
                 <th style={TABLE_HEAD_STYLE}>Royalty<ColHelp text="Your total earnings for this whole row: Share multiplied by Units. This is the actual amount you're owed for all the copies sold under this exact condition." /></th>
               </tr>
@@ -110,6 +116,7 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
                   <td style={TABLE_CELL_STYLE}>{r.title}</td>
                   <td style={TABLE_CELL_STYLE}>{r.format}</td>
                   <td style={TABLE_CELL_STYLE}>${r.price.toFixed(2)}</td>
+                  <td style={TABLE_CELL_STYLE}>{r.printingCost != null ? `$${r.printingCost.toFixed(2)}` : isPrintFormat(r.format) ? "Not recorded" : "—"}</td>
                   <td style={TABLE_CELL_STYLE}>${r.company.toFixed(2)}</td>
                   <td style={TABLE_CELL_STYLE}>${r.affiliate.toFixed(2)}</td>
                   <td style={TABLE_CELL_STYLE}>${r.share.toFixed(2)}</td>

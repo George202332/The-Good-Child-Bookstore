@@ -44,7 +44,7 @@ export function ChangePasswordForm() {
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       {saved && <div className="field-hint" style={{ color: "#165236" }}>Password changed.</div>}
       <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
-        {submitting ? "Saving…" : "Change password"}
+        {submitting ? "Saving…" : "Change Password"}
       </button>
     </form>
   );

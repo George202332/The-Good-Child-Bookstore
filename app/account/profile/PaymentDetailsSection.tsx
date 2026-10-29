@@ -202,7 +202,7 @@ export function PaymentDetailsSection({ initial, country, toggles }: { initial: 
           <label className="field-label">PayPal email</label>
           <input className="field" type="email" value={paypalEmail} disabled={editLockedFor("email") || paypalUnavailable} onChange={(e) => setPaypalEmail(e.target.value)} />
           <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "email" || paypalUnavailable || editLockedFor("email") || (restricted && !paypal)} onClick={() => saveDetails("email")}>
-            {paypal ? "Save changes" : "Add method"}
+            {paypal ? "Save Changes" : "Add Method"}
           </button>
         </div>
 
@@ -239,7 +239,7 @@ export function PaymentDetailsSection({ initial, country, toggles }: { initial: 
           <label className="field-label">Intermediary bank (for international wires) — optional</label>
           <input className="field" type="text" value={bankIntermediary} disabled={editLockedFor("bank")} onChange={(e) => setBankIntermediary(e.target.value)} />
           <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "bank" || editLockedFor("bank") || (restricted && !bank)} onClick={() => saveDetails("bank")}>
-            {bank ? "Save changes" : "Add method"}
+            {bank ? "Save Changes" : "Add Method"}
           </button>
         </div>
 
@@ -255,7 +255,7 @@ export function PaymentDetailsSection({ initial, country, toggles }: { initial: 
           <label className="field-label">M-Pesa phone number</label>
           <input className="field" type="tel" placeholder="+254 7XX XXX XXX" value={mpesaPhone} disabled={editLockedFor("mpesa") || mpesaUnavailable} onChange={(e) => setMpesaPhone(e.target.value)} />
           <button type="button" className="btn btn-ghost btn-small" style={{ marginTop: 10 }} disabled={savingType === "mpesa" || mpesaUnavailable || editLockedFor("mpesa") || (restricted && !mpesa)} onClick={() => saveDetails("mpesa")}>
-            {mpesa ? "Save changes" : "Add method"}
+            {mpesa ? "Save Changes" : "Add Method"}
           </button>
         </div>
       </div>

@@ -103,8 +103,11 @@ export function EbookSubmissionForm({
   audiobookEnabled = true,
   onSharedFieldsChange,
   onSubmitted,
+  extraActions,
 }: {
   initial?: EbookSubmissionInitial;
+  /** Edit view only: extra buttons shown in the same row, to the right of Save / Publish. */
+  extraActions?: React.ReactNode;
   /** New-title wizard only: called once the eBook / audiobook part has been saved, instead
    * of leaving for My Books, so the wizard can offer to continue on the Print tab. */
   onSubmitted?: () => void;
@@ -459,7 +462,7 @@ export function EbookSubmissionForm({
 
       {/* Section 2 — Book information */}
       <Card>
-        <SectionHeader n={2} title="Book information" sub="Core bibliographic details." />
+        <SectionHeader n={2} title="Book Information" sub="Core bibliographic details." />
         <label className="field-label" htmlFor="f-title">Book title</label>
         <input className="field" id="f-title" type="text" placeholder="Working title" value={title} onChange={(e) => setTitle(e.target.value)} />
         <div className="form-grid-2">
@@ -559,7 +562,7 @@ export function EbookSubmissionForm({
 
       {/* Section 3 — Author information */}
       <Card>
-        <SectionHeader n={3} title="Author information" sub="Who's credited on this title." />
+        <SectionHeader n={3} title="Author Information" sub="Who's credited on this title." />
         <AuthorAliasField firstName={authorFirstName} lastName={authorLastName} onChange={(f, l) => { setAuthorFirstName(f); setAuthorLastName(l); }} />
         <label className="field-label" htmlFor="f-authorbio">Author bio</label>
         <textarea className="field" id="f-authorbio" rows={3} placeholder="A couple of sentences about you, for your author page" value={authorBio} onChange={(e) => setAuthorBio(e.target.value)} />
@@ -567,7 +570,7 @@ export function EbookSubmissionForm({
 
       {/* Section 4 — Book classification */}
       <Card>
-        <SectionHeader n={4} title="Book classification" sub="How this title is categorized and shelved." />
+        <SectionHeader n={4} title="Book Classification" sub="How this title is categorized and shelved." />
         <div className="form-grid-3">
           <div>
             <label className="field-label" htmlFor="f-category">Category</label>
@@ -667,7 +670,7 @@ export function EbookSubmissionForm({
 
       {/* Section 5 — Book description + Keywords */}
       <Card>
-        <SectionHeader n={5} title="Book description" sub="The copy readers, teachers, and our editorial team will see." />
+        <SectionHeader n={5} title="Book Description" sub="The copy readers, teachers, and our editorial team will see." />
         <label className="field-label">Description</label>
         <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={DESCRIPTION_WORD_LIMIT} minHeight={325} />
         <div style={{ marginTop: 18 }}>
@@ -815,7 +818,7 @@ export function EbookSubmissionForm({
         </div>
         {manuscriptFileId ? (
           <div style={{ marginTop: 14 }}>
-            <h3 style={{ textAlign: "center", fontSize: 18, marginBottom: 4 }}>Manuscript preview</h3>
+            <h3 style={{ textAlign: "center", fontSize: 18, marginBottom: 4 }}>Manuscript Preview</h3>
             <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 14 }}>
               Read-only — this opens the manuscript for review here, it doesn&apos;t offer a download.
             </p>
@@ -830,7 +833,7 @@ export function EbookSubmissionForm({
 
       {/* Section 11 — Submission checklist */}
       <Card>
-        <SectionHeader n={11} title="Submission checklist" sub="Everything below must be complete before submitting." />
+        <SectionHeader n={11} title="Submission Checklist" sub="Everything below must be complete before submitting." />
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {checklist.map((c) => (
             <div key={c.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: c.ok ? "#165236" : "var(--coral-deep)" }}>
@@ -855,15 +858,16 @@ export function EbookSubmissionForm({
           </div>
         )}
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginTop: 12 }}>{error}</div>}
-        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginTop: 20 }}>
           {!editingPublished && (
             <button type="button" className="btn btn-ghost btn-small" disabled={submitting || !!ageGroupProblem(ageGroup)} onClick={() => handleSubmit(false)}>
-              Save as draft
+              Save as Draft
             </button>
           )}
           <button type="button" className="btn btn-primary btn-small" disabled={submitting || !allChecksPass} onClick={() => handleSubmit(true)}>
-            {submitting ? (initial?.bookId ? "Saving…" : "Publishing…") : (initial?.bookId ? (editingPublished ? "Save changes" : "Save and resubmit for review") : "Publish")}
+            {submitting ? (initial?.bookId ? "Saving…" : "Publishing…") : (initial?.bookId ? (editingPublished ? "Save Changes" : "Save and Resubmit for Review") : "Publish")}
           </button>
+          {extraActions}
         </div>
       </Card>
     </div>

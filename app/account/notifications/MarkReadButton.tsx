@@ -14,7 +14,7 @@ export function MarkReadButton() {
       disabled={isPending}
       onClick={() => startTransition(async () => { await markAllNotificationsRead(); router.refresh(); })}
     >
-      Mark all as read
+      Mark All as Read
     </button>
   );
 }

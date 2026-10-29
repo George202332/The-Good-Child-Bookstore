@@ -11,7 +11,7 @@ export function PlanButton({ featured }: { featured: boolean }) {
       style={{ justifyContent: "center", marginTop: "auto" }}
       onClick={() => setClicked(true)}
     >
-      {clicked ? "Thanks — subscriptions launch soon!" : "Start this plan"}
+      {clicked ? "Thanks — Subscriptions Launch Soon!" : "Start This Plan"}
     </button>
   );
 }

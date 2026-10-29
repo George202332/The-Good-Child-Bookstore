@@ -41,8 +41,8 @@ export default async function AffiliateMarketingPage() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <Link href="/signup/reader" className="btn btn-primary btn-small">Sign up as a reader</Link>
-              <Link href="/signup/author" className="btn btn-ghost btn-small">Sign up as an author</Link>
+              <Link href="/signup/reader" className="btn btn-primary btn-small">Sign Up as a Reader</Link>
+              <Link href="/signup/author" className="btn btn-ghost btn-small">Sign Up as an Author</Link>
             </div>
           </BannerFrame>
         </div>
@@ -59,7 +59,7 @@ export default async function AffiliateMarketingPage() {
       <section className="section fade-in-section visible" id="why-join">
         <div className="wrap">
           <div className="section-head" style={{ marginBottom: 0, display: "block" }}>
-            <h2>How the affiliate program works</h2>
+            <h2>How the Affiliate Program Works</h2>
             <p style={{ marginTop: 14, fontSize: 15.5, lineHeight: 1.75 }}>
               Most affiliate programs give you a link and leave you guessing whether it is working. Ours is built
               around a live dashboard, transparent commission math, and referral earnings that keep paying out
@@ -95,8 +95,8 @@ export default async function AffiliateMarketingPage() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link href="/signup/reader" className="btn btn-primary">Sign up as a reader</Link>
-              <Link href="/signup/author" className="btn btn-ghost">Sign up as an author</Link>
+              <Link href="/signup/reader" className="btn btn-primary">Sign Up as a Reader</Link>
+              <Link href="/signup/author" className="btn btn-ghost">Sign Up as an Author</Link>
             </div>
           </BannerFrame>
         </div>
@@ -105,7 +105,7 @@ export default async function AffiliateMarketingPage() {
       <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap">
           <div className="section-head" style={{ marginBottom: 10 }}>
-            <div><h2>Frequently asked questions</h2></div>
+            <div><h2>Frequently Asked Questions</h2></div>
           </div>
           <div className="faq-list" style={{ margin: 0, maxWidth: "none" }}>
             {AFFILIATE_FAQ.map(([q, a]) => (
@@ -122,14 +122,14 @@ export default async function AffiliateMarketingPage() {
         <div className="wrap">
           <div className="newsletter" style={{ justifyContent: "center", textAlign: "center", flexDirection: "column", gap: 22 }}>
             <div>
-              <h2>Ready to start earning?</h2>
+              <h2>Ready to Start Earning?</h2>
               <p style={{ margin: "0 auto", maxWidth: 460 }}>
                 Join as a Reader or an Author and enable affiliate access from your dashboard — no separate signup.
               </p>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link href="/signup/reader" className="btn btn-primary">Create a reader account</Link>
-              <Link href="/signup/author" className="btn btn-ghost">Create an author account</Link>
+              <Link href="/signup/reader" className="btn btn-primary">Create a Reader Account</Link>
+              <Link href="/signup/author" className="btn btn-ghost">Create an Author Account</Link>
             </div>
           </div>
         </div>

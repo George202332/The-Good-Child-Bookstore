@@ -32,7 +32,7 @@ export function QueuePayoutsButton() {
           })
         }
       >
-        {isPending ? "Queuing…" : "Queue this month's due payouts"}
+        {isPending ? "Queuing…" : "Queue This Month's Due Payouts"}
       </button>
       {message && <span style={{ fontSize: 11.5, color: "var(--ink-soft)" }}>{message}</span>}
     </div>

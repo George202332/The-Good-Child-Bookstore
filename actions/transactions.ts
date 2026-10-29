@@ -39,6 +39,9 @@ export interface TransactionRow {
    * or null when not applicable. */
   affiliateShare: number | null;
   affiliateName: string | null;
+  /** The Lulu shipping the customer paid on this printed order (charged once per order, so it
+   * shows on the order's first printed item), or null (shown as a dash) for digital items. */
+  shipping: number | null;
   status: string;
   /** How the money moved: Paystack, PayPal - Card, PayPal - Email, or the payout method. */
   mode: string;
@@ -56,7 +59,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
         ...PAID_ONLY,
         include: {
           book: true,
-          order: { include: { reader: { include: { user: true } }, paymentLogs: { orderBy: { createdAt: "desc" }, take: 1 } } },
+          order: { include: { reader: { include: { user: true } }, paymentLogs: { orderBy: { createdAt: "desc" }, take: 1 }, lines: { select: { id: true, format: true, createdAt: true } } } },
           affiliateLink: { include: { affiliate: { include: { user: true } } } },
         },
         orderBy: { createdAt: "desc" },
@@ -78,8 +81,17 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       authorShare: unknown;
       affiliateShare: unknown;
       book: { title: string };
-      order: { status: string; reader: { user: { name: string } }; paymentLogs: { gateway: string; rawPayload: unknown }[] };
+      format: string | null;
+      order: { status: string; shippingAmount: unknown; reader: { user: { name: string } }; paymentLogs: { gateway: string; rawPayload: unknown }[]; lines: { id: string; format: string | null; createdAt: Date }[] };
       affiliateLink: { affiliate: { user: { name: string } } } | null;
+    };
+
+    // Shipping is one charge for the whole order, so it is shown once: on the first printed item.
+    const isPrint = (f: string | null) => f === "paperback" || f === "hardcover";
+    const shippingShownOn = (s: SaleLineRow): number | null => {
+      if (!isPrint(s.format) || s.order.shippingAmount == null) return null;
+      const firstPrint = [...s.order.lines].filter((l) => isPrint(l.format)).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))[0];
+      return firstPrint && firstPrint.id === s.id ? Number(s.order.shippingAmount) : null;
     };
 
     const saleRows: TransactionRow[] = (saleLines as SaleLineRow[]).map((s) => {
@@ -95,6 +107,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
         authorShare: Number(s.authorShare),
         affiliateShare: Number(s.affiliateShare),
         affiliateName: isAffiliateSale ? s.affiliateLink!.affiliate.user.name : null,
+        shipping: shippingShownOn(s),
         status: s.order.status,
         mode: saleModeLabel(s.order.paymentLogs[0]),
       };
@@ -118,6 +131,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       authorShare: null,
       affiliateShare: null,
       affiliateName: null,
+      shipping: null,
       status: p.status,
       mode: payoutModeLabel(p.recipient?.type),
     }));
@@ -148,6 +162,9 @@ export interface TransactionDetail {
   affiliateShare?: number;
   authorReferralShare?: number;
   affiliateName?: string | null;
+  /** Printed items only: Lulu's production printing cost for this line, and the order's shipping. */
+  printingCost?: number | null;
+  shipping?: number | null;
   // Payout-only fields.
   currency?: string;
   earningsType?: string;
@@ -162,6 +179,8 @@ export interface TransactionDetail {
  * pattern as the Users table's getUserDetail), with a Cancel button up
  * top instead of routing through a separate page.
  */
+const isPrint = (f: string | null) => f === "paperback" || f === "hardcover";
+
 export async function getTransactionDetail(id: string, type: "sale" | "payout"): Promise<TransactionDetail | null> {
   const session = await auth();
   const role = session?.user?.role;
@@ -197,6 +216,8 @@ export async function getTransactionDetail(id: string, type: "sale" | "payout"):
         affiliateShare: Number(line.affiliateShare),
         authorReferralShare: Number(line.authorReferralShare),
         affiliateName: line.affiliateLink?.affiliate?.user?.name ?? null,
+        printingCost: line.printingCost != null ? Number(line.printingCost) : null,
+        shipping: isPrint(line.format) && line.order.shippingAmount != null ? Number(line.order.shippingAmount) : null,
       };
     }
 

@@ -39,7 +39,7 @@ export default async function CheckoutConfirmationPage({
     return (
       <div className="wrap cart-wrap" style={{ maxWidth: 520, textAlign: "center" }}>
         <p>No recent order found.</p>
-        <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 16 }}>Browse the bookshelf</Link>
+        <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 16 }}>Browse the Bookshelf</Link>
       </div>
     );
   }
@@ -51,7 +51,7 @@ export default async function CheckoutConfirmationPage({
     const stillWaiting = order.status === "PENDING";
     return (
       <div className="wrap cart-wrap" style={{ maxWidth: 520, margin: "0 auto", textAlign: "center" }}>
-        <h2 style={{ marginBottom: 6 }}>{stillWaiting ? "We're waiting for your payment to be confirmed" : "This payment was not completed"}</h2>
+        <h2 style={{ marginBottom: 6 }}>{stillWaiting ? "We're Waiting for Your Payment to Be Confirmed" : "This Payment Was Not Completed"}</h2>
         <p style={{ color: "var(--ink-soft)", marginBottom: 24 }}>
           Order #{order.id.slice(0, 8).toUpperCase()} —{" "}
           {stillWaiting
@@ -60,7 +60,7 @@ export default async function CheckoutConfirmationPage({
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {stillWaiting && (
-            <Link href={confirmationUrl(order.id)} className="btn btn-primary" style={{ textAlign: "center" }}>Check again</Link>
+            <Link href={confirmationUrl(order.id)} className="btn btn-primary" style={{ textAlign: "center" }}>Check Again</Link>
           )}
           <Link href="/checkout" className={stillWaiting ? "see-all" : "btn btn-primary"} style={{ display: "block", textAlign: "center" }}>Back to checkout</Link>
         </div>
@@ -76,7 +76,7 @@ export default async function CheckoutConfirmationPage({
       <ClearCartOnMount />
       <div style={{ textAlign: "center" }}>
         <div className="confirmation-check">✓</div>
-        <h2 style={{ marginBottom: 6 }}>Thank you for your order!</h2>
+        <h2 style={{ marginBottom: 6 }}>Thank You for Your Order!</h2>
         <p style={{ color: "var(--ink-soft)", marginBottom: 24 }}>
           Order #{order.id.slice(0, 8).toUpperCase()} — a receipt has been emailed to you.
         </p>
@@ -136,7 +136,7 @@ export default async function CheckoutConfirmationPage({
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 20 }}>
         {session?.user && hasDigitalItems && (
           <Link href="/account/library" className="btn btn-primary" style={{ textAlign: "center" }}>
-            Go to your Library
+            Go to Your Library
           </Link>
         )}
         {info?.newGuestAccount && !session?.user ? (
@@ -149,7 +149,7 @@ export default async function CheckoutConfirmationPage({
             </>
           ) : (
             <>
-              <Link href="/login" className="btn btn-primary" style={{ textAlign: "center" }}>Go to my account</Link>
+              <Link href="/login" className="btn btn-primary" style={{ textAlign: "center" }}>Go to My Account</Link>
               <p style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: 0, textAlign: "center" }}>
                 Your account is ready. Use the link in your email to choose your password, or use Forgot password on the sign-in page.
               </p>

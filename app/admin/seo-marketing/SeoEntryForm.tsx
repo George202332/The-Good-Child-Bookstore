@@ -49,7 +49,7 @@ export function SeoEntryForm({ entries }: { entries: SeoEntryRow[] }) {
         <input className="field" id="seo-og" type="url" value={ogImageUrl} onChange={(e) => setOgImageUrl(e.target.value)} />
         {error && <div className="field-hint" style={{ color: "var(--coral-deep, var(--admin-danger))" }}>{error}</div>}
         <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
-          {submitting ? "Saving…" : "Save override"}
+          {submitting ? "Saving…" : "Save Override"}
         </button>
       </form>
 

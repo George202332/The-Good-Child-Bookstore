@@ -57,9 +57,9 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
               <th style={TH}>Account ID<ColHelp text="This user's unique account number on the platform." /></th>
               <th style={TH}>Name<ColHelp text="The name on the account." /></th>
               <th style={TH}>Email<ColHelp text="The email address this account signs in and receives notifications with." /></th>
-              <th style={TH}>Date joined<ColHelp text="When this account was created." /></th>
+              <th style={TH}>Date Joined<ColHelp text="When this account was created." /></th>
               <th style={TH}>Country<ColHelp text="The country on file for this account, from sign-up, their profile, default address, or latest order. Shows Not collected when none was ever provided." /></th>
-              <th style={TH}>Account type<ColHelp text="This account's role — Reader, Author, Editor, Chief Editor, Admin, or Accountant. Change it from the dropdown in this column." /></th>
+              <th style={TH}>Account Type<ColHelp text="This account's role — Reader, Author, Editor, Chief Editor, Admin, or Accountant. Change it from the dropdown in this column." /></th>
               <th style={TH}></th>
             </tr>
           </thead>
@@ -119,7 +119,7 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
                 )}
                 {detail.affiliateReferralCode && <DetailRow label="Affiliate referral code" value={detail.affiliateReferralCode} />}
 
-                <h4 style={{ fontSize: 14, marginTop: 32, marginBottom: 8 }}>Activity log</h4>
+                <h4 style={{ fontSize: 14, marginTop: 32, marginBottom: 8 }}>Activity Log</h4>
                 <p style={{ fontSize: 12, color: "var(--admin-text-faint)", marginBottom: 12 }}>
                   Login timestamps, IP/device info, password reset events, and role changes for this account.
                 </p>

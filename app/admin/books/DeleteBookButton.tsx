@@ -39,7 +39,7 @@ export function DeleteBookButton({ bookId, bookTitle }: { bookId: string; bookTi
                 Cancel
               </button>
               <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={handleConfirm}>
-                {isPending ? "Deleting…" : "Confirm delete"}
+                {isPending ? "Deleting…" : "Confirm Delete"}
               </button>
             </div>
         </Modal>

@@ -78,7 +78,7 @@ export function TwoFactorSettings({ initial }: { initial: TwoFactorStatus }) {
 
   return (
     <div className="map-card" style={{ padding: 24, marginTop: 20 }}>
-      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Two-factor authentication</h3>
+      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Two-Factor Authentication</h3>
       <p className="field-hint" style={{ margin: "0 0 16px" }}>
         Adds a second step at login — a 6-digit code sent to your email or phone, in addition to your password.
       </p>
@@ -98,11 +98,11 @@ export function TwoFactorSettings({ initial }: { initial: TwoFactorStatus }) {
           </div>
           {status.enabled ? (
             <button type="button" className="btn btn-ghost btn-small" onClick={() => { setError(null); setInfo(null); setView("disable"); }}>
-              Turn off
+              Turn Off
             </button>
           ) : (
             <button type="button" className="btn btn-primary btn-small" onClick={() => { setError(null); setInfo(null); setView("choose-method"); }}>
-              Set up 2FA
+              Set Up 2FA
             </button>
           )}
         </div>
@@ -131,7 +131,7 @@ export function TwoFactorSettings({ initial }: { initial: TwoFactorStatus }) {
           <div style={{ display: "flex", gap: 10 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => setView("status")}>Cancel</button>
             <button type="button" className="btn btn-primary btn-small" disabled={busy || (method === "SMS" && !phone.trim())} onClick={handleStart}>
-              {busy ? "Sending…" : "Send code"}
+              {busy ? "Sending…" : "Send Code"}
             </button>
           </div>
         </div>
@@ -153,7 +153,7 @@ export function TwoFactorSettings({ initial }: { initial: TwoFactorStatus }) {
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => setView("choose-method")}>Back</button>
             <button type="submit" className="btn btn-primary btn-small" disabled={busy || code.length !== 6}>
-              {busy ? "Verifying…" : "Confirm and turn on"}
+              {busy ? "Verifying…" : "Confirm and Turn On"}
             </button>
           </div>
         </form>
@@ -166,7 +166,7 @@ export function TwoFactorSettings({ initial }: { initial: TwoFactorStatus }) {
           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => { setPassword(""); setView("status"); }}>Cancel</button>
             <button type="submit" className="btn btn-primary btn-small" disabled={busy || !password}>
-              {busy ? "Working…" : "Turn off 2FA"}
+              {busy ? "Working…" : "Turn Off 2FA"}
             </button>
           </div>
         </form>

@@ -15,12 +15,12 @@ export default function WishlistPage() {
 
   return (
     <div className="wrap" style={{ paddingTop: 48, paddingBottom: 60 }}>
-      <h1 style={{ marginBottom: 24 }}>Your wishlist</h1>
+      <h1 style={{ marginBottom: 24 }}>Your Wishlist</h1>
       {books.length === 0 ? (
         <div className="empty-state">
-          <h3>Nothing saved yet</h3>
+          <h3>Nothing Saved Yet</h3>
           <p>Tap the heart icon on any book to save it here for later.</p>
-          <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 16 }}>Browse the bookshelf</Link>
+          <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 16 }}>Browse the Bookshelf</Link>
         </div>
       ) : (
         <div className="book-grid" aria-label="Wishlist">

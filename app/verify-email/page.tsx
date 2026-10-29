@@ -15,7 +15,7 @@ export default async function VerifyEmailPage({ searchParams }: { searchParams: 
       {result.ok ? (
         <>
           <h1 style={{ fontSize: 22, marginBottom: 10 }}>
-            {result.purpose === "AUTHOR" ? "Author identity verified" : "Email verified"}
+            {result.purpose === "AUTHOR" ? "Author Identity Verified" : "Email Verified"}
           </h1>
           <p style={{ color: "var(--ink-soft)", marginBottom: 20 }}>
             {result.purpose === "AUTHOR"
@@ -25,11 +25,11 @@ export default async function VerifyEmailPage({ searchParams }: { searchParams: 
         </>
       ) : (
         <>
-          <h1 style={{ fontSize: 22, marginBottom: 10 }}>Couldn&apos;t verify</h1>
+          <h1 style={{ fontSize: 22, marginBottom: 10 }}>Couldn&apos;t Verify</h1>
           <p style={{ color: "var(--ink-soft)", marginBottom: 20 }}>{result.error}</p>
         </>
       )}
-      <Link href="/account" className="btn btn-primary btn-small">Go to your account</Link>
+      <Link href="/account" className="btn btn-primary btn-small">Go to Your Account</Link>
     </div>
   );
 }

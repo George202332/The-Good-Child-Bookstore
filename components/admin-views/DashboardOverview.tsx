@@ -65,23 +65,23 @@ export function DashboardOverview({
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card">
-          <div className="stat-label">Total users</div>
+          <div className="stat-label">Total Users</div>
           <div className="stat-value">{userCount}</div>
           <div className="stat-sub">All roles</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Published books</div>
+          <div className="stat-label">Published Books</div>
           <div className="stat-value">{statusCount("PUBLISHED")}</div>
           <div className="stat-sub">Live on the shelf</div>
         </div>
         <div className="stat-card">
-          <div className="stat-label">Needs attention</div>
+          <div className="stat-label">Needs Attention</div>
           <div className="stat-value">{pendingBooks + pendingBlogs + pendingPayouts}</div>
           <div className="stat-sub">Books, posts &amp; payouts pending</div>
         </div>
         {canViewFinancials(role) && (
           <div className="stat-card">
-            <div className="stat-label">Total orders</div>
+            <div className="stat-label">Total Orders</div>
             <div className="stat-value">{totalOrders}</div>
             <div className="stat-sub">Paid, all time</div>
           </div>
@@ -90,20 +90,20 @@ export function DashboardOverview({
 
       {canViewFinancials(role) && (
         <>
-          <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Who the money belongs to</h3>
+          <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Who the Money Belongs To</h3>
           <div className="stat-grid" style={{ marginBottom: 24 }}>
             <div className="stat-card">
-              <div className="stat-label">Company revenue</div>
+              <div className="stat-label">Company Revenue</div>
               <div className="stat-value">${companyRevenue.toFixed(2)}</div>
               <div className="stat-sub">30% share, all time</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Author payouts</div>
+              <div className="stat-label">Author Payouts</div>
               <div className="stat-value">${authorRevenue.toFixed(2)}</div>
               <div className="stat-sub">All time</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Affiliate payouts</div>
+              <div className="stat-label">Affiliate Payouts</div>
               <div className="stat-value">${affiliateRevenue.toFixed(2)}</div>
               <div className="stat-sub">All time</div>
             </div>
@@ -115,17 +115,17 @@ export function DashboardOverview({
           </div>
           <div className="stat-grid" style={{ marginBottom: 24 }}>
             <div className="stat-card">
-              <div className="stat-label">Company revenue</div>
+              <div className="stat-label">Company Revenue</div>
               <div className="stat-value">${monthCompanyRevenue.toFixed(2)}</div>
               <div className="stat-sub">30% share, this month</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Author payouts</div>
+              <div className="stat-label">Author Payouts</div>
               <div className="stat-value">${monthAuthorRevenue.toFixed(2)}</div>
               <div className="stat-sub">This month</div>
             </div>
             <div className="stat-card">
-              <div className="stat-label">Affiliate payouts</div>
+              <div className="stat-label">Affiliate Payouts</div>
               <div className="stat-value">${monthAffiliateRevenue.toFixed(2)}</div>
               <div className="stat-sub">This month</div>
             </div>
@@ -138,7 +138,7 @@ export function DashboardOverview({
         </>
       )}
 
-      <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Users by role</h3>
+      <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Users by Role</h3>
       <div className="map-card" style={{ padding: "6px 16px", marginBottom: 24 }}>
         {(["READER", "AUTHOR", "EDITOR", "CHIEF_EDITOR", "ADMIN", "ACCOUNTANT", "INVESTOR"] as const).map((r) => (
           <div key={r} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
@@ -151,7 +151,7 @@ export function DashboardOverview({
       {canViewFinancials(role) && (
         <>
           <div className="section-head" style={{ marginBottom: 14 }}>
-            <h3 style={{ fontSize: 16 }}>Recent transactions</h3>
+            <h3 style={{ fontSize: 16 }}>Recent Transactions</h3>
             <Link href={transactionsHref} className="see-all">View all →</Link>
           </div>
           <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>

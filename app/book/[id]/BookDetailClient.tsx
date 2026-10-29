@@ -67,7 +67,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
       <div className="wrap" style={{ padding: "80px 0" }}>
         <h2>We couldn&apos;t find that book.</h2>
         <Link href="/bookshelf" className="btn btn-primary" style={{ marginTop: 20 }}>
-          Back to the bookshelf
+          Back to the Bookshelf
         </Link>
       </div>
     );
@@ -339,14 +339,16 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
             )}
             {(b.formatAvailable?.paperback ?? true) && (
               <button type="button" className={`buybox-tile ${format === "paperback" ? "active" : ""}`} onClick={() => setFormat("paperback")}>
-                <div className="bt-name">Print: Paperback</div>
+                <div className="bt-name">Paperback</div>
                 <div className="bt-price">${b.formats.paperback.toFixed(2)}</div>
+                <div className="bt-sub bt-fulfilled">Fulfilled by Lulu</div>
               </button>
             )}
             {(b.formatAvailable?.hardcover ?? true) && (
               <button type="button" className={`buybox-tile ${format === "print" ? "active" : ""}`} onClick={() => setFormat("print")}>
-                <div className="bt-name">Print: Hardcover</div>
+                <div className="bt-name">Hardcover</div>
                 <div className="bt-price">${b.formats.print.toFixed(2)}</div>
+                <div className="bt-sub bt-fulfilled">Fulfilled by Lulu</div>
               </button>
             )}
           </div>
@@ -399,7 +401,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
 
       {featuredBooks.length > 0 && (
         <div className="az-section">
-          <div className="section-head"><h2>Featured books</h2></div>
+          <div className="section-head"><h2>Featured Books</h2></div>
           <div className="carousel-outer carousel-padded">
             <button type="button" className="carousel-arrow carousel-left" aria-label="Scroll featured books left" onClick={() => scrollTrack(`featured-track-${b.id}`, -1)}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 18l-6-6 6-6" /></svg>
@@ -416,7 +418,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
 
       {alsoSearchedBooks.length > 0 && (
         <div className="az-section">
-          <div className="section-head"><h2>People who read this book also searched for:</h2></div>
+          <div className="section-head"><h2>People Who Read This Book Also Searched For:</h2></div>
           <div className="carousel-outer carousel-padded">
             <button type="button" className="carousel-arrow carousel-left" aria-label="Scroll left" onClick={() => scrollTrack(`moreby-track-${b.id}`, -1)}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 18l-6-6 6-6" /></svg>

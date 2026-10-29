@@ -118,13 +118,13 @@ export function ResponsivePreview() {
             disabled={device === "desktop"}
             onClick={() => setLandscape((v) => !v)}
           >
-            {landscape ? "Landscape" : "Portrait"} (rotate)
+            {landscape ? "Landscape" : "Portrait"} (Rotate)
           </button>
           <button type="button" className="rp-btn" onClick={() => setReloadKey((k) => k + 1)}>
             Reload
           </button>
           <a className="rp-btn" href={path} target="_blank" rel="noopener noreferrer">
-            Open in new tab
+            Open in New Tab
           </a>
         </div>
 

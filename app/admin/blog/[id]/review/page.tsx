@@ -63,7 +63,7 @@ export default async function BlogReviewPage({ params }: { params: Promise<{ id:
         {/* Top row: content preview (left) — decision (right) */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 20, marginBottom: 24, alignItems: "start" }}>
           <div className="map-card" style={{ padding: 20 }}>
-            <h3 style={{ fontSize: 15, marginBottom: 4, textAlign: "center" }}>Content preview</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 4, textAlign: "center" }}>Content Preview</h3>
             <p className="field-hint" style={{ margin: "0 0 12px", textAlign: "center" }}>
               Read-only — exactly what readers will see once this post is published.
             </p>
@@ -88,7 +88,7 @@ export default async function BlogReviewPage({ params }: { params: Promise<{ id:
 
         {/* Beneath: every other submission detail */}
         <div className="map-card" style={{ padding: 20, marginBottom: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 12 }}>Submission details</h3>
+          <h3 style={{ fontSize: 15, marginBottom: 12 }}>Submission Details</h3>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, fontSize: 13.5, marginBottom: 16 }}>
             <div><strong>Categories</strong><div style={{ color: "var(--admin-text-faint)" }}>{post.categories.length > 0 ? post.categories.join(", ") : "—"}</div></div>
             <div><strong>Tags</strong><div style={{ color: "var(--admin-text-faint)" }}>{post.tags.length > 0 ? post.tags.join(", ") : "—"}</div></div>
@@ -105,7 +105,7 @@ export default async function BlogReviewPage({ params }: { params: Promise<{ id:
 
         {post.revisionNotes && (
           <div className="map-card" style={{ padding: 20, marginBottom: 20, background: "#F5D98F" }}>
-            <h3 style={{ fontSize: 15, marginBottom: 8, color: "#6B4503" }}>Existing revision notes</h3>
+            <h3 style={{ fontSize: 15, marginBottom: 8, color: "#6B4503" }}>Existing Revision Notes</h3>
             <p style={{ fontSize: 13.5, color: "#6B4503", lineHeight: 1.6 }}>{post.revisionNotes}</p>
           </div>
         )}

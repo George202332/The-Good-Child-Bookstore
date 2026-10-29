@@ -73,15 +73,15 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
         <div style={{ display: activeFormat === "ebook" ? "block" : "none" }}>
           {ebookSaved ? (
             <div className="form-section" role="status" style={{ background: "var(--cream)" }}>
-              <h3 style={{ fontSize: 15, marginBottom: 6 }}>Your eBook and Audiobook are saved</h3>
+              <h3 style={{ fontSize: 15, marginBottom: 6 }}>Your eBook and Audiobook Are Saved</h3>
               {enabledFormats.print ? (
                 <>
                   <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 12 }}>
                     Would you like to move on to the Print tab now and add a printed edition of this book? Your title, author, description and cover can be filled in for you.
                   </p>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button type="button" className="btn btn-primary btn-small" onClick={() => setActiveFormat("print")}>Yes, go to the Print tab</button>
-                    <button type="button" className="btn btn-ghost btn-small" onClick={() => router.push("/account/books")}>No, take me to My Books</button>
+                    <button type="button" className="btn btn-primary btn-small" onClick={() => setActiveFormat("print")}>Yes, Go to the Print Tab</button>
+                    <button type="button" className="btn btn-ghost btn-small" onClick={() => router.push("/account/books")}>No, Take Me to My Books</button>
                   </div>
                 </>
               ) : (

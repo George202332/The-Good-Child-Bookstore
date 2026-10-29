@@ -179,7 +179,7 @@ export function MailingListComposeForm({ counts }: { counts: MailingAudienceCoun
           <div style={{ display: "flex", gap: 8 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => setConfirming(false)} disabled={isPending}>Cancel</button>
             <button type="button" className="btn btn-primary btn-small" onClick={handleSend} disabled={isPending}>
-              {isPending ? "Sending…" : "Confirm send"}
+              {isPending ? "Sending…" : "Confirm Send"}
             </button>
           </div>
         </div>
@@ -191,7 +191,7 @@ export function MailingListComposeForm({ counts }: { counts: MailingAudienceCoun
           disabled={!canSend}
           onClick={() => setConfirming(true)}
         >
-          Send to {recipientCount} recipient{recipientCount === 1 ? "" : "s"}
+          Send to {recipientCount} Recipient{recipientCount === 1 ? "" : "s"}
         </button>
       )}
     </div>

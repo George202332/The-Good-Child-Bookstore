@@ -101,7 +101,7 @@ export function ContactPageClient({ eyebrow, heading, introText, bodyHtml }: { e
             setStartedAt(Date.now());
           }}
         >
-          <h3>Send us a message</h3>
+          <h3>Send Us a Message</h3>
           <div className="form-row-2">
             <div className="field-group">
               <label htmlFor="c-first-name">First name</label>

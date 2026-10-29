@@ -5,6 +5,12 @@
  * affiliate shares anywhere in the backend (checkout, webhooks, dashboards,
  * reports, PDFs). Nothing else should re-implement this math.
  *
+ * PRINTED COPIES: Lulu's production printing cost for the copies is taken
+ * off the book price FIRST. The percentages below are then applied to what is left
+ * (price minus printing cost), never to the full price. Shipping is paid by the customer on
+ * top of the price and passed through to Lulu; it is never part of any of these numbers.
+ * Digital sales have no printing cost, so for them nothing changes.
+ *
  * Confirmed with the project owner (overrides the generic brief numbers):
  *   - Organic sale:            company 30% / author 70%
  *   - Affiliate-referred sale: company 30% / affiliate 10% / author 60%
@@ -40,11 +46,18 @@ export const REVENUE_CONFIG = {
   referralPct: 0.05,
 } as const;
 
+import { netAfterPrintingCost } from "@/lib/print-costs";
+
 export type SaleType = "ORGANIC" | "AFFILIATE";
 
 export interface RevenueSplit {
   saleType: SaleType;
+  /** The book price paid for the line (all copies). */
   gross: number;
+  /** Lulu's production printing cost for the line (0 when nothing was printed). */
+  printingCost: number;
+  /** What was split: gross minus printingCost, never below zero. The four shares add up to this. */
+  net: number;
   companyShare: number;
   authorShare: number;
   affiliateShare: number;
@@ -59,30 +72,34 @@ function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
-/** Throws if the four shares don't reconcile to the gross, to the cent. */
+/** Throws if the four shares don't reconcile to the amount being split (gross minus printing cost), to the cent. */
 function assertReconciles(split: RevenueSplit): RevenueSplit {
   const total = round2(split.companyShare + split.authorShare + split.affiliateShare + split.authorReferralShare);
-  if (Math.abs(total - split.gross) > 0.01) {
+  if (Math.abs(total - split.net) > 0.01) {
     throw new Error(
-      `Revenue split failed to reconcile: company(${split.companyShare}) + author(${split.authorShare}) + affiliate(${split.affiliateShare}) + authorReferral(${split.authorReferralShare}) = ${total}, expected gross ${split.gross}`
+      `Revenue split failed to reconcile: company(${split.companyShare}) + author(${split.authorShare}) + affiliate(${split.affiliateShare}) + authorReferral(${split.authorReferralShare}) = ${total}, expected ${split.net}`
     );
   }
   return split;
 }
 
-export function calculateOrganicSplit(grossAmount: number): RevenueSplit {
+export function calculateOrganicSplit(grossAmount: number, printingCost: number = 0): RevenueSplit {
   const gross = round2(grossAmount);
-  const companyShare = round2(gross * REVENUE_CONFIG.organic.company);
-  const authorShare = round2(gross - companyShare); // remainder avoids rounding drift
-  return assertReconciles({ saleType: "ORGANIC", gross, companyShare, authorShare, affiliateShare: 0, authorReferralShare: 0 });
+  const cost = round2(printingCost);
+  const net = netAfterPrintingCost(gross, cost);
+  const companyShare = round2(net * REVENUE_CONFIG.organic.company);
+  const authorShare = round2(net - companyShare); // remainder avoids rounding drift
+  return assertReconciles({ saleType: "ORGANIC", gross, printingCost: cost, net, companyShare, authorShare, affiliateShare: 0, authorReferralShare: 0 });
 }
 
-export function calculateAffiliateSplit(grossAmount: number, promotionPct: number = REVENUE_CONFIG.affiliate.affiliate): RevenueSplit {
+export function calculateAffiliateSplit(grossAmount: number, promotionPct: number = REVENUE_CONFIG.affiliate.affiliate, printingCost: number = 0): RevenueSplit {
   const gross = round2(grossAmount);
-  const companyShare = round2(gross * REVENUE_CONFIG.affiliate.company);
-  const affiliateShare = round2(gross * promotionPct);
-  const authorShare = round2(gross - companyShare - affiliateShare); // remainder
-  return assertReconciles({ saleType: "AFFILIATE", gross, companyShare, authorShare, affiliateShare, authorReferralShare: 0 });
+  const cost = round2(printingCost);
+  const net = netAfterPrintingCost(gross, cost);
+  const companyShare = round2(net * REVENUE_CONFIG.affiliate.company);
+  const affiliateShare = round2(net * promotionPct);
+  const authorShare = round2(net - companyShare - affiliateShare); // remainder
+  return assertReconciles({ saleType: "AFFILIATE", gross, printingCost: cost, net, companyShare, authorShare, affiliateShare, authorReferralShare: 0 });
 }
 
 /**
@@ -102,8 +119,8 @@ export function applyAuthorReferralCarveOut(split: RevenueSplit, referralPct: nu
   return assertReconciles({ ...split, companyShare, authorReferralShare });
 }
 
-export function calculateSplits(grossAmount: number, hasAffiliate: boolean, promotionPct?: number): RevenueSplit {
-  return hasAffiliate ? calculateAffiliateSplit(grossAmount, promotionPct) : calculateOrganicSplit(grossAmount);
+export function calculateSplits(grossAmount: number, hasAffiliate: boolean, promotionPct?: number, printingCost: number = 0): RevenueSplit {
+  return hasAffiliate ? calculateAffiliateSplit(grossAmount, promotionPct, printingCost) : calculateOrganicSplit(grossAmount, printingCost);
 }
 
 /** The company's % is identical in both sale types, so this can be read

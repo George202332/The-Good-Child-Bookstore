@@ -57,7 +57,7 @@ export function AuthorSignupForm({ defaultCountry }: { defaultCountry: string })
   return (
     <section className="auth-section">
       <div className="auth-card" style={{ maxWidth: 480 }}>
-        <h1>Create an author account</h1>
+        <h1>Create an Author Account</h1>
         <p>Submit titles, track earnings, and message readers from your author dashboard.</p>
         <form onSubmit={handleSubmit}>
           <label className="field-label" htmlFor="a-name">Full name</label>
@@ -105,7 +105,7 @@ export function AuthorSignupForm({ defaultCountry }: { defaultCountry: string })
           <TurnstileWidget onToken={setTurnstileToken} />
           {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
           <button className="btn btn-primary" type="submit" disabled={submitting}>
-            {submitting ? "Creating…" : "Create author account"}
+            {submitting ? "Creating…" : "Create Author Account"}
           </button>
         </form>
         <div className="auth-switch">Here to shop instead? <Link href="/signup/reader">Sign up as a reader</Link></div>

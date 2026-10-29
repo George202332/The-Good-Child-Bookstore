@@ -118,7 +118,7 @@ export default async function PayoutSettingsPage() {
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Your payout schedule</h3>
+      <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Your Payout Schedule</h3>
       <AutoPayoutInfo available={available} onHold={onHold} rolledOver={rolledOver} hasRecipient={true} />
 
       <h3 style={{ fontSize: 16, margin: "28px 0 14px" }}>Monthly Payout History</h3>

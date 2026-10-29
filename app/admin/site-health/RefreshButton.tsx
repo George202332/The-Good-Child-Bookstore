@@ -21,7 +21,7 @@ export function RefreshButton() {
         setTimeout(() => setRefreshing(false), 600);
       }}
     >
-      {refreshing ? "Refreshing…" : "Refresh checks"}
+      {refreshing ? "Refreshing…" : "Refresh Checks"}
     </button>
   );
 }

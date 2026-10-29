@@ -37,7 +37,7 @@ export function CampaignManager({ initial }: { initial: CampaignRow[] }) {
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       </form>
 
-      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Your campaigns</h3>
+      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Your Campaigns</h3>
       {initial.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
           No campaigns yet — create one above, then assign it to a referral link at Referral Links.

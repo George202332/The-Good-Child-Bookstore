@@ -32,7 +32,7 @@ export function PayoutMethodToggles({ initial }: { initial: Toggles }) {
 
   return (
     <div>
-      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Payout methods (authors &amp; affiliates)</h3>
+      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Payout Methods (Authors &amp; Affiliates)</h3>
       <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 10 }}>
         Choose which methods authors and affiliates can select to receive payouts. Bank transfer is always available.
         These are separate from the customer checkout payment settings. When a method is off, users still see it but
@@ -55,7 +55,7 @@ export function PayoutMethodToggles({ initial }: { initial: Toggles }) {
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved. Payout method availability updated.</div>}
       <button type="button" className="btn btn-primary btn-small" disabled={saving} onClick={save}>
-        {saving ? "Saving…" : "Save payout method settings"}
+        {saving ? "Saving…" : "Save Payout Method Settings"}
       </button>
     </div>
   );

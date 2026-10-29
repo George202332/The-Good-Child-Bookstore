@@ -10,7 +10,11 @@ export interface PieSlice {
  * third-party package). Renders a color legend with percentages
  * alongside it. Purely presentational — all values are plain counts,
  * never currency. */
-export function PieChart({ data, size = 160, donut = true, legendOffset }: { data: PieSlice[]; size?: number; donut?: boolean; legendOffset?: string }) {
+export function PieChart({ data, size = 160, donut = true, legendOffset, compact = false }: {
+  data: PieSlice[]; size?: number; donut?: boolean; legendOffset?: string;
+  /** Tighter legend that stays to the RIGHT of the donut in a narrow card (author dashboard). */
+  compact?: boolean;
+}) {
   const total = data.reduce((s, d) => s + d.value, 0);
 
   if (total === 0) {
@@ -38,7 +42,7 @@ export function PieChart({ data, size = 160, donut = true, legendOffset }: { dat
     // aligns each wrapped row, so on mobile (where this chart's card is
     // often wider than the pie+legend's own content) the whole thing sat
     // off to one side instead of balanced in the card.
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 24, flexWrap: "wrap", width: "100%" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: compact ? 16 : 24, flexWrap: "wrap", width: "100%" }}>
       <div
         style={{
           width: size,
@@ -61,7 +65,7 @@ export function PieChart({ data, size = 160, donut = true, legendOffset }: { dat
           </div>
         )}
       </div>
-      <ChartLegend data={data} total={total} marginLeft={legendOffset} />
+      <ChartLegend data={data} total={total} marginLeft={legendOffset} compact={compact} />
     </div>
   );
 }
@@ -69,9 +73,9 @@ export function PieChart({ data, size = 160, donut = true, legendOffset }: { dat
 /** The legend beside a pie/donut chart. Every row is one neat line: a coloured dot and the
  * name on the left, then the count and the percentage in straight, right-aligned columns so
  * the figures line up vertically down all rows. Used by every pie chart so they all match. */
-export function ChartLegend({ data, total, marginLeft }: { data: PieSlice[]; total: number; marginLeft?: string }) {
+export function ChartLegend({ data, total, marginLeft, compact = false }: { data: PieSlice[]; total: number; marginLeft?: string; compact?: boolean }) {
   return (
-    <div className="chart-legend-grid" style={{ marginLeft }} role="list">
+    <div className={compact ? "chart-legend-grid chart-legend-compact" : "chart-legend-grid"} style={{ marginLeft }} role="list">
       {data.map((d) => (
         <div key={d.label} className="chart-legend-row" role="listitem">
           <span className="chart-legend-swatch" style={{ background: d.color }} aria-hidden />

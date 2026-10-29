@@ -46,7 +46,7 @@ export function LiveReviewSection({ bookId }: { bookId: string }) {
         <div style={{ marginBottom: 16 }}>
           {!showForm ? (
             <button type="button" className="btn btn-ghost btn-small" onClick={() => setShowForm(true)}>
-              Write a review
+              Write a Review
             </button>
           ) : (
             <form onSubmit={handleSubmit} className="form-section" style={{ background: "var(--cream)" }}>
@@ -60,7 +60,7 @@ export function LiveReviewSection({ bookId }: { bookId: string }) {
               <textarea className="field" id="review-text" rows={4} value={content} onChange={(e) => setContent(e.target.value)} />
               {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
               <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
-                {submitting ? "Submitting…" : "Submit review"}
+                {submitting ? "Submitting…" : "Submit Review"}
               </button>
             </form>
           )}
@@ -69,7 +69,7 @@ export function LiveReviewSection({ bookId }: { bookId: string }) {
 
       {reviews.length > 0 && (
         <>
-          <h4 style={{ fontSize: 14, marginBottom: 10 }}>Reader reviews</h4>
+          <h4 style={{ fontSize: 14, marginBottom: 10 }}>Reader Reviews</h4>
           {reviews.map((r) => (
             <div className="review-card" key={r.id}>
               <div className="review-header">

@@ -15,7 +15,7 @@ export function AffiliateCategorySection({ data }: { data: AffiliateEarningsSumm
     <>
       <div className="affiliate-category-card affiliate-category-a">
         <span className="affiliate-category-tag affiliate-category-tag-a">Category A</span>
-        <h3 style={{ fontSize: 15, margin: "8px 0 8px" }}>Author referrals: 3% of company revenue</h3>
+        <h3 style={{ fontSize: 15, margin: "8px 0 8px" }}>Author Referrals: 3% of Company Revenue</h3>
         <p style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.6, marginBottom: 12 }}>
           When an author signs up using your referral link and publishes with us, you earn <strong>3% of the
           company&apos;s revenue from that author</strong> (3% of our 25% share of their book sales) for as long as
@@ -28,7 +28,7 @@ export function AffiliateCategorySection({ data }: { data: AffiliateEarningsSumm
 
       <div className="affiliate-category-card affiliate-category-b">
         <span className="affiliate-category-tag affiliate-category-tag-b">Category B</span>
-        <h3 style={{ fontSize: 15, margin: "8px 0 8px" }}>Book promotions: 10% of list price</h3>
+        <h3 style={{ fontSize: 15, margin: "8px 0 8px" }}>Book Promotions: 10% of List Price</h3>
         <p style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.6, marginBottom: 12 }}>
           When a reader buys a book through one of your unique promotional links, you earn <strong>10% of the
           book&apos;s listed price</strong>, regardless of who wrote it. Each book gets its own tracked link so every
@@ -40,7 +40,7 @@ export function AffiliateCategorySection({ data }: { data: AffiliateEarningsSumm
       </div>
 
       <div className="map-card" style={{ padding: 20, marginBottom: 24 }}>
-        <h3 style={{ fontSize: 15, marginBottom: 14 }}>Distribution of affiliate earnings</h3>
+        <h3 style={{ fontSize: 15, marginBottom: 14 }}>Distribution of Affiliate Earnings</h3>
         {data.totalEarnings === 0 ? (
           <p style={{ fontSize: 13, color: "var(--ink-faint)" }}>No affiliate earnings yet.</p>
         ) : (

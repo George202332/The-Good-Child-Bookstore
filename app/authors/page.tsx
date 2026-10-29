@@ -44,7 +44,7 @@ export default async function AuthorsPage() {
                 <p>{authorship.introText}</p>
               </div>
             </div>
-            <Link href="/signup/author" className="btn btn-primary btn-small">Become an author</Link>
+            <Link href="/signup/author" className="btn btn-primary btn-small">Become an Author</Link>
           </BannerFrame>
         </div>
       </section>
@@ -60,7 +60,7 @@ export default async function AuthorsPage() {
       <section className="section fade-in-section visible" id="why-publish">
         <div className="wrap">
           <div className="section-head" style={{ marginBottom: 0, display: "block" }}>
-            <h2>Why authors publish with us</h2>
+            <h2>Why Authors Publish with Us</h2>
             <p style={{ marginTop: 14, fontSize: 15.5, lineHeight: 1.75 }}>
               Most self-publishing platforms hand you a spreadsheet and call it a dashboard. We built ours the way
               we wish existed when we started: real numbers, updated as they happen, explained in plain language,
@@ -103,7 +103,7 @@ export default async function AuthorsPage() {
       <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap">
           <div className="section-head" style={{ marginBottom: 22, display: "block" }}>
-            <h2>Author success stories</h2>
+            <h2>Author Success Stories</h2>
             <p style={{ marginTop: 10 }}>Real stories from authors publishing with us are on their way.</p>
           </div>
           <div className="quote-grid">
@@ -124,7 +124,7 @@ export default async function AuthorsPage() {
       <section className="section fade-in-section visible" style={{ paddingTop: 0 }}>
         <div className="wrap">
           <div className="section-head" style={{ marginBottom: 10 }}>
-            <div><h2>Frequently asked questions</h2></div>
+            <div><h2>Frequently Asked Questions</h2></div>
           </div>
           <div className="faq-list" style={{ margin: 0, maxWidth: "none" }}>
             {AUTHORSHIP_FAQ.map(([q, a]) => (
@@ -141,12 +141,12 @@ export default async function AuthorsPage() {
         <div className="wrap">
           <div className="newsletter" style={{ justifyContent: "center", textAlign: "center", flexDirection: "column", gap: 22 }}>
             <div>
-              <h2>Ready to share your story with the world?</h2>
+              <h2>Ready to Share Your Story with the World?</h2>
               <p style={{ margin: "0 auto", maxWidth: 460 }}>
                 Join the authors already publishing eBooks, print, and audiobooks through The Good Child Bookstore.
               </p>
             </div>
-            <Link href="/signup/author" className="btn btn-primary">Create your author account</Link>
+            <Link href="/signup/author" className="btn btn-primary">Create Your Author Account</Link>
           </div>
         </div>
       </section>

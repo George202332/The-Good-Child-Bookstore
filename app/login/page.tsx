@@ -139,7 +139,7 @@ export default function LoginPage() {
               void performLogin();
             }}
           >
-            {submitting ? "Signing in…" : "Sign in"}
+            {submitting ? "Signing In…" : "Sign In"}
           </button>
         </form>
         <div className="auth-switch" style={{ marginTop: 20, textAlign: "center" }}>

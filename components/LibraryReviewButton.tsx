@@ -25,7 +25,7 @@ export function LibraryReviewButton({ bookId, bookTitle }: { bookId: string; boo
   if (!open) {
     return (
       <button type="button" className="btn btn-ghost btn-small" onClick={() => { setOpen(true); setResult(null); }}>
-        Write a review
+        Write a Review
       </button>
     );
   }
@@ -50,7 +50,7 @@ export function LibraryReviewButton({ bookId, bookTitle }: { bookId: string; boo
       )}
       <div style={{ display: "flex", gap: 8 }}>
         <button type="button" className="btn btn-primary btn-small" disabled={submitting || !content.trim()} onClick={handleSubmit}>
-          {submitting ? "Submitting…" : "Submit review"}
+          {submitting ? "Submitting…" : "Submit Review"}
         </button>
         <button type="button" className="btn btn-ghost btn-small" onClick={() => setOpen(false)}>
           Close

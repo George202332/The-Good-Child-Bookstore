@@ -24,7 +24,7 @@ export function ModerationActions({ payoutId }: { payoutId: string | string[] })
           })
         }
       >
-        Mark paid
+        Mark Paid
       </button>
       <button
         type="button"

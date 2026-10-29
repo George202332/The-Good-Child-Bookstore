@@ -21,6 +21,7 @@ const COLUMNS: { label: string; help: string }[] = [
   { label: "Company", help: "The company's share of this sale." },
   { label: "Royalty", help: "The author's share (royalty) of this sale." },
   { label: "Commission", help: "The affiliate's commission on this sale, and which affiliate earned it, if any." },
+  { label: "Shipping", help: "The Lulu shipping the customer paid on a printed order, passed through to Lulu. It is charged once per order, so it shows on the order's first printed item. A dash means a digital item. Shipping is never part of anyone's earnings." },
   { label: "Mode", help: "How the money moved: Paystack, PayPal - Card, PayPal - Email, or (for a payout) the method it is sent by." },
 ];
 
@@ -59,7 +60,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={11} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
+                <td colSpan={12} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
                   No transactions recorded yet — this table will fill in as sales and payouts happen.
                 </td>
               </tr>
@@ -91,6 +92,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                     <td style={{ ...TD, color: r.affiliateShare ? "#165236" : "var(--ink-faint)", fontWeight: r.affiliateShare ? 700 : 400 }}>
                       {r.affiliateShare !== null ? `$${r.affiliateShare.toFixed(2)}${r.affiliateName ? ` (${r.affiliateName})` : ""}` : "—"}
                     </td>
+                    <td style={TD}>{r.shipping !== null ? `$${r.shipping.toFixed(2)}` : "—"}</td>
                     <td style={{ ...TD, whiteSpace: "nowrap" }}>{loadingKey === rowKey ? <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Loading…</span> : r.mode}</td>
                   </tr>
                 );
@@ -126,6 +128,8 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                     <DetailRow label="Order ID" value={detail.orderId ? detail.orderId.slice(0, 8).toUpperCase() : "—"} />
                     <DetailRow label="Company share" value={`$${(detail.companyShare ?? 0).toFixed(2)}`} />
                     <DetailRow label="Author share" value={`$${(detail.authorShare ?? 0).toFixed(2)}`} />
+                    {detail.printingCost != null && <DetailRow label="Printing cost (Lulu)" value={`$${detail.printingCost.toFixed(2)}`} />}
+                    {detail.shipping != null && <DetailRow label="Shipping (paid by customer, passed to Lulu)" value={`$${detail.shipping.toFixed(2)}`} />}
                     <DetailRow label="Affiliate share" value={`$${(detail.affiliateShare ?? 0).toFixed(2)}${detail.affiliateName ? ` — ${detail.affiliateName}` : ""}`} />
                     <DetailRow label="Author referral share" value={`$${(detail.authorReferralShare ?? 0).toFixed(2)}`} />
                   </>

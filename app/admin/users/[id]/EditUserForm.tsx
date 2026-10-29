@@ -79,17 +79,17 @@ export function EditUserForm({ user, isSelf }: { user: UserDetail; isSelf: boole
         {error && <div className="field-hint" style={{ color: "var(--coral-deep, var(--admin-danger))" }}>{error}</div>}
         {saved && <div className="field-hint" style={{ color: "#165236" }}>Saved.</div>}
         <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>
-          {submitting ? "Saving…" : "Save changes"}
+          {submitting ? "Saving…" : "Save Changes"}
         </button>
       </form>
 
       {!isSelf && (
         <div className="form-section" style={{ display: "flex", gap: 10 }}>
           <button type="button" className="btn btn-ghost btn-small" onClick={handleSuspendToggle}>
-            {user.suspended ? "Reactivate account" : "Suspend account"}
+            {user.suspended ? "Reactivate Account" : "Suspend Account"}
           </button>
           <button type="button" className="btn btn-ghost btn-small" onClick={handleDelete}>
-            Delete account
+            Delete Account
           </button>
         </div>
       )}

@@ -54,7 +54,7 @@ export function RedirectsManager({ redirects }: { redirects: RedirectRow[] }) {
           </select>
         </div>
         <div style={{ display: "flex", alignItems: "flex-end" }}>
-          <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>{submitting ? "Adding…" : "Add redirect"}</button>
+          <button type="submit" className="btn btn-primary btn-small" disabled={submitting}>{submitting ? "Adding…" : "Add Redirect"}</button>
         </div>
       </form>
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginBottom: 12 }}>{error}</div>}

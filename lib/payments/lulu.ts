@@ -56,6 +56,7 @@ import { detectTrimFromPageSize, formatInches, trimCodeToInches } from "@/lib/tr
 import { LULU_CONFIG } from "@/lib/lulu-config";
 import { coverLayout, toPoints, buildCoverWrapPdf } from "@/lib/lulu-cover";
 import { parseLuluShippingOptions, pickShippingQuote, type ShippingQuote } from "@/lib/shipping-quote";
+import { parseLuluCostCalculation, type LuluCostQuote } from "@/lib/print-costs";
 
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
@@ -117,51 +118,83 @@ export interface ShippingQuoteLine {
   manuscriptUrl?: string;
 }
 
+/** The line items Lulu's quote endpoints need (page count, package, quantity). Null when one can't be built. */
+async function buildQuoteItems(lines: ShippingQuoteLine[]): Promise<{ page_count: number; pod_package_id: string; quantity: number }[] | null> {
+  const items: { page_count: number; pod_package_id: string; quantity: number }[] = [];
+  for (const l of lines) {
+    const meta = (l.submissionMetadata as PrintMeta | null) ?? null;
+    let pageCount = Number(meta?.pages) || 0;
+    let trimCode = meta?.trimSizeCode || "0600X0900";
+    if (!pageCount || !meta?.trimSizeCode) {
+      const interior = await readInteriorPdf(l.manuscriptUrl);
+      if (interior) {
+        pageCount = pageCount || interior.pageCount;
+        const found = detectTrimFromPageSize(interior.widthIn, interior.heightIn, LULU_CONFIG.trimSizes);
+        if (found) trimCode = found.code;
+      }
+    }
+    if (!pageCount) return null;
+    items.push({ page_count: pageCount, pod_package_id: await podPackageForBook(meta, l.format, trimCode), quantity: l.quantity });
+  }
+  return items;
+}
+
+function luluQuoteAddress(address: LuluAddress) {
+  return {
+    city: address.city,
+    country: address.country_code,
+    country_code: address.country_code,
+    postcode: address.postcode,
+    state_code: address.state_code,
+    street1: address.street1,
+    phone_number: address.phone_number,
+  };
+}
+
 /** Asks Lulu what shipping would cost for these printed copies to this
  * address, for each shipping method. Returns [] when Lulu cannot be asked or
- * does not answer usefully (the caller then falls back to the store's
- * estimate). Never throws. */
+ * does not answer usefully. Never throws. */
 export async function quoteLuluShipping(lines: ShippingQuoteLine[], address: LuluAddress): Promise<ShippingQuote[]> {
   try {
-    const items: { page_count: number; pod_package_id: string; quantity: number }[] = [];
-    for (const l of lines) {
-      const meta = (l.submissionMetadata as PrintMeta | null) ?? null;
-      let pageCount = Number(meta?.pages) || 0;
-      let trimCode = meta?.trimSizeCode || "0600X0900";
-      if (!pageCount || !meta?.trimSizeCode) {
-        const interior = await readInteriorPdf(l.manuscriptUrl);
-        if (interior) {
-          pageCount = pageCount || interior.pageCount;
-          const found = detectTrimFromPageSize(interior.widthIn, interior.heightIn, LULU_CONFIG.trimSizes);
-          if (found) trimCode = found.code;
-        }
-      }
-      if (!pageCount) return [];
-      items.push({ page_count: pageCount, pod_package_id: await podPackageForBook(meta, l.format, trimCode), quantity: l.quantity });
-    }
+    const items = await buildQuoteItems(lines);
+    if (!items) return [];
     const baseUrl = luluBaseUrl(await getLuluEnvironment());
     const token = await getAccessToken(baseUrl);
     const res = await fetch(`${baseUrl}/shipping-options/`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        currency: "USD",
-        line_items: items,
-        shipping_address: {
-          city: address.city,
-          country: address.country_code,
-          country_code: address.country_code,
-          postcode: address.postcode,
-          state_code: address.state_code,
-          street1: address.street1,
-          phone_number: address.phone_number,
-        },
-      }),
+      body: JSON.stringify({ currency: "USD", line_items: items, shipping_address: luluQuoteAddress(address) }),
     });
     if (!res.ok) return [];
     return parseLuluShippingOptions(await res.json());
   } catch {
     return [];
+  }
+}
+
+/** Lulu's production printing cost for each printed line (and its shipping and fulfilment
+ * charges) for this exact order, via Lulu's cost calculator. Used when an order is placed so
+ * the printing cost saved on each sale line is exactly what Lulu quoted. Never throws. */
+export async function quoteLuluCosts(
+  lines: ShippingQuoteLine[],
+  address: LuluAddress,
+  level: LuluShippingLevel,
+): Promise<{ ok: true; quote: LuluCostQuote } | { ok: false; error: string }> {
+  try {
+    const items = await buildQuoteItems(lines);
+    if (!items) return { ok: false, error: "A printed book's page count is unknown, so Lulu's printing cost cannot be quoted." };
+    const baseUrl = luluBaseUrl(await getLuluEnvironment());
+    const token = await getAccessToken(baseUrl);
+    const res = await fetch(`${baseUrl}/print-job-cost-calculations/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ line_items: items, shipping_address: luluQuoteAddress(address), shipping_option: level }),
+    });
+    if (!res.ok) return { ok: false, error: `Lulu's cost calculator answered ${res.status}.` };
+    const quote = parseLuluCostCalculation(await res.json(), items.length);
+    return quote ? { ok: true, quote } : { ok: false, error: "Lulu's cost calculator reply could not be read." };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Lulu's cost calculator could not be reached." };
   }
 }
 
@@ -200,6 +233,19 @@ export async function submitLuluPrintJob(
     return { ok: true, luluJobId: String(data.id) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Lulu print job submission failed." };
+  }
+}
+
+/** Asks Lulu for one print job (its status and what it charged). Read only. */
+export async function fetchLuluPrintJob(jobId: string): Promise<{ ok: true; json: unknown } | { ok: false; error: string }> {
+  try {
+    const baseUrl = luluBaseUrl(await getLuluEnvironment());
+    const token = await getAccessToken(baseUrl);
+    const res = await fetch(`${baseUrl}/print-jobs/${encodeURIComponent(jobId)}/`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return { ok: false, error: `Lulu answered ${res.status} for print job ${jobId}.` };
+    return { ok: true, json: await res.json() };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not reach Lulu." };
   }
 }
 

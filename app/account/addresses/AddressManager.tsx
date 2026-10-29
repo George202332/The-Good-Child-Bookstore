@@ -46,10 +46,10 @@ export function AddressManager({ initial }: { initial: AddressRow[] }) {
           </div>
         </div>
         {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
-        <button type="submit" className="btn btn-primary btn-small">Add address</button>
+        <button type="submit" className="btn btn-primary btn-small">Add Address</button>
       </form>
 
-      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Your addresses</h3>
+      <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Your Addresses</h3>
       {initial.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No addresses saved yet.</div>
       ) : (
@@ -70,7 +70,7 @@ export function AddressManager({ initial }: { initial: AddressRow[] }) {
                     disabled={isPending}
                     onClick={() => startTransition(async () => { await setDefaultAddress(a.id); router.refresh(); })}
                   >
-                    Make default
+                    Make Default
                   </button>
                 )}
                 <button

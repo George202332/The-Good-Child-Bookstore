@@ -49,13 +49,13 @@ export default async function SeoMarketingPage() {
       </div>
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
-        <div className="stat-card"><div className="stat-label">Published books</div><div className="stat-value">{overview.publishedBooks}</div><div className="stat-sub">Indexable now</div></div>
-        <div className="stat-card"><div className="stat-label">Published posts</div><div className="stat-value">{overview.publishedBlogs}</div><div className="stat-sub">Indexable now</div></div>
-        <div className="stat-card"><div className="stat-label">Author profiles</div><div className="stat-value">{overview.publishedAuthors}</div><div className="stat-sub">With E-E-A-T pages</div></div>
-        <div className="stat-card"><div className="stat-label">Affiliate clicks</div><div className="stat-value">{overview.totalOutboundAffiliateClicks}</div><div className="stat-sub">All time</div></div>
+        <div className="stat-card"><div className="stat-label">Published Books</div><div className="stat-value">{overview.publishedBooks}</div><div className="stat-sub">Indexable now</div></div>
+        <div className="stat-card"><div className="stat-label">Published Posts</div><div className="stat-value">{overview.publishedBlogs}</div><div className="stat-sub">Indexable now</div></div>
+        <div className="stat-card"><div className="stat-label">Author Profiles</div><div className="stat-value">{overview.publishedAuthors}</div><div className="stat-sub">With E-E-A-T pages</div></div>
+        <div className="stat-card"><div className="stat-label">Affiliate Clicks</div><div className="stat-value">{overview.totalOutboundAffiliateClicks}</div><div className="stat-sub">All time</div></div>
       </div>
 
-      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Content health</h3>
+      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Content Health</h3>
       <div className="map-card" style={{ padding: "6px 16px", marginBottom: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
           <span>Published books missing an ISBN</span>
@@ -71,7 +71,7 @@ export default async function SeoMarketingPage() {
         </div>
       </div>
 
-      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Generated feeds</h3>
+      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Generated Feeds</h3>
       <div className="map-card" style={{ padding: "6px 16px", marginBottom: 12 }}>
         {feeds.map((f) => (
           <div key={f.href} style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--line)" }}>
@@ -81,10 +81,10 @@ export default async function SeoMarketingPage() {
         ))}
       </div>
       <Link href="/admin/seo-marketing/indexing" className="btn btn-ghost btn-small" style={{ display: "inline-block", marginBottom: 24 }}>
-        View indexing report →
+        View Indexing Report →
       </Link>
 
-      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Instant indexing (IndexNow)</h3>
+      <h3 style={{ fontSize: 16, marginBottom: 14 }}>Instant Indexing (IndexNow)</h3>
       <IndexNowPanel log={indexNowLog} keyFileUrl={`${siteUrl}/indexnow-key.txt`} />
 
       {role === "ADMIN" && (
@@ -92,7 +92,7 @@ export default async function SeoMarketingPage() {
           <h3 style={{ fontSize: 16, marginBottom: 14 }}>Redirects</h3>
           <RedirectsManager redirects={redirects} />
 
-          <h3 style={{ fontSize: 16, marginBottom: 14 }}>Per-page metadata overrides</h3>
+          <h3 style={{ fontSize: 16, marginBottom: 14 }}>Per-Page Metadata Overrides</h3>
           <SeoEntryForm entries={entries} />
         </>
       )}

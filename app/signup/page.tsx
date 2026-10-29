@@ -10,7 +10,7 @@ export default function SignupChoicePage() {
   return (
     <section className="auth-section">
       <div className="auth-card">
-        <h1>Create an account</h1>
+        <h1>Create an Account</h1>
         <p>Choose the kind of account you&apos;d like to create.</p>
         <div className="role-pick">
           <Link href="/signup/reader" className="role-card">

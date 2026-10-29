@@ -94,7 +94,7 @@ export function ComposeMessageForm({ initial, onDone }: { initial?: ComposeIniti
 
   return (
     <div className="map-card" style={{ padding: 20, background: "var(--cream)", marginBottom: 20, position: "relative" }}>
-      <h3 style={{ fontSize: 15, marginBottom: 14 }}>{initial ? "Edit draft" : "Compose a new message"}</h3>
+      <h3 style={{ fontSize: 15, marginBottom: 14 }}>{initial ? "Edit Draft" : "Compose a New Message"}</h3>
 
       {recipientId ? (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isSupport ? 10 : 14 }}>
@@ -175,7 +175,7 @@ export function ComposeMessageForm({ initial, onDone }: { initial?: ComposeIniti
           Send
         </button>
         <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={handleSaveDraft}>
-          Save as draft
+          Save as Draft
         </button>
         {onDone && (
           <button type="button" className="btn btn-ghost btn-small" disabled={submitting} onClick={onDone}>

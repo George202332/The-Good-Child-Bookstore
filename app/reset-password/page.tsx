@@ -8,7 +8,7 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
   return (
     <section className="auth-section">
       <div className="auth-card" style={{ maxWidth: 420 }}>
-        <h1>Set a new password</h1>
+        <h1>Set a New Password</h1>
         <ResetPasswordForm token={typeof token === "string" ? token : ""} />
       </div>
     </section>
