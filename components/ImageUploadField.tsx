@@ -24,6 +24,7 @@ export function ImageUploadField({
   trim,
   fillWidth,
   accept = "image/*",
+  externalLabel,
 }: {
   label: string;
   recommendedSize?: string;
@@ -44,6 +45,8 @@ export function ImageUploadField({
    * override for fields that need a narrower set (e.g. the print front
    * cover, which only accepts PNG/JPEG, matching the original design). */
   accept?: string;
+  /** Shown in the "uploaded" badge when the image arrived from outside this card. */
+  externalLabel?: string;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +91,10 @@ export function ImageUploadField({
     if (file) uploadFile(file);
   }
 
-  const hasFile = !!preview;
+  // A value set from outside (for example a cover carried over from the eBook tab) shows
+  // just like one uploaded here.
+  const shownUrl = value || preview;
+  const hasFile = !!shownUrl;
 
   return (
     <div style={fillWidth ? { flex: 1, minWidth: 160, marginBottom: 16 } : { maxWidth: 280, marginBottom: 16 }}>
@@ -111,9 +117,9 @@ export function ImageUploadField({
           onDragLeave={() => setIsDragOver(false)}
           onDrop={handleDrop}
         >
-          {hasFile && preview ? (
+          {hasFile && shownUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- small upload-card preview thumbnail
-            <img src={preview} alt={label} style={{ width: 30, height: 30, objectFit: "cover", borderRadius: 6 }} />
+            <img src={shownUrl} alt={label} style={{ width: 44, height: 58, objectFit: "cover", borderRadius: 6 }} />
           ) : (
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="M21 15l-5-5L5 21" />
@@ -125,7 +131,7 @@ export function ImageUploadField({
           </div>
           <div className="upload-card-success-badge">
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
-            <span>{fileName ?? "Uploaded"}</span>
+            <span>{fileName ?? externalLabel ?? "Uploaded"}</span>
           </div>
           {hasFile && <div style={{ fontSize: 11, color: "#165236", marginTop: 2 }}>Click to replace with a different image</div>}
         </label>

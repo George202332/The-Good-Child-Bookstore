@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { reportSystemError } from "@/lib/site-health/alert";
+import { isWordDocument } from "@/lib/word-documents";
 
 /**
  * Generic (non-image) file upload — manuscripts (PDF/EPUB/MOBI) and
@@ -25,7 +26,6 @@ const MIME_TO_EXTENSIONS: Record<string, string[]> = {
   "application/pdf": [".pdf"],
   "application/epub+zip": [".epub"],
   "application/x-mobipocket-ebook": [".mobi"],
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
   "audio/mpeg": [".mp3"],
   "audio/mp4": [".m4a"],
   "audio/x-m4a": [".m4a"],
@@ -44,6 +44,8 @@ export interface UploadFileResult {
   ok: boolean;
   fileId?: string;
   fileName?: string;
+  /** The stored file's type, e.g. "application/pdf". */
+  mimeType?: string;
   /** Page count, auto-detected from the actual uploaded file when it's
    * (or converts to) a PDF — see readPdfMetadata below. Undefined for
    * EPUB/MOBI, where page count isn't a well-defined property of the
@@ -56,8 +58,7 @@ export interface UploadFileResult {
    * print trim size automatically — see lib/trim-size.ts. */
   pageWidthIn?: number;
   pageHeightIn?: number;
-  /** The stored file's actual size in bytes — the real uploaded (or, for
-   * a DOCX, converted-to-PDF) file, not an estimate. */
+  /** The stored file's actual size in bytes — the real uploaded file, not an estimate. */
   fileSizeBytes?: number;
   error?: string;
 }
@@ -103,30 +104,19 @@ export async function uploadGenericFile(formData: FormData, allowedTypes: string
   if (file.size > MAX_UPLOAD_BYTES) {
     return { ok: false, error: "File is too large (max 4MB)." };
   }
+  // Word documents are never accepted, whatever the caller allows: the screens do not
+  // offer them, and this refuses them even if someone calls the upload directly.
+  if (isWordDocument(file.name, file.type)) {
+    return { ok: false, error: "Word documents (DOC and DOCX) are not accepted. Please export your manuscript as a PDF (or EPUB for an eBook) and upload that instead." };
+  }
   const mimeOk = allowedTypes.length === 0 || allowedTypes.includes(file.type);
   const extOk = hasAllowedExtension(file.name, allowedTypes);
   if (allowedTypes.length > 0 && !mimeOk && !extOk) {
     return { ok: false, error: `That file type isn't allowed here (expected ${allowedTypes.join(", ")}).` };
   }
 
-  const isDocx = file.name.toLowerCase().endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
   try {
     const arrayBuffer = await file.arrayBuffer();
-
-    if (isDocx) {
-      const { convertDocxToPdf } = await import("@/lib/docx-to-pdf");
-      const pdfBytes = new Uint8Array(await convertDocxToPdf(Buffer.from(arrayBuffer)));
-      const record = await prisma.uploadedFile.create({
-        data: {
-          data: pdfBytes,
-          mimeType: "application/pdf",
-          originalName: file.name.replace(/\.docx$/i, ".pdf"),
-        },
-      });
-      const docxMeta = await readPdfMetadata(pdfBytes);
-      return { ok: true, fileId: record.id, fileName: record.originalName, fileSizeBytes: pdfBytes.byteLength, ...docxMeta };
-    }
 
     // Trust the file's real extension for the stored MIME type when the
     // browser didn't report one (or reported something generic) — keeps
@@ -141,9 +131,21 @@ export async function uploadGenericFile(formData: FormData, allowedTypes: string
       },
     });
     const pdfMeta = inferredMime === "application/pdf" ? await readPdfMetadata(bytes) : {};
-    return { ok: true, fileId: record.id, fileName: file.name, fileSizeBytes: bytes.byteLength, ...pdfMeta };
+    return { ok: true, fileId: record.id, fileName: file.name, mimeType: record.mimeType, fileSizeBytes: bytes.byteLength, ...pdfMeta };
   } catch (e) {
     await reportSystemError("FILE_UPLOAD", e, { fileName: file.name, fileType: file.type, userId: session.user.id });
     return { ok: false, error: e instanceof Error ? e.message : "Failed to store file." };
   }
+}
+
+/** Reads the name, type and (for a PDF) page count and page size of a file that is
+ * already stored. Used when a file is carried from the eBook tab to the Print tab. */
+export async function describeUploadedFile(fileId: string): Promise<UploadFileResult> {
+  const session = await auth();
+  if (!session?.user) return { ok: false, error: "You need to be signed in." };
+  const file = await prisma.uploadedFile.findUnique({ where: { id: fileId } });
+  if (!file) return { ok: false, error: "That file could not be found." };
+  const bytes = new Uint8Array(file.data);
+  const pdfMeta = file.mimeType === "application/pdf" ? await readPdfMetadata(bytes) : {};
+  return { ok: true, fileId: file.id, fileName: file.originalName, mimeType: file.mimeType, fileSizeBytes: bytes.byteLength, ...pdfMeta };
 }

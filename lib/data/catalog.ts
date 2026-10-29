@@ -155,6 +155,17 @@ export interface Book {
    * only real submitted books set this explicitly, reflecting the
    * formats their author actually enabled at submission. */
   formatAvailable?: { ebook: boolean; paperback: boolean; hardcover: boolean; audiobook: boolean };
+  /** One product page can be backed by several records (one per edition). This says which
+   * record sells each format, so the price tab a customer picks adds exactly that format
+   * to the cart. Absent = every format is sold by this book's own id. */
+  formatBookIds?: Partial<Record<"ebook" | "audiobook" | "paperback" | "hardcover", string>>;
+  /** The identifier of each format: eBook and Audiobook share one (the SN number, or the
+   * author's own ISBN); Paperback and Hardcover each have their own ISBN, or none yet
+   * (value null = "ISBN pending"). */
+  identifiers?: Partial<Record<"ebook" | "audiobook" | "paperback" | "hardcover", { label: "SN number" | "ISBN"; value: string | null }>>;
+  /** Page count and trim size of the printed edition, when it differs from the eBook's. */
+  printPages?: number;
+  printDimensions?: string;
   /** The uploaded PDF manuscript's URL — the public "Read sample"
    * viewer renders the first 6 pages of this exact file. Real
    * submitted books only; the static demo catalog has none. */

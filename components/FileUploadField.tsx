@@ -33,6 +33,7 @@ export function FileUploadField({
   disabled = false,
   disabledNote,
   initialFileName,
+  externalFileName,
   onRemove,
   checkSizeLimit = false,
 }: {
@@ -56,6 +57,9 @@ export function FileUploadField({
   disabledNote?: string;
   /** Shows the card as already uploaded (edit mode) with this label. */
   initialFileName?: string;
+  /** A file that arrived another way (for example carried over from the eBook tab):
+   * the card shows it as uploaded, with its name, until the author uploads a new one. */
+  externalFileName?: string;
   /** When given, an uploaded card shows a "Remove file" button that
    * clears the card and calls this. */
   onRemove?: () => void;
@@ -66,7 +70,9 @@ export function FileUploadField({
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fileNames, setFileNames] = useState<string[]>(initialFileName ? [initialFileName] : []);
+  const [uploadedNames, setFileNames] = useState<string[]>(initialFileName ? [initialFileName] : []);
+  // A file carried in from elsewhere shows until this card uploads something of its own.
+  const fileNames = uploadedNames.length > 0 ? uploadedNames : externalFileName ? [externalFileName] : [];
   const [isDragOver, setIsDragOver] = useState(false);
   const inputId = `file-upload-${label.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase()}`;
 

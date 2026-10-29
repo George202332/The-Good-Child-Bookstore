@@ -46,7 +46,6 @@ export function EditBookTabs({
 }) {
   const [active, setActive] = useState<Format>(startOn);
   const [shared, setShared] = useState<SharedSubmissionFields | undefined>(undefined);
-  const [autofillRequest, setAutofillRequest] = useState(0);
 
   const tabs: { key: Format; label: string; tab: EditTab }[] = [
     { key: "ebook", label: "eBook / Audiobook", tab: ebookTab },
@@ -87,19 +86,6 @@ export function EditBookTabs({
               {t.tab.mode === "add" ? " (add)" : ""}
             </button>
           ))}
-          {printTab.mode === "add" && enabledFormats.print && (
-            <button
-              type="button"
-              className="btn btn-small btn-ghost"
-              title="Copy the title, description, cover, author and other details from this title's eBook into the new print copy"
-              onClick={() => {
-                setActive("print");
-                setAutofillRequest((n) => n + 1);
-              }}
-            >
-              Autofill print from eBook
-            </button>
-          )}
         </div>
         <p style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>{hint(current.key, current.tab)}</p>
       </div>
@@ -117,7 +103,7 @@ export function EditBookTabs({
         {printTab.mode === "edit" && printInitial ? (
           <PrintSubmissionForm initial={printInitial} />
         ) : enabledFormats.print ? (
-          <PrintSubmissionForm prefill={shared ?? addPrefill} autofillRequest={autofillRequest} />
+          <PrintSubmissionForm prefill={shared ?? addPrefill} />
         ) : (
           <ClosedNote />
         )}

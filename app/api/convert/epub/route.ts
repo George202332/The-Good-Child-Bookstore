@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   const file = await prisma.uploadedFile.findUnique({ where: { id: fileId } });
   if (!file) return new NextResponse("File not found.", { status: 404 });
   if (file.mimeType !== "application/pdf") {
-    return new NextResponse("EPUB generation currently supports PDF-sourced manuscripts only (a DOCX upload is already converted to PDF automatically at upload time).", { status: 415 });
+    return new NextResponse("EPUB generation currently supports PDF-sourced manuscripts only.", { status: 415 });
   }
 
   try {

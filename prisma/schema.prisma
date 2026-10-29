@@ -1108,3 +1108,38 @@ model SystemErrorLog {
   @@index([signature, createdAt])
 }
 
+
+/// One run of the print pre-flight check (Submit a New Title → Print tab): the
+/// site's own quick checks plus Lulu's file validation, for one interior PDF and
+/// cover. The server keeps the result so a print edition can only be sent for
+/// review when a passing check for exactly these files exists (the browser cannot
+/// claim a pass). Validation only: nothing here creates a print job or an order.
+model PrintPreflightCheck {
+  id             String    @id @default(cuid())
+  userId         String
+  /// Set when the check is saved against a book on submit.
+  bookId         String?
+  interiorFileId String
+  /// The cover this check covered: the front-cover image URL or the custom wrap file id.
+  coverKey       String
+  /// Lulu package ids checked (paperback and/or hardcover), comma separated.
+  packageIds     String
+  pageCount      Int?
+  /// CHECKING | PASSED | FAILED | UNAVAILABLE
+  status         String
+  /// The site's own findings: [{ code, message, fix }]
+  siteIssues     Json      @default("[]")
+  /// Lulu's validation jobs: [{ kind, format, id, status, errors[] }]
+  luluJobs       Json      @default("[]")
+  /// Plain-language reasons shown to the author (site and Lulu combined).
+  reasons        Json      @default("[]")
+  luluEnvironment String?
+  coverWrapFileId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  completedAt    DateTime?
+
+  @@index([userId, createdAt])
+  @@index([interiorFileId])
+  @@index([bookId])
+}

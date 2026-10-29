@@ -11,6 +11,10 @@ import { resolveFormats } from "@/lib/submission-formats";
 import { detectTrimFromPageSize, formatInches } from "@/lib/trim-size";
 import { LULU_CONFIG } from "@/lib/lulu-config";
 import { ageGroupProblem } from "@/lib/age-groups";
+import { PRINT_METADATA_KEYS, mergeFormatFields, mergeMetadata, scopeOf } from "@/lib/format-scope";
+import { gatePrintEdition, attachCheckToBook } from "@/lib/print-preflight-server";
+import { cleanIsbn } from "@/lib/identifiers";
+import type { SavedPreflight } from "@/lib/print-preflight-result";
 
 export interface AuthorAliasRow {
   id: string;
@@ -106,15 +110,6 @@ export async function rememberPublisher(name: string): Promise<void> {
  * fields themselves — trim/paper/binding/finish — are built, see
  * lib/lulu-config.ts) — a real, separate, larger feature.
  */
-
-/** Ported from ean13CheckDigit()/ensureGeneratedISBN() (the-good-child-bookstore_54_1.html:8336-8341) — used only as a fallback when the author doesn't provide their own ISBN. */
-function generateIsbn(): string {
-  const first12 = [9, 7, 8, 1, ...Array.from({ length: 8 }, () => Math.floor(Math.random() * 10))];
-  let sum = 0;
-  for (let i = 0; i < 12; i++) sum += first12[i] * (i % 2 === 0 ? 1 : 3);
-  const check = (10 - (sum % 10)) % 10;
-  return `978-1-${first12.slice(4, 9).join("")}-${first12.slice(9, 12).join("")}-${check}`;
-}
 
 /** eBook "SN" (serial number) — not a real ISBN, an internal
  * store-issued identifier: 13 digits, all numeric, always starting
@@ -262,6 +257,12 @@ export interface SubmissionMetadata {
    * whichever of the two cover uploads the author actually used most
    * recently — matches the original's own backCoverMode behavior. */
   backCoverMode?: "auto" | "custom";
+  /** Per-format print ISBNs, as given by the author (or entered by an admin).
+   * Never shared between formats: paperback and hardcover each carry their own. */
+  printIsbns?: { paperback?: string; hardcover?: string };
+  /** Saved by the server (never trusted from the browser): the result of the
+   * print file check - see lib/print-preflight-server.ts. */
+  printPreflight?: SavedPreflight;
   contactEmail?: string;
   streetAddress?: string;
   city?: string;
@@ -440,6 +441,31 @@ async function alignTrimSizeWithPdf(input: SubmitBookInput): Promise<{ ok: true 
   return { ok: true };
 }
 
+/** An ISBN the author typed for their eBook: must look like one, and must not belong to
+ * another book. (An empty value is fine - an SN number is generated instead.) */
+async function ownIsbnProblem(isbn: string | undefined, exceptBookId?: string): Promise<string | null> {
+  const typed = isbn?.trim();
+  if (!typed) return null;
+  const cleaned = cleanIsbn(typed);
+  if (!cleaned && !/^5\d{12}$/.test(typed)) {
+    return "That ISBN doesn't look right. Enter a 10- or 13-digit ISBN, or choose \"Auto-generate an SN number for me\".";
+  }
+  const clash = await prisma.book.findFirst({ where: { isbn: { in: [typed, cleaned].filter(Boolean) }, ...(exceptBookId ? { id: { not: exceptBookId } } : {}) }, select: { id: true } });
+  return clash ? "Another book already uses that ISBN / SN number. Enter a different one, or choose \"Auto-generate an SN number for me\"." : null;
+}
+
+/** The browser may suggest print ISBNs (the author's own), but never the saved print
+ * file check result - that is written by the server only. */
+function sanitizePrintMetadata(input: SubmitBookInput): void {
+  const meta = input.metadata as SubmissionMetadata & Record<string, unknown>;
+  delete meta.printPreflight;
+  const raw = (meta.printIsbns ?? {}) as { paperback?: unknown; hardcover?: unknown };
+  const pb = cleanIsbn(raw.paperback);
+  const hc = cleanIsbn(raw.hardcover);
+  if (!input.formats.print || (!pb && !hc)) delete meta.printIsbns;
+  else meta.printIsbns = { ...(pb ? { paperback: pb } : {}), ...(hc ? { hardcover: hc } : {}) };
+}
+
 export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
   const session = await auth();
   if (session?.user?.role !== "AUTHOR") {
@@ -451,6 +477,11 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
     return { ok: false, error: `The description is over the ${DESCRIPTION_WORD_LIMIT}-word limit — please shorten it.` };
   }
 
+  sanitizePrintMetadata(input);
+  if (!input.formats.print) {
+    const isbnProblem = await ownIsbnProblem(input.isbn);
+    if (isbnProblem) return { ok: false, error: isbnProblem };
+  }
   const prepared = prepareSubmission(input);
   if (!prepared.ok) return { ok: false, error: prepared.error };
   const prep = prepared.value;
@@ -464,6 +495,20 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, include: { authorProfile: true } });
   if (!user?.authorProfile) return { ok: false, error: "Author profile not found." };
+
+  // A print edition cannot be sent for review until its print files have passed the
+  // file check (the site's own checks plus Lulu's validation). The server keeps its
+  // own record of the check, so the browser cannot claim a pass.
+  let savedPreflight: SavedPreflight | null = null;
+  if (input.formats.print) {
+    const gate = await gatePrintEdition({
+      userId: session.user.id, interiorFileId: input.manuscriptFileId, coverImageUrl: input.coverImageUrl,
+      metadata: input.metadata, requirePass: input.submitForReview,
+    });
+    if (!gate.ok) return { ok: false, error: gate.error };
+    savedPreflight = gate.saved;
+    if (savedPreflight) (prep.metadata as SubmissionMetadata).printPreflight = savedPreflight;
+  }
 
   await rememberPublisher((input.metadata as { publisher?: string }).publisher ?? "");
   const authorFirstName = (input.metadata as { authorFirstName?: string }).authorFirstName;
@@ -507,7 +552,10 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       subtitle: input.subtitle?.trim() || null,
       slug,
       description: input.description.trim(),
-      isbn: input.isbn?.trim() || (input.formats.print ? generateIsbn() : prep.hasEbook || prep.hasAudiobook ? generateSerialNumber() : null),
+      // The identifier belongs to the format: eBook + Audiobook share one SN number (or the
+      // author's own ISBN); a print edition carries its ISBNs in printIsbns instead, so no
+      // made-up ISBN is ever stored for print.
+      isbn: input.formats.print ? null : input.isbn?.trim() || (prep.hasEbook || prep.hasAudiobook ? await generateUniqueSerialNumber() : null),
       price: prep.basePrice,
       isTestData: siteMode === "test",
       status: input.submitForReview ? "PENDING_REVIEW" : "DRAFT",
@@ -540,6 +588,8 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
       genres: { create: [{ genreId: genre.id }] },
     },
   });
+
+  await attachCheckToBook(savedPreflight?.checkId, book.id);
 
   revalidatePath("/account/books");
   return { ok: true, bookId: book.id };
@@ -584,13 +634,7 @@ function readPendingFiles(raw: unknown): PendingFilesRevision | null {
 
 /** Print-only metadata the eBook-style edit form never sends; kept from the
  * stored book when a live print title is edited so a save can't wipe it. */
-const PRINT_METADATA_KEYS = [
-  "interiorColor", "printQuality", "binding", "paperType", "coverFinish", "linenColor", "foilColor",
-  "trimSizeCode", "podPackageId", "paperbackEnabled", "hardcoverEnabled", "paperbackRetailPrice",
-  "hardcoverRetailPrice", "foilStampTitleText", "foilStampAuthorText", "printReadyPdfFileId",
-  "frontCoverImageUrl", "customBackCoverPdfFileId", "backCoverMode", "sellThroughWebsite",
-  "luluGlobalDistribution", "privatePrinting", "affiliateEligiblePrint", "promotionalCampaignEligible",
-] as const;
+
 
 export interface UpdateBookFullResult {
   ok: boolean;
@@ -633,6 +677,21 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   const existing = await prisma.book.findUnique({ where: { id: bookId } });
   if (!existing || existing.authorId !== user.authorProfile.id || existing.deletedByAuthorAt) return { ok: false, error: "Book not found." };
 
+  // Publishing or editing one format must never change another. The Print form writes
+  // print fields only and the eBook / Audiobook form writes those only (lib/format-scope.ts).
+  // A record that holds eBook/audiobook AND print together is edited from its eBook /
+  // Audiobook form, which keeps its print settings exactly as stored.
+  sanitizePrintMetadata(input);
+  if (!input.formats.print) {
+    const isbnProblem = await ownIsbnProblem(input.isbn, bookId);
+    if (isbnProblem) return { ok: false, error: isbnProblem };
+  }
+  const scope = scopeOf(input.formats);
+  if (scope === "print" && (existing.hasEbook || existing.hasAudiobook)) {
+    return { ok: false, error: "This title's eBook / Audiobook and print editions are stored together. Edit it from the eBook / Audiobook tab; its print settings are kept as they are." };
+  }
+  const existingMetaAll = (existing.submissionMetadata as (Partial<SubmissionMetadata> & Record<string, unknown>) | null) ?? null;
+
   // A print edition: the trim size always follows the interior PDF's real
   // page size (same rule as a new submission), and a PDF that matches no
   // printable size is refused when the save sends the book for review.
@@ -650,6 +709,23 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   const prepared = prepareSubmission({ ...input, manuscriptFileId: input.manuscriptFileId || fileRefKey(liveManuscriptRef) || undefined });
   if (!prepared.ok) return { ok: false, error: prepared.error };
   const prep = prepared.value;
+
+  // Print edition: PDF only, and sending it for review (or replacing its files on a
+  // published title) needs a passing print file check for exactly these files.
+  let savedPreflight: SavedPreflight | null = null;
+  if (input.formats.print) {
+    const filesChanged = existing.status === "PUBLISHED"
+      ? fileRefKey(input.manuscriptFileId) !== fileRefKey(liveManuscriptRef) || fileRefKey(input.coverImageUrl) !== fileRefKey(existing.coverImageUrl)
+      : true;
+    const gate = await gatePrintEdition({
+      userId: session.user.id, interiorFileId: input.manuscriptFileId || fileRefKey(liveManuscriptRef) || undefined, coverImageUrl: input.coverImageUrl,
+      metadata: input.metadata, existingMetadata: existingMetaAll, requirePass: filesChanged,
+    });
+    if (!gate.ok) return { ok: false, error: gate.error };
+    savedPreflight = gate.saved;
+    if (savedPreflight) (prep.metadata as SubmissionMetadata).printPreflight = savedPreflight;
+    else if (existingMetaAll?.printPreflight) (prep.metadata as SubmissionMetadata).printPreflight = existingMetaAll.printPreflight;
+  }
 
   await rememberPublisher((input.metadata as { publisher?: string }).publisher ?? "");
   const authorFirstName = (input.metadata as { authorFirstName?: string }).authorFirstName;
@@ -813,6 +889,7 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
       }),
     ]);
 
+    await attachCheckToBook(savedPreflight?.checkId, bookId);
     revalidatePath("/account/books");
     revalidatePath(`/account/books/${bookId}/edit`);
     revalidatePath(`/admin/books/${bookId}/review`);
@@ -834,6 +911,23 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
     prisma.genre.upsert({ where: { name: prep.subcategory }, update: {}, create: { name: prep.subcategory } }),
   ]);
 
+  // Only this form's own format fields are written; every other format keeps what is stored.
+  const merged = mergeFormatFields(scope, existing, {
+    hasEbook: prep.hasEbook,
+    ebookPrice: prep.ebookPrice,
+    hasAudiobook: prep.hasAudiobook,
+    audiobookPrice: prep.audiobookPrice,
+    hasPrint: input.formats.print,
+    paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice ? input.metadata.paperbackRetailPrice : null,
+    hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice ? input.metadata.hardcoverRetailPrice : null,
+  });
+  const draftMetadata = existing.hasPrint && scope === "digital"
+    ? (mergeMetadata("digital", existingMetaAll, prep.metadata as unknown as Record<string, unknown>) as unknown as SubmissionMetadata)
+    : prep.metadata;
+  const draftIsbn = scope === "print"
+    ? existing.isbn
+    : input.isbn?.trim() || existing.isbn || (merged.hasEbook || merged.hasAudiobook ? await generateUniqueSerialNumber() : null);
+
   await prisma.$transaction([
     prisma.bookFile.deleteMany({ where: { bookId, kind: { in: ["MANUSCRIPT", "SAMPLE", "PROMOTIONAL", "AUDIOBOOK"] } } }),
     prisma.categoryOnBook.deleteMany({ where: { bookId } }),
@@ -844,34 +938,32 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
         title: input.title.trim(),
         subtitle: input.subtitle?.trim() || null,
         description: input.description.trim(),
-        isbn: input.isbn?.trim() || existing.isbn,
-        price: prep.basePrice,
+        isbn: draftIsbn,
+        price: scope === "print" ? prep.basePrice : merged.hasEbook ? (prep.ebookPrice ?? prep.basePrice) : merged.hasAudiobook ? (prep.audiobookPrice ?? prep.basePrice) : existing.price,
         status: "PENDING_REVIEW",
         ageGroup: input.ageGroup,
         language: input.language || "en",
         coverImageUrl: input.coverImageUrl?.trim() || null,
         coverAltText: input.coverAltText?.trim() || null,
-        hasEbook: prep.hasEbook,
-        hasPrint: input.formats.print,
-        hasAudiobook: prep.hasAudiobook,
-        ebookPrice: prep.ebookPrice,
-        paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
-          ? input.metadata.paperbackRetailPrice
-          : null,
-        hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice
-          ? input.metadata.hardcoverRetailPrice
-          : null,
-        audiobookPrice: prep.audiobookPrice,
+        hasEbook: merged.hasEbook,
+        hasPrint: merged.hasPrint,
+        hasAudiobook: merged.hasAudiobook,
+        ebookPrice: merged.ebookPrice as number | null,
+        paperbackPrice: merged.paperbackPrice as number | null,
+        hardcoverPrice: merged.hardcoverPrice as number | null,
+        audiobookPrice: merged.audiobookPrice as number | null,
         category: prep.category,
         subcategory: prep.subcategory,
         restrictedCountries: prep.restrictedCountries,
-        submissionMetadata: JSON.parse(JSON.stringify(prep.metadata)),
+        submissionMetadata: JSON.parse(JSON.stringify(draftMetadata)),
         files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
         categories: { create: [{ categoryId: category.id }] },
         genres: { create: [{ genreId: genre.id }] },
       },
     }),
   ]);
+
+  await attachCheckToBook(savedPreflight?.checkId, bookId);
 
   // Back in review: an earlier "revision requested" notice is cleared.
   const { clearBookNotLiveNotices } = await import("@/lib/notification-cleanup");
@@ -946,6 +1038,21 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
     prisma.genre.upsert({ where: { name: prep.subcategory }, update: {}, create: { name: prep.subcategory } }),
   ]);
 
+  // Approving a revision applies only the format the revision was written for.
+  const approveScope = scopeOf(input.formats);
+  const merged = mergeFormatFields(approveScope, book, {
+    hasEbook: prep.hasEbook,
+    ebookPrice: prep.ebookPrice,
+    hasAudiobook: prep.hasAudiobook,
+    audiobookPrice: prep.audiobookPrice,
+    hasPrint: input.formats.print,
+    paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice ? input.metadata.paperbackRetailPrice : null,
+    hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice ? input.metadata.hardcoverRetailPrice : null,
+  });
+  const approvedMetadata = book.hasPrint && approveScope === "digital"
+    ? (mergeMetadata("digital", book.submissionMetadata as Record<string, unknown> | null, prep.metadata as unknown as Record<string, unknown>) as unknown as SubmissionMetadata)
+    : prep.metadata;
+
   await prisma.$transaction([
     prisma.bookFile.deleteMany({ where: { bookId, kind: { in: ["MANUSCRIPT", "SAMPLE", "PROMOTIONAL", "AUDIOBOOK"] } } }),
     prisma.categoryOnBook.deleteMany({ where: { bookId } }),
@@ -956,27 +1063,23 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
         title: input.title.trim(),
         subtitle: input.subtitle?.trim() || null,
         description: input.description.trim(),
-        isbn: input.isbn?.trim() || book.isbn,
-        price: prep.basePrice,
+        isbn: approveScope === "print" ? book.isbn : input.isbn?.trim() || book.isbn,
+        price: approveScope === "print" ? prep.basePrice : merged.hasEbook ? (prep.ebookPrice ?? prep.basePrice) : merged.hasAudiobook ? (prep.audiobookPrice ?? prep.basePrice) : book.price,
         status: "PUBLISHED",
         ageGroup: input.ageGroup,
         language: input.language || "en",
         coverImageUrl: input.coverImageUrl?.trim() || null,
         coverAltText: input.coverAltText?.trim() || null,
-        hasEbook: prep.hasEbook,
-        hasPrint: input.formats.print,
-        hasAudiobook: prep.hasAudiobook,
-        ebookPrice: prep.ebookPrice,
-        paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
-          ? input.metadata.paperbackRetailPrice
-          : null,
-        hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice
-          ? input.metadata.hardcoverRetailPrice
-          : null,
-        audiobookPrice: prep.audiobookPrice,
+        hasEbook: merged.hasEbook,
+        hasPrint: merged.hasPrint,
+        hasAudiobook: merged.hasAudiobook,
+        ebookPrice: merged.ebookPrice as number | null,
+        paperbackPrice: merged.paperbackPrice as number | null,
+        hardcoverPrice: merged.hardcoverPrice as number | null,
+        audiobookPrice: merged.audiobookPrice as number | null,
         ...(prep.taxonomyColumns ? { category: prep.category, subcategory: prep.subcategory } : {}),
         restrictedCountries: prep.restrictedCountries,
-        submissionMetadata: JSON.parse(JSON.stringify(prep.metadata)),
+        submissionMetadata: JSON.parse(JSON.stringify(approvedMetadata)),
         pendingRevisionData: null as unknown as object,
         files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
         categories: { create: [{ categoryId: category.id }] },
@@ -1065,9 +1168,8 @@ export async function updateBook(input: UpdateBookInput): Promise<{ ok: boolean;
         language: input.language || "en",
         coverImageUrl: input.coverImageUrl?.trim() || null,
         coverAltText: input.coverAltText?.trim() || null,
-        hasEbook: input.formats.ebook,
-        hasPrint: input.formats.print,
-        hasAudiobook: input.formats.audiobook,
+        // The format flags are deliberately not written here: saving core details must
+        // never switch another format on or off (lib/format-scope.ts).
         status: "PENDING_REVIEW",
         categories: { create: [{ categoryId: category.id }] },
         genres: { create: [{ genreId: genre.id }] },

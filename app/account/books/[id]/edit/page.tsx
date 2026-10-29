@@ -58,6 +58,10 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
   const sharedSource = ebookBook ?? printBook ?? book;
   const classification = classify(sharedSource);
   const sharedMeta = (sharedSource.submissionMetadata as Record<string, unknown> | null) ?? {};
+  // The eBook's uploaded file, so "Autofill from eBook" on the Print tab can carry it across.
+  const ebookFileRef = ebookBook?.files.find((f: { kind: string; url: string }) => f.kind === "MANUSCRIPT")?.url.split("/").pop();
+  const ebookFile = ebookFileRef ? await prisma.uploadedFile.findUnique({ where: { id: ebookFileRef }, select: { id: true, originalName: true, mimeType: true } }) : null;
+  const manuscriptInfo = ebookFile ? { id: ebookFile.id, name: ebookFile.originalName, mimeType: ebookFile.mimeType } : undefined;
 
   return (
     <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
@@ -95,7 +99,7 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
           printTab={printTab}
           ebookInitial={ebookInitial}
           printInitial={printInitial}
-          addPrefill={sharedPrefill(sharedSource, classification, sharedMeta)}
+          addPrefill={sharedPrefill(sharedSource, classification, sharedMeta, manuscriptInfo)}
         />
       )}
     </DashboardShell>

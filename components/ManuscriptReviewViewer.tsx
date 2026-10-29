@@ -6,10 +6,9 @@ type ManuscriptFormat = "pdf" | "epub" | "mobi" | "unknown";
 
 /** Sniffs the real file format from its actual bytes rather than
  * trusting the URL's extension or the server's reported Content-Type —
- * both can be wrong (a DOCX converted server-side to PDF still has a
- * ".pdf" URL already, but a MIME type reported as "application/
- * octet-stream" by some upload paths would otherwise be unreadable
- * here). PDF starts with the literal "%PDF"; EPUB is just a ZIP archive
+ * both can be wrong (a file stored with a MIME type reported as
+ * "application/octet-stream" by some upload paths would otherwise be
+ * unreadable here). PDF starts with the literal "%PDF"; EPUB is just a ZIP archive
  * (signature "PK"); MOBI/AZW files carry the literal "BOOKMOBI" (or the
  * older "TEXtREAd") identifier at a fixed offset in their header — this
  * is the standard way every MOBI-aware tool recognizes the format. */

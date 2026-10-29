@@ -19,8 +19,8 @@ type Format = "ebook" | "print";
  *
  * Whatever shared fields (title, author, description, category, age
  * range, etc — see SharedSubmissionFields) the author enters on the
- * eBook tab are lifted up here and handed to the Print tab as a
- * one-time prefill, so nothing has to be re-typed. */
+ * eBook tab are lifted up here and handed to the Print tab, whose own
+ * "Autofill from eBook" button copies them (and the cover and file) on request. */
 export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: boolean; print: boolean; audiobook: boolean } }) {
   const ALL_FORMATS: { key: Format; label: string }[] = [
     { key: "ebook", label: "eBook / Audiobook" },
@@ -29,9 +29,6 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
   const visibleFormats = ALL_FORMATS.filter((f) => enabledFormats[f.key]);
   const [activeFormat, setActiveFormat] = useState<Format>(visibleFormats[0]?.key ?? "ebook");
   const [sharedFields, setSharedFields] = useState<SharedSubmissionFields | undefined>(undefined);
-  // Goes up by one each time the "Autofill from eBook" tab is clicked.
-  const [autofillRequest, setAutofillRequest] = useState(0);
-  const canAutofill = enabledFormats.ebook && enabledFormats.print;
 
   if (visibleFormats.length === 0) {
     return (
@@ -57,23 +54,10 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
               {f.label}
             </button>
           ))}
-          {canAutofill && (
-            <button
-              type="button"
-              className="btn btn-small btn-ghost"
-              title="Copy the title, description, cover, author and other details from the eBook / Audiobook tab into the Print Copy form"
-              onClick={() => {
-                setActiveFormat("print");
-                setAutofillRequest((n) => n + 1);
-              }}
-            >
-              Autofill print from eBook
-            </button>
-          )}
         </div>
         <p style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
           {activeFormat === "print"
-            ? "A dedicated workflow for printed books, fulfilled through our print-on-demand partner. Whatever you already entered on the eBook / Audiobook tab is pre-filled below."
+            ? "A dedicated workflow for printed books, fulfilled through our print-on-demand partner. Use the Autofill from eBook button on this tab to copy what you entered on the eBook / Audiobook tab, including the cover and file."
             : "Publish an eBook with an optional audiobook edition right on this tab. Publishing a printed book? The Print Copy tab opens our dedicated print publishing workflow, including cover wrap preview and print-on-demand fulfillment."}
         </p>
       </div>
@@ -88,7 +72,7 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
       )}
       {enabledFormats.print && (
         <div style={{ display: activeFormat === "print" ? "block" : "none" }}>
-          <PrintSubmissionForm prefill={sharedFields} autofillRequest={autofillRequest} />
+          <PrintSubmissionForm prefill={enabledFormats.ebook ? sharedFields : undefined} />
         </div>
       )}
     </div>

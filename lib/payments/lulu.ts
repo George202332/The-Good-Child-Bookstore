@@ -446,3 +446,108 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
     return { ok: false, state: "failed", error: e instanceof Error ? e.message : "Unexpected error." };
   }
 }
+
+// ---------------------------------------------------------------------------
+// File validation (print pre-flight). These calls only ask Lulu to inspect a file
+// at a public URL; they create no print job, no product and no order, and nothing
+// is ever printed. The real print job is still sent only when a reader buys.
+// ---------------------------------------------------------------------------
+
+import { parseLuluValidation, type ParsedLuluValidation } from "@/lib/lulu-validation";
+
+/** True when Lulu API credentials are set (stored in Admin or in the environment). */
+export async function luluIsConfigured(): Promise<boolean> {
+  const { clientKey, clientSecret } = await getLuluCredentials();
+  return !!clientKey && !!clientSecret;
+}
+
+export type LuluValidationKind = "interior" | "cover";
+
+/** Starts Lulu's validation of one file. `sourceUrl` must be publicly reachable. */
+export async function startLuluValidation(opts: {
+  kind: LuluValidationKind;
+  sourceUrl: string;
+  podPackageId: string;
+  /** Required for a cover: the interior's page count (sets the spine width). */
+  interiorPageCount?: number;
+}): Promise<{ ok: true; id: string; parsed: ParsedLuluValidation } | { ok: false; error: string }> {
+  try {
+    const baseUrl = luluBaseUrl(await getLuluEnvironment());
+    const token = await getAccessToken(baseUrl);
+    const path = opts.kind === "interior" ? "validate-interior" : "validate-cover";
+    const body: Record<string, unknown> = { source_url: opts.sourceUrl, pod_package_id: opts.podPackageId };
+    if (opts.kind === "cover") body.interior_page_count = opts.interiorPageCount;
+    const res = await fetch(`${baseUrl}/${path}/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return { ok: false, error: `Lulu could not start the ${opts.kind} check (${res.status}). ${text}`.slice(0, 600) };
+    }
+    const json = await res.json();
+    if (json?.id == null) return { ok: false, error: "Lulu did not return a check id." };
+    return { ok: true, id: String(json.id), parsed: parseLuluValidation(json, opts.kind) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Lulu could not be reached." };
+  }
+}
+
+/** Reads the current state of a validation started earlier. */
+export async function getLuluValidation(kind: LuluValidationKind, id: string): Promise<{ ok: true; parsed: ParsedLuluValidation } | { ok: false; error: string }> {
+  try {
+    const baseUrl = luluBaseUrl(await getLuluEnvironment());
+    const token = await getAccessToken(baseUrl);
+    const path = kind === "interior" ? "validate-interior" : "validate-cover";
+    const res = await fetch(`${baseUrl}/${path}/${encodeURIComponent(id)}/`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return { ok: false, error: `Lulu could not report the ${kind} check (${res.status}).` };
+    return { ok: true, parsed: parseLuluValidation(await res.json(), kind) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Lulu could not be reached." };
+  }
+}
+
+/** The exact size Lulu wants for a book's full cover wrap (back + spine + front),
+ * in points; null when Lulu cannot say. */
+export async function luluExpectedCoverSize(podPackageId: string, pageCount: number): Promise<{ widthPt: number; heightPt: number } | null> {
+  try {
+    const baseUrl = luluBaseUrl(await getLuluEnvironment());
+    const token = await getAccessToken(baseUrl);
+    return await fetchCoverDimensions(baseUrl, token, podPackageId, pageCount);
+  } catch {
+    return null;
+  }
+}
+
+/** Builds (and stores) the cover wrap we would send to Lulu for a book that only
+ * has a front cover image, so that wrap can be validated like an uploaded one.
+ * Returns the stored file's id. */
+export async function storeGeneratedCoverWrap(opts: {
+  frontCoverImageUrl: string;
+  title: string;
+  authorName: string;
+  podPackageId: string;
+  pageCount: number;
+  trimCode: string;
+}): Promise<{ ok: true; fileId: string } | { ok: false; error: string }> {
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const imageId = opts.frontCoverImageUrl.startsWith("/api/images/") ? opts.frontCoverImageUrl.split("/").pop() : undefined;
+    const image = imageId ? await prisma.uploadedImage.findUnique({ where: { id: imageId } }) : null;
+    if (!image) return { ok: false, error: "The front cover image could not be read." };
+    const trim = trimCodeToInches(opts.trimCode);
+    if (!trim) return { ok: false, error: `Unknown trim size ${opts.trimCode}.` };
+    const dims = await luluExpectedCoverSize(opts.podPackageId, opts.pageCount);
+    if (!dims) return { ok: false, error: "Lulu could not give the cover size for this book." };
+    const layout = coverLayout(dims.widthPt, dims.heightPt, trim.w, trim.h);
+    if (!layout) return { ok: false, error: "Lulu's cover size does not fit this trim size." };
+    const pdf = await buildCoverWrapPdf({ layout, frontImage: Buffer.from(image.data), title: opts.title, author: opts.authorName });
+    const saved = await prisma.uploadedFile.create({
+      data: { data: Uint8Array.from(pdf), mimeType: "application/pdf", originalName: `cover-check-${Date.now().toString(36)}.pdf` },
+    });
+    return { ok: true, fileId: saved.id };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "The cover could not be prepared." };
+  }
+}

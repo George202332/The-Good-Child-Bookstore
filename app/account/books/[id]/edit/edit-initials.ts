@@ -1,6 +1,8 @@
 import type { Prisma } from "@prisma/client";
 import { canonicalCategory, categoryOfSubcategory, normalizeGenre, isSubcategoryOf } from "@/lib/taxonomy";
 import { parseRestrictedCountries } from "@/lib/book-country-restriction";
+import { identifierFor } from "@/lib/identifiers";
+import type { SavedPreflight } from "@/lib/print-preflight-result";
 import type { EbookSubmissionInitial } from "../../new/EbookSubmissionForm";
 import type { PrintSubmissionInitial } from "../../new/PrintSubmissionForm";
 import type { SharedSubmissionFields } from "../../new/shared";
@@ -98,7 +100,9 @@ export function buildPrintInitial(book: BookWithRelations): PrintSubmissionIniti
     subtitle: book.subtitle ?? "",
     seriesName: str(meta.seriesName),
     edition: str(meta.edition),
-    isbn: book.isbn ?? "",
+    paperbackIsbn: identifierFor({ isbn: book.isbn, hasEbook: book.hasEbook, hasAudiobook: book.hasAudiobook, hasPrint: book.hasPrint, printIsbns: meta.printIsbns as { paperback?: string; hardcover?: string } | undefined }, "paperback").value ?? "",
+    hardcoverIsbn: identifierFor({ isbn: book.isbn, hasEbook: book.hasEbook, hasAudiobook: book.hasAudiobook, hasPrint: book.hasPrint, printIsbns: meta.printIsbns as { paperback?: string; hardcover?: string } | undefined }, "hardcover").value ?? "",
+    preflight: meta.printPreflight as SavedPreflight | undefined,
     language: book.language ?? "English",
     publisher: str(meta.publisher),
     publicationDate: str(meta.publicationDate),
@@ -144,7 +148,7 @@ export function buildPrintInitial(book: BookWithRelations): PrintSubmissionIniti
 }
 
 /** The details both editions share, used to pre-fill an edition being added. */
-export function sharedPrefill(book: BookWithRelations, c: { category: string; genre: string; subcategory: string }, meta: Meta): SharedSubmissionFields {
+export function sharedPrefill(book: BookWithRelations, c: { category: string; genre: string; subcategory: string }, meta: Meta, manuscript?: { id: string; name: string; mimeType: string }): SharedSubmissionFields {
   return {
     title: book.title,
     subtitle: book.subtitle ?? "",
@@ -163,5 +167,8 @@ export function sharedPrefill(book: BookWithRelations, c: { category: string; ge
     aiDeclaration: str(meta.aiDeclaration),
     publisher: str(meta.publisher),
     coverImageUrl: book.coverImageUrl ?? "",
+    manuscriptFileId: manuscript?.id,
+    manuscriptFileName: manuscript?.name,
+    manuscriptMimeType: manuscript?.mimeType,
   };
 }

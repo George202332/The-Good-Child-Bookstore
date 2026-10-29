@@ -5,6 +5,8 @@ import { parseAgeGroups, mergedAgeRange } from "@/lib/age-groups";
 import { LULU_CONFIG } from "@/lib/lulu-config";
 import { categoryOfSubcategory, type BookCategory } from "@/lib/taxonomy";
 import { attributeCategory, countBooksByCategory, type CategoryAttributionInput } from "@/lib/category-counts";
+import { groupEditions } from "@/lib/book-groups";
+import { identifierFor, type IdentifierFormat } from "@/lib/identifiers";
 import { genreLabelFromShelfId, shelfIdFromGenreLabel } from "@/lib/shelf-mapping";
 import {
   effectiveRestrictedCountries,
@@ -192,6 +194,85 @@ function toCatalogBook(row: RealBookRow): Book {
   };
 }
 
+type PrintIsbns = { paperback?: string; hardcover?: string };
+
+function identifiersOf(row: RealBookRow): NonNullable<Book["identifiers"]> {
+  const src = {
+    isbn: row.isbn, hasEbook: row.hasEbook, hasAudiobook: row.hasAudiobook, hasPrint: row.hasPrint,
+    printIsbns: ((row.submissionMetadata as { printIsbns?: PrintIsbns } | null)?.printIsbns) ?? undefined,
+  };
+  const out: NonNullable<Book["identifiers"]> = {};
+  for (const f of ["ebook", "audiobook", "paperback", "hardcover"] as IdentifierFormat[]) out[f] = identifierFor(src, f);
+  return out;
+}
+
+/** Turns the records of ONE title (see lib/book-groups.ts) into the single catalog book
+ * the storefront shows: one product page with a price tab per format. Each format keeps
+ * the price, identifier and record of its own edition; nothing is shared between formats. */
+function toGroupedCatalogBook(rows: RealBookRow[]): Book {
+  const main = toCatalogBook(rows[0]);
+  if (rows.length === 1) return { ...main, identifiers: identifiersOf(rows[0]) };
+
+  const formats = ["ebook", "audiobook", "paperback", "hardcover"] as const;
+  const formatBookIds: NonNullable<Book["formatBookIds"]> = {};
+  const identifiers: NonNullable<Book["identifiers"]> = {};
+  const available = { ebook: false, paperback: false, hardcover: false, audiobook: false };
+  const prices = { ...main.formats };
+  let manuscriptUrl: string | undefined;
+  let audiobookUrl: string | undefined;
+  let printPages: number | undefined;
+  let printDimensions: string | undefined;
+  let ratingSum = 0;
+  let ratingCount = 0;
+  let reviewCount = 0;
+
+  for (const r of rows) {
+    const one = toCatalogBook(r);
+    const ids = identifiersOf(r);
+    for (const f of formats) {
+      if (!one.formatAvailable?.[f] || formatBookIds[f]) continue;
+      formatBookIds[f] = r.id;
+      available[f] = true;
+      identifiers[f] = ids[f];
+      if (f === "ebook") prices.ebook = one.formats.ebook;
+      if (f === "audiobook") prices.audiobook = one.formats.audiobook;
+      if (f === "paperback") prices.paperback = one.formats.paperback;
+      if (f === "hardcover") prices.print = one.formats.print;
+    }
+    if (one.formatAvailable?.ebook && !manuscriptUrl) manuscriptUrl = one.manuscriptUrl;
+    if (one.formatAvailable?.audiobook && !audiobookUrl) audiobookUrl = one.audiobookUrl;
+    if ((one.formatAvailable?.paperback || one.formatAvailable?.hardcover) && printPages === undefined) {
+      printPages = one.pages;
+      printDimensions = one.dimensions;
+    }
+    ratingSum += r.ratings.reduce((s, x) => s + x.stars, 0);
+    ratingCount += r.ratings.length;
+    reviewCount += r.reviews.length;
+  }
+
+  const headline = (["ebook", "audiobook", "paperback", "hardcover"] as const).find((f) => available[f]);
+  const price = headline === "ebook" ? prices.ebook : headline === "audiobook" ? prices.audiobook : headline === "paperback" ? prices.paperback : headline === "hardcover" ? prices.print : main.price;
+  const labels = [available.ebook && "eBook", (available.paperback || available.hardcover) && "Print", available.audiobook && "Audiobook"].filter(Boolean).join(", ");
+  return {
+    ...main,
+    price,
+    formats: prices,
+    formatAvailable: available,
+    formatBookIds,
+    identifiers,
+    manuscriptUrl,
+    audiobookUrl,
+    isbn: (available.ebook ? identifiers.ebook?.value : available.audiobook ? identifiers.audiobook?.value : null) ?? main.isbn,
+    printPages,
+    printDimensions,
+    format: labels || main.format,
+    rating: (ratingCount > 0 ? ratingSum / ratingCount : 0).toFixed(1),
+    reviews: reviewCount,
+    // Page count / size / file size describe the digital edition when there is one.
+    ...(rows.some((r) => r.hasEbook) ? {} : { pages: printPages ?? main.pages, dimensions: printDimensions ?? main.dimensions }),
+  };
+}
+
 const BOOK_INCLUDE = {
   author: { include: { user: true } },
   categories: { include: { category: true } },
@@ -221,9 +302,11 @@ export async function getRealPublishedBooks(visitorCountries?: VisitorCountries)
       orderBy: { createdAt: "desc" },
     });
     if (!Array.isArray(rows)) return [];
-    return rows
-      .filter((r) => !isSellOnStoreDisabled(r.submissionMetadata))
-      .map((r) => toCatalogBook(r))
+    // One entry per book: the editions of a title (eBook / audiobook / print records) become
+    // one catalog book with a price tab per format.
+    const sellable = rows.filter((r) => !isSellOnStoreDisabled(r.submissionMetadata));
+    return groupEditions(sellable)
+      .map((g) => toGroupedCatalogBook(g))
       .filter((b) => isBookVisibleToVisitor(b, visitorCountries ?? []));
   } catch {
     return [];
@@ -268,7 +351,7 @@ export async function getRealPublishedBookById(id: string): Promise<Book | null>
   try {
     const row = await prisma.book.findUnique({ where: { id }, include: BOOK_INCLUDE });
     if (!row || row.status !== "PUBLISHED" || isSellOnStoreDisabled(row.submissionMetadata)) return null;
-    return toCatalogBook(row);
+    return await withSiblingEditions(row);
   } catch {
     return null;
   }
@@ -278,10 +361,22 @@ export async function getRealPublishedBookBySlug(slug: string): Promise<Book | n
   try {
     const row = await prisma.book.findUnique({ where: { slug }, include: BOOK_INCLUDE });
     if (!row || row.status !== "PUBLISHED" || isSellOnStoreDisabled(row.submissionMetadata)) return null;
-    return toCatalogBook(row);
+    return await withSiblingEditions(row);
   } catch {
     return null;
   }
+}
+
+/** The catalog book for a record, joined with the other published editions of the same
+ * title by the same author (one product page, a price tab per format). */
+async function withSiblingEditions(row: RealBookRow & { status?: string }): Promise<Book> {
+  const siblings = await prisma.book.findMany({
+    where: { authorId: row.authorId, status: "PUBLISHED", deletedByAuthorAt: null, title: { equals: row.title, mode: "insensitive" } },
+    include: BOOK_INCLUDE,
+  });
+  const usable = (Array.isArray(siblings) ? siblings : []).filter((r) => !isSellOnStoreDisabled(r.submissionMetadata));
+  const group = groupEditions(usable).find((g) => g.some((r) => r.id === row.id));
+  return toGroupedCatalogBook(group ?? [row]);
 }
 
 /** Live number of PUBLISHED, visible books per Category series, straight

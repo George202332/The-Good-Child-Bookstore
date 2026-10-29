@@ -6,6 +6,8 @@ import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent } from "@/lib/roles";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { groupEditions } from "@/lib/book-groups";
+import { formatTabsOf, groupIdentifierColumns, type FormatTabView, type FormatViewRow } from "@/lib/book-format-views";
 import { prepareBookNotificationCleanup, prepareReviewNotificationCleanup } from "@/lib/notification-cleanup";
 
 /**
@@ -40,7 +42,14 @@ export async function getBookStats(): Promise<BookStats> {
 
 export interface BookManagementRow {
   id: string;
+  /** "SN number" column (eBook / Audiobook); null = show a dash. */
+  snNumber: string | null;
+  /** "ISBN" column (print); null = show a dash. */
   isbn: string | null;
+  /** One book, one row: the records (editions) of this title, each openable/deletable. */
+  editions: { id: string; label: string; status: string; hasPendingRevision: boolean }[];
+  /** eBook / Print / Audiobook tabs shown when the row is expanded. */
+  tabs: FormatTabView[];
   title: string;
   status: string;
   authorName: string;
@@ -63,35 +72,42 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
     take: 300,
   });
 
-  return books.map((b: {
-    id: string;
-    isbn: string | null;
+  type Row = FormatViewRow & {
+    authorId: string;
     title: string;
-    status: string;
     createdAt: Date;
     pendingRevisionData: unknown;
-    submissionMetadata: unknown;
     author: { penName: string | null; user: { name: string; accountNumber: string } };
     reviews: unknown[];
     ratings: { stars: number }[];
-  }) => {
-    // The name a reader actually follows/sees on this book's own author
-    // card — a pen name typed at submission, then the account's standing
-    // pen name, then its real name as a last resort (see
-    // lib/book-author-name.ts) — not necessarily the account's real
-    // name, which this column previously always showed regardless.
+  };
+  const rows = books as unknown as Row[];
+
+  // One row per book: editions of the same title by the same author are shown together.
+  // Display only; no record is changed.
+  return groupEditions(rows).map((group) => {
+    const b = group[0];
+    // The name a reader actually follows/sees on this book's own author card — a pen name
+    // typed at submission, then the account's standing pen name, then its real name (see
+    // lib/book-author-name.ts).
     const authorName = bookAuthorDisplayName(b);
+    const ratings = group.flatMap((r) => r.ratings);
+    const cols = groupIdentifierColumns(group);
+    const labelOf = (r: Row) => [r.hasEbook && "eBook", r.hasPrint && "Print", r.hasAudiobook && "Audiobook"].filter(Boolean).join(" + ") || "Book";
     return {
       id: b.id,
-      isbn: b.isbn,
+      snNumber: cols.sn,
+      isbn: cols.isbn,
+      editions: group.map((r) => ({ id: r.id, label: labelOf(r), status: r.status, hasPendingRevision: r.pendingRevisionData != null })),
+      tabs: formatTabsOf(group),
       title: b.title,
       status: b.status,
       authorName,
       authorAccountNumber: b.author.user.accountNumber,
       createdAt: b.createdAt,
-      reviewCount: b.reviews.length,
-      averageRating: b.ratings.length > 0 ? b.ratings.reduce((sum, r) => sum + r.stars, 0) / b.ratings.length : null,
-      hasPendingRevision: b.pendingRevisionData != null,
+      reviewCount: group.reduce((n, r) => n + r.reviews.length, 0),
+      averageRating: ratings.length > 0 ? ratings.reduce((sum, r) => sum + r.stars, 0) / ratings.length : null,
+      hasPendingRevision: group.some((r) => r.pendingRevisionData != null),
     };
   });
 }

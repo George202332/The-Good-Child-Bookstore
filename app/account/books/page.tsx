@@ -8,11 +8,16 @@ import { SuspendButton } from "./SuspendButton";
 import { DeleteButton } from "./DeleteButton";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import { PAID_ONLY } from "@/lib/paid-sales";
+import { groupEditions } from "@/lib/book-groups";
+import { formatTabsOf, missingFormatsOf, type FormatViewRow } from "@/lib/book-format-views";
+import { BookFormatTabs } from "@/components/BookFormatTabs";
 
 interface SaleLineShare {
   authorShare: unknown;
 }
-interface AuthorBook {
+interface AuthorBook extends FormatViewRow {
+  authorId: string;
+  createdAt: Date;
   id: string;
   title: string;
   status: string;
@@ -60,7 +65,10 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
     where: { id: session.user.id },
     include: { authorProfile: { include: { books: { where: { deletedByAuthorAt: null }, include: { saleLines: PAID_ONLY, categories: { include: { category: true } } } } } } },
   });
-  const books = (user?.authorProfile?.books ?? []) as AuthorBook[];
+  const records = (user?.authorProfile?.books ?? []) as unknown as AuthorBook[];
+  // One entry per book: the editions of a title (eBook / print / audiobook records) are
+  // shown together. Display only; no record is changed.
+  const groups = groupEditions(records.map((r) => ({ ...r, authorId: r.authorId ?? "me" })));
 
   return (
     <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
@@ -74,7 +82,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
       {savedNotice && (
         <div role="status" className="field-hint" style={{ marginBottom: 14 }}>{savedNotice}</div>
       )}
-      {books.length === 0 ? (
+      {groups.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
           You haven&apos;t published any books yet — submit your first title above.
         </div>
@@ -94,35 +102,53 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
               </tr>
             </thead>
             <tbody>
-              {books.map((b) => {
-                const units = b.saleLines.length;
-                const royalties = b.saleLines.reduce((sum, l) => sum + Number(l.authorShare), 0);
-                const pill = STATUS_PILL[b.status] ?? { label: b.status, className: "status-draft" };
+              {groups.map((group) => {
+                const b = group[0];
+                const units = group.reduce((n, r) => n + r.saleLines.length, 0);
+                const royalties = group.reduce((sum, r) => sum + r.saleLines.reduce((s2, l) => s2 + Number(l.authorShare), 0), 0);
+                const tabs = formatTabsOf(group);
+                const missing = missingFormatsOf(group);
                 return (
                   <tr key={b.id}>
                     <td style={TABLE_CELL_STYLE}>
                       <strong>{b.title}</strong>
-                      {b.status === "PUBLISHED" && b.pendingRevisionData != null && (
+                      {group.some((r) => r.status === "PUBLISHED" && r.pendingRevisionData != null) && (
                         <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 4 }}>New manuscript or cover under review</div>
                       )}
-                      {b.status === "REJECTED" && b.revisionNotes && (
-                        <div style={{ fontSize: 12, color: "#6F1A28", marginTop: 4, maxWidth: 260 }}>
-                          &quot;{b.revisionNotes}&quot;
+                      {group.filter((r) => r.status === "REJECTED" && r.revisionNotes).map((r) => (
+                        <div key={r.id} style={{ fontSize: 12, color: "#6F1A28", marginTop: 4, maxWidth: 260 }}>
+                          &quot;{r.revisionNotes}&quot;
                         </div>
-                      )}
+                      ))}
+                      <BookFormatTabs tabs={tabs} missing={missing} addHref={`/account/books/${b.id}/edit`} />
                     </td>
-                    <td style={TABLE_CELL_STYLE}><span className={`status-pill ${pill.className}`}>{pill.label}</span></td>
+                    <td style={TABLE_CELL_STYLE}>
+                      {group.map((r) => {
+                        const rp = STATUS_PILL[r.status] ?? { label: r.status, className: "status-draft" };
+                        return <div key={r.id} style={{ marginBottom: 4 }}><span className={`status-pill ${rp.className}`}>{rp.label}</span></div>;
+                      })}
+                    </td>
                     <td style={TABLE_CELL_STYLE}>{b.categories[0]?.category.name ?? "—"}</td>
                     <td style={TABLE_CELL_STYLE}>{units}</td>
                     <td style={TABLE_CELL_STYLE}>${royalties.toFixed(2)}</td>
-                    <td style={TABLE_CELL_STYLE}><Link href={`/account/books/${b.id}/edit`} className="btn btn-ghost btn-small">Edit</Link></td>
                     <td style={TABLE_CELL_STYLE}>
-                      {b.status === "SUSPENDED" || b.status === "WITHDRAWN"
-                        ? <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Contact support</span>
-                        : <SuspendButton bookId={b.id} suspended={b.status === "ARCHIVED"} />}
+                      {group.map((r) => (
+                        <div key={r.id} style={{ marginBottom: 4 }}><Link href={`/account/books/${r.id}/edit`} className="btn btn-ghost btn-small">Edit</Link></div>
+                      ))}
                     </td>
                     <td style={TABLE_CELL_STYLE}>
-                      <DeleteButton bookId={b.id} title={b.title} />
+                      {group.map((r) => (
+                        <div key={r.id} style={{ marginBottom: 4 }}>
+                          {r.status === "SUSPENDED" || r.status === "WITHDRAWN"
+                            ? <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Contact support</span>
+                            : <SuspendButton bookId={r.id} suspended={r.status === "ARCHIVED"} />}
+                        </div>
+                      ))}
+                    </td>
+                    <td style={TABLE_CELL_STYLE}>
+                      {group.map((r) => (
+                        <div key={r.id} style={{ marginBottom: 4 }}><DeleteButton bookId={r.id} title={r.title} /></div>
+                      ))}
                     </td>
                   </tr>
                 );

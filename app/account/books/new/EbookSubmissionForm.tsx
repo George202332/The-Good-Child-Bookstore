@@ -11,6 +11,7 @@ import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 import { PublisherField } from "./PublisherField";
 import { AgeGroupField } from "./AgeGroupField";
 import { ageGroupProblem } from "@/lib/age-groups";
+import { isRealIsbn } from "@/lib/identifiers";
 import { AuthorAliasField } from "./AuthorAliasField";
 import { KeywordsField } from "./KeywordsField";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
@@ -119,6 +120,10 @@ export function EbookSubmissionForm({
   // Files
   const [manuscriptFileId, setManuscriptFileId] = useState<string | undefined>(initial?.manuscriptFileId);
   const [coverImageUrl, setCoverImageUrl] = useState(initial?.coverImageUrl ?? "");
+  // The manuscript's name and type, so the Print tab's "Autofill from eBook" can carry the
+  // file across (only a PDF can be printed).
+  const [manuscriptFileName, setManuscriptFileName] = useState<string | undefined>(undefined);
+  const [manuscriptMime, setManuscriptMime] = useState<string | undefined>(undefined);
 
   // Audiobook — lives on this same tab (relabeled "eBook / Audiobook" by
   // the parent wizard) rather than a separate Audiobook tab. It is fully
@@ -139,8 +144,10 @@ export function EbookSubmissionForm({
   const [publicationDate, setPublicationDate] = useState(initial?.publicationDate ?? "");
   const [originalPublicationDate, setOriginalPublicationDate] = useState(initial?.originalPublicationDate ?? "");
   const [isbn, setIsbn] = useState(initial?.isbn ?? "");
-  const [hasOwnIsbn, setHasOwnIsbn] = useState(true);
-  const [generatedSn, setGeneratedSn] = useState<string | null>(initial?.isbn ?? null);
+  // The identifier is an SN number the site generates, unless the author has their own ISBN
+  // for the eBook (which then replaces it). The audiobook shares whichever it is.
+  const [hasOwnIsbn, setHasOwnIsbn] = useState(!!initial?.isbn && isRealIsbn(initial.isbn));
+  const [generatedSn, setGeneratedSn] = useState<string | null>(initial?.isbn && !isRealIsbn(initial.isbn) ? initial.isbn : null);
   const [generatingSn, setGeneratingSn] = useState(false);
   const [copyrightYear, setCopyrightYear] = useState(initial?.copyrightYear ?? String(new Date().getFullYear()));
 
@@ -240,9 +247,12 @@ export function EbookSubmissionForm({
       aiDeclaration,
       publisher,
       coverImageUrl,
+      manuscriptFileId,
+      manuscriptFileName,
+      manuscriptMimeType: manuscriptMime,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onSharedFieldsChange is expected to be a stable callback from the parent; including it would re-run this on every parent render for no reason.
-  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, aiDeclaration, publisher, coverImageUrl]);
+  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, aiDeclaration, publisher, coverImageUrl, manuscriptFileId, manuscriptFileName, manuscriptMime]);
 
   const [metadataCheck, setMetadataCheck] = useState<MetadataCheckResult>({ titleFound: true, authorFound: true, checked: false });
   useEffect(() => {
@@ -255,7 +265,7 @@ export function EbookSubmissionForm({
 
   const checklist = [
     { label: "Manuscript or audiobook file uploaded", ok: !!manuscriptFileId || !!audiobookFileId },
-    { label: "Book identifier (ISBN or generated SN)", ok: hasOwnIsbn ? !!isbn.trim() : !!generatedSn },
+    { label: "Book identifier (your ISBN, or an SN number we generate)", ok: hasOwnIsbn ? !!isbn.trim() : true },
     { label: "Cover image uploaded", ok: !!coverImageUrl },
     { label: "Book title", ok: !!title.trim() },
     { label: "Author name", ok: !!authorFirstName.trim() && !!authorLastName.trim() },
@@ -373,15 +383,17 @@ export function EbookSubmissionForm({
         <SectionHeader n={1} title="Files" sub="Manuscript and/or audiobook, plus your cover — this is where we start." />
         <div className="upload-cards-row">
           <FileUploadField
-            label="Manuscript (PDF, EPUB, MOBI, or DOCX)"
-            sizeHint="Max 4MB — a DOCX file is converted to PDF automatically"
-            allowedTypes={["application/pdf", "application/epub+zip", "application/x-mobipocket-ebook", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
-            accept=".pdf,.epub,.mobi,.docx"
+            label="Manuscript (PDF, EPUB, or MOBI)"
+            sizeHint="Max 4MB"
+            allowedTypes={["application/pdf", "application/epub+zip", "application/x-mobipocket-ebook"]}
+            accept=".pdf,.epub,.mobi"
             onUploaded={(ids) => setManuscriptFileId(ids[0])}
             onRemove={manuscriptRemovable ? () => { setManuscriptFileId(undefined); setPagesAutoDetected(false); setDimensionsAutoDetected(false); setDimensionsUnmatched(null); setFileSizeAutoDetected(false); } : undefined}
             initialFileName={initial?.manuscriptFileId ? "Manuscript already uploaded" : undefined}
             onFileMeta={(results) => {
               const result = results[0];
+              setManuscriptFileName(result?.fileName);
+              setManuscriptMime(result?.mimeType);
               const detectedPages = result?.pageCount;
               // typeof check (not just truthiness) so a genuine 0 — an
               // edge case, but possible for an odd/empty PDF — doesn't
@@ -484,11 +496,11 @@ export function EbookSubmissionForm({
         </div>
         <div className="form-grid-2">
           <div>
-            <label className="field-label">Book identifier</label>
+            <label className="field-label">SN number / ISBN</label>
             <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 400 }}>
                 <input type="radio" name="isbn-mode" checked={!hasOwnIsbn} onChange={() => setHasOwnIsbn(false)} />
-                Auto-generate an SN for me
+                Auto-generate an SN number for me
               </label>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 400 }}>
                 <input type="radio" name="isbn-mode" checked={hasOwnIsbn} onChange={() => setHasOwnIsbn(true)} />
@@ -498,14 +510,14 @@ export function EbookSubmissionForm({
             {hasOwnIsbn ? (
               <>
                 <input className="field" id="f-isbn" type="text" placeholder="978-1-59299-541-7" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
-                <div className="field-hint">Enter your existing ISBN for this eBook.</div>
+                <div className="field-hint">Enter your existing ISBN for this eBook. It replaces the SN number, and the audiobook uses it too.</div>
               </>
             ) : generatedSn ? (
               <>
                 <input className="field" type="text" value={generatedSn} readOnly disabled style={{ fontFamily: "monospace", letterSpacing: 1 }} />
                 <div className="field-hint" style={{ margin: 0 }}>
-                  Your SN — a 13-digit, all-numeric identifier starting with 5, distinct from a real ISBN, and
-                  checked against every other book on the platform so it&apos;s guaranteed unique.
+                  Your SN number — a 13-digit, all-numeric reference starting with 5, distinct from a real ISBN, and
+                  checked against every other book on the platform so it&apos;s guaranteed unique. Shared by the eBook and audiobook.
                 </div>
               </>
             ) : (
@@ -524,8 +536,8 @@ export function EbookSubmissionForm({
                   {generatingSn ? "Generating…" : "Generate SN"}
                 </button>
                 <div className="field-hint" style={{ margin: "6px 0 0" }}>
-                  Generates a real, unique 13-digit identifier starting with 5 — checked against every other book
-                  on the platform.
+                  Optional: preview your SN number now. If you skip this, one is generated for you when you submit.
+                  The eBook and audiobook share it.
                 </div>
               </>
             )}
@@ -604,7 +616,7 @@ export function EbookSubmissionForm({
               onChange={(e) => { setPages(e.target.value); setPagesAutoDetected(false); }}
             />
             <div className="field-hint">
-              {pagesAutoDetected ? "Auto-detected from your uploaded manuscript — edit if it's not quite right." : "Auto-fills once you upload a PDF/DOCX manuscript above; enter it yourself for EPUB/MOBI. Optional for an audiobook-only title."}
+              {pagesAutoDetected ? "Auto-detected from your uploaded manuscript — edit if it's not quite right." : "Auto-fills once you upload a PDF manuscript above; enter it yourself for EPUB/MOBI. Optional for an audiobook-only title."}
             </div>
           </div>
           <div>
@@ -622,7 +634,7 @@ export function EbookSubmissionForm({
                 ? "Auto-detected from your uploaded manuscript — change it if it's not quite right."
                 : dimensionsUnmatched
                 ? `Your manuscript measures about ${dimensionsUnmatched}, which isn't a standard size — pick the closest option.`
-                : "Preselected when your PDF/DOCX manuscript matches a standard size; choose it yourself for EPUB/MOBI."}
+                : "Preselected when your PDF manuscript matches a standard size; choose it yourself for EPUB/MOBI."}
             </div>
           </div>
         </div>

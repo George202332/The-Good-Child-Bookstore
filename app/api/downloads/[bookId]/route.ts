@@ -26,8 +26,7 @@ import { hasFileDownload } from "@/lib/delivery-format";
  * formats were tracked keep working. A print or audiobook purchase alone
  * does not unlock the manuscript.
  *
- * Otherwise, for a PDF manuscript (a native PDF upload, or a DOCX
- * converted to PDF at upload time — see lib/docx-to-pdf.ts), the
+ * Otherwise, for a PDF manuscript, the
  * book's cover image is merged in as page 1 using pdf-lib, so the
  * downloaded file actually opens on the cover.
  */

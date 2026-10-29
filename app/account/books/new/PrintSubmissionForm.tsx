@@ -3,9 +3,13 @@
 import { PublisherField } from "./PublisherField";
 import { AgeGroupField } from "./AgeGroupField";
 import { ageGroupProblem } from "@/lib/age-groups";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitBook, updateBookFull } from "@/actions/submissions";
+import { describeUploadedFile, type UploadFileResult } from "@/actions/files";
+import { startPrintPreflight, pollPrintPreflight, type PrintPreflightView } from "@/actions/print-preflight";
+import { packagesFor } from "@/lib/print-preflight-packages";
+import { coverKeyFor, packageKey, type SavedPreflight } from "@/lib/print-preflight-result";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { ButtonGroup } from "@/components/ButtonGroup";
@@ -32,7 +36,11 @@ export interface PrintSubmissionInitial {
   subtitle?: string;
   seriesName?: string;
   edition?: string;
-  isbn?: string;
+  /** The print ISBN of each format, when it has one (never shared between formats). */
+  paperbackIsbn?: string;
+  hardcoverIsbn?: string;
+  /** The saved result of the last print file check. */
+  preflight?: SavedPreflight;
   language?: string;
   publisher?: string;
   publicationDate?: string;
@@ -94,13 +102,12 @@ export interface PrintSubmissionInitial {
 export function PrintSubmissionForm({
   prefill,
   initial,
-  autofillRequest = 0,
 }: {
+  /** The eBook's details (the title is being added as a print edition of it). When given,
+   * an "Autofill from eBook" button inside this tab copies them - text, cover and the
+   * uploaded file - into this form. */
   prefill?: SharedSubmissionFields;
   initial?: PrintSubmissionInitial;
-  /** Goes up by one each time the author clicks the "Autofill from eBook" tab;
-   * every increase copies the eBook tab's current details into this form. */
-  autofillRequest?: number;
 } = {}) {
   const router = useRouter();
   const editing = !!initial?.bookId;
@@ -114,7 +121,10 @@ export function PrintSubmissionForm({
   const [subtitle, setSubtitle] = useState(initial?.subtitle ?? prefill?.subtitle ?? "");
   const [seriesName, setSeriesName] = useState(initial?.seriesName ?? prefill?.seriesName ?? "");
   const [edition, setEdition] = useState(initial?.edition ?? prefill?.edition ?? "");
-  const [isbn, setIsbn] = useState(initial ? (initial.isbn ?? "") : "978-1-59299-541-7");
+  // Each print format has its own ISBN (never shared). Optional: an author with their own
+  // ISBNs enters them here; otherwise the product page shows "ISBN pending" until one is added.
+  const [paperbackIsbn, setPaperbackIsbn] = useState(initial?.paperbackIsbn ?? "");
+  const [hardcoverIsbn, setHardcoverIsbn] = useState(initial?.hardcoverIsbn ?? "");
   const [language, setLanguage] = useState(initial?.language || prefill?.language || LANGUAGES[0]);
   const [publisher, setPublisher] = useState(initial?.publisher ?? "");
   const [publicationDate, setPublicationDate] = useState(initial?.publicationDate ?? prefill?.publicationDate ?? "");
@@ -193,16 +203,48 @@ export function PrintSubmissionForm({
   const [submitting, setSubmitting] = useState(false);
   const [autofillNote, setAutofillNote] = useState<string | null>(null);
 
-  // The "Autofill from eBook" tab: copy what was entered on the eBook /
-  // Audiobook tab (title, description, cover, author, category, ...) into this
-  // form. Fields the eBook tab left empty are skipped so nothing here is blanked.
-  /* eslint-disable react-hooks/set-state-in-effect -- the copy is a one-off reaction to the author clicking the Autofill tab */
-  useEffect(() => {
-    if (!autofillRequest) return;
+  // Reads a freshly uploaded (or carried-over) interior PDF: page count, page size and the
+  // trim size that matches it. The same steps for both ways a file can arrive.
+  function applyInteriorMeta(result: UploadFileResult | undefined) {
+    if (typeof result?.pageCount === "number") {
+      setPrintPages(String(result.pageCount));
+      setPrintPagesAutoDetected(true);
+    } else {
+      setPrintPagesAutoDetected(false);
+    }
+    if (result?.dimensions) {
+      setPrintDimensions(result.dimensions);
+      setPrintDimensionsAutoDetected(true);
+    } else {
+      setPrintDimensionsAutoDetected(false);
+    }
+    if (typeof result?.pageWidthIn === "number" && typeof result?.pageHeightIn === "number") {
+      const found = detectTrimFromPageSize(result.pageWidthIn, result.pageHeightIn, LULU_CONFIG.trimSizes);
+      setDetectedTrim(found);
+      if (found) {
+        setTrimCode(found.code);
+        setTrimProblem(null);
+      } else {
+        setTrimProblem(`Your PDF's pages are ${formatInches(result.pageWidthIn, result.pageHeightIn)}, which doesn't match any trim size we can print. Re-export the interior at the exact trim size (or trim size plus 0.125 in bleed) and upload it again.`);
+      }
+    } else {
+      setDetectedTrim(null);
+      setTrimProblem(null);
+    }
+  }
+
+  // The "Autofill from eBook" button (inside this tab): copies what was entered on the eBook /
+  // Audiobook tab - the text details, the cover image AND the uploaded file - into this form.
+  // Fields the eBook tab left empty are skipped so nothing here is blanked. The author can edit
+  // everything afterwards, and every file that comes across goes through the same print file
+  // check as one uploaded directly.
+  const [autofilling, setAutofilling] = useState(false);
+  async function autofillFromEbook() {
     if (!prefill || !prefill.title.trim()) {
       setAutofillNote("Nothing to copy yet - fill in the eBook / Audiobook tab first (title, description, cover...).");
       return;
     }
+    setAutofilling(true);
     const copied: string[] = [];
     const take = (value: string | undefined, set: (v: string) => void, label: string) => {
       if (value && value.trim()) { set(value); copied.push(label); }
@@ -223,11 +265,85 @@ export function PrintSubmissionForm({
     take(prefill.aiDeclaration, setAiDeclaration, "AI statement");
     take(prefill.authorFirstName, setAuthorFirstName, "author first name");
     take(prefill.authorLastName, setAuthorLastName, "author last name");
-    take(prefill.coverImageUrl, setFrontCoverImageUrl, "front cover");
-    setAutofillNote(`Filled in from your eBook details: ${copied.join(", ")}. Check each one, then add the print-only details below.`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new click (autofillRequest) should copy; later edits to the eBook tab must not overwrite this form.
-  }, [autofillRequest]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+    if (prefill.coverImageUrl) {
+      setFrontCoverImageUrl(prefill.coverImageUrl);
+      setBackCoverMode("auto");
+      copied.push("front cover image");
+    }
+    let fileNote = "";
+    if (prefill.manuscriptFileId) {
+      // Only a PDF can be printed. The same file may serve both the eBook and the print edition.
+      const info = await describeUploadedFile(prefill.manuscriptFileId).catch(() => null);
+      if (info?.ok && info.mimeType === "application/pdf") {
+        setPrintReadyPdfFileId(info.fileId);
+        setCarriedFileName(info.fileName ?? prefill.manuscriptFileName ?? "Manuscript PDF");
+        applyInteriorMeta(info);
+        copied.push("print-ready PDF");
+      } else if (info?.ok) {
+        fileNote = " Your eBook file is not a PDF, so it cannot be printed - upload a print-ready PDF in the Files section below.";
+      }
+    }
+    setAutofillNote(`Filled in from your eBook details: ${copied.join(", ")}. Check each one, then add the print-only details below.${fileNote}`);
+    setAutofilling(false);
+  }
+
+  // The interior PDF that arrived by autofill (rather than an upload on this card), shown by name.
+  const [carriedFileName, setCarriedFileName] = useState<string | undefined>(undefined);
+
+  // ---- Print file check (Lulu pre-flight) --------------------------------------------------
+  // Runs by itself as soon as the interior and a cover are in, and again whenever a file or a
+  // print setting that matters changes. Plain-language results appear right here; a print edition
+  // that does not pass cannot be submitted.
+  const [preflight, setPreflight] = useState<PrintPreflightView | null>(null);
+  const [preflightBusy, setPreflightBusy] = useState(false);
+  const coverKey = coverKeyFor({ customCoverFileId: backCoverMode === "custom" ? customBackCoverPdfFileId : undefined, frontCoverImageUrl });
+  const packages = useMemo(
+    () => packagesFor({ trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor }),
+    [trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor],
+  );
+  const currentKeys = `${printReadyPdfFileId ?? ""}|${coverKey}|${packageKey(packages.map((p) => p.packageId))}`;
+  const checkedKeys = useRef<string>("");
+  const runPreflight = useCallback(async () => {
+    if (!printReadyPdfFileId || packages.length === 0 || (!frontCoverImageUrl && !(backCoverMode === "custom" && customBackCoverPdfFileId))) return;
+    setPreflightBusy(true);
+    checkedKeys.current = currentKeys;
+    const res = await startPrintPreflight({
+      interiorFileId: printReadyPdfFileId,
+      frontCoverImageUrl: frontCoverImageUrl || undefined,
+      customCoverFileId: backCoverMode === "custom" ? customBackCoverPdfFileId : undefined,
+      trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor,
+      title, authorName: `${authorFirstName} ${authorLastName}`.trim(),
+    }).catch(() => ({ ok: false, error: "The check could not be started. Please try again." }) as PrintPreflightView);
+    setPreflight(res);
+    setPreflightBusy(false);
+  }, [printReadyPdfFileId, packages, frontCoverImageUrl, backCoverMode, customBackCoverPdfFileId, currentKeys, trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor, title, authorFirstName, authorLastName]);
+
+  useEffect(() => {
+    if (!printReadyPdfFileId || checkedKeys.current === currentKeys) return;
+    // An edit that has not touched the files keeps the result already saved on the book.
+    if (editing && initial?.preflight && `${initial.printReadyPdfFileId ?? ""}|${initial.preflight.coverKey}|${initial.preflight.packageIds}` === currentKeys) {
+      checkedKeys.current = currentKeys;
+      return;
+    }
+    const t = setTimeout(() => { void runPreflight(); }, 700);
+    return () => clearTimeout(t);
+  }, [currentKeys, printReadyPdfFileId, runPreflight, editing, initial]);
+
+  // While Lulu is working, ask for progress every few seconds (each ask is quick).
+  useEffect(() => {
+    if (preflight?.status !== "CHECKING" || !preflight.checkId) return;
+    const id = preflight.checkId;
+    const t = setTimeout(async () => {
+      const next = await pollPrintPreflight(id).catch(() => null);
+      if (next) setPreflight(next);
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [preflight]);
+
+  // The saved result of an unchanged edit counts as passed; otherwise the live check decides.
+  const unchangedSaved = editing && !!initial?.preflight && `${initial.printReadyPdfFileId ?? ""}|${initial.preflight.coverKey}|${initial.preflight.packageIds}` === currentKeys && initial.preflight.status === "PASSED";
+  const preflightPassed = preflight?.status === "PASSED" || (!preflight && unchangedSaved);
+  const hasPrintFiles = !!printReadyPdfFileId && (!!frontCoverImageUrl || (backCoverMode === "custom" && !!customBackCoverPdfFileId));
 
   const foilCharsUsed = foilStampTitleText.length + foilStampAuthorText.length;
 
@@ -252,7 +368,6 @@ export function PrintSubmissionForm({
     const payload = {
       title,
       subtitle,
-      isbn,
       description,
       price: paperbackEnabled ? Number(paperbackRetailPrice) || 0 : Number(hardcoverRetailPrice) || 0,
       ageGroup,
@@ -297,6 +412,10 @@ export function PrintSubmissionForm({
         frontCoverImageUrl,
         customBackCoverPdfFileId,
         backCoverMode,
+        printIsbns: {
+          ...(paperbackEnabled && paperbackIsbn.trim() ? { paperback: paperbackIsbn.trim() } : {}),
+          ...(hardcoverEnabled && hardcoverIsbn.trim() ? { hardcover: hardcoverIsbn.trim() } : {}),
+        },
         sellThroughWebsite: true,
         luluGlobalDistribution,
         privatePrinting,
@@ -337,6 +456,22 @@ export function PrintSubmissionForm({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {prefill && !editing && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="btn btn-small btn-ghost"
+            disabled={autofilling}
+            title="Copy the title, description, cover image, author and the uploaded file from the eBook / Audiobook tab into this print edition"
+            onClick={() => { void autofillFromEbook(); }}
+          >
+            {autofilling ? "Copying…" : "Autofill from eBook"}
+          </button>
+          <span className="field-hint" style={{ margin: 0 }}>
+            Copies your eBook details, cover and uploaded file into this form. You can edit everything afterwards.
+          </span>
+        </div>
+      )}
       {autofillNote && (
         <div className="field-hint" role="status" style={{ background: "var(--paper)", border: "1px solid var(--line)", borderRadius: 10, padding: "10px 14px", margin: 0 }}>
           {autofillNote}
@@ -363,8 +498,15 @@ export function PrintSubmissionForm({
             <input className="field" id="p-edition" type="text" value={edition} onChange={(e) => setEdition(e.target.value)} />
           </div>
           <div>
-            <label className="field-label" htmlFor="p-isbn">ISBN</label>
-            <input className="field" id="p-isbn" type="text" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
+            <label className="field-label" htmlFor="p-isbn-pb">{hardcoverEnabled && paperbackEnabled ? "Paperback ISBN (optional)" : "ISBN (optional)"}</label>
+            {paperbackEnabled && <input className="field" id="p-isbn-pb" type="text" placeholder="Leave empty if you have none yet" value={paperbackIsbn} onChange={(e) => setPaperbackIsbn(e.target.value)} />}
+            {hardcoverEnabled && (
+              <>
+                {paperbackEnabled && <label className="field-label" htmlFor="p-isbn-hc" style={{ marginTop: 8 }}>Hardcover ISBN (optional)</label>}
+                <input className="field" id="p-isbn-hc" type="text" placeholder="Leave empty if you have none yet" value={hardcoverIsbn} onChange={(e) => setHardcoverIsbn(e.target.value)} />
+              </>
+            )}
+            <div className="field-hint">Each print format has its own ISBN. If you leave this empty the product page shows &ldquo;ISBN pending&rdquo; until one is added.</div>
           </div>
           <div>
             <label className="field-label" htmlFor="p-lang">Language</label>
@@ -466,39 +608,13 @@ export function PrintSubmissionForm({
         <div className="upload-cards-row">
           <FileUploadField
             label="Print-Ready PDF"
-            sizeHint="The complete interior pages of the book"
+            sizeHint="The complete interior pages of the book (PDF only)"
             allowedTypes={["application/pdf"]}
             accept=".pdf"
             initialFileName={initial?.printReadyPdfFileId ? "Print-ready PDF already uploaded" : undefined}
-            onUploaded={(ids) => setPrintReadyPdfFileId(ids[0])}
-            onFileMeta={(results) => {
-              const result = results[0];
-              if (typeof result?.pageCount === "number") {
-                setPrintPages(String(result.pageCount));
-                setPrintPagesAutoDetected(true);
-              } else {
-                setPrintPagesAutoDetected(false);
-              }
-              if (result?.dimensions) {
-                setPrintDimensions(result.dimensions);
-                setPrintDimensionsAutoDetected(true);
-              } else {
-                setPrintDimensionsAutoDetected(false);
-              }
-              if (typeof result?.pageWidthIn === "number" && typeof result?.pageHeightIn === "number") {
-                const found = detectTrimFromPageSize(result.pageWidthIn, result.pageHeightIn, LULU_CONFIG.trimSizes);
-                setDetectedTrim(found);
-                if (found) {
-                  setTrimCode(found.code);
-                  setTrimProblem(null);
-                } else {
-                  setTrimProblem(`Your PDF's pages are ${formatInches(result.pageWidthIn, result.pageHeightIn)}, which doesn't match any trim size we can print. Re-export the interior at the exact trim size (or trim size plus 0.125 in bleed) and upload it again.`);
-                }
-              } else {
-                setDetectedTrim(null);
-                setTrimProblem(null);
-              }
-            }}
+            externalFileName={printReadyPdfFileId ? carriedFileName : undefined}
+            onUploaded={(ids) => { setPrintReadyPdfFileId(ids[0]); setCarriedFileName(undefined); }}
+            onFileMeta={(results) => applyInteriorMeta(results[0])}
             fillWidth
           />
           <ImageUploadField
@@ -506,6 +622,7 @@ export function PrintSubmissionForm({
             recommendedSize="PNG or JPEG — automatically converted to WebP"
             value={frontCoverImageUrl}
             onChange={(url) => { setFrontCoverImageUrl(url); setBackCoverMode("auto"); }}
+            externalLabel="Cover image ready"
             accept="image/png,image/jpeg"
             fillWidth
           />
@@ -550,11 +667,13 @@ export function PrintSubmissionForm({
             </>
           );
         })()}
-        <p style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8 }}>
-          File type and size are checked immediately. Resolution, bleed, trim-size match, and embedded fonts are
-          checked by our print partner once the job is submitted; any issues are reported back before printing
-          begins.
-        </p>
+        <PreflightPanel
+          hasFiles={hasPrintFiles}
+          busy={preflightBusy}
+          result={preflight}
+          savedFromBook={unchangedSaved ? initial?.preflight : undefined}
+          onRetry={() => { checkedKeys.current = ""; void runPreflight(); }}
+        />
       </Card>
 
       {/* Section 4 */}
@@ -783,7 +902,7 @@ export function PrintSubmissionForm({
           authorFirstName={authorFirstName}
           authorLastName={authorLastName}
           description={description}
-          isbn={isbn}
+          isbn={paperbackIsbn || hardcoverIsbn}
           trimCode={trimCode}
           paperCode={paperType}
           coverImageUrl={frontCoverImageUrl}
@@ -792,20 +911,90 @@ export function PrintSubmissionForm({
 
       {/* Section 10 */}
       <Card>
-        <SectionHeader n={9} title="ISBN Barcode" sub="Generated automatically from the ISBN assigned to this title." />
-        <Ean13Barcode isbn={isbn} />
+        <SectionHeader n={9} title="ISBN Barcode" sub="Generated from the print ISBN once one is entered." />
+        <Ean13Barcode isbn={paperbackIsbn || hardcoverIsbn} />
       </Card>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
       <div>
-        <button type="button" className="btn btn-primary btn-small" disabled={submitting || !!ageGroupProblem(ageGroup)} onClick={() => handleSubmit(true)}>
+        <button
+          type="button"
+          className="btn btn-primary btn-small"
+          disabled={submitting || !!ageGroupProblem(ageGroup) || !preflightPassed}
+          onClick={() => handleSubmit(true)}
+        >
           {submitting
             ? (editing ? "Saving…" : "Submitting…")
             : editing
             ? (editingPublished ? "Save changes" : "Save and resubmit for review")
             : "Submit print copy"}
         </button>
+        {!preflightPassed && (
+          <div className="field-hint" style={{ marginTop: 6 }}>
+            {!hasPrintFiles
+              ? "Upload the print-ready PDF and a cover in the Files section first; they are checked for printing straight away."
+              : preflight?.status === "FAILED"
+              ? "This print edition can be submitted once the print file check above passes."
+              : "Waiting for the print file check above to finish."}
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
+  PASSED: { bg: "#E3F5EA", fg: "#165236", label: "Passed" },
+  FAILED: { bg: "#FCE4E4", fg: "#6F1A28", label: "Needs fixing" },
+  CHECKING: { bg: "#FFF3D6", fg: "#6E4A00", label: "Checking…" },
+  UNAVAILABLE: { bg: "#EEE9F6", fg: "#3F3350", label: "Could not finish" },
+};
+
+/** The print file check result, in plain language, right inside the Print tab. */
+function PreflightPanel({ hasFiles, busy, result, savedFromBook, onRetry }: {
+  hasFiles: boolean;
+  busy: boolean;
+  result: PrintPreflightView | null;
+  savedFromBook?: SavedPreflight;
+  onRetry: () => void;
+}) {
+  const status = busy && !result ? "CHECKING" : result?.status ?? (savedFromBook ? savedFromBook.status : undefined);
+  const style = status ? STATUS_STYLE[status] : undefined;
+  return (
+    <div style={{ marginTop: 14, border: "1px solid var(--line)", borderRadius: 12, padding: "14px 16px", background: "var(--paper)" }} aria-live="polite">
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <strong style={{ fontSize: 14 }}>Print file check</strong>
+        {style && <span style={{ background: style.bg, color: style.fg, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 700 }}>{style.label}</span>}
+        {hasFiles && status !== "CHECKING" && (
+          <button type="button" className="btn btn-ghost btn-small" onClick={onRetry} disabled={busy}>Check again</button>
+        )}
+      </div>
+      {!hasFiles && (
+        <p className="field-hint" style={{ margin: "8px 0 0" }}>
+          As soon as the print-ready PDF and a cover are uploaded, we check them for printing: embedded fonts, page size, page count and cover size, and then our print partner (Lulu) checks them too. Nothing is ordered or printed by this check.
+        </p>
+      )}
+      {hasFiles && status === "CHECKING" && (
+        <p className="field-hint" style={{ margin: "8px 0 0" }}>
+          Checking your files with our print partner. This usually takes under a minute; you can keep filling in the form.
+        </p>
+      )}
+      {status === "PASSED" && (
+        <p className="field-hint" style={{ margin: "8px 0 0", color: "#165236" }}>
+          Your print files meet our print partner&apos;s standards. {savedFromBook && !result ? `Checked ${new Date(savedFromBook.checkedAt).toLocaleDateString()}.` : ""}
+        </p>
+      )}
+      {result?.error && <p className="field-hint" style={{ margin: "8px 0 0", color: "var(--coral-deep)" }}>{result.error}</p>}
+      {result?.issues && result.issues.length > 0 && (
+        <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 13 }}>
+          {result.issues.map((i, n) => (
+            <li key={n} style={{ marginBottom: 8 }}>
+              <div style={{ fontWeight: 600 }}>{i.message}</div>
+              <div style={{ color: "var(--ink-soft)" }}>How to fix it: {i.fix}</div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -112,6 +112,21 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
 
   // An audiobook-only title has no manuscript: no sample to read, and no
   // page count / trim size / file size to show.
+  // Which record sells the selected format (one product page can be backed by several
+  // editions), and that format's own identifier.
+  const cartFormat = effectiveFormat === "print" ? "hardcover" : effectiveFormat;
+  const cartBookId = b.formatBookIds?.[cartFormat] ?? b.id;
+  const formatIdentifier = b.identifiers?.[cartFormat];
+  const identifierText = formatIdentifier
+    ? formatIdentifier.value
+      ? `${formatIdentifier.label} ${formatIdentifier.value}`
+      : `${formatIdentifier.label} pending`
+    : b.isbn
+      ? `ISBN ${b.isbn}`
+      : "";
+  const showPrintDetails = (effectiveFormat === "print" || effectiveFormat === "paperback") && b.printPages !== undefined;
+  const shownPages = showPrintDetails ? (b.printPages as number) : b.pages;
+  const shownDimensions = showPrintDetails && b.printDimensions ? b.printDimensions : b.dimensions;
   const audiobookOnly = isFormatAvailable.audiobook && !isFormatAvailable.ebook && !isFormatAvailable.paperback && !isFormatAvailable.print;
 
   const initials = b.author.split(" ").map((w) => w[0]).join("").slice(0, 2);
@@ -226,7 +241,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
             <span className="stars-inline">★★★★★</span>
             <span className="rev-count">{b.reviews} ratings</span>
           </div>
-          <div className="detail-isbn">ISBN {b.isbn}</div>
+          {identifierText && <div className="detail-isbn">{identifierText}</div>}
           <div className="detail-tags">
             <span className="age-pill">Ages {b.age} years</span>
           </div>
@@ -256,10 +271,10 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 18l-6-6 6-6" /></svg>
               </button>
               <div className="az-details-row" id={`details-track-${b.id}`}>
-                {!audiobookOnly && (!isRealBook || b.pages > 0) && (
+                {!audiobookOnly && (!isRealBook || shownPages > 0) && (
                   <div className="az-detail-item">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 2h9l3 3v17H6z" /><path d="M14 2v4h4" /></svg>
-                    <strong>{b.pages}</strong><span>Pages</span>
+                    <strong>{shownPages}</strong><span>Pages</span>
                   </div>
                 )}
                 <div className="az-detail-item">
@@ -284,10 +299,10 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                 )}
                 {!audiobookOnly && (
                   <>
-                    {(!isRealBook || b.dimensions) && (
+                    {(!isRealBook || shownDimensions) && (
                     <div className="az-detail-item">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={4} y={3} width={16} height={18} rx={1} /><path d="M8 3v18M16 3v18" /></svg>
-                      <strong>{b.dimensions || "5.5 × 8.5 in"}</strong><span>Dimensions</span>
+                      <strong>{shownDimensions || "5.5 × 8.5 in"}</strong><span>Dimensions</span>
                     </div>
                     )}
                     {(!isRealBook || b.fileSizeKB) && (
@@ -339,13 +354,13 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
           {restricted && (
             <div className="buybox-note" role="alert" style={{ marginBottom: 10, fontWeight: 600 }}>{restrictionMessage}</div>
           )}
-          <button className="btn btn-primary btn-block btn-compact" disabled={restricted} title={restricted ? restrictionMessage : undefined} onClick={() => addItem(b.id, effectiveFormat === "print" ? "hardcover" : effectiveFormat, 1)}>Add to Cart</button>
+          <button className="btn btn-primary btn-block btn-compact" disabled={restricted} title={restricted ? restrictionMessage : undefined} onClick={() => addItem(cartBookId, cartFormat, 1)}>Add to Cart</button>
           <button
             className="btn btn-ghost btn-block btn-compact"
             style={{ marginTop: 8 }}
             disabled={restricted}
             title={restricted ? restrictionMessage : undefined}
-            onClick={() => router.push(`/checkout?directBookId=${b.id}&directFormat=${effectiveFormat === "print" ? "hardcover" : effectiveFormat}`)}
+            onClick={() => router.push(`/checkout?directBookId=${cartBookId}&directFormat=${cartFormat}`)}
           >
             Buy Direct
           </button>

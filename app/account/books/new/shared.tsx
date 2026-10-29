@@ -47,4 +47,10 @@ export interface SharedSubmissionFields {
   publisher: string;
   /** The eBook's front cover image (a URL), reused as the print front cover. */
   coverImageUrl: string;
+  /** The eBook manuscript, so "Autofill from eBook" on the Print tab can carry the uploaded
+   * file across too (only a PDF can be printed). Name and type are known once it is
+   * uploaded in this session, or looked up from the stored file when editing. */
+  manuscriptFileId?: string;
+  manuscriptFileName?: string;
+  manuscriptMimeType?: string;
 }
