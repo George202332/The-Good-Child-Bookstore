@@ -1,6 +1,5 @@
 "use client";
 
-import { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Header } from "./Header";
@@ -42,9 +41,7 @@ export function SiteChrome({ children, settings }: { children: ReactNode; settin
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: "calc(100 * var(--vh, 1vh))" }}>
-      <Suspense fallback={null}>
-        <Header logoImageUrl={settings.logoImageUrl} />
-      </Suspense>
+      <Header logoImageUrl={settings.logoImageUrl} />
       <div style={{ flex: 1 }}>{children}</div>
       {!hideFooter && (
         <Footer

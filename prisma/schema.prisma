@@ -158,6 +158,7 @@ model User {
 
   settings      Settings?
   passwordResetTokens PasswordResetToken[]
+  orderLoginTokens    OrderLoginToken[]
   emailVerificationTokens EmailVerificationToken[]
   twoFactorConfig TwoFactorConfig?
   twoFactorChallenges TwoFactorChallenge[]
@@ -179,6 +180,27 @@ model User {
  * exactly once. Works identically for every account type, including
  * backend roles (Admin/Editor/Accountant), since it's just email-based
  * identity, not role-specific. */
+/** One-time "sign me in" access for a brand-new guest buyer, tied to the paid
+ * order that created their account. Shown as a button on the payment success
+ * page and repeated as a backup link in the purchase email. Only a SHA-256
+ * hash of the token is stored, so a database leak reveals nothing usable. A
+ * token works once (usedAt), expires within an hour, and is deleted with its
+ * order or account. */
+model OrderLoginToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId   String
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([orderId])
+}
+
 model PasswordResetToken {
   id        String   @id @default(cuid())
   userId    String
@@ -720,6 +742,7 @@ model Order {
   purchaseEmailSentAt DateTime?
   lines         SaleLine[]
   paymentLogs   PaymentLog[]
+  loginTokens   OrderLoginToken[]
   // Real IP-based geotagging (see lib/geo.ts) captured at the moment of
   // purchase — works for every order, including eBook-only orders that
   // never collect a shipping address.

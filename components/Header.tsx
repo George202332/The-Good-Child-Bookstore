@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { SearchIcon, HeartIcon, BagIcon, UserIcon } from "./icons";
 import { headerSearchTarget, headerSearchUrl, HEADER_SEARCH_PLACEHOLDER } from "@/lib/header-search";
@@ -33,10 +33,30 @@ function routeMatch(pathname: string): string {
   return seg || "home";
 }
 
+/**
+ * Keeps the header's search box in step with ?q= in the address bar (back /
+ * forward, a filter chip removed elsewhere) without fighting local typing.
+ *
+ * This is the ONLY part of the header that reads the address-bar query, and it
+ * lives in its own tiny component on purpose. Reading the query makes React
+ * wait for the browser before it can draw that component; when that happened to
+ * the whole header, the server sent the page body and footer first and the
+ * header arrived afterwards in a later chunk (and on fully static pages it was
+ * not in the server HTML at all). Isolated here, only this invisible helper
+ * waits; the header itself is always drawn with the first paint.
+ */
+function SearchQuerySync({ active, onQuery }: { active: boolean; onQuery: (q: string) => void }) {
+  const searchParams = useSearchParams();
+  const q = searchParams.get("q") ?? "";
+  useEffect(() => {
+    if (active) onQuery(q);
+  }, [active, q, onQuery]);
+  return null;
+}
+
 export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const active = routeMatch(pathname);
   // /account/** (and every route under it) shows the dashboard sidebar
   // nav's mobile panel instead of the main-site nav dropdown when the
@@ -83,15 +103,6 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
   const backendRole = (session?.user as { role?: string } | undefined)?.role;
   const isBackendSession = backendRole === "ADMIN" || backendRole === "EDITOR" || backendRole === "ACCOUNTANT";
 
-  // Keep the box in sync with ?q= when already on /bookshelf (e.g. back/forward
-  // nav, or a filter chip removed elsewhere), without fighting local typing.
-  useEffect(() => {
-    if (pathname === "/bookshelf" || searchTarget === "blog") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSearch(searchParams.get("q") ?? "");
-    }
-  }, [pathname, searchParams, searchTarget]);
-
   // Converted from the global-search input listener in attachHeaderHandlers()
   // (the-good-child-bookstore_54_1.html:15175-15185): typing here live-
   // navigates to /bookshelf with the query applied, same as the original jumping
@@ -101,7 +112,7 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
     // Only while ON the Blog listing page does this box search blog
     // posts (staying on /blog); on every other page — an individual blog
     // post included — it searches books exactly as before.
-    const keepParams = pathname === "/bookshelf" || searchTarget === "blog" ? searchParams.toString() : "";
+    const keepParams = pathname === "/bookshelf" || searchTarget === "blog" ? window.location.search.replace(/^\?/, "") : "";
     router.replace(headerSearchUrl(searchTarget, value, keepParams), { scroll: false });
   }
 
@@ -144,6 +155,9 @@ export function Header({ logoImageUrl }: { logoImageUrl?: string } = {}) {
 
   return (
     <header className="site-header">
+      <Suspense fallback={null}>
+        <SearchQuerySync active={pathname === "/bookshelf" || searchTarget === "blog"} onQuery={setSearch} />
+      </Suspense>
       <div className="wrap header-inner">
         <Logo logoImageUrl={logoImageUrl} />
         <nav className="main-nav">

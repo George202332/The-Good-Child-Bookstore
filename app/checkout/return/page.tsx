@@ -4,6 +4,28 @@ import { capturePaypalOrder, evaluatePaypalCapture } from "@/lib/payments/paypal
 import { finalizeOrderPayment } from "@/lib/payments/finalize";
 import { saveCardIfReusable } from "@/actions/payment-methods";
 import { prisma } from "@/lib/prisma";
+import { confirmationUrl } from "@/lib/order-access";
+
+/**
+ * Where to send the buyer once payment is confirmed. The link carries the order's
+ * secret key (so a guest with no login can open the page and download the
+ * receipt) ONLY when the visitor has just proved they are the buyer: the payment
+ * reference / PayPal token from the gateway's own redirect matches this order's
+ * payment record. Otherwise the plain link is used, which only the signed-in
+ * owner can open. This stops anyone who merely knows an order number from being
+ * handed the key by visiting this return page.
+ */
+async function successUrl(orderId: string, proof: string | undefined): Promise<string> {
+  if (proof) {
+    try {
+      const logs = await prisma.paymentLog.findMany({ where: { orderId }, select: { rawPayload: true } });
+      if (logs.some((l) => JSON.stringify(l.rawPayload).includes(proof))) return confirmationUrl(orderId);
+    } catch {
+      // Fall through to the plain link.
+    }
+  }
+  return `/checkout/confirmation?order=${encodeURIComponent(orderId)}`;
+}
 
 /**
  * Where Paystack redirects the buyer back to after they pay on its own
@@ -35,13 +57,15 @@ export default async function CheckoutReturnPage({
         if (confirmed.ok && confirmed.orderId === orderId) {
           await finalizeOrderPayment(confirmed.orderId, "PAYSTACK", { source: "return_redirect", reference });
           await saveCardIfReusable(confirmed.orderId, confirmed.authorization);
-          redirect(`/checkout/confirmation?order=${confirmed.orderId}`);
+          // Paystack itself just confirmed this payment for this order: the buyer is proven.
+          redirect(confirmationUrl(confirmed.orderId));
         }
         if (!confirmed.ok) {
           const st = confirmed.paystackStatus;
           // Paystack says the payment is still being processed: show the honest "waiting" page.
           if (st === "pending" || st === "ongoing" || st === "processing" || st === "queued") {
-            redirect(`/checkout/confirmation?order=${orderId}`);
+            // The reference is Paystack's own and was made for this very order.
+            redirect(reference.startsWith(`gcb-${orderId}-`) ? confirmationUrl(orderId) : `/checkout/confirmation?order=${encodeURIComponent(orderId)}`);
           }
           // Paystack says the payment definitely failed: record that (only a PENDING order moves).
           if (st === "failed") {
@@ -68,7 +92,7 @@ export default async function CheckoutReturnPage({
     // that's already genuinely confirmed.
     const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
     if (order?.status === "PAID") {
-      redirect(`/checkout/confirmation?order=${orderId}`);
+      redirect(await successUrl(orderId, params.reference ?? params.trxref));
     }
   }
 
@@ -80,13 +104,13 @@ export default async function CheckoutReturnPage({
     if (paypalToken) {
       try {
         const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true, totalAmount: true } });
-        if (order?.status === "PAID") redirect(`/checkout/confirmation?order=${orderId}`);
+        if (order?.status === "PAID") redirect(await successUrl(orderId, paypalToken));
         if (order?.status === "PENDING") {
           const captured = await capturePaypalOrder(paypalToken);
           const verdict = evaluatePaypalCapture(captured, orderId, Number(order.totalAmount));
           if (verdict.ok) {
             await finalizeOrderPayment(orderId, "PAYPAL", { source: "return_redirect", paypalOrderId: paypalToken, captured });
-            redirect(`/checkout/confirmation?order=${orderId}`);
+            redirect(confirmationUrl(orderId));
           }
         }
       } catch (e) {
@@ -96,7 +120,7 @@ export default async function CheckoutReturnPage({
       }
     }
     const paid = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
-    if (paid?.status === "PAID") redirect(`/checkout/confirmation?order=${orderId}`);
+    if (paid?.status === "PAID") redirect(await successUrl(orderId, params.token));
   }
 
   // Payment wasn't confirmed by either path — back to checkout rather

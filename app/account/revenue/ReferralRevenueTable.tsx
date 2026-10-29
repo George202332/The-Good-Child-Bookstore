@@ -10,7 +10,7 @@ export interface ReferralRawRow {
   groupKey: string;
   /** Already masked on the server (e.g. "30****01"). */
   accountId: string;
-  /** Already reduced to the first name on the server. */
+  /** The referred account's full name. */
   name: string;
   dateJoined: string;
   saleDate: string;
@@ -94,7 +94,7 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
             <thead>
               <tr>
                 <th style={TABLE_HEAD_STYLE}>Account ID<ColHelp text="The account number of the author you referred, partly hidden for their privacy." /></th>
-                <th style={TABLE_HEAD_STYLE}>Name<ColHelp text="The referred author's first name only — their pen name if they've set one in their Profile, otherwise their real name." /></th>
+                <th style={TABLE_HEAD_STYLE}>Name<ColHelp text="The full account name of the referred author the commission came from." /></th>
                 <th style={TABLE_HEAD_STYLE}>Date Joined<ColHelp text="The date this author created their account using your referral link." /></th>
                 <th style={TABLE_HEAD_STYLE}>Revenue<ColHelp text="The company's revenue from this author's book sales within the selected time window (its 30% share, before any referral commission is carved out)." /></th>
                 <th style={TABLE_HEAD_STYLE}>Commission<ColHelp text="Your earnings from referring this author within the selected time window: a percentage of the company revenue above." /></th>

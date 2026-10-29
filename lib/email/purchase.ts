@@ -4,6 +4,8 @@ import { sendEmail } from "@/lib/email";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { hasFileDownload, isPrintFormat } from "@/lib/delivery-format";
 import { reportSystemError } from "@/lib/site-health/alert";
+import { createOrderLoginToken } from "@/lib/order-login";
+import { ORDER_LOGIN_MINUTES } from "@/lib/order-access";
 
 /**
  * The one purchase email, for every kind of buyer and every format.
@@ -49,6 +51,8 @@ export interface PurchaseEmailInput {
   shipTo?: { name?: string | null; address?: string | null; country?: string | null } | null;
   /** Present only for a brand-new guest account (Case A). */
   setPasswordUrl?: string;
+  /** Present only for a brand-new guest account (Case A): one-time sign-in link, backup to the success-page button. */
+  signInUrl?: string;
 }
 
 const FORMAT_LABEL: Record<string, string> = { ebook: "eBook", audiobook: "Audiobook", paperback: "Paperback", hardcover: "Hardcover" };
@@ -110,9 +114,14 @@ export function buildPurchaseEmail(input: PurchaseEmailInput): { subject: string
   const accountHtml = input.setPasswordUrl
     ? `<div style="background:#FBE6B8;border-radius:10px;padding:16px;margin:20px 0;">
          <p style="margin:0 0 6px;font-weight:bold;">We&rsquo;ve created your account</p>
-         <p style="margin:0 0 10px;">Your login email is <strong>${escapeHtml(input.buyerEmail)}</strong>. Choose your own password with the button below. The link works once and expires in ${GUEST_LINK_HOURS} hours.</p>
+         <p style="margin:0 0 10px;">Your login email is <strong>${escapeHtml(input.buyerEmail)}</strong>.${
+           input.signInUrl
+             ? ` Use the first button to step straight in (it works once and expires within ${ORDER_LOGIN_MINUTES} minutes), then choose your own password. If it has expired, the second button lets you set a password instead (valid ${GUEST_LINK_HOURS} hours).`
+             : ` Choose your own password with the button below. The link works once and expires in ${GUEST_LINK_HOURS} hours.`
+         }</p>
+         ${input.signInUrl ? `<p style="margin:0 0 10px;"><a href="${input.signInUrl}" style="${BUTTON}">Go to my account</a></p>` : ""}
          <p style="margin:0 0 8px;"><a href="${input.setPasswordUrl}" style="${BUTTON}">Set my password</a></p>
-         <p style="margin:0;font-size:12.5px;color:#6E4A00;">If the link has expired, use <a href="${forgotUrl}" style="color:#6E4A00;">Forgot password</a> and we will send a fresh one.</p>
+         <p style="margin:0;font-size:12.5px;color:#6E4A00;">If the links have expired, use <a href="${forgotUrl}" style="color:#6E4A00;">Forgot password</a> and we will send a fresh one.</p>
        </div>`
     : `<p style="margin:20px 0 0;">Log in with your existing account details at <a href="${loginUrl}" style="color:#6E4A00;">${siteUrl.replace(/^https?:\/\//, "")}/login</a>. Forgotten your password? <a href="${forgotUrl}" style="color:#6E4A00;">Reset it here</a>.</p>`;
 
@@ -173,6 +182,7 @@ export async function sendPurchaseEmail(orderId: string, opts?: { onlyIfRecent?:
     const user = order.reader.user;
     const siteUrl = getPublicSiteUrl();
     const setPasswordUrl = user.guestSetupPending ? await issueSetPasswordUrl(user.id, siteUrl) : undefined;
+    const signInUrl = user.guestSetupPending ? `${siteUrl}/welcome?token=${await createOrderLoginToken(user.id, orderId)}` : undefined;
 
     const { subject, html } = buildPurchaseEmail({
       siteUrl,
@@ -191,6 +201,7 @@ export async function sendPurchaseEmail(orderId: string, opts?: { onlyIfRecent?:
       totalAmount: Number(order.totalAmount),
       shipTo: { name: order.shipName, address: order.shipAddress, country: order.shipCountry },
       setPasswordUrl,
+      signInUrl,
     });
 
     // The PDF receipt is a nice extra: if it cannot be made, the email still goes.

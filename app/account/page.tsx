@@ -15,6 +15,7 @@ import { PayoutHoldBanner } from "@/components/PayoutHoldBanner";
 import { computePayoutStatCards } from "@/lib/payout-monthly";
 import { hasFileDownload } from "@/lib/delivery-format";
 import { PAID_ONLY } from "@/lib/paid-sales";
+import { SetPasswordPrompt } from "@/components/SetPasswordPrompt";
 
 export const dynamic = "force-dynamic";
 
@@ -78,7 +79,8 @@ function timeAgo(iso: string): string {
  * separate build (see docs/architecture.md) and isn't ported yet, so
  * those roles get an honest "in progress" overview instead of a faked one.
  */
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ welcome?: string }> }) {
+  const { welcome } = await searchParams;
   const session = await auth();
   if (!session?.user) redirect("/login");
 
@@ -111,13 +113,17 @@ export default async function AccountPage() {
         {payoutStatCards && payoutStatCards.pendingPayout > 0 && payoutStatCards.pendingStatus !== "Paid" && (
           <PayoutHoldBanner amount={payoutStatCards.pendingPayout} />
         )}
-        {user?.mustChangePassword && (
-          <div className="map-card" style={{ padding: "12px 16px", marginBottom: 16, background: "#F5D98F" }}>
-            <p style={{ fontSize: 13, color: "#6B4503", margin: 0 }}>
-              You&apos;re signed in with a temporary password from your order confirmation email.{" "}
-              <Link href="/account/settings" style={{ fontWeight: 700, textDecoration: "underline" }}>Set a real password →</Link>
-            </p>
-          </div>
+        {user?.guestSetupPending ? (
+          <SetPasswordPrompt highlight={welcome === "1"} />
+        ) : (
+          user?.mustChangePassword && (
+            <div className="map-card" style={{ padding: "12px 16px", marginBottom: 16, background: "#F5D98F" }}>
+              <p style={{ fontSize: 13, color: "#6B4503", margin: 0 }}>
+                You&apos;re signed in with a temporary password.{" "}
+                <Link href="/account/settings" style={{ fontWeight: 700, textDecoration: "underline" }}>Set a real password →</Link>
+              </p>
+            </div>
+          )
         )}
         <div className="section-head" style={{ marginBottom: 16 }}>
           <div>

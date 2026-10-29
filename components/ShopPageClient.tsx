@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { CATS, PRICE_RANGES, type Book } from "@/lib/data/catalog";
 import { categoryFromSlug, subcategoriesFor } from "@/lib/taxonomy";
 import { subcategoriesWithBooks } from "@/lib/subcategory-availability";
@@ -14,10 +14,11 @@ import { ShopSidebar } from "@/components/ShopSidebar";
  * `books` is the real, published catalog (real submitted books first,
  * demo catalog filling out the rest — see lib/data/real-books-adapter.ts)
  * rather than always the static 50-book fixture. */
-export function ShopPageClient({ books }: { books: Book[] }) {
+export function ShopPageClient({ books, query }: { books: Book[]; query: string }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  // The address-bar filters, supplied by the server page (see app/bookshelf/page.tsx).
+  const searchParams = useMemo(() => new URLSearchParams(query), [query]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const filters = parseShopFilters(searchParams);
@@ -125,13 +126,24 @@ export function ShopPageClient({ books }: { books: Book[] }) {
       )}
 
       <div className="shop-layout">
-        <ShopSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} availableSubs={availableSubs} />
+        <ShopSidebar query={query} open={sidebarOpen} onClose={() => setSidebarOpen(false)} availableSubs={availableSubs} />
         <main role="main">
           {pageList.length > 0 ? (
-            <div className="book-grid" aria-label="Book listings">
+            <div className="book-grid book-grid-shop" aria-label="Book listings">
               {pageList.map((b) => (
                 <BookCard key={b.id} book={b} />
               ))}
+              {/* On a page with fewer books than a full page (usually the last one),
+                  invisible copies of a real card fill the empty spaces. Every row
+                  keeps its real height at every screen size, so the page arrows
+                  below sit in exactly the same place on every page and the footer
+                  does not jump. Hidden from everyone, including screen readers. */}
+              {totalPages > 1 &&
+                Array.from({ length: Math.max(0, SHOP_PAGE_SIZE - pageList.length) }, (_, i) => (
+                  <div key={`filler-${i}`} className="book-card-filler" aria-hidden="true" inert>
+                    <BookCard book={pageList[0]} />
+                  </div>
+                ))}
             </div>
           ) : (
             <div className="empty-state">

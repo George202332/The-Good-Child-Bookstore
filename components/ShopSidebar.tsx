@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { CATS, AGE_RANGES, PRICE_RANGES } from "@/lib/data/catalog";
 import { FORMAT_OPTIONS } from "@/lib/shop-formats";
 import { CATEGORIES, categorySlug, subcategoriesFor } from "@/lib/taxonomy";
@@ -18,16 +18,19 @@ export function ShopSidebar({
   open,
   onClose,
   availableSubs,
+  query,
 }: {
   open: boolean;
   onClose: () => void;
+  /** The current address-bar filters, passed down from the server page. */
+  query: string;
   /** For each Category, the subcategories that have at least one published book.
    * The pop-up lists only these, so an empty subcategory never appears. */
   availableSubs: Readonly<Record<string, readonly string[]>>;
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParams = useMemo(() => new URLSearchParams(query), [query]);
   const [openCat, setOpenCat] = useState<string | null>(null);
 
   function toggle(key: string, value: string) {

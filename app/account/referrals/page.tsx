@@ -181,7 +181,7 @@ export default async function ReferralsPage() {
             <thead>
               <tr>
                 <th style={TABLE_HEAD_STYLE}>Account ID<ColHelp text="The referred author's account ID, with the middle digits masked for privacy." /></th>
-                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="First name only, for anonymity." /></th>
+                <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="The referred author's full account name." /></th>
                 <th style={TABLE_HEAD_STYLE}>Country<ColHelp text="The country the author actually signed up from." /></th>
                 <th style={TABLE_HEAD_STYLE}>Published<ColHelp text="How many of this author's books are currently live and for sale." /></th>
                 <th style={TABLE_HEAD_STYLE}>Company<ColHelp text="The company's lifetime revenue from this author's book sales, before your commission is carved out of it." /></th>
@@ -195,7 +195,7 @@ export default async function ReferralsPage() {
                 referredAuthors.map((a, i) => (
                   <tr key={i}>
                     <td style={TABLE_CELL_STYLE}>{a.maskedAccountId}</td>
-                    <td style={TABLE_CELL_STYLE}>{a.firstName}</td>
+                    <td style={TABLE_CELL_STYLE}>{a.fullName}</td>
                     <td style={TABLE_CELL_STYLE}>{a.country || "N/A"}</td>
                     <td style={TABLE_CELL_STYLE}>{a.published}</td>
                     <td style={TABLE_CELL_STYLE}>${a.company.toFixed(2)}</td>

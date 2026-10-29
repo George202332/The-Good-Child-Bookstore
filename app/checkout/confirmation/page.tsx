@@ -2,6 +2,9 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { getOrderSummary } from "@/actions/orders";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
+import { EnterAccountButton } from "@/components/EnterAccountButton";
+import { confirmationUrl, orderAccessToken, receiptUrl, verifyOrderAccessToken } from "@/lib/order-access";
+import { getOrderAccessInfo } from "@/lib/order-access-info";
 
 /**
  * Real order confirmation, reached either from demo-mode checkout
@@ -13,15 +16,24 @@ import { ClearCartOnMount } from "@/components/ClearCartOnMount";
  * reach a dashboard with), plus a prominent link to the full Library for
  * anyone currently signed in. A receipt with the same download links is
  * also emailed — see actions/order-emails.ts.
+ *
+ * Who may open it: whoever holds the order's secret key (the `k` in the link the
+ * payment return page sends the buyer to, so guests need no login) or the
+ * signed-in owner of the order. Anyone else just sees "No recent order found".
+ * Receipt, book download and account button appear ONLY for a confirmed-paid
+ * order, never for a pending or failed payment.
  */
 export default async function CheckoutConfirmationPage({
   searchParams,
 }: {
-  searchParams: Promise<{ order?: string }>;
+  searchParams: Promise<{ order?: string; k?: string }>;
 }) {
-  const { order: orderId } = await searchParams;
-  const order = orderId ? await getOrderSummary(orderId) : null;
+  const { order: orderId, k } = await searchParams;
   const session = await auth();
+  const hasKey = !!orderId && verifyOrderAccessToken(orderId, k);
+  const info = orderId ? await getOrderAccessInfo(orderId) : null;
+  const isOwner = !!session?.user && !!info && session.user.id === info.buyerUserId;
+  const order = orderId && info && (hasKey || isOwner) ? await getOrderSummary(orderId) : null;
 
   if (!order) {
     return (
@@ -48,7 +60,7 @@ export default async function CheckoutConfirmationPage({
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {stillWaiting && (
-            <Link href={`/checkout/confirmation?order=${order.id}`} className="btn btn-primary" style={{ textAlign: "center" }}>Check again</Link>
+            <Link href={confirmationUrl(order.id)} className="btn btn-primary" style={{ textAlign: "center" }}>Check again</Link>
           )}
           <Link href="/checkout" className={stillWaiting ? "see-all" : "btn btn-primary"} style={{ display: "block", textAlign: "center" }}>Back to checkout</Link>
         </div>
@@ -57,6 +69,7 @@ export default async function CheckoutConfirmationPage({
   }
 
   const hasDigitalItems = order.items.some((it) => it.hasEbook || it.hasAudiobook);
+  const accessKey = orderAccessToken(order.id);
 
   return (
     <div className="wrap cart-wrap" style={{ maxWidth: 520, margin: "0 auto" }}>
@@ -113,7 +126,9 @@ export default async function CheckoutConfirmationPage({
           <div className="summary-row" style={{ marginTop: 14 }}><span>Shipping (paid by you)</span><span>${order.shippingAmount.toFixed(2)}</span></div>
         )}
         <div className="summary-row total" style={{ marginTop: order.shippingAmount > 0 ? 6 : 14 }}><span>Total paid</span><span>${order.totalAmount.toFixed(2)}</span></div>
-        <a href={`/api/receipts/${order.id}`} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "var(--coral-deep)" }}>
+        {/* A plain download link: the PDF saves straight away (no new window, no sign-in),
+            protected by this order's secret key. */}
+        <a href={receiptUrl(order.id)} download style={{ display: "inline-block", marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "var(--coral-deep)" }}>
           Download your receipt (PDF) →
         </a>
       </div>
@@ -122,6 +137,27 @@ export default async function CheckoutConfirmationPage({
         {session?.user && hasDigitalItems && (
           <Link href="/account/library" className="btn btn-primary" style={{ textAlign: "center" }}>
             Go to your Library
+          </Link>
+        )}
+        {info?.newGuestAccount && !session?.user ? (
+          info.signInWindowOpen && accessKey ? (
+            <>
+              <EnterAccountButton orderId={order.id} accessKey={accessKey} />
+              <p style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: 0, textAlign: "center" }}>
+                We created your account from this purchase. You&apos;ll choose your own password once you&apos;re in.
+              </p>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="btn btn-primary" style={{ textAlign: "center" }}>Go to my account</Link>
+              <p style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: 0, textAlign: "center" }}>
+                Your account is ready. Use the link in your email to choose your password, or use Forgot password on the sign-in page.
+              </p>
+            </>
+          )
+        ) : (
+          <Link href={session?.user ? "/account" : "/login"} className={session?.user && hasDigitalItems ? "btn btn-ghost" : "btn btn-primary"} style={{ textAlign: "center" }}>
+            Go to my account
           </Link>
         )}
         <Link href="/bookshelf" className="see-all" style={{ display: "block", textAlign: "center" }}>Continue shopping</Link>

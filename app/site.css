@@ -350,6 +350,11 @@
     grid-template-columns:repeat(5, 1fr);
     gap:10px;
   }
+  /* Bookshelf grid: every row is as tall as the tallest card, and empty spots on a
+     short page are filled by invisible card copies (see ShopPageClient), so the page
+     arrows under the grid never move between pages. */
+  .book-grid-shop{grid-auto-rows:1fr;}
+  .book-card-filler{visibility:hidden;pointer-events:none;}
   @media (max-width:860px){ .book-grid{grid-template-columns:repeat(3,1fr);} }
   @media (max-width:480px){ .book-grid{grid-template-columns:repeat(2,1fr);gap:8px;} }
   .book-grid-5{
@@ -1199,28 +1204,27 @@
   }
   .buy-tab:hover{border-color:var(--ink-faint);}
 
-  /* Details strip. Every card has the same fixed width class (standard 108px, wide
-     150px) and the same layout: icon, then a two-line-high value box, then the label.
-     A long value (for example "Emotional Wellness and Mindfulness") wraps onto a second
-     line INSIDE its own card instead of running into the next one, and because every
-     value box is the same height the labels line up across the whole strip. */
+  /* Details strip. Each card is exactly as wide as its own content (capped at 150px), so the
+     gap between neighbouring items is half what it was and stays even. A long value (for
+     example "Emotional Wellness and Mindfulness") wraps onto a second line INSIDE its own
+     card instead of running into the next one, and because every value box is the same
+     minimum height the labels line up across the whole strip. */
   .az-details-card{
     margin-top:auto;border:1px solid var(--line);border-radius:14px;padding:14px 14px;min-height:112px;flex-shrink:0;min-width:0;
     display:flex;align-items:center;box-sizing:border-box;overflow:visible;
   }
   .az-details-card .carousel-outer{width:100%;min-width:0;}
   .az-details-row{
-    display:flex;gap:10px;width:100%;min-width:0;overflow-x:auto;scroll-behavior:smooth;
+    display:flex;gap:5px;width:100%;min-width:0;overflow-x:auto;scroll-behavior:smooth;
     scrollbar-width:none;-ms-overflow-style:none;
   }
   .az-details-row::-webkit-scrollbar{display:none;}
-  .az-detail-item{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;flex:0 0 108px;width:108px;min-width:108px;box-sizing:border-box;padding:0 6px;}
-  .az-detail-item-wide{flex-basis:150px;width:150px;min-width:150px;}
+  .az-detail-item{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;flex:0 0 auto;width:max-content;min-width:56px;max-width:150px;box-sizing:border-box;padding:0 5px;}
   .az-detail-item svg{display:block;width:19px;height:19px;color:var(--ink-soft);margin-bottom:5px;flex-shrink:0;}
   .az-detail-item strong{
     display:flex;align-items:center;justify-content:center;width:100%;min-height:2.5em;
     font-size:12.5px;line-height:1.25;font-weight:700;color:var(--ink);margin-bottom:2px;
-    text-align:center;white-space:normal;overflow-wrap:anywhere;
+    text-align:center;white-space:normal;overflow-wrap:break-word;word-break:normal;
   }
   .az-detail-item span{font-size:11px;line-height:1.2;color:var(--ink-faint);white-space:nowrap;}
 

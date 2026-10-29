@@ -1,12 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { firstNameOnly } from "@/lib/first-name";
+import { fullAccountName } from "@/lib/full-name";
 import { maskAccountNumber } from "@/lib/mask-account-number";
 import { PAID_ONLY } from "@/lib/paid-sales";
 
 export interface ReferredAuthorRow {
   maskedAccountId: string;
-  firstName: string;
+  /** The referred account's full name. */
+  fullName: string;
   country: string | null;
   published: number;
   company: number;
@@ -15,8 +16,8 @@ export interface ReferredAuthorRow {
 
 /** For the signed-in affiliate: every author they've referred onto the
  * platform, with real per-author totals — not just the summary numbers
- * shown in the 4 stat cards above the table. Anonymized for privacy:
- * first name only, and the account ID has its middle digits masked. */
+ * shown in the 4 stat cards above the table. The referred account's full
+ * name is shown; the account ID still has its middle digits masked. */
 export async function getReferredAuthorsDetail(): Promise<ReferredAuthorRow[]> {
   const session = await auth();
   if (!session?.user) return [];
@@ -47,7 +48,7 @@ export async function getReferredAuthorsDetail(): Promise<ReferredAuthorRow[]> {
     }
     return {
       maskedAccountId: maskAccountNumber(a.user.accountNumber),
-      firstName: firstNameOnly(a.user.name),
+      fullName: fullAccountName(a.user.name),
       country: a.country,
       published,
       company,

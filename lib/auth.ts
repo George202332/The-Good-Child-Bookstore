@@ -6,6 +6,7 @@ import { BACKEND_ROLES, type Role } from "@/lib/roles";
 import { logAuditEvent } from "@/lib/audit-log";
 import { getRequestIp, getRequestUserAgent } from "@/lib/geo";
 import { reportSystemError } from "@/lib/site-health/alert";
+import { consumeOrderLoginToken } from "@/lib/order-login";
 
 /**
  * The actual credential-check logic for the public (Reader/Author)
@@ -68,6 +69,29 @@ async function authorizeReaderOrAuthor(credentials: Partial<Record<"email" | "pa
 }
 
 /**
+ * Sign-in with a one-time token from a paid guest order (see lib/order-login.ts):
+ * the button on the payment success page, or the backup link in the purchase
+ * email. The token works once and expires within an hour. It only ever signs in
+ * a reader account that a guest checkout created and that has not yet chosen its
+ * own password, and (like the password route) never a backend or suspended
+ * account. No email-verification step: the confirmed payment already proved the
+ * address, and the account is created pre-verified.
+ */
+async function authorizeOrderLink(credentials: Partial<Record<"token", unknown>>) {
+  const used = await consumeOrderLoginToken(String(credentials.token ?? ""));
+  if (!used) return null;
+  const user = await prisma.user.findUnique({ where: { id: used.userId } });
+  if (!user || user.suspended || !user.guestSetupPending) return null;
+  if (BACKEND_ROLES.includes(user.role as Role)) return null;
+  {
+    const ip = await getRequestIp();
+    const userAgent = await getRequestUserAgent();
+    await logAuditEvent(user.id, "LOGIN", { ip, userAgent, method: "order-link" });
+  }
+  return { id: user.id, email: user.email, name: user.name, role: user.role, twoFactorEnabled: false };
+}
+
+/**
  * Auth.js (NextAuth v5) configuration — the public instance, for
  * Reader/Author accounts. A second, fully independent instance for
  * backend staff (Admin/Editor/Accountant/Chief_Editor) lives in
@@ -93,6 +117,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
   providers: [
+    Credentials({
+      id: "order-link",
+      name: "Order link",
+      credentials: { token: { label: "Token", type: "text" } },
+      async authorize(credentials) {
+        if (!credentials?.token) return null;
+        try {
+          return await authorizeOrderLink(credentials);
+        } catch (e) {
+          await reportSystemError("AUTH", e, { method: "order-link" });
+          throw e;
+        }
+      },
+    }),
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
