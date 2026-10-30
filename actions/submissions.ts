@@ -266,7 +266,7 @@ export interface SubmissionMetadata {
    * recently — matches the original's own backCoverMode behavior. */
   backCoverMode?: "auto" | "custom";
   /** The ONE ISBN of the print edition (Paperback and Hardcover), as given by the author
-   * or entered by an admin. Lulu's API does not issue ISBNs, so it is never made up here. */
+   * or entered by an admin. It is never made up here. */
   printIsbn?: string;
   /** Older saves kept a separate ISBN per print format. Read only; no longer written. */
   printIsbns?: { paperback?: string; hardcover?: string };

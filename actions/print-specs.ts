@@ -26,7 +26,7 @@ export interface PrintSpecInput extends Settings {
   chosenTrimCode: string;
 }
 
-export interface CoverSpec { format: "paperback" | "hardcover"; widthIn: number; heightIn: number; spineIn: number }
+export interface CoverSpec { format: "paperback" | "hardcover"; widthIn: number; heightIn: number; spineIn: number; trimWIn: number; trimHIn: number }
 
 export interface PrintSpecReport {
   ok: boolean;
@@ -110,7 +110,7 @@ export async function analyzePrintInterior(input: PrintSpecInput): Promise<Print
     for (const p of packagesFor({ ...settings, trimCode: coverTrim })) {
       const dims = await luluExpectedCoverSize(p.packageId, pageCount);
       const layout = dims ? coverLayout(dims.widthPt, dims.heightPt, trim.w, trim.h) : null;
-      if (dims && layout) cover.push({ format: p.format, widthIn: +(dims.widthPt / 72).toFixed(3), heightIn: +(dims.heightPt / 72).toFixed(3), spineIn: +(layout.spine / 72).toFixed(3) });
+      if (dims && layout) cover.push({ format: p.format, widthIn: +(dims.widthPt / 72).toFixed(3), heightIn: +(dims.heightPt / 72).toFixed(3), spineIn: +(layout.spine / 72).toFixed(3), trimWIn: trim.w, trimHIn: trim.h });
     }
   }
 

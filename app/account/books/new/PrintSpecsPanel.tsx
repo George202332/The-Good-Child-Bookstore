@@ -2,6 +2,8 @@
 
 import type { FixFontsResult, PrintSpecReport } from "@/actions/print-specs";
 import type { FontFixItem } from "@/lib/pdf-fonts";
+import { coverGuides } from "@/lib/cover-specs";
+import { CoverTemplateDownload } from "./CoverTemplateDownload";
 
 const WARN = { color: "var(--coral-deep)" } as const;
 
@@ -29,22 +31,22 @@ export function PrintSpecsPanel({
   const recommendedLabel = report?.candidates?.find((c) => c.code === recommendedOther)?.label;
 
   return (
-    <div className="form-section" style={{ background: "var(--cream)", marginTop: 14 }} aria-live="polite">
-      <h3 style={{ fontSize: 16, marginBottom: 4 }}>What We Read From Your File</h3>
+    <div className="form-section specs-panel" style={{ background: "var(--cream)", marginTop: 14 }} aria-live="polite">
+      <h3 className="specs-title">What We Read From Your File</h3>
 
       {(busy || fontBusy) && (
-        <p role="status" className="field-hint" style={{ fontWeight: 600 }}>
+        <p role="status" className="specs-text" style={{ fontWeight: 600 }}>
           {fontBusy
             ? "Processing: embedding fonts in a copy of your PDF. This usually takes a few seconds, and up to about half a minute for a large file. Please keep this page open."
             : "Processing: reading your file and asking Lulu about it…"}
         </p>
       )}
 
-      {report && !report.ok && <p role="alert" className="field-hint" style={WARN}>{report.error}</p>}
+      {report && !report.ok && <p role="alert" className="specs-text" style={WARN}>{report.error}</p>}
 
       {report?.ok && (
         <>
-          <table className="spec-requirement-table" style={{ marginTop: 6 }}>
+          <table className="spec-requirement-table">
             <tbody>
               <tr><td>Pages</td><td>{report.pageCount}</td></tr>
               <tr><td>Page size</td><td>{report.pageSizeLabel}</td></tr>
@@ -57,58 +59,87 @@ export function PrintSpecsPanel({
                     : `${report.fonts?.unembedded.length ?? 0} of ${report.fonts?.total ?? 0} not embedded: ${report.fonts?.unembedded.map((f) => f.name).join(", ")}`}
                 </td>
               </tr>
-              {report.cover && report.cover.length > 0
-                ? report.cover.map((c) => (
-                    <tr key={c.format}>
-                      <td>{c.format === "hardcover" ? "Hardcover" : "Paperback"} cover wrap</td>
-                      <td>{c.widthIn.toFixed(3)} x {c.heightIn.toFixed(3)} in, spine {c.spineIn.toFixed(3)} in</td>
-                    </tr>
-                  ))
-                : <tr><td>Cover wrap</td><td>Lulu could not give the cover size right now. It is worked out again when you reload.</td></tr>}
             </tbody>
           </table>
 
-          {report.unsupportedMessage && <p role="alert" className="field-hint" style={WARN}>{report.unsupportedMessage}</p>}
+          <div className="specs-block">
+            <h4 className="specs-subtitle">Cover Dimensions</h4>
+            <p className="specs-text">Design your full wraparound cover (back, spine and front in one page) at exactly these sizes. They follow your page count and trim size, and update by themselves when either changes.</p>
+            {report.cover && report.cover.length > 0 ? report.cover.map((c) => {
+              const g = coverGuides(c);
+              return (
+                <div key={c.format} className="specs-cover">
+                  <h5 className="specs-cover-title">{c.format === "hardcover" ? "Hardcover" : "Paperback"} Cover Wrap</h5>
+                  <table className="spec-requirement-table">
+                    <tbody>
+                      <tr><td>Total width</td><td>{c.widthIn.toFixed(3)} in</td></tr>
+                      <tr><td>Total height</td><td>{c.heightIn.toFixed(3)} in</td></tr>
+                      <tr><td>Spine width</td><td>{c.spineIn.toFixed(3)} in</td></tr>
+                      <tr><td>Each cover panel (trim)</td><td>{c.trimWIn.toFixed(3)} x {c.trimHIn.toFixed(3)} in</td></tr>
+                      <tr><td>{g.wrapIn > 0 ? "Bleed and wrap, every side" : "Bleed, every side"}</td><td>{g.outerIn.toFixed(3)} in{g.wrapIn > 0 ? ` (${g.bleedIn.toFixed(3)} in bleed + ${g.wrapIn.toFixed(3)} in wrap)` : ""}</td></tr>
+                      <tr><td>Safe margin</td><td>Keep text {g.safeIn} in inside the trim edge</td></tr>
+                    </tbody>
+                  </table>
+                  <CoverTemplateDownload cover={c} pageCount={report.pageCount} />
+                </div>
+              );
+            }) : <p className="specs-text">Lulu could not give the cover size right now. It is worked out again when you reload.</p>}
+            <table className="spec-requirement-table">
+              <tbody>
+                <tr><td>Resolution</td><td>300 DPI minimum</td></tr>
+                <tr><td>Colour</td><td>CMYK recommended</td></tr>
+                <tr><td>Format</td><td>PDF only, one page, up to 4 MB</td></tr>
+              </tbody>
+            </table>
+            <p className="specs-text">If you upload your own cover, we check it against these exact sizes straight away and tell you what is off, before Lulu&apos;s final check.</p>
+          </div>
+
+          {report.unsupportedMessage && <p role="alert" className="specs-text" style={WARN}>{report.unsupportedMessage}</p>}
 
           {report.recommendation && !report.unsupportedMessage && (
-            <div className="field-hint" role={recommendedOther ? "alert" : undefined} style={recommendedOther ? WARN : undefined}>
+            <div className="specs-block specs-text" role={recommendedOther ? "alert" : undefined} style={recommendedOther ? WARN : undefined}>
               <strong>Best option: </strong>{report.recommendation}
               {report.luluChecked === false && " (Lulu could not be asked, so only the site's own checks were used.)"}
               {recommendedOther && (
-                <>{" "}<button type="button" className="btn btn-ghost btn-small" onClick={() => onUseTrim(recommendedOther)}>Use {recommendedLabel ?? recommendedOther}</button></>
+                <div className="specs-actions"><button type="button" className="btn btn-ghost btn-small" onClick={() => onUseTrim(recommendedOther)}>Use {recommendedLabel ?? recommendedOther}</button></div>
               )}
-              <div style={{ marginTop: 4 }}>You can still pick a different size with the Trim size buttons. Lulu&apos;s own check has the final word, and nothing can be published until the file passes it.</div>
+              <div className="specs-note">You can still pick a different size with the Trim size buttons. Lulu&apos;s own check has the final word, and nothing can be published until the file passes it.</div>
             </div>
           )}
 
           {waiting.length > 0 && (
-            <div style={{ marginTop: 10 }}>
-              <p className="field-hint" style={{ fontWeight: 600 }}>Fonts that need your approval</p>
+            <div className="specs-block">
+              <h4 className="specs-subtitle">Fonts That Need Your Approval</h4>
               {waiting.map((f) => (
-                <p key={f.name} className="field-hint">{f.message}{" "}
-                  <button type="button" className="btn btn-ghost btn-small" disabled={fontBusy} onClick={() => onEmbed([f.name])}>Embed {f.substitute} instead of {f.name}</button>
-                </p>
+                <div key={f.name} className="specs-font">
+                  <p className="specs-text">{f.message}</p>
+                  <div className="specs-actions">
+                    <button type="button" className="btn btn-ghost btn-small" disabled={fontBusy} onClick={() => onEmbed([f.name])}>Embed {f.substitute} instead of {f.name}</button>
+                  </div>
+                </div>
               ))}
               {waiting.length > 1 && (
-                <button type="button" className="btn btn-primary btn-small" disabled={fontBusy} onClick={() => onEmbed(waiting.map((f) => f.name))}>Approve all stand-ins</button>
+                <div className="specs-actions">
+                  <button type="button" className="btn btn-primary btn-small" disabled={fontBusy} onClick={() => onEmbed(waiting.map((f) => f.name))}>Approve All Stand-Ins</button>
+                </div>
               )}
             </div>
           )}
 
           {blocked.length > 0 && (
-            <div style={{ marginTop: 10 }} role="alert">
-              <p className="field-hint" style={{ ...WARN, fontWeight: 600 }}>Fonts we cannot embed for you</p>
-              {blocked.map((f) => <p key={f.name} className="field-hint" style={WARN}>{f.message}</p>)}
+            <div className="specs-block" role="alert">
+              <h4 className="specs-subtitle" style={WARN}>Fonts We Cannot Embed For You</h4>
+              {blocked.map((f) => <p key={f.name} className="specs-text" style={WARN}>{f.message}</p>)}
             </div>
           )}
         </>
       )}
 
       {fontResult && (
-        <div style={{ marginTop: 10 }} role={fontResult.ok ? "status" : "alert"}>
-          {!fontResult.ok && <p className="field-hint" style={WARN}>{fontResult.error}</p>}
+        <div className="specs-block" role={fontResult.ok ? "status" : "alert"}>
+          {!fontResult.ok && <p className="specs-text" style={WARN}>{fontResult.error}</p>}
           {fontResult.ok && fontResult.note && fontResult.embedded.length > 0 && (
-            <p className="field-hint">
+            <p className="specs-text">
               {fontResult.note}
               {fontResult.embedded.some((e) => !e.sameWidths) && " A different font was used for some text, so check the preview: spacing can differ."}
               {fontResult.pageCountBefore !== fontResult.pageCountAfter && ` The page count changed from ${fontResult.pageCountBefore} to ${fontResult.pageCountAfter}; the cover and printing cost were worked out again.`}

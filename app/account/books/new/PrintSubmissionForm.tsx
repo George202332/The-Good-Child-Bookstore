@@ -27,7 +27,6 @@ import { isbn13Of, isbnProblem } from "@/lib/identifiers";
 import { PrintSpecsPanel } from "./PrintSpecsPanel";
 import { AiDeclarationField } from "@/components/AiDeclarationField";
 import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
-import { computeCoverGeometry } from "@/lib/cover-preview";
 import { detectTrimFromPageSize, formatInches, type DetectedTrim } from "@/lib/trim-size";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 
@@ -134,8 +133,7 @@ export function PrintSubmissionForm({
   const [subtitle, setSubtitle] = useState(initial?.subtitle ?? prefill?.subtitle ?? "");
   const [seriesName, setSeriesName] = useState(initial?.seriesName ?? prefill?.seriesName ?? "");
   const [edition, setEdition] = useState(initial?.edition ?? prefill?.edition ?? "");
-  // A print edition has ONE ISBN, covering both Paperback and Hardcover. Lulu's API does not
-  // issue ISBNs, so it is entered here (optional); until then the product page shows "ISBN pending".
+  // The author's own ISBN for the print edition (optional). Nothing is requested from Lulu: its Print API has no ISBN call.
   const [printIsbn, setPrintIsbn] = useState(initial?.printIsbn ?? "");
   const [language, setLanguage] = useState(initial?.language || prefill?.language || LANGUAGES[0]);
   const [publisher, setPublisher] = useState(initial?.publisher ?? "");
@@ -626,31 +624,6 @@ export function PrintSubmissionForm({
             ? "Your uploaded wraparound cover (front, spine, and back) is the one that will be sent to Lulu — the auto-generated version won't be used."
             : "Upload only your professionally designed front cover. The matching spine and back cover are generated automatically from the dominant colour palette, book description, and ISBN already entered — this auto-generated wraparound is what gets sent to Lulu."}
         </p>
-        {backCoverMode === "custom" && (() => {
-          const geo = computeCoverGeometry(trimCode, paperType, 32);
-          const wIn = (geo.trimWidthIn * 2 + geo.spineWidthIn + geo.bleedIn * 2).toFixed(3);
-          const hIn = (geo.trimHeightIn + geo.bleedIn * 2).toFixed(3);
-          const trimLabel = LULU_CONFIG.trimSizes.find((t) => t.code === trimCode)?.label ?? trimCode;
-          return (
-            <>
-              <p className="field-hint" style={{ marginTop: 8 }}>Custom back cover specifications, matching your current print settings:</p>
-              <table className="spec-requirement-table">
-                <tbody>
-                  <tr><td>Required width (with bleed)</td><td>{wIn} in</td></tr>
-                  <tr><td>Required height (with bleed)</td><td>{hIn} in</td></tr>
-                  <tr><td>Spine width</td><td>{geo.spineWidthIn.toFixed(3)} in</td></tr>
-                  <tr><td>Resolution</td><td>300 DPI minimum</td></tr>
-                  <tr><td>Bleed</td><td>0.125 in on all outer edges</td></tr>
-                  <tr><td>Safe area</td><td>0.5 in inside trim line</td></tr>
-                  <tr><td>Trim size</td><td>{trimLabel}</td></tr>
-                  <tr><td>Color profile</td><td>CMYK recommended</td></tr>
-                  <tr><td>File size limit</td><td>Up to 4 MB</td></tr>
-                  <tr><td>Accepted format</td><td>PDF only</td></tr>
-                </tbody>
-              </table>
-            </>
-          );
-        })()}
         <PreflightPanel
           hasFiles={hasPrintFiles}
           busy={preflightBusy}
@@ -755,10 +728,6 @@ export function PrintSubmissionForm({
             <label className="field-label" htmlFor="p-isbn">ISBN</label>
             <input className="field" id="p-isbn" type="text" inputMode="numeric" placeholder="Enter your own ISBN (optional)" value={printIsbn} onChange={(e) => setPrintIsbn(e.target.value)} aria-invalid={!!isbnError} />
             {isbnError && <div className="field-hint" role="alert" style={{ color: "var(--coral-deep)" }}>{isbnError}</div>}
-            <div className="field-hint">
-              One ISBN covers both Paperback and Hardcover, and its barcode appears below as soon as it is valid.
-              {printIsbn.trim() === "" && " Lulu's printing service does not issue ISBNs, so an ISBN is yours to enter (from your country's ISBN agency). Until you do, the product page shows \u201CISBN pending\u201D and printing still works."}
-            </div>
           </div>
           <ChoiceChips id="p-lang" label="Language" options={LANGUAGES} value={language} onChange={setLanguage} />
         </div>
