@@ -1,3 +1,4 @@
+import { EndlessTbody } from "@/components/EndlessRows";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -59,7 +60,7 @@ export default async function AuthorTransactionsPage() {
                 </td>
               </tr>
             ) : (
-              rows.map((r) => (
+              <EndlessTbody colSpan={6} rows={rows.map((r) => (
                 <tr key={r.id}>
                   <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", fontFamily: "monospace", fontSize: 12 }}>{r.id.slice(0, 8).toUpperCase()}</td>
                   <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", whiteSpace: "nowrap" }}>
@@ -70,7 +71,7 @@ export default async function AuthorTransactionsPage() {
                   <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", fontWeight: 700 }}>${r.amount.toFixed(2)}</td>
                   <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{r.status}</td>
                 </tr>
-              ))
+              ))} />
             )}
           </tbody>
         </table>

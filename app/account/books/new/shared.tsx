@@ -45,6 +45,8 @@ export interface SharedSubmissionFields {
   description: string;
   aiDeclaration: string;
   publisher: string;
+  /** The Affiliate Eligible switch of the edition these details come from (offered, never forced, on the other edition). */
+  affiliateEligible?: boolean;
   /** The eBook's front cover image (a URL), reused as the print front cover. */
   coverImageUrl: string;
   /** The eBook manuscript, so "Autofill from eBook" on the Print tab can carry the uploaded

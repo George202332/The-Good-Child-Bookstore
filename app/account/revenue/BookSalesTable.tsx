@@ -1,5 +1,6 @@
 "use client";
 
+import { EndlessTbody } from "@/components/EndlessRows";
 import { Fragment, useMemo, useState } from "react";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
@@ -108,7 +109,7 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r, i) => (
+              <EndlessTbody colSpan={7} resetKey={`${month}|${year}`} rows={filtered.map((r, i) => (
                 <Fragment key={i}>
                   <tr className={highlightActive && r.isNew ? "revenue-row-new" : undefined} onClick={() => setOpenRow(openRow === i ? null : i)} style={{ cursor: "pointer" }} aria-expanded={openRow === i}>
                     <td style={TABLE_CELL_STYLE}>{new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
@@ -130,7 +131,7 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
                     </tr>
                   )}
                 </Fragment>
-              ))}
+              ))} />
             </tbody>
           </table>
         </div>

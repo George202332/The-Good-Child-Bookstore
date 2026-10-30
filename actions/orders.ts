@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { isAffiliateSaleFor } from "@/lib/affiliate-eligibility";
 import { randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -321,6 +322,7 @@ export async function createPendingOrder(input: {
   // affiliateId are always used.
   let affiliateLinkId: string | null = null;
   let affiliateBookId: string | null = null;
+  let affiliateLinkedBook: { id: string; authorId: string; title: string } | null = null;
   try {
     const cookieStore = await cookies();
     const affCode = cookieStore.get("gcb_aff")?.value;
@@ -329,6 +331,8 @@ export async function createPendingOrder(input: {
       if (link) {
         affiliateLinkId = link.id;
         affiliateBookId = link.bookId;
+        // The link points at one record, but works for every eligible edition of that title.
+        affiliateLinkedBook = link.bookId ? await prisma.book.findUnique({ where: { id: link.bookId }, select: { id: true, authorId: true, title: true } }) : null;
       }
     }
   } catch {
@@ -378,7 +382,7 @@ export async function createPendingOrder(input: {
       lines: {
         create: lines.map((l) => {
           const lineGross = +(l.unitPrice * l.qty).toFixed(2);
-          const isAffiliateSale = affiliateBookId !== null && affiliateBookId === l.bookId;
+          const isAffiliateSale = affiliateBookId !== null && isAffiliateSaleFor(affiliateLinkedBook, { id: l.bookId, authorId: l.book.authorId, title: l.book.title, submissionMetadata: l.book.submissionMetadata }, l.format);
           // Printed copies: Lulu's printing cost comes off the price before anything is split.
           const printingCost = printingCostByLine.get(l) ?? null;
           let split = calculateSplits(lineGross, isAffiliateSale, commissionRates.promotionPct, printingCost ?? 0);

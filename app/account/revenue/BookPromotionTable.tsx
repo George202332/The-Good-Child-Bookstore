@@ -1,5 +1,6 @@
 "use client";
 
+import { EndlessTbody } from "@/components/EndlessRows";
 import { useMemo, useState } from "react";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
@@ -101,7 +102,7 @@ export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
               </tr>
             </thead>
             <tbody>
-              {grouped.map((r, i) => (
+              <EndlessTbody colSpan={7} resetKey={`${month}|${year}`} rows={grouped.map((r, i) => (
                 <tr key={`${r.title}-${r.format}-${i}`} className={highlightActive && r.isNew ? "revenue-row-new" : undefined}>
                   <td style={TABLE_CELL_STYLE}>{r.isbn ?? `#${i + 1}`}</td>
                   <td style={TABLE_CELL_STYLE}>{r.title}</td>
@@ -111,7 +112,7 @@ export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
                   <td style={TABLE_CELL_STYLE}>{r.copies}</td>
                   <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>${r.commission.toFixed(2)}</td>
                 </tr>
-              ))}
+              ))} />
             </tbody>
           </table>
         </div>

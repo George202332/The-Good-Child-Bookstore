@@ -115,7 +115,6 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
   // Which record sells the selected format (one product page can be backed by several
   // editions), and that format's own identifier.
   const cartFormat = effectiveFormat === "print" ? "hardcover" : effectiveFormat;
-  const cartBookId = b.formatBookIds?.[cartFormat] ?? b.id;
   const formatIdentifier = b.identifiers?.[cartFormat];
   const identifierText = formatIdentifier
     ? formatIdentifier.value
@@ -323,49 +322,42 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
 
         <div className="buybox">
           <div className="buybox-tiles">
-            {(b.formatAvailable?.ebook ?? true) && (
-              <button type="button" className={`buybox-tile ${format === "ebook" ? "active" : ""}`} onClick={() => setFormat("ebook")}>
-                <div className="bt-name">eBook</div>
-                <div className="bt-price">${b.formats.ebook.toFixed(2)}</div>
-                <div className="bt-sub">Instant Download</div>
-              </button>
-            )}
-            {(b.formatAvailable?.audiobook ?? true) && (
-              <button type="button" className={`buybox-tile ${format === "audiobook" ? "active" : ""}`} onClick={() => setFormat("audiobook")}>
-                <div className="bt-name">Audiobook</div>
-                <div className="bt-price">${b.formats.audiobook.toFixed(2)}</div>
-                <div className="bt-sub">Instant Download</div>
-              </button>
-            )}
-            {(b.formatAvailable?.paperback ?? true) && (
-              <button type="button" className={`buybox-tile ${format === "paperback" ? "active" : ""}`} onClick={() => setFormat("paperback")}>
-                <div className="bt-name">Paperback</div>
-                <div className="bt-price">${b.formats.paperback.toFixed(2)}</div>
-                <div className="bt-sub bt-fulfilled">Fulfilled by Lulu</div>
-              </button>
-            )}
-            {(b.formatAvailable?.hardcover ?? true) && (
-              <button type="button" className={`buybox-tile ${format === "print" ? "active" : ""}`} onClick={() => setFormat("print")}>
-                <div className="bt-name">Hardcover</div>
-                <div className="bt-price">${b.formats.print.toFixed(2)}</div>
-                <div className="bt-sub bt-fulfilled">Fulfilled by Lulu</div>
-              </button>
-            )}
+            {([
+              { key: "ebook", id: "ebook", name: "eBook", price: b.formats.ebook, sub: "Instant Download", on: b.formatAvailable?.ebook ?? true },
+              { key: "audiobook", id: "audiobook", name: "Audiobook", price: b.formats.audiobook, sub: "Instant Download", on: b.formatAvailable?.audiobook ?? true },
+              { key: "paperback", id: "paperback", name: "Paperback", price: b.formats.paperback, sub: "Fulfilled by Lulu", on: b.formatAvailable?.paperback ?? true },
+              { key: "print", id: "hardcover", name: "Hardcover", price: b.formats.print, sub: "Fulfilled by Lulu", on: b.formatAvailable?.hardcover ?? true },
+            ] as { key: FormatKey; id: "ebook" | "audiobook" | "paperback" | "hardcover"; name: string; price: number; sub: string; on: boolean }[])
+              .filter((f) => f.on)
+              .map((f) => {
+                const ident = b.identifiers?.[f.id];
+                const bookIdFor = b.formatBookIds?.[f.id] ?? b.id;
+                return (
+                  <div key={f.key} className={`buybox-card ${format === f.key ? "active" : ""}`}>
+                    <button type="button" className={`buybox-tile ${format === f.key ? "active" : ""}`} onClick={() => setFormat(f.key)}>
+                      <div className="bt-name">{f.name}</div>
+                      <div className="bt-price">${f.price.toFixed(2)}</div>
+                      <div className={`bt-sub ${f.sub.startsWith("Fulfilled") ? "bt-fulfilled" : ""}`}>{f.sub}</div>
+                      {ident?.value && <div className="bt-sub">{ident.label}: {ident.value}</div>}
+                    </button>
+                    <button type="button" className="btn btn-primary btn-block btn-compact" disabled={restricted} title={restricted ? restrictionMessage : undefined} onClick={() => addItem(bookIdFor, f.id, 1)}>Add to Cart</button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-block btn-compact"
+                      disabled={restricted}
+                      title={restricted ? restrictionMessage : undefined}
+                      onClick={() => router.push(`/checkout?directBookId=${bookIdFor}&directFormat=${f.id}`)}
+                    >
+                      Buy Direct
+                    </button>
+                  </div>
+                );
+              })}
           </div>
 
           {restricted && (
             <div className="buybox-note" role="alert" style={{ marginBottom: 10, fontWeight: 600 }}>{restrictionMessage}</div>
           )}
-          <button className="btn btn-primary btn-block btn-compact" disabled={restricted} title={restricted ? restrictionMessage : undefined} onClick={() => addItem(cartBookId, cartFormat, 1)}>Add to Cart</button>
-          <button
-            className="btn btn-ghost btn-block btn-compact"
-            style={{ marginTop: 8 }}
-            disabled={restricted}
-            title={restricted ? restrictionMessage : undefined}
-            onClick={() => router.push(`/checkout?directBookId=${cartBookId}&directFormat=${cartFormat}`)}
-          >
-            Buy Direct
-          </button>
           {effectiveFormat === "print" || effectiveFormat === "paperback" ? (
             <div className="buybox-note">
               You&apos;re adding the {fmtLabel.toLowerCase()} edition. Need more than one? Adjust the quantity from

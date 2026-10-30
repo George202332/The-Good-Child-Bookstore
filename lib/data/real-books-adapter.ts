@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { capitalizeName } from "@/lib/person-name";
 import { hashStr } from "@/lib/hash";
 import { BOOKS, PALETTES, type Book, type MotifKind } from "@/lib/data/catalog";
 import { parseAgeGroups, mergedAgeRange } from "@/lib/age-groups";
@@ -130,7 +131,7 @@ function toCatalogBook(row: RealBookRow): Book {
     // Falls back to the account's real name only for older
     // submissions (or print, which doesn't collect this field) that
     // never had this metadata in the first place.
-    author: submittedAuthorName || row.author.user.name,
+    author: capitalizeName(submittedAuthorName || row.author.user.name),
     authorId: row.authorId,
     motif: MOTIF_KINDS[seed % MOTIF_KINDS.length],
     palette: PALETTES[seed % PALETTES.length],
@@ -250,12 +251,15 @@ function toGroupedCatalogBook(rows: RealBookRow[]): Book {
 
   const headline = (["ebook", "audiobook", "paperback", "hardcover"] as const).find((f) => available[f]);
   const price = headline === "ebook" ? prices.ebook : headline === "audiobook" ? prices.audiobook : headline === "paperback" ? prices.paperback : headline === "hardcover" ? prices.print : main.price;
+  // A title can be promoted when ANY of its editions is eligible; the sale itself still needs the edition bought to be eligible.
+  const affiliateEnabled = rows.some((r) => toCatalogBook(r).affiliateEnabled);
   const labels = [available.ebook && "eBook", (available.paperback || available.hardcover) && "Print", available.audiobook && "Audiobook"].filter(Boolean).join(", ");
   return {
     ...main,
     price,
     formats: prices,
     formatAvailable: available,
+    affiliateEnabled,
     formatBookIds,
     identifiers,
     manuscriptUrl,

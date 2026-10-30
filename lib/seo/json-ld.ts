@@ -11,7 +11,6 @@ export interface BookJsonLdInput {
   title: string;
   authorName: string;
   authorId?: string;
-  illustrator?: string;
   isbn?: string;
   genre?: string;
   edition?: string;
@@ -43,7 +42,6 @@ export function bookJsonLd(input: BookJsonLdInput) {
       name: input.authorName,
       ...(input.authorId ? { url: `${siteUrl}/authors/profile/${input.authorId}` } : {}),
     },
-    ...(input.illustrator ? { illustrator: { "@type": "Person", name: input.illustrator } } : {}),
     ...(input.isbn ? { isbn: input.isbn } : {}),
     ...(input.genre ? { genre: input.genre } : {}),
     ...(input.edition ? { bookEdition: input.edition } : {}),

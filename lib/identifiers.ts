@@ -22,6 +22,34 @@ export function isValidIsbn13(isbn: string): boolean {
   return (10 - (sum % 10)) % 10 === Number(isbn[12]);
 }
 
+/** Valid ISBN-10 check digit (the last character may be X). */
+export function isValidIsbn10(isbn: string): boolean {
+  if (!/^\d{9}[\dX]$/.test(isbn)) return false;
+  let sum = 0;
+  for (let i = 0; i < 10; i++) sum += (isbn[i] === "X" ? 10 : Number(isbn[i])) * (10 - i);
+  return sum % 11 === 0;
+}
+
+/** The ISBN-13 for a typed ISBN: an ISBN-13 as it is, an ISBN-10 converted (978 + its first nine digits +
+ * a new check digit). "" when the text is not a valid ISBN. The barcode is always drawn from this. */
+export function isbn13Of(raw: unknown): string {
+  const v = cleanIsbn(raw);
+  if (!v) return "";
+  if (v.length === 13) return isValidIsbn13(v) ? v : "";
+  if (!isValidIsbn10(v)) return "";
+  const body = "978" + v.slice(0, 9);
+  let sum = 0;
+  for (let i = 0; i < 12; i++) sum += Number(body[i]) * (i % 2 === 0 ? 1 : 3);
+  return body + String((10 - (sum % 10)) % 10);
+}
+
+/** What is wrong with an ISBN the author typed, in plain words; null when it is empty or valid. */
+export function isbnProblem(raw: unknown): string | null {
+  const typed = typeof raw === "string" ? raw.trim() : "";
+  if (!typed) return null;
+  return isbn13Of(typed) ? null : "That does not look like a valid ISBN. Check the digits (10 or 13 of them, with the correct last digit) and try again.";
+}
+
 /** A real ISBN starts 978/979; the site's own serial numbers start with 5. */
 export function isRealIsbn(value: string | null | undefined): boolean {
   const v = (value ?? "").replace(/[\s-]/g, "");

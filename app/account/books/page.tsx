@@ -1,3 +1,4 @@
+import { EndlessTbody } from "@/components/EndlessRows";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
@@ -105,7 +106,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
               </tr>
             </thead>
             <tbody>
-              {groups.map((group) => {
+              <EndlessTbody colSpan={7} rows={groups.map((group) => {
                 const b = group[0];
                 const units = group.reduce((n, r) => n + r.saleLines.length, 0);
                 const royalties = group.reduce((sum, r) => sum + r.saleLines.reduce((s2, l) => s2 + Number(l.authorShare), 0), 0);
@@ -166,7 +167,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                     <td style={TABLE_CELL_STYLE}><Link href={`/account/books/${b.id}/edit`} className="btn btn-ghost btn-small">Edit</Link></td>
                   </tr>
                 );
-              })}
+              })} />
             </tbody>
           </table>
         </div>

@@ -1,3 +1,5 @@
+import { capitalizeName } from "@/lib/person-name";
+
 /** Resolves the correct author display name for a book, in priority
  * order: the name actually typed into the "Author" field at
  * submission (stored per-book in submissionMetadata — this is what
@@ -13,7 +15,7 @@ export function bookAuthorDisplayName(book: {
   const submittedName = meta?.authorFirstName || meta?.authorLastName
     ? `${meta.authorFirstName ?? ""} ${meta.authorLastName ?? ""}`.trim()
     : null;
-  return submittedName || book.author.penName || book.author.user.name;
+  return capitalizeName(submittedName || book.author.penName || book.author.user.name);
 }
 
 /** Two author names count as the same person when they match ignoring case,

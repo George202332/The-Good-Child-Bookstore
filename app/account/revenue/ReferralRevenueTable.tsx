@@ -1,5 +1,6 @@
 "use client";
 
+import { EndlessTbody } from "@/components/EndlessRows";
 import { useMemo, useState } from "react";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
@@ -101,7 +102,7 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
               </tr>
             </thead>
             <tbody>
-              {grouped.map((r) => (
+              <EndlessTbody colSpan={5} resetKey={`${month}|${year}`} rows={grouped.map((r) => (
                 <tr key={r.groupKey} className={highlightActive && r.isNew ? "revenue-row-new" : undefined}>
                   <td style={{ ...TABLE_CELL_STYLE, fontFamily: "monospace" }}>{r.accountId}</td>
                   <td style={TABLE_CELL_STYLE}>{r.name}</td>
@@ -109,7 +110,7 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
                   <td style={TABLE_CELL_STYLE}>${r.revenue.toFixed(2)}</td>
                   <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>${r.commission.toFixed(2)}</td>
                 </tr>
-              ))}
+              ))} />
             </tbody>
           </table>
         </div>

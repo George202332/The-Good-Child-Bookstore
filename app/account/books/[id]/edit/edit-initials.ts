@@ -1,4 +1,6 @@
 import type { Prisma } from "@prisma/client";
+import { editionAffiliateEligible } from "@/lib/affiliate-eligibility";
+import { capitalizeName } from "@/lib/person-name";
 import { canonicalCategory, categoryOfSubcategory, normalizeGenre, isSubcategoryOf } from "@/lib/taxonomy";
 import { parseRestrictedCountries } from "@/lib/book-country-restriction";
 import { identifierFor, printFieldsOf } from "@/lib/identifiers";
@@ -43,6 +45,7 @@ export function buildEbookInitial(book: BookWithRelations): EbookSubmissionIniti
     manuscriptFileId: fileIdOf(book, "MANUSCRIPT"),
     audiobookFileId: fileIdOf(book, "AUDIOBOOK"),
     audiobookPrice: book.audiobookPrice != null ? String(Number(book.audiobookPrice)) : "",
+    audiobookLive: meta.audiobookLive !== false,
     coverImageUrl: book.coverImageUrl ?? "",
     title: book.title,
     subtitle: book.subtitle ?? "",
@@ -55,8 +58,8 @@ export function buildEbookInitial(book: BookWithRelations): EbookSubmissionIniti
     originalPublicationDate: str(meta.originalPublicationDate),
     isbn: book.isbn ?? "",
     copyrightYear: meta.copyrightYear != null ? String(meta.copyrightYear) : String(new Date().getFullYear()),
-    authorFirstName: str(meta.authorFirstName),
-    authorLastName: str(meta.authorLastName),
+    authorFirstName: capitalizeName(str(meta.authorFirstName)),
+    authorLastName: capitalizeName(str(meta.authorLastName)),
     authorBio: str(meta.authorBio),
     category,
     genre,
@@ -112,12 +115,8 @@ export function buildPrintInitial(book: BookWithRelations): PrintSubmissionIniti
     readingLevel: str(meta.readingLevel),
     description: book.description ?? "",
     aiDeclaration: str(meta.aiDeclaration),
-    authorFirstName: str(meta.authorFirstName),
-    authorLastName: str(meta.authorLastName),
-    coAuthors: str(meta.coAuthors),
-    illustrator: str(meta.illustrator),
-    editor: str(meta.editor),
-    translator: str(meta.translator),
+    authorFirstName: capitalizeName(str(meta.authorFirstName)),
+    authorLastName: capitalizeName(str(meta.authorLastName)),
     printReadyPdfFileId: fileIdOf(book, "MANUSCRIPT"),
     printReadyOriginalPdfFileId: str(meta.printReadyOriginalPdfFileId) || undefined,
     pages: meta.pages != null ? Number(meta.pages) : undefined,
@@ -161,11 +160,13 @@ export function sharedPrefill(book: BookWithRelations, c: { category: string; ge
     subcategory: c.subcategory,
     ageGroup: book.ageGroup ?? "",
     readingLevel: str(meta.readingLevel),
-    authorFirstName: str(meta.authorFirstName),
-    authorLastName: str(meta.authorLastName),
+    authorFirstName: capitalizeName(str(meta.authorFirstName)),
+    authorLastName: capitalizeName(str(meta.authorLastName)),
     description: (book.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
     aiDeclaration: str(meta.aiDeclaration),
     publisher: str(meta.publisher),
+    // Each edition has its own switch: a print-only record keeps it in affiliateEligiblePrint, the others in affiliateEnabled.
+    affiliateEligible: editionAffiliateEligible({ authorId: book.authorId, title: book.title, submissionMetadata: meta }, book.hasPrint && !book.hasEbook && !book.hasAudiobook ? "paperback" : "ebook"),
     coverImageUrl: book.coverImageUrl ?? "",
     manuscriptFileId: manuscript?.id,
     manuscriptFileName: manuscript?.name,

@@ -3,6 +3,7 @@
  * author's My Books and in the admin books table. Display only: it reads the records of
  * one title (see lib/book-groups.ts) and never changes them.
  */
+import { audiobookIsLive } from "@/lib/book-visibility";
 import { identifierFor, snColumn, isbnColumn, printFieldsOf } from "@/lib/identifiers";
 
 export type TabKey = "ebook" | "print" | "audiobook";
@@ -89,7 +90,9 @@ export function formatTabsOf(group: readonly FormatViewRow[]): FormatTabView[] {
   if (a) {
     const id = identifierFor(src(a), "audiobook");
     tabs.push({
-      key: "audiobook", label: LABEL.audiobook, bookId: a.id, status: a.status,
+      key: "audiobook", label: LABEL.audiobook, bookId: a.id,
+      // Its own state: a record that is published but whose audiobook is switched to Draft shows as a draft.
+      status: a.status === "PUBLISHED" && !audiobookIsLive(a.submissionMetadata) ? "DRAFT" : a.status,
       details: [
         { label: "Price", value: money(a.audiobookPrice) ?? "Not set" },
         { label: id.label, value: id.value ?? "—" },

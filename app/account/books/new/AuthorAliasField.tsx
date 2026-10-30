@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { capitalizeName } from "@/lib/person-name";
 import { listMyAuthorAliases, type AuthorAliasRow } from "@/actions/submissions";
 
 const NEW_AUTHOR_VALUE = "__new__";
@@ -60,11 +61,11 @@ export function AuthorAliasField({
         <div className="form-grid-2">
           <div>
             <label className="field-label" htmlFor="f-authfirst">First Name</label>
-            <input className="field" id="f-authfirst" type="text" value={firstName} onChange={(e) => onChange(e.target.value, lastName)} />
+            <input className="field" id="f-authfirst" type="text" value={firstName} onChange={(e) => onChange(e.target.value, lastName)} onBlur={() => onChange(capitalizeName(firstName), lastName)} />
           </div>
           <div>
             <label className="field-label" htmlFor="f-authlast">Last Name</label>
-            <input className="field" id="f-authlast" type="text" value={lastName} onChange={(e) => onChange(firstName, e.target.value)} />
+            <input className="field" id="f-authlast" type="text" value={lastName} onChange={(e) => onChange(firstName, e.target.value)} onBlur={() => onChange(firstName, capitalizeName(lastName))} />
           </div>
         </div>
       )}

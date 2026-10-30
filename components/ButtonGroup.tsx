@@ -23,7 +23,7 @@ export function ButtonGroup({
           onClick={() => onChange(o.code)}
           style={{
             padding: "10px 16px",
-            borderRadius: 10,
+            borderRadius: 4,
             border: `2px solid ${value === o.code ? "var(--coral)" : "var(--line)"}`,
             background: "var(--paper)",
             color: "var(--ink)",

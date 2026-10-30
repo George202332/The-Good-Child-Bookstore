@@ -103,7 +103,7 @@ export function EditBookTabs({
             />
           </>
         ) : enabledFormats.ebook ? (
-          <EbookSubmissionForm aiShared={aiShared} audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setShared} />
+          <EbookSubmissionForm aiShared={aiShared} audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setShared} affiliateOffer={printInitial ? { from: "Print", value: !!printInitial.affiliateEligiblePrint } : undefined} />
         ) : (
           <ClosedNote />
         )}

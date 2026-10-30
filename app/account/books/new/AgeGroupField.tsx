@@ -28,7 +28,7 @@ export function AgeGroupField({ value, onChange, id }: { value: string; onChange
               htmlFor={`${id}-${t}`}
               style={{
                 display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 500, cursor: "pointer",
-                padding: "6px 12px", borderRadius: 999, border: "1px solid var(--line)",
+                padding: "7px 12px", minHeight: 36, borderRadius: 4, border: "1px solid var(--line)",
                 background: on ? "var(--lavender)" : "var(--paper)",
               }}
             >

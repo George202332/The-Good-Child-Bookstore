@@ -12,6 +12,8 @@ import { packagesFor } from "@/lib/print-preflight-packages";
 import { coverKeyFor, packageKey, type SavedPreflight } from "@/lib/print-preflight-result";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
+import { ChoiceChips } from "@/components/ChoiceChips";
+import { AffiliateCopyOffer } from "@/components/AffiliateCopyOffer";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { CoverWrapPreview } from "@/components/CoverWrapPreview";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
@@ -20,6 +22,8 @@ import { LULU_CONFIG, buildPodPackageId, labelForCode } from "@/lib/lulu-config"
 import { computePrintPricing, computePrintPricingFromCost } from "@/lib/lulu-pricing";
 import { analyzePrintInterior, fixPrintFonts, quotePrintCost, type FixFontsResult, type PrintCostItem, type PrintSpecReport } from "@/actions/print-specs";
 import { checkPriceFloor } from "@/lib/print-specs";
+import { capitalizeName } from "@/lib/person-name";
+import { isbn13Of, isbnProblem } from "@/lib/identifiers";
 import { PrintSpecsPanel } from "./PrintSpecsPanel";
 import { AiDeclarationField } from "@/components/AiDeclarationField";
 import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
@@ -58,10 +62,6 @@ export interface PrintSubmissionInitial {
   aiDeclaration?: string;
   authorFirstName?: string;
   authorLastName?: string;
-  coAuthors?: string;
-  illustrator?: string;
-  editor?: string;
-  translator?: string;
   printReadyPdfFileId?: string;
   /** The file the author first uploaded, when fonts were embedded in a copy for them. */
   printReadyOriginalPdfFileId?: string;
@@ -156,10 +156,6 @@ export function PrintSubmissionForm({
   // Section 2
   const [authorFirstName, setAuthorFirstName] = useState(initial?.authorFirstName ?? prefill?.authorFirstName ?? "");
   const [authorLastName, setAuthorLastName] = useState(initial?.authorLastName ?? prefill?.authorLastName ?? "");
-  const [coAuthors, setCoAuthors] = useState(initial?.coAuthors ?? "");
-  const [illustrator, setIllustrator] = useState(initial?.illustrator ?? "");
-  const [editor, setEditor] = useState(initial?.editor ?? "");
-  const [translator, setTranslator] = useState(initial?.translator ?? "");
 
   // Section 3
   const [printReadyPdfFileId, setPrintReadyPdfFileId] = useState<string | undefined>(initial?.printReadyPdfFileId);
@@ -436,6 +432,8 @@ export function PrintSubmissionForm({
     return () => { cancelled = true; clearTimeout(t); };
   }, [pagesNum, trimCode, specSettings, paperbackEnabled, hardcoverEnabled]);
 
+  const isbnError = isbnProblem(printIsbn);
+  const barcodeIsbn = isbn13Of(printIsbn);
   const foilCharsUsed = foilStampTitleText.length + foilStampAuthorText.length;
 
   const paperbackPodId = buildPodPackageId({
@@ -493,10 +491,6 @@ export function PrintSubmissionForm({
         seriesName,
         publisher: publisher.trim() || undefined,
         publicationDate,
-        coAuthors,
-        illustrator,
-        editor,
-        translator,
         readingLevel,
         aiDeclaration: aiDeclaration.trim() || undefined,
         pages: printPages ? Number(printPages) : undefined,
@@ -583,118 +577,9 @@ export function PrintSubmissionForm({
           {autofillNote}
         </div>
       )}
-      {/* Section 1 */}
+      {/* Section 1: Files come first, because everything below can be filled in while the files are checked. */}
       <Card>
-        <SectionHeader n={1} title="Book Information" sub="Core bibliographic details for the print edition." />
-        <label className="field-label" htmlFor="p-title">Book title</label>
-        <input className="field" id="p-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="p-subtitle">Subtitle</label>
-            <input className="field" id="p-subtitle" type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-series">Series</label>
-            <input className="field" id="p-series" type="text" value={seriesName} onChange={(e) => setSeriesName(e.target.value)} />
-          </div>
-        </div>
-        <div className="form-grid-3">
-          <div>
-            <label className="field-label" htmlFor="p-edition">Edition</label>
-            <input className="field" id="p-edition" type="text" value={edition} onChange={(e) => setEdition(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-isbn">ISBN (optional)</label>
-            <input className="field" id="p-isbn" type="text" placeholder="Leave empty if you have none yet" value={printIsbn} onChange={(e) => setPrintIsbn(e.target.value)} />
-            <div className="field-hint">One ISBN covers both Paperback and Hardcover. If you leave this empty the product page shows &ldquo;ISBN pending&rdquo; until one is added.</div>
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-lang">Language</label>
-            <select className="field" id="p-lang" value={language} onChange={(e) => setLanguage(e.target.value)}>
-              {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
-        </div>
-        <PublisherField id="p-publisher" value={publisher} onChange={setPublisher} />
-        <label className="field-label" htmlFor="p-pubdate">Publication date</label>
-        <input className="field" id="p-pubdate" type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} />
-        <div className="form-grid-3">
-          <div>
-            <label className="field-label" htmlFor="p-category">Category</label>
-            <select className="field" id="p-category" value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(""); }}>
-              <option value="">Select a category</option>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-genre">Genre</label>
-            <select className="field" id="p-genre" value={genre} onChange={(e) => setGenre(e.target.value)}>
-              <option value="">Select a genre</option>
-              {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-subcategory">Subcategory</label>
-            <select className="field" id="p-subcategory" value={subcategory} onChange={(e) => setSubcategory(e.target.value)} disabled={!category}>
-              <option value="">{category ? "Select a subcategory" : "Choose a category first"}</option>
-              {subcategoriesFor(category).map((x) => <option key={x} value={x}>{x}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="form-grid-3">
-          <AgeGroupField id="p-age" value={ageGroup} onChange={setAgeGroup} />
-        </div>
-        <label className="field-label" htmlFor="p-readinglevel">Reading level</label>
-        <select className="field" id="p-readinglevel" value={readingLevel} onChange={(e) => setReadingLevel(e.target.value)}>
-          {READING_LEVELS.map((r) => <option key={r} value={r}>{r}</option>)}
-        </select>
-        <label className="field-label" htmlFor="p-desc">Book description</label>
-        <textarea className="field" id="p-desc" rows={6} placeholder="A short back-cover description of the book…" value={description} onChange={(e) => setDescription(e.target.value)} />
-        <div
-          className="field-hint"
-          style={descriptionWordCount > 200 ? { color: "var(--coral-deep)", fontWeight: 700 } : undefined}
-        >
-          {descriptionWordCount} / 200 words{descriptionWordCount > 200 ? " — over the limit, please shorten it" : ""}
-        </div>
-        <div style={{ marginTop: 14 }}>
-          <AiDeclarationField id="p-ai-declaration" value={aiDeclaration} onChange={setAiDeclaration} legacyNote={isLegacyAiText(initial?.aiDeclaration) && !aiChoiceOf(aiDeclaration)} />
-        </div>
-      </Card>
-
-      {/* Section 2 */}
-      <Card>
-        <SectionHeader n={2} title="Author Information" sub="Everyone credited on this edition." />
-        <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="p-authfirst">Primary author: first name</label>
-            <input className="field" id="p-authfirst" type="text" value={authorFirstName} onChange={(e) => setAuthorFirstName(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-authlast">Primary author: last name</label>
-            <input className="field" id="p-authlast" type="text" value={authorLastName} onChange={(e) => setAuthorLastName(e.target.value)} />
-          </div>
-        </div>
-        <label className="field-label" htmlFor="p-coauthors">Co-author(s)</label>
-        <input className="field" id="p-coauthors" type="text" value={coAuthors} onChange={(e) => setCoAuthors(e.target.value)} />
-        <div className="form-grid-3">
-          <div>
-            <label className="field-label" htmlFor="p-illustrator">Illustrator</label>
-            <input className="field" id="p-illustrator" type="text" value={illustrator} onChange={(e) => setIllustrator(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-editor">Editor</label>
-            <input className="field" id="p-editor" type="text" value={editor} onChange={(e) => setEditor(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-translator">Translator</label>
-            <input className="field" id="p-translator" type="text" value={translator} onChange={(e) => setTranslator(e.target.value)} />
-          </div>
-        </div>
-      </Card>
-
-      {/* Section 3 */}
-      <Card>
-        <SectionHeader n={3} title="Files" sub="The central upload area for all print assets. Print-ready files are validated automatically on upload." />
+        <SectionHeader n={1} title="Files" sub="The central upload area for all print assets. Print-ready files are validated automatically on upload." />
         <div className="upload-cards-row">
           <FileUploadField
             label="Print-Ready PDF"
@@ -777,17 +662,19 @@ export function PrintSubmissionForm({
         {/* Interior: a page-by-page preview of the file as uploaded (it refreshes by itself when
             the file is replaced), with the site's checks and Lulu's verdict underneath. */}
         <div style={{ marginTop: 22 }}>
-          <h3 style={{ fontSize: 16, marginBottom: 4 }}>Interior Preview</h3>
+          <div className="preview-card">
+          <h3 className="preview-card-title">Interior Preview</h3>
           {printReadyPdfFileId ? (
             <>
-              <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 12 }}>
+              <p className="preview-card-help">
                 Read-only. This is the interior file as uploaded; page through it to check it.
               </p>
-              <ManuscriptReviewViewer key={printReadyPdfFileId} url={`/api/files/${printReadyPdfFileId}`} title={title || "Print interior preview"} spread theme="light" scale={2} />
+              <div className="preview-card-body"><ManuscriptReviewViewer key={printReadyPdfFileId} url={`/api/files/${printReadyPdfFileId}`} title={title || "Print interior preview"} spread theme="light" scale={2} /></div>
             </>
           ) : (
-            <p className="field-hint">Upload the print-ready PDF above to preview it page by page.</p>
+            <p className="preview-card-help" style={{ marginBottom: 0 }}>Upload the print-ready PDF above to preview it page by page.</p>
           )}
+          </div>
           <FileVerdictBox
             title="Interior File Check"
             verdict={printReadyPdfFileId ? preflight?.interior : "NONE"}
@@ -800,8 +687,9 @@ export function PrintSubmissionForm({
             site. A generated wrap is rebuilt from the page count, so it is redrawn and re-checked
             whenever the interior file changes. */}
         <div style={{ marginTop: 22 }}>
-          <h3 style={{ fontSize: 16, marginBottom: 4 }}>Full Wrap Cover Preview</h3>
-          <p style={{ fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 12 }}>
+          <div className="preview-card">
+          <h3 className="preview-card-title">Full Wrap Cover Preview</h3>
+          <p className="preview-card-help">
             {backCoverMode === "custom"
               ? "Your uploaded wraparound cover (back cover, spine and front)."
               : "Back cover, spine and front, generated by the site from your front cover. The spine width follows the page count, so this is redrawn and checked again whenever you replace the interior file."}
@@ -817,6 +705,7 @@ export function PrintSubmissionForm({
               </button>
             </div>
           )}
+          <div className="preview-card-body">
           <CoverWrapPreview
             key={`${printReadyPdfFileId ?? ""}|${printPages}`}
             customCoverFileId={backCoverMode === "custom" ? customBackCoverPdfFileId : undefined}
@@ -826,17 +715,88 @@ export function PrintSubmissionForm({
             authorFirstName={authorFirstName}
             authorLastName={authorLastName}
             description={description}
-            isbn={printIsbn}
+            isbn={barcodeIsbn}
             trimCode={trimCode}
             paperCode={paperType}
             coverImageUrl={frontCoverImageUrl}
           />
+          </div>
+          </div>
           <FileVerdictBox
             title="Cover Check"
             verdict={frontCoverImageUrl || customBackCoverPdfFileId ? preflight?.cover : "NONE"}
             issues={(preflight?.issues ?? []).filter((i) => i.file === "cover")}
             saved={unchangedSaved && !preflight ? initial?.preflight : undefined}
           />
+        </div>
+      </Card>
+
+      {/* Section 2 */}
+      <Card>
+        <SectionHeader n={2} title="Book Information" sub="Core bibliographic details for the print edition." />
+        <label className="field-label" htmlFor="p-title">Book title</label>
+        <input className="field" id="p-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="p-subtitle">Subtitle</label>
+            <input className="field" id="p-subtitle" type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="p-series">Series</label>
+            <input className="field" id="p-series" type="text" value={seriesName} onChange={(e) => setSeriesName(e.target.value)} />
+          </div>
+        </div>
+        <div className="form-grid-3">
+          <div>
+            <label className="field-label" htmlFor="p-edition">Edition</label>
+            <input className="field" id="p-edition" type="text" value={edition} onChange={(e) => setEdition(e.target.value)} />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="p-isbn">ISBN</label>
+            <input className="field" id="p-isbn" type="text" inputMode="numeric" placeholder="Enter your own ISBN (optional)" value={printIsbn} onChange={(e) => setPrintIsbn(e.target.value)} aria-invalid={!!isbnError} />
+            {isbnError && <div className="field-hint" role="alert" style={{ color: "var(--coral-deep)" }}>{isbnError}</div>}
+            <div className="field-hint">
+              One ISBN covers both Paperback and Hardcover, and its barcode appears below as soon as it is valid.
+              {printIsbn.trim() === "" && " Lulu's printing service does not issue ISBNs, so an ISBN is yours to enter (from your country's ISBN agency). Until you do, the product page shows \u201CISBN pending\u201D and printing still works."}
+            </div>
+          </div>
+          <ChoiceChips id="p-lang" label="Language" options={LANGUAGES} value={language} onChange={setLanguage} />
+        </div>
+        <PublisherField id="p-publisher" value={publisher} onChange={setPublisher} />
+        <label className="field-label" htmlFor="p-pubdate">Publication date</label>
+        <input className="field" id="p-pubdate" type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} />
+        <ChoiceChips id="p-category" label="Category" options={CATEGORIES} value={category} onChange={(v) => { setCategory(v); setSubcategory(""); }} />
+        <ChoiceChips id="p-genre" label="Genre" options={GENRES} value={genre} onChange={setGenre} />
+        <ChoiceChips id="p-subcategory" label="Subcategory" options={subcategoriesFor(category)} value={subcategory} onChange={setSubcategory} disabled={!category} hint={category ? undefined : "Choose a category first."} />
+        <div>
+          <AgeGroupField id="p-age" value={ageGroup} onChange={setAgeGroup} />
+        </div>
+        <ChoiceChips id="p-readinglevel" label="Reading level" options={READING_LEVELS} value={readingLevel} onChange={setReadingLevel} />
+        <label className="field-label" htmlFor="p-desc">Book description</label>
+        <textarea className="field" id="p-desc" rows={6} placeholder="A short back-cover description of the book…" value={description} onChange={(e) => setDescription(e.target.value)} />
+        <div
+          className="field-hint"
+          style={descriptionWordCount > 200 ? { color: "var(--coral-deep)", fontWeight: 700 } : undefined}
+        >
+          {descriptionWordCount} / 200 words{descriptionWordCount > 200 ? " — over the limit, please shorten it" : ""}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <AiDeclarationField id="p-ai-declaration" value={aiDeclaration} onChange={setAiDeclaration} legacyNote={isLegacyAiText(initial?.aiDeclaration) && !aiChoiceOf(aiDeclaration)} />
+        </div>
+      </Card>
+
+      {/* Section 3 */}
+      <Card>
+        <SectionHeader n={3} title="Author Information" sub="The author name shown on this edition." />
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="p-authfirst">First Name</label>
+            <input className="field" id="p-authfirst" type="text" value={authorFirstName} onChange={(e) => setAuthorFirstName(e.target.value)} onBlur={() => setAuthorFirstName((v) => capitalizeName(v))} />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="p-authlast">Last Name</label>
+            <input className="field" id="p-authlast" type="text" value={authorLastName} onChange={(e) => setAuthorLastName(e.target.value)} onBlur={() => setAuthorLastName((v) => capitalizeName(v))} />
+          </div>
         </div>
       </Card>
 
@@ -1048,14 +1008,15 @@ export function PrintSubmissionForm({
               <label className="toggle-switch"><input type="checkbox" checked={affiliateEligiblePrint} onChange={(e) => setAffiliateEligiblePrint(e.target.checked)} /><span className="toggle-slider" /></label>
               <span>Affiliate eligible</span>
             </div>
+            {!initial && prefill && <AffiliateCopyOffer from="eBook and Audiobook" value={prefill.affiliateEligible} current={affiliateEligiblePrint} onCopy={setAffiliateEligiblePrint} />}
           </div>
         </div>
       </Card>
 
       {/* Section 10 */}
       <Card>
-        <SectionHeader n={8} title="ISBN Barcode" sub="Generated from the print ISBN once one is entered." />
-        <Ean13Barcode isbn={printIsbn} />
+        <SectionHeader n={8} title="ISBN Barcode" sub="Made from your ISBN as soon as it is valid. Download it to place on your own back cover." />
+        {barcodeIsbn ? <Ean13Barcode isbn={barcodeIsbn} /> : <p className="field-hint">Enter a valid ISBN in Book Information and its barcode appears here, with PNG and SVG downloads you can place on your own back cover.</p>}
       </Card>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
@@ -1064,7 +1025,7 @@ export function PrintSubmissionForm({
         <button
           type="button"
           className="btn btn-primary btn-small"
-          disabled={submitting || !!ageGroupProblem(ageGroup) || !preflightPassed || !aiChoiceOf(aiDeclaration) || priceBlocked || fontBusy}
+          disabled={submitting || !!ageGroupProblem(ageGroup) || !preflightPassed || !aiChoiceOf(aiDeclaration) || priceBlocked || fontBusy || !!isbnError}
           onClick={() => handleSubmit(true)}
         >
           {submitting

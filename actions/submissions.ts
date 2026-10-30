@@ -14,9 +14,10 @@ import { ageGroupProblem } from "@/lib/age-groups";
 import { PRINT_METADATA_KEYS, mergeFormatFields, mergeMetadata, scopeOf } from "@/lib/format-scope";
 import { gatePrintEdition, attachCheckToBook } from "@/lib/print-preflight-server";
 import { printPriceProblem } from "@/lib/print-price-server";
-import { cleanIsbn } from "@/lib/identifiers";
+import { cleanIsbn, isbn13Of, isbnProblem } from "@/lib/identifiers";
 import type { SavedPreflight } from "@/lib/print-preflight-result";
 import { isAiDeclaration, isLegacyAiText } from "@/lib/ai-declaration";
+import { capitalizeName } from "@/lib/person-name";
 import { titleKey } from "@/lib/book-groups";
 
 export interface AuthorAliasRow {
@@ -34,13 +35,15 @@ export async function listMyAuthorAliases(): Promise<AuthorAliasRow[]> {
   const profile = await prisma.authorProfile.findUnique({ where: { userId: session.user.id } });
   if (!profile) return [];
   const aliases = await prisma.authorAlias.findMany({ where: { authorProfileId: profile.id }, orderBy: { createdAt: "asc" } });
-  return aliases.map((a: { id: string; firstName: string; lastName: string }) => ({ id: a.id, firstName: a.firstName, lastName: a.lastName }));
+  return aliases.map((a: { id: string; firstName: string; lastName: string }) => ({ id: a.id, firstName: capitalizeName(a.firstName), lastName: capitalizeName(a.lastName) }));
 }
 
 /** Remembers a new pen name for future submissions — safe to call
  * every time a title is submitted; does nothing if this exact name is
  * already on file (see the unique constraint on AuthorAlias). */
-export async function rememberAuthorAlias(firstName: string, lastName: string): Promise<void> {
+export async function rememberAuthorAlias(firstNameRaw: string, lastNameRaw: string): Promise<void> {
+  const firstName = capitalizeName(firstNameRaw);
+  const lastName = capitalizeName(lastNameRaw);
   const session = await auth();
   if (!session?.user || session.user.role !== "AUTHOR") return;
   if (!firstName.trim() || !lastName.trim()) return;
@@ -467,9 +470,24 @@ function sanitizePrintMetadata(input: SubmitBookInput): void {
   const meta = input.metadata as SubmissionMetadata & Record<string, unknown>;
   delete meta.printPreflight;
   delete meta.printIsbns; // older per-format entries are no longer written
-  const one = cleanIsbn(meta.printIsbn);
+  const one = isbn13Of(meta.printIsbn);
   if (!input.formats.print || !one) delete meta.printIsbn;
-  else meta.printIsbn = one;
+  else meta.printIsbn = one; // always stored as the 13-digit form (an ISBN-10 is converted)
+}
+
+/** The print ISBN the author typed: must be a real ISBN (correct check digit) that no other book already uses.
+ * One ISBN covers both Paperback and Hardcover of the book. */
+async function printIsbnProblem(raw: unknown, exceptBookId?: string): Promise<string | null> {
+  const typed = typeof raw === "string" ? raw.trim() : "";
+  if (!typed) return null;
+  const bad = isbnProblem(typed);
+  if (bad) return bad;
+  const one = isbn13Of(typed);
+  const clash = await prisma.book.findFirst({
+    where: { submissionMetadata: { path: ["printIsbn"], equals: one }, ...(exceptBookId ? { id: { not: exceptBookId } } : {}) },
+    select: { id: true },
+  });
+  return clash ? "Another book already uses that ISBN. Enter a different one." : null;
 }
 
 async function submitBookInner(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
@@ -483,10 +501,14 @@ async function submitBookInner(input: SubmitBookInput): Promise<{ ok: boolean; e
     return { ok: false, error: `The description is over the ${DESCRIPTION_WORD_LIMIT}-word limit — please shorten it.` };
   }
 
+  if (input.formats.print) {
+    const printProblem = await printIsbnProblem((input.metadata as { printIsbn?: string }).printIsbn);
+    if (printProblem) return { ok: false, error: printProblem };
+  }
   sanitizePrintMetadata(input);
   if (!input.formats.print) {
-    const isbnProblem = await ownIsbnProblem(input.isbn);
-    if (isbnProblem) return { ok: false, error: isbnProblem };
+    const isbnProblemText = await ownIsbnProblem(input.isbn);
+    if (isbnProblemText) return { ok: false, error: isbnProblemText };
   }
   const prepared = prepareSubmission(input);
   if (!prepared.ok) return { ok: false, error: prepared.error };
@@ -691,10 +713,14 @@ async function updateBookFullInner(bookId: string, input: SubmitBookInput): Prom
   // print fields only and the eBook / Audiobook form writes those only (lib/format-scope.ts).
   // A record that holds eBook/audiobook AND print together is edited from its eBook /
   // Audiobook form, which keeps its print settings exactly as stored.
+  if (input.formats.print) {
+    const printProblem = await printIsbnProblem((input.metadata as { printIsbn?: string }).printIsbn, bookId);
+    if (printProblem) return { ok: false, error: printProblem };
+  }
   sanitizePrintMetadata(input);
   if (!input.formats.print) {
-    const isbnProblem = await ownIsbnProblem(input.isbn, bookId);
-    if (isbnProblem) return { ok: false, error: isbnProblem };
+    const isbnProblemText = await ownIsbnProblem(input.isbn, bookId);
+    if (isbnProblemText) return { ok: false, error: isbnProblemText };
   }
   const scope = scopeOf(input.formats);
   if (scope === "print" && (existing.hasEbook || existing.hasAudiobook)) {
@@ -1352,6 +1378,13 @@ export async function deleteEdition(bookId: string, edition: "digital" | "print"
  * copied onto every other edition of the same title so the formats can never contradict each other.
  * An older written declaration is kept on record as aiDeclarationLegacyText; nothing is lost.
  */
+/** Author names are saved with the first letter of every part capitalised (lib/person-name.ts). */
+function normaliseAuthorNames(input: SubmitBookInput) {
+  const m = input.metadata as { authorFirstName?: string; authorLastName?: string };
+  if (typeof m.authorFirstName === "string") m.authorFirstName = capitalizeName(m.authorFirstName);
+  if (typeof m.authorLastName === "string") m.authorLastName = capitalizeName(m.authorLastName);
+}
+
 const AI_REQUIRED = "Please tick one AI use declaration box: either AI tools were used, or no AI tools were used.";
 
 async function syncAiDeclaration(authorId: string, bookId: string, title: string, statement: string) {
@@ -1373,6 +1406,7 @@ async function syncAiDeclaration(authorId: string, bookId: string, title: string
 }
 
 export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
+  normaliseAuthorNames(input);
   if (input.submitForReview && !isAiDeclaration(input.metadata?.aiDeclaration)) return { ok: false, error: AI_REQUIRED };
   const res = await submitBookInner(input);
   if (res.ok && res.bookId && isAiDeclaration(input.metadata?.aiDeclaration)) {
@@ -1384,6 +1418,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
 }
 
 export async function updateBookFull(bookId: string, input: SubmitBookInput): Promise<UpdateBookFullResult> {
+  normaliseAuthorNames(input);
   if (!isAiDeclaration(input.metadata?.aiDeclaration)) return { ok: false, error: AI_REQUIRED };
   const res = await updateBookFullInner(bookId, input);
   if (res.ok) {

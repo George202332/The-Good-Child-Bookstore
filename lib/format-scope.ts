@@ -65,7 +65,7 @@ export const PRINT_METADATA_KEYS = [
 
 /** Metadata keys that belong to the eBook / audiobook edition (kept when the Print form saves). */
 export const DIGITAL_METADATA_KEYS = [
-  "fileSizeKB", "audiobookEnabled", "audiobookRetailPrice", "narrator", "keywords", "seriesNumber",
+  "fileSizeKB", "audiobookEnabled", "audiobookLive", "audiobookRetailPrice", "narrator", "keywords", "seriesNumber",
   "longDescriptionHtml", "authorBio", "copyrightYear", "copyrightHolder", "originalPublicationDate",
 ] as const;
 

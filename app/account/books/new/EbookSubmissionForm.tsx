@@ -11,6 +11,8 @@ import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 import { PublisherField } from "./PublisherField";
 import { AiDeclarationField } from "@/components/AiDeclarationField";
 import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
+import { ChoiceChips } from "@/components/ChoiceChips";
+import { AffiliateCopyOffer } from "@/components/AffiliateCopyOffer";
 import { AgeGroupField } from "./AgeGroupField";
 import { ageGroupProblem } from "@/lib/age-groups";
 import { isRealIsbn } from "@/lib/identifiers";
@@ -47,6 +49,8 @@ export interface EbookSubmissionInitial {
    * — only ever meaningful (and only ever rendered) once an audiobook
    * file exists. */
   audiobookPrice?: string;
+  /** The audiobook's own Published/Draft switch; missing means published (it follows the record). */
+  audiobookLive?: boolean;
   title: string;
   subtitle?: string;
   edition?: string;
@@ -104,6 +108,7 @@ export function EbookSubmissionForm({
   initial,
   audiobookEnabled = true,
   onSharedFieldsChange,
+  affiliateOffer,
   onSubmitted,
   extraActions,
   aiShared,
@@ -126,6 +131,8 @@ export function EbookSubmissionForm({
    * change, so the Print tab can be pre-filled with them — see
    * SharedSubmissionFields in ./shared.tsx. */
   onSharedFieldsChange?: (fields: SharedSubmissionFields) => void;
+  /** When this edition is added to a title that already has another edition: that edition's Affiliate Eligible setting, offered (never forced). */
+  affiliateOffer?: { from: string; value: boolean };
 } = {}) {
   const router = useRouter();
 
@@ -144,6 +151,7 @@ export function EbookSubmissionForm({
   // rendered at all until a file has actually been uploaded here.
   const [audiobookFileId, setAudiobookFileId] = useState<string | undefined>(initial?.audiobookFileId);
   const [audiobookPrice, setAudiobookPrice] = useState(initial?.audiobookPrice ?? "");
+  const [audiobookLive, setAudiobookLive] = useState(initial?.audiobookLive ?? true);
 
   // Book information
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -260,13 +268,14 @@ export function EbookSubmissionForm({
       description: plainTextFromHtml(descriptionHtml),
       aiDeclaration,
       publisher,
+      affiliateEligible: affiliateEnabled,
       coverImageUrl,
       manuscriptFileId,
       manuscriptFileName,
       manuscriptMimeType: manuscriptMime,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onSharedFieldsChange is expected to be a stable callback from the parent; including it would re-run this on every parent render for no reason.
-  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, aiDeclaration, publisher, coverImageUrl, manuscriptFileId, manuscriptFileName, manuscriptMime]);
+  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, aiDeclaration, publisher, affiliateEnabled, coverImageUrl, manuscriptFileId, manuscriptFileName, manuscriptMime]);
 
   const [metadataCheck, setMetadataCheck] = useState<MetadataCheckResult>({ titleFound: true, authorFound: true, checked: false });
   useEffect(() => {
@@ -361,6 +370,7 @@ export function EbookSubmissionForm({
         seoDescription,
         keywords: keywords.join(", "),
         audiobookEnabled: !!audiobookFileId,
+        audiobookLive: audiobookFileId ? audiobookLive : undefined,
         audiobookRetailPrice: audiobookFileId ? Number(audiobookPrice) || 0 : undefined,
       },
       submitForReview,
@@ -494,12 +504,7 @@ export function EbookSubmissionForm({
           </div>
         </div>
         <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="f-lang">Language</label>
-            <select className="field" id="f-lang" value={language} onChange={(e) => setLanguage(e.target.value)}>
-              {LANGUAGES.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </div>
+          <ChoiceChips id="f-lang" label="Language" options={LANGUAGES} value={language} onChange={setLanguage} />
           <PublisherField id="f-publisher" value={publisher} onChange={setPublisher} />
         </div>
         <div className="form-grid-2">
@@ -579,48 +584,12 @@ export function EbookSubmissionForm({
       {/* Section 4 — Book classification */}
       <Card>
         <SectionHeader n={4} title="Book Classification" sub="How this title is categorized and shelved." />
-        <div className="form-grid-3">
-          <div>
-            <label className="field-label" htmlFor="f-category">Category</label>
-            <select
-              className="field"
-              id="f-category"
-              value={category}
-              onChange={(e) => { setCategory(e.target.value); setSubcategory(""); }}
-            >
-              <option value="">Select a category</option>
-              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="field-label" htmlFor="f-genre">Genre</label>
-            <select className="field" id="f-genre" value={genre} onChange={(e) => setGenre(e.target.value)}>
-              <option value="">Select a genre</option>
-              {GENRES.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="field-label" htmlFor="f-subcategory">Subcategory</label>
-            <select
-              className="field"
-              id="f-subcategory"
-              value={subcategory}
-              onChange={(e) => setSubcategory(e.target.value)}
-              disabled={!category}
-            >
-              <option value="">{category ? "Select a subcategory" : "Choose a category first"}</option>
-              {subcategoriesFor(category).map((x) => <option key={x} value={x}>{x}</option>)}
-            </select>
-          </div>
-        </div>
-        <div className="form-grid-2">
+        <ChoiceChips id="f-category" label="Category" options={CATEGORIES} value={category} onChange={(v) => { setCategory(v); setSubcategory(""); }} />
+        <ChoiceChips id="f-genre" label="Genre" options={GENRES} value={genre} onChange={setGenre} />
+        <ChoiceChips id="f-subcategory" label="Subcategory" options={subcategoriesFor(category)} value={subcategory} onChange={setSubcategory} disabled={!category} hint={category ? undefined : "Choose a category first."} />
+        <div>
           <AgeGroupField id="f-age" value={ageGroup} onChange={setAgeGroup} />
-          <div>
-            <label className="field-label" htmlFor="f-readinglevel">Reading level</label>
-            <select className="field" id="f-readinglevel" value={readingLevel} onChange={(e) => setReadingLevel(e.target.value)}>
-              {READING_LEVELS.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
-          </div>
+          <ChoiceChips id="f-readinglevel" label="Reading level" options={READING_LEVELS} value={readingLevel} onChange={setReadingLevel} />
         </div>
         <div className="form-grid-2">
           <div>
@@ -713,6 +682,12 @@ export function EbookSubmissionForm({
                 onChange={(e) => setAudiobookPrice(e.target.value)}
               />
               <div className="field-hint">The Audiobook format only appears on the book&apos;s page once both a file and a price are set.</div>
+              <label className="field-label" htmlFor="f-audiobook-live" style={{ marginTop: 10 }}>Audiobook status</label>
+              <select className="field" id="f-audiobook-live" value={audiobookLive ? "live" : "draft"} onChange={(e) => setAudiobookLive(e.target.value === "live")}>
+                <option value="live">Published</option>
+                <option value="draft">Draft (not for sale yet)</option>
+              </select>
+              <div className="field-hint">Separate from the eBook: setting the audiobook to Draft never hides or changes the eBook.</div>
             </div>
           )}
         </div>
@@ -734,6 +709,7 @@ export function EbookSubmissionForm({
           <label className="toggle-switch"><input type="checkbox" checked={affiliateEnabled} onChange={(e) => setAffiliateEnabled(e.target.checked)} /><span className="toggle-slider" /></label>
           <span>Enable this book for the affiliate program</span>
         </div>
+        {!initial && affiliateOffer && <AffiliateCopyOffer from={affiliateOffer.from} value={affiliateOffer.value} current={affiliateEnabled} onCopy={setAffiliateEnabled} />}
         {affiliateEnabled && (
           <p className="field-hint" style={{ marginTop: 4 }}>
             Affiliates who sell this book will automatically earn 10% of the list price.

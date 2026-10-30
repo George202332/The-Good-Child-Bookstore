@@ -140,6 +140,13 @@ export function headlinePrice(book: FormatPricingInput): number | null {
   return f ? resolveFormatPrice(book, f) : null;
 }
 
+/** The audiobook has its own Published/Draft switch (submissionMetadata.audiobookLive). Missing means "follows the
+ * record", so existing audiobooks stay on sale; only an explicit false keeps it off the store. The eBook is never affected. */
+export function audiobookIsLive(submissionMetadata: unknown): boolean {
+  const meta = (submissionMetadata ?? null) as { audiobookLive?: unknown } | null;
+  return !(meta && meta.audiobookLive === false);
+}
+
 /** Is the format genuinely on sale for this book? The audiobook needs the
  * flag, an uploaded AUDIOBOOK file AND a price. */
 export function isFormatPurchasable(book: FormatPricingInput, format: SaleFormat): boolean {
@@ -148,6 +155,6 @@ export function isFormatPurchasable(book: FormatPricingInput, format: SaleFormat
     case "ebook": return book.hasEbook && price !== null;
     case "paperback":
     case "hardcover": return book.hasPrint && price !== null;
-    case "audiobook": return book.hasAudiobook && book.files.some((f) => f.kind === "AUDIOBOOK") && price !== null;
+    case "audiobook": return book.hasAudiobook && audiobookIsLive(book.submissionMetadata) && book.files.some((f) => f.kind === "AUDIOBOOK") && price !== null;
   }
 }
