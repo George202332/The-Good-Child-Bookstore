@@ -15,6 +15,7 @@ import { PayoutHoldBanner } from "@/components/PayoutHoldBanner";
 import { computePayoutStatCards } from "@/lib/payout-monthly";
 import { hasFileDownload } from "@/lib/delivery-format";
 import { PAID_ONLY } from "@/lib/paid-sales";
+import { groupEditions } from "@/lib/book-groups";
 import { SetPasswordPrompt } from "@/components/SetPasswordPrompt";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ interface AuthorBook {
   hasPrint: boolean;
   hasAudiobook: boolean;
   createdAt: Date;
+  deletedByAuthorAt?: Date | null;
   saleLines: SaleLineShare[];
   ratings: { stars: number }[];
 }
@@ -276,8 +278,15 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
     const affiliateSold = affiliateLinks.reduce((s, l) => s + l.conversions, 0);
     const lifetimePayout = Number(lifetimePayoutAgg._sum.amount ?? 0);
     const totalBooksSold = allLines.length;
-    const booksPublished = books.filter((b) => b.status === "PUBLISHED").length;
-    const recentTitles = [...books].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, 4);
+    // One book, one count: the eBook and print editions of a title are ONE book. A book is
+    // published when at least one of its editions is. Sales units elsewhere stay per format.
+    const bookGroups = groupEditions(
+      books.filter((b) => !b.deletedByAuthorAt).map((b) => ({ ...b, authorId: "me" })).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    );
+    const booksPublished = bookGroups.filter((g) => g.some((b) => b.status === "PUBLISHED")).length;
+    const recentTitles = bookGroups
+      .map((g) => ({ ...g[0], status: g.some((b) => b.status === "PUBLISHED") ? "PUBLISHED" : g[0].status }))
+      .slice(0, 4);
 
     // Recent activity, for the Author dashboard, is deliberately narrower
     // than the full Notifications list — it only ever shows a sale, a

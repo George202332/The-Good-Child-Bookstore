@@ -4,6 +4,7 @@ import { useState } from "react";
 import { EbookSubmissionForm, type EbookSubmissionInitial } from "../../new/EbookSubmissionForm";
 import { PrintSubmissionForm, type PrintSubmissionInitial } from "../../new/PrintSubmissionForm";
 import type { SharedSubmissionFields } from "../../new/shared";
+import { firstAiDeclaration } from "@/lib/ai-declaration";
 import { DeleteEditionButton } from "./DeleteEditionButton";
 
 type Format = "ebook" | "print";
@@ -47,6 +48,9 @@ export function EditBookTabs({
 }) {
   const [active, setActive] = useState<Format>(startOn);
   const [shared, setShared] = useState<SharedSubmissionFields | undefined>(undefined);
+  // One AI declaration for the whole book, shared by every edition form on this screen.
+  const [ai, setAi] = useState(firstAiDeclaration(ebookInitial?.aiDeclaration, printInitial?.aiDeclaration, addPrefill?.aiDeclaration));
+  const aiShared = { value: ai, onChange: setAi };
 
   const tabs: { key: Format; label: string; tab: EditTab }[] = [
     { key: "ebook", label: "eBook and Audiobook", tab: ebookTab },
@@ -92,13 +96,14 @@ export function EditBookTabs({
         {ebookTab.mode === "edit" && ebookInitial ? (
           <>
             <EbookSubmissionForm
+              aiShared={aiShared}
               initial={ebookInitial}
               audiobookEnabled={enabledFormats.audiobook}
               extraActions={<DeleteEditionButton inline bookId={ebookTab.bookId} edition="digital" editionLabel="eBook and Audiobook" otherEditionExists={printTab.mode === "edit"} />}
             />
           </>
         ) : enabledFormats.ebook ? (
-          <EbookSubmissionForm audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setShared} />
+          <EbookSubmissionForm aiShared={aiShared} audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setShared} />
         ) : (
           <ClosedNote />
         )}
@@ -116,12 +121,13 @@ export function EditBookTabs({
         ) : printTab.mode === "edit" && printInitial ? (
           <>
             <PrintSubmissionForm
+              aiShared={aiShared}
               initial={printInitial}
               extraActions={<DeleteEditionButton inline bookId={printTab.bookId} edition="print" editionLabel="Print" otherEditionExists={ebookTab.mode === "edit"} />}
             />
           </>
         ) : enabledFormats.print ? (
-          <PrintSubmissionForm prefill={shared ?? addPrefill} />
+          <PrintSubmissionForm aiShared={aiShared} prefill={shared ?? addPrefill} />
         ) : (
           <ClosedNote />
         )}

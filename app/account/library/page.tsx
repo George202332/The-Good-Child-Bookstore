@@ -79,7 +79,7 @@ export default async function LibraryPage() {
           <p style={{ fontSize: 14.5, color: "var(--ink-soft)" }}>You are yet to purchase your first book.</p>
         </div>
       ) : (
-        <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+        <div className="map-card" style={{ padding: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>

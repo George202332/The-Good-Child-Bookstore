@@ -134,7 +134,7 @@ export default async function PayoutSettingsPage() {
             climbing in place while the page is left open, not just on a
             manual reload. */}
         <LiveRefresher intervalMs={15000} />
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ width: "100%" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>

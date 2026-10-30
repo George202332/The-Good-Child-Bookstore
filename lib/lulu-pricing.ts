@@ -1,7 +1,6 @@
 /**
  * Print cost estimation, matching the "Pricing" section's cost/royalty
- * breakdown (HARDCOVER/PAPERBACK PRINTING COST, COMPANY REVENUE, AUTHOR
- * PROFIT, ESTIMATED ROYALTY). Lulu's real per-copy printing cost depends
+ * breakdown (printing cost, company revenue, estimated royalty). Lulu's real per-copy printing cost depends
  * on trim size, interior color, paper, binding, and page count, and is
  * normally fetched live from Lulu's Print API cost-calculation endpoint.
  *
@@ -14,6 +13,8 @@
  * once real API credentials and network access are available.
  */
 
+import { calculateSplits } from "@/lib/revenue";
+
 const DEFAULT_PAGE_COUNT = 32; // typical children's picture book length, used until a real page count is known
 
 export function estimatePrintingCost(binding: "PB" | "CO" | "LW", pageCount: number = DEFAULT_PAGE_COUNT): number {
@@ -22,19 +23,34 @@ export function estimatePrintingCost(binding: "PB" | "CO" | "LW", pageCount: num
   return +(fixedCost + pageCount * perPage).toFixed(2);
 }
 
-const COMPANY_REVENUE_SHARE = 0.30; // matches the confirmed 30% organic-sale company share used elsewhere
-
 export interface PrintPricingBreakdown {
+  /** Estimated production printing cost (Lulu's exact price is used when the sale is made). */
   printingCost: number;
+  /** Retail price minus the printing cost. Shipping is never part of it. */
+  balance: number;
+  /** Company's 30% of the balance, before any referral commission. */
   companyRevenue: number;
-  authorProfit: number;
+  /** What the author earns on a normal sale: 70% of the balance. */
   estimatedRoyalty: number;
+  /** What the author earns when the sale comes through a promotional affiliate link: 60% of the balance. */
+  royaltyViaAffiliate: number;
+  /** What the promotional affiliate earns on such a sale: 10% of the balance. */
+  affiliateCommission: number;
 }
 
+/** The Pricing preview uses the SAME split engine as real sales (lib/revenue.ts), so the
+ * figures shown here are the figures recorded when a copy is sold (apart from the printing
+ * cost, which is Lulu's exact price at that time). */
 export function computePrintPricing(retailPrice: number, binding: "PB" | "CO" | "LW", pageCount?: number): PrintPricingBreakdown {
   const printingCost = estimatePrintingCost(binding, pageCount);
-  const companyRevenue = +(retailPrice * COMPANY_REVENUE_SHARE).toFixed(2);
-  const authorProfit = +(retailPrice - printingCost).toFixed(2);
-  const estimatedRoyalty = Math.max(0, +(authorProfit - companyRevenue).toFixed(2));
-  return { printingCost, companyRevenue, authorProfit, estimatedRoyalty };
+  const organic = calculateSplits(retailPrice, false, undefined, printingCost);
+  const viaAffiliate = calculateSplits(retailPrice, true, undefined, printingCost);
+  return {
+    printingCost,
+    balance: organic.net,
+    companyRevenue: organic.companyShare,
+    estimatedRoyalty: organic.authorShare,
+    royaltyViaAffiliate: viaAffiliate.authorShare,
+    affiliateCommission: viaAffiliate.affiliateShare,
+  };
 }

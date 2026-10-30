@@ -397,7 +397,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
           been queued — an empty state renders as a row inside the
           table rather than replacing the table outright. */}
       <div className="map-card" style={{ padding: 0 }}>
-        <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: rows.length > VISIBLE_ROWS ? VISIBLE_ROWS * ROW_HEIGHT_PX + 34 : undefined }}>
+        <div style={{ overflowY: "auto", maxHeight: rows.length > VISIBLE_ROWS ? VISIBLE_ROWS * ROW_HEIGHT_PX + 34 : undefined }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -417,9 +417,7 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                     />
                   </th>
                 )}
-                <th style={TH_STYLE}>Account #<ColHelp text="This recipient's account number on the platform." /></th>
-                <th style={TH_STYLE}>Account Holder<ColHelp text="The name on file for this payout — who the money is actually sent to." /></th>
-                <th style={TH_STYLE}>Email<ColHelp text="The recipient's account email." /></th>
+                <th style={TH_STYLE}>Account Holder<ColHelp text="The name on file for this payout, who the money is actually sent to, with the recipient's account email and account number underneath." /></th>
                 <th style={TH_STYLE}>Royalties<ColHelp text="This payout's share that comes from the recipient's own book sales." /></th>
                 <th style={TH_STYLE}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>
                 <th style={TH_STYLE}>Commission<ColHelp text="Commission from copies sold through this person's own affiliate promotional links." /></th>
@@ -434,13 +432,13 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={canModerate ? 11 : 9} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                  <td colSpan={canModerate ? 9 : 7} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
                     No payouts have been queued yet — this table fills in as soon as one is.
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={canModerate ? 11 : 9} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
+                  <td colSpan={canModerate ? 9 : 7} style={{ padding: "24px 10px", color: "var(--ink-faint)", fontSize: 13, textAlign: "center" }}>
                     No payouts match your search or filters.
                   </td>
                 </tr>
@@ -465,9 +463,11 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                         />
                       </td>
                     )}
-                    <td style={{ ...TD_NOWRAP, fontFamily: "monospace" }}>{p.accountNumber}</td>
-                    <td style={TD_NOWRAP}>{p.accountHolderName}</td>
-                    <td style={TD_NOWRAP}>{p.email}</td>
+                    <td style={TD_STYLE}>
+                      <div style={{ fontWeight: 600 }}>{p.accountHolderName}</div>
+                      <div style={{ color: "var(--ink-faint)" }}>{p.email}</div>
+                      <div style={{ color: "var(--ink-faint)", fontFamily: "monospace", fontSize: 10.5 }}>{p.accountNumber}</div>
+                    </td>
                     <td style={TD_NOWRAP}>${p.bookSalesEarnings.toFixed(2)}</td>
                     <td style={TD_NOWRAP}>${p.referralEarnings.toFixed(2)}</td>
                     <td style={TD_NOWRAP}>${p.commissionEarnings.toFixed(2)}</td>

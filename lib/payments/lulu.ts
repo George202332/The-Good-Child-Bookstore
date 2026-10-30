@@ -57,6 +57,7 @@ import { LULU_CONFIG } from "@/lib/lulu-config";
 import { coverLayout, toPoints, buildCoverWrapPdf } from "@/lib/lulu-cover";
 import { parseLuluShippingOptions, pickShippingQuote, type ShippingQuote } from "@/lib/shipping-quote";
 import { parseLuluCostCalculation, type LuluCostQuote } from "@/lib/print-costs";
+import { classifyFailure } from "@/lib/lulu-rejection";
 
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
@@ -249,6 +250,26 @@ export async function fetchLuluPrintJob(jobId: string): Promise<{ ok: true; json
   }
 }
 
+/** Tells Lulu to call `url` when a print job's status changes. */
+export async function registerLuluWebhookUrl(url: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const baseUrl = luluBaseUrl(await getLuluEnvironment());
+    const token = await getAccessToken(baseUrl);
+    const res = await fetch(`${baseUrl}/webhooks/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ topics: ["PRINT_JOB_STATUS_CHANGED"], url }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { ok: false, error: `Lulu answered ${res.status}${body ? `: ${body.slice(0, 300)}` : ""}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not reach Lulu." };
+  }
+}
+
 /** Reads page count and first-page size from a stored interior PDF
  * (`/api/files/<id>`). Null when the file can't be found or read. */
 async function readInteriorPdf(url: string | undefined): Promise<{ pageCount: number; widthIn: number; heightIn: number } | null> {
@@ -340,6 +361,13 @@ async function markFailed(orderId: string, message: string): Promise<void> {
     data: { printJobStatus: "FAILED", printJobId: null, printJobError: message.slice(0, 1900) },
   });
   console.error("Lulu print job not sent for order", orderId, message);
+  // A file problem the author can fix (Lulu's own refusal, or a missing / unusable cover or interior):
+  // record it as a rejection and tell the author once. Address, credential and service problems are not theirs.
+  const failure = classifyFailure(message);
+  if (failure.rejected) {
+    const { recordRejectionAndNotify } = await import("@/lib/lulu-rejection-notify");
+    await recordRejectionAndNotify(orderId, failure.reason);
+  }
   const { reportSystemError } = await import("@/lib/site-health/alert");
   await reportSystemError("CHECKOUT", new Error(`Print order ${orderId.slice(0, 8).toUpperCase()} was not sent to Lulu: ${message}`), { orderId });
 }
@@ -370,7 +398,13 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
     const claimable = opts.resend
       ? [{ printJobStatus: null }, { printJobStatus: "FAILED" }, { printJobStatus: "SUBMITTING" }]
       : [{ printJobStatus: null }, { printJobStatus: "FAILED" }];
-    const claim = await prisma.order.updateMany({ where: { id: orderId, OR: claimable }, data: { printJobStatus: "SUBMITTING" } });
+    // An explicit resend starts a new attempt: clear the old rejection so a new one is told to the author again.
+    const claim = await prisma.order.updateMany({
+      where: { id: orderId, OR: claimable },
+      data: opts.resend
+        ? { printJobStatus: "SUBMITTING", luluAuthorNotifiedAt: null, luluRejectedAt: null, luluRejectionReason: null }
+        : { printJobStatus: "SUBMITTING" },
+    });
     if (claim.count === 0) return { ok: true, state: "already" };
 
     try {
@@ -479,7 +513,7 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
 
       await prisma.order.update({
         where: { id: orderId },
-        data: { printJobStatus: "SUBMITTED", printJobId: result.luluJobId ?? null, printJobError: null },
+        data: { printJobStatus: "SUBMITTED", printJobId: result.luluJobId ?? null, printJobError: null, luluAuthorNotifiedAt: null, luluRejectedAt: null, luluRejectionReason: null },
       });
       return { ok: true, state: "submitted" };
     } catch (e) {

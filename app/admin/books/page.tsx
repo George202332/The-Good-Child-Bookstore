@@ -92,7 +92,7 @@ export default async function BookManagementPage({
         ))}
       </div>
 
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         {books.length === 0 ? (
           <div style={{ padding: "20px 0", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
             Nothing here yet.

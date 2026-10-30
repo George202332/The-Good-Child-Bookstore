@@ -8,6 +8,7 @@ export type NotificationType =
   | "REVIEW"
   | "BOOK_PUBLISHED"
   | "REVISION"
+  | "PRINT_REJECTED"
   | "BLOG_PUBLISHED"
   | "BLOG_REVISION"
   | "MESSAGE"
@@ -86,6 +87,11 @@ export const NOTIFICATION_TYPES: Record<NotificationType, NotificationTypeInfo> 
   REVISION: {
     color: "#B7472A", // red
     iconPath: "M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2zM9 8h6M9 12h4",
+    sidebarKey: "mybooks",
+  },
+  PRINT_REJECTED: {
+    color: "#B3261E", // red: Lulu turned a print file down
+    iconPath: "M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z",
     sidebarKey: "mybooks",
   },
   BLOG_PUBLISHED: {

@@ -126,7 +126,7 @@ export function BlogPageTabs({ posts, defaultAuthorName }: { posts: BlogListItem
           ) : (
             <>
               <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginBottom: 12 }}>{blogSummaryLine(countBlogs(posts.map((p) => p.status)))}</p>
-              <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+              <div className="map-card" style={{ padding: 0 }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
                     <tr>

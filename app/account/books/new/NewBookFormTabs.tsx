@@ -33,6 +33,8 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
   // Set once the eBook / Audiobook part has been saved: the wizard then asks whether to continue on Print.
   const [ebookSaved, setEbookSaved] = useState(false);
   const [sharedFields, setSharedFields] = useState<SharedSubmissionFields | undefined>(undefined);
+  // One AI declaration for the whole book: both forms read and write this same value.
+  const [ai, setAi] = useState("");
 
   if (visibleFormats.length === 0) {
     return (
@@ -89,13 +91,13 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
               )}
             </div>
           ) : (
-            <EbookSubmissionForm audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setSharedFields} onSubmitted={() => { setEbookSaved(true); window.scrollTo?.({ top: 0 }); }} />
+            <EbookSubmissionForm aiShared={{ value: ai, onChange: setAi }} audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setSharedFields} onSubmitted={() => { setEbookSaved(true); window.scrollTo?.({ top: 0 }); }} />
           )}
         </div>
       )}
       {enabledFormats.print && (
         <div style={{ display: activeFormat === "print" ? "block" : "none" }}>
-          <PrintSubmissionForm prefill={enabledFormats.ebook ? sharedFields : undefined} />
+          <PrintSubmissionForm aiShared={{ value: ai, onChange: setAi }} prefill={enabledFormats.ebook ? sharedFields : undefined} />
         </div>
       )}
     </div>

@@ -49,7 +49,7 @@ export default async function IndexingPage() {
         <div className="stat-card"><div className="stat-label">Not Yet Submitted</div><div className="stat-value">{notYetCount}</div><div className="stat-sub">No IndexNow ping on record</div></div>
       </div>
 
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>

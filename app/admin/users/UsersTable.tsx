@@ -50,7 +50,7 @@ export function UsersTable({ users, currentUserId }: { users: UserListRow[]; cur
 
   return (
     <>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>

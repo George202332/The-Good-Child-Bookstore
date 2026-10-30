@@ -88,7 +88,7 @@ export default async function ActiveCampaignsPage() {
             You&apos;re not promoting any books yet — browse all books above to generate your first link.
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div style={{ width: "100%" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr>

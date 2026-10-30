@@ -176,7 +176,7 @@ export default async function ReferralsPage() {
 
       <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Authors You&apos;ve Referred</h3>
       <div className="map-card tinted-peach" style={{ padding: 20 }}>
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ width: "100%" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>

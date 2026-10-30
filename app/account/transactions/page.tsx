@@ -33,7 +33,7 @@ export default async function AuthorTransactionsPage() {
           </p>
         </div>
       </div>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>

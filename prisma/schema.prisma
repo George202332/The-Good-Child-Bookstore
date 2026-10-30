@@ -786,6 +786,12 @@ model Order {
   luluActualShipping    Decimal? @db.Decimal(10, 2)
   luluActualFulfillment Decimal? @db.Decimal(10, 2)
   luluSyncedAt          DateTime?
+  /// When Lulu rejected the print job (or it could not be sent because of a file problem), the exact
+  /// reason Lulu gave, kept in full, and when the author(s) were told. The notification is claimed
+  /// with luluAuthorNotifiedAt in a single update, so it is sent once per rejection.
+  luluRejectionReason   String?   @db.Text
+  luluRejectedAt        DateTime?
+  luluAuthorNotifiedAt  DateTime?
 
   @@index([readerId])
   @@index([status])

@@ -87,7 +87,7 @@ export function BookPromotionTable({ rows }: { rows: PromotionRawRow[] }) {
       ) : grouped.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No promotions in this period.</div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ width: "100%" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>

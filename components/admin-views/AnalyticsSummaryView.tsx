@@ -77,7 +77,7 @@ export function AnalyticsSummaryView({ data }: { data: AnalyticsSummary }) {
       )}
 
       <h3 style={{ fontSize: 16, margin: "24px 0 14px" }}>Revenue Breakdown by Month</h3>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 24 }}>
+      <div className="map-card" style={{ padding: 0, marginBottom: 24 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>

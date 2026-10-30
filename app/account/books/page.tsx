@@ -91,7 +91,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
           You haven&apos;t published any books yet — submit your first title above.
         </div>
       ) : (
-        <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+        <div className="map-card" style={{ padding: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
@@ -113,6 +113,9 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                 const authorName = bookAuthorDisplayName({ submissionMetadata: b.submissionMetadata, author: { penName: authorPenName, user: { name: accountName } } });
                 const cover = group.map((r) => r.coverImageUrl).find(Boolean);
                 const labelOf = (r: AuthorBook) => [r.hasEbook && "eBook", r.hasAudiobook && "Audiobook", r.hasPrint && "Print"].filter(Boolean).join(" + ");
+                // One status per book: Published as soon as one edition is, with the live editions named.
+                const anyPublished = group.some((r) => r.status === "PUBLISHED");
+                const liveLabel = [...new Set(group.filter((r) => r.status === "PUBLISHED").flatMap((r) => [r.hasEbook && "eBook", r.hasAudiobook && "Audiobook", r.hasPrint && "Print"].filter(Boolean) as string[]))].join(", ");
                 return (
                   <tr key={b.id}>
                     <td style={TABLE_CELL_STYLE}>
@@ -138,7 +141,12 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                     </td>
                     <td style={TABLE_CELL_STYLE}>{authorName}</td>
                     <td style={TABLE_CELL_STYLE}>
-                      {statuses.length === 1 ? (
+                      {anyPublished ? (
+                        <>
+                          <span className={`status-pill ${STATUS_PILL.PUBLISHED.className}`}>{STATUS_PILL.PUBLISHED.label}</span>
+                          <div style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 4 }}>Live: {liveLabel}</div>
+                        </>
+                      ) : statuses.length === 1 ? (
                         (() => { const pill = STATUS_PILL[statuses[0]] ?? { label: statuses[0], className: "status-draft" }; return <span className={`status-pill ${pill.className}`}>{pill.label}</span>; })()
                       ) : (
                         group.map((r) => {

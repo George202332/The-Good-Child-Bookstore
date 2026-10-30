@@ -90,7 +90,7 @@ export default async function BlogModerationPage({
           even with zero posts: the empty state is a single row inside
           tbody rather than something that replaces the table outright,
           so the structure is never blank or missing. */}
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>

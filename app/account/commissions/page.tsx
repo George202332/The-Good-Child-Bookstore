@@ -21,7 +21,7 @@ export default async function CommissionsPage() {
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Every commission, itemized by sale.</p>
         </div>
       </div>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>

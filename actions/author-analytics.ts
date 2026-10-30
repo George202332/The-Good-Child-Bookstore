@@ -1,5 +1,6 @@
 "use server";
 
+import { groupEditions } from "@/lib/book-groups";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { PAID_ONLY } from "@/lib/paid-sales";
@@ -66,8 +67,14 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
       },
     });
     const books = (user?.authorProfile?.books ?? []) as {
+      id: string;
       title: string;
       status: string;
+      createdAt: Date;
+      hasEbook: boolean;
+      hasPrint: boolean;
+      hasAudiobook: boolean;
+      deletedByAuthorAt?: Date | null;
       saleLines: {
         createdAt: Date;
         format: string | null;
@@ -121,7 +128,8 @@ export async function getAuthorAnalytics(): Promise<AuthorAnalyticsSummary> {
       totalSales: lines.length,
       totalDownloads: lines.length,
       countriesReached: countryMap.size,
-      activeTitles: books.filter((b) => b.status === "PUBLISHED").length,
+      // One book is one title however many formats it exists in; it counts when any edition is published.
+      activeTitles: groupEditions(books.filter((b) => !b.deletedByAuthorAt).map((b) => ({ ...b, authorId: "me" }))).filter((g) => g.some((b) => b.status === "PUBLISHED")).length,
       monthSalesCount,
       monthlySales: Array.from(monthlyMap.entries()).map(([month, units]) => ({ month, units })),
       formatBreakdown: Array.from(formatMap.entries()).map(([format, count]) => ({ format, count })),

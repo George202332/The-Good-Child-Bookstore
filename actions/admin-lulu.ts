@@ -2,9 +2,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
-import { fetchLuluPrintJob } from "@/lib/payments/lulu";
+import { fetchLuluPrintJob, registerLuluWebhookUrl } from "@/lib/payments/lulu";
+import { applyLuluJob } from "@/lib/lulu-sync";
+import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import {
-  resolveRange, bucketFor, parsePrintJob, summarizeTotals, summarizePerformance,
+  resolveRange, bucketFor, summarizeTotals, summarizePerformance,
   BUCKET_LABEL, type LuluOrderInput, type LuluTotals, type LuluPerformance, type StatusBucket,
 } from "@/lib/lulu-report";
 
@@ -15,6 +17,8 @@ export interface LuluOrderRow {
   orderNumber: string;
   date: string;
   books: string;
+  authors: string;
+  customer: string;
   formats: string;
   luluStatus: string;
   bucket: StatusBucket;
@@ -24,6 +28,12 @@ export interface LuluOrderRow {
   paidShipping: number;
   error: string | null;
   flagged: boolean;
+  /** "Rejected By Lulu", "Cancelled At Lulu", "Failed To Send" or "Not Sent Yet" on a row that needs attention. */
+  problemLabel: string | null;
+  /** The exact reason Lulu (or the file check) gave, in full. */
+  reason: string | null;
+  /** When the author(s) were told about a rejection. */
+  authorNotifiedAt: string | null;
 }
 
 export interface LuluReport {
@@ -34,6 +44,13 @@ export interface LuluReport {
   performance: LuluPerformance;
   rows: LuluOrderRow[];
   lastSyncedAt: string | null;
+}
+
+function problemLabelFor(bucket: StatusBucket, luluStatus: string | null, rejectionReason: string | null): string | null {
+  if (bucket === "REJECTED") return (luluStatus ?? "").toUpperCase().startsWith("CANCEL") ? "Cancelled At Lulu" : "Rejected By Lulu";
+  if (bucket === "FAILED") return rejectionReason ? "Rejected By Lulu" : "Failed To Send";
+  if (bucket === "NOT_SENT") return "Not Sent Yet";
+  return null;
 }
 
 const num = (v: unknown): number | null => (v == null ? null : Number(v));
@@ -53,7 +70,10 @@ export async function getLuluReport(preset?: string, from?: string, to?: string)
       createdAt: { gte: range.from, lt: range.to },
       lines: { some: { format: { in: ["paperback", "hardcover"] } } },
     },
-    include: { lines: { include: { book: { select: { title: true } } } } },
+    include: {
+      reader: { include: { user: { select: { name: true } } } },
+      lines: { include: { book: { select: { title: true, author: { select: { penName: true, user: { select: { name: true } } } } } } } },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -80,12 +100,17 @@ export async function getLuluReport(preset?: string, from?: string, to?: string)
       orderNumber: o.id.slice(-8).toUpperCase(),
       date: o.createdAt.toISOString(),
       books: printLines.map((l: { book: { title: string } }) => l.book.title).join(", "),
+      authors: [...new Set(printLines.map((l: { book: { author: { penName: string | null; user: { name: string } } } }) => l.book.author.penName || l.book.author.user.name))].join(", "),
+      customer: (o as unknown as { reader: { user: { name: string } } }).reader.user.name,
       formats: [...new Set(printLines.map((l: { format: string | null }) => (l.format === "hardcover" ? "Hardcover" : "Paperback")))].join(", "),
       luluStatus: o.luluStatus ?? (o.printJobStatus === "SUBMITTED" ? "Sent (not yet checked)" : o.printJobStatus === "FAILED" ? "Failed" : "Not sent"),
       bucket, bucketLabel: BUCKET_LABEL[bucket],
       production: luluProduction, shipping: luluShipping, paidShipping: Number(o.shippingAmount ?? 0),
       error: o.printJobError ?? null,
       flagged: bucket === "REJECTED" || bucket === "FAILED" || bucket === "NOT_SENT",
+      problemLabel: problemLabelFor(bucket, o.luluStatus, o.luluRejectionReason),
+      reason: o.luluRejectionReason ?? (bucket === "FAILED" || bucket === "REJECTED" ? o.printJobError : null) ?? null,
+      authorNotifiedAt: o.luluAuthorNotifiedAt ? o.luluAuthorNotifiedAt.toISOString() : null,
     });
   }
 
@@ -116,22 +141,19 @@ export async function refreshFromLulu(preset?: string, from?: string, to?: strin
     if (!o.printJobId) continue;
     const res = await fetchLuluPrintJob(o.printJobId);
     if (!res.ok) { firstError ??= res.error; continue; }
-    const job = parsePrintJob(res.json);
-    if (!job) { firstError ??= "Lulu's answer for a print job could not be read."; continue; }
-    const shipped = job.status.toUpperCase() === "SHIPPED";
-    await prisma.order.update({
-      where: { id: o.id },
-      data: {
-        luluStatus: job.status,
-        luluStatusAt: job.changedAt,
-        ...(shipped && job.changedAt ? { luluShippedAt: job.changedAt } : {}),
-        luluActualProduction: job.production,
-        luluActualShipping: job.shipping,
-        luluActualFulfillment: job.fulfillment,
-        luluSyncedAt: new Date(),
-      },
-    });
+    const applied = await applyLuluJob(o.id, res.json);
+    if (!applied.applied) { firstError ??= "Lulu's answer for a print job could not be read."; continue; }
     updated++;
   }
   return { ok: !firstError || updated > 0, checked: orders.length, updated, error: firstError };
+}
+
+
+/** Asks Lulu to call this site whenever a print job's status changes (so rejections reach authors
+ * straight away). Admin only. Needs Lulu to be connected in API Management first. */
+export async function registerLuluWebhook(): Promise<{ ok: boolean; message: string }> {
+  if (!(await isAdmin())) return { ok: false, message: "Only Admins can do this." };
+  const url = `${getPublicSiteUrl().replace(/\/$/, "")}/api/webhooks/lulu`;
+  const res = await registerLuluWebhookUrl(url);
+  return res.ok ? { ok: true, message: `Lulu will now notify ${url} when a print job changes.` } : { ok: false, message: res.error };
 }

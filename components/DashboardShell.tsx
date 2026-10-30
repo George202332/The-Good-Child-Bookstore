@@ -1,3 +1,4 @@
+import { TableLabels } from "@/components/TableLabels";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
@@ -117,7 +118,7 @@ export async function DashboardShell({
           unreadSidebarKeys={[...unreadSidebarKeys]}
           displayName={displayName}
         />
-        <main className="dashboard-content">{children}</main>
+        <main className="dashboard-content"><TableLabels />{children}</main>
       </div>
     </div>
   );

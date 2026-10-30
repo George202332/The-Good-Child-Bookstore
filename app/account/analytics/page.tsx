@@ -100,7 +100,7 @@ export default async function AuthorAnalyticsPage() {
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>All Books</h3>
       <div className="map-card tinted-blue" style={{ padding: 0, marginBottom: 24 }}>
-        <div className="no-scrollbar" style={{ maxHeight: 520, overflowY: "auto", overflowX: "auto" }}>
+        <div className="no-scrollbar" style={{ maxHeight: 520, overflowY: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead className="tinted-blue-thead" style={{ position: "sticky", top: 0, zIndex: 1 }}>
               <tr>

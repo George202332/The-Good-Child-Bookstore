@@ -1,3 +1,4 @@
+import { TableLabels } from "@/components/TableLabels";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
@@ -46,7 +47,7 @@ function navItemsForRole(role: Role) {
       { key: "users", label: "User Profiles", href: "/admin/users" },
       { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },
       { key: "transactions", label: "Transactions", href: "/admin/transactions" },
-      { key: "lulu", label: "Lulu", href: "/admin/lulu" },
+      { key: "lulu", label: "Lulu Publishing", href: "/admin/lulu" },
       { key: "messages", label: "Messages", href: "/admin/messages" },
       { key: "settings", label: "Settings", href: "/admin/settings" },
     ];
@@ -105,7 +106,7 @@ export function AdminShell({
         </nav>
         <SignOutButton className="admin-signout" callbackUrl="/admin/login" isAdmin />
       </aside>
-      <main className="admin-content">{children}</main>
+      <main className="admin-content"><TableLabels />{children}</main>
     </div>
   );
 }

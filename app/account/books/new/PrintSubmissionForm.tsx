@@ -18,6 +18,8 @@ import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 import { Ean13Barcode } from "@/components/Ean13Barcode";
 import { LULU_CONFIG, buildPodPackageId, labelForCode } from "@/lib/lulu-config";
 import { computePrintPricing } from "@/lib/lulu-pricing";
+import { AiDeclarationField } from "@/components/AiDeclarationField";
+import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
 import { computeCoverGeometry } from "@/lib/cover-preview";
 import { detectTrimFromPageSize, formatInches, type DetectedTrim } from "@/lib/trim-size";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
@@ -103,7 +105,10 @@ export function PrintSubmissionForm({
   prefill,
   initial,
   extraActions,
+  aiShared,
 }: {
+  /** The book-wide AI declaration, held by the tabs so the eBook and Print forms always show the same answer. */
+  aiShared?: { value: string; onChange: (v: string) => void };
   /** The eBook's details (the title is being added as a print edition of it). When given,
    * an "Autofill from eBook" button inside this tab copies them - text, cover and the
    * uploaded file - into this form. */
@@ -139,7 +144,9 @@ export function PrintSubmissionForm({
   const descriptionWordCount = description.trim() ? description.trim().split(/\s+/).filter(Boolean).length : 0;
   // The author's own statement of how (or whether) they used AI in
   // creating this book — shown on the product page's detail card.
-  const [aiDeclaration, setAiDeclaration] = useState(initial?.aiDeclaration ?? prefill?.aiDeclaration ?? "");
+  const [aiLocal, setAiLocal] = useState(initial?.aiDeclaration ?? prefill?.aiDeclaration ?? "");
+  const aiDeclaration = aiShared ? aiShared.value : aiLocal;
+  const setAiDeclaration = aiShared ? aiShared.onChange : setAiLocal;
 
   // Section 2
   const [authorFirstName, setAuthorFirstName] = useState(initial?.authorFirstName ?? prefill?.authorFirstName ?? "");
@@ -542,26 +549,16 @@ export function PrintSubmissionForm({
           {READING_LEVELS.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
         <label className="field-label" htmlFor="p-desc">Book description</label>
-        <textarea className="field" id="p-desc" rows={4} placeholder="A short back-cover description of the book…" value={description} onChange={(e) => setDescription(e.target.value)} />
+        <textarea className="field" id="p-desc" rows={6} placeholder="A short back-cover description of the book…" value={description} onChange={(e) => setDescription(e.target.value)} />
         <div
           className="field-hint"
           style={descriptionWordCount > 200 ? { color: "var(--coral-deep)", fontWeight: 700 } : undefined}
         >
           {descriptionWordCount} / 200 words{descriptionWordCount > 200 ? " — over the limit, please shorten it" : ""}
         </div>
-        <label className="field-label" htmlFor="p-ai-declaration" style={{ marginTop: 14 }}>AI use declaration</label>
-        <p className="field-hint" style={{ margin: "0 0 8px" }}>
-          Tell readers how, if at all, you used AI in creating this book — writing, editing, translation, or the cover
-          and interior art. This shows on the book&apos;s product page exactly as written.
-        </p>
-        <textarea
-          className="field"
-          id="p-ai-declaration"
-          rows={3}
-          placeholder="e.g. &quot;Written and illustrated entirely by the author, with no AI involvement.&quot;"
-          value={aiDeclaration}
-          onChange={(e) => setAiDeclaration(e.target.value)}
-        />
+        <div style={{ marginTop: 14 }}>
+          <AiDeclarationField id="p-ai-declaration" value={aiDeclaration} onChange={setAiDeclaration} legacyNote={isLegacyAiText(initial?.aiDeclaration) && !aiChoiceOf(aiDeclaration)} />
+        </div>
       </Card>
 
       {/* Section 2 */}
@@ -896,18 +893,18 @@ export function PrintSubmissionForm({
         </div>
         {paperbackEnabled && (
           <div className="stat-grid" style={{ marginTop: 12, marginBottom: 0 }}>
-            <div><div className="stat-label">Paperback Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Via Lulu print partner</div></div>
-            <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of retail price</div></div>
-            <div><div className="stat-label">Author Profit</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.authorProfit.toFixed(2)}</div><div className="stat-sub">After printing cost</div></div>
-            <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold</div></div>
+            <div><div className="stat-label">Paperback Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Estimate; Lulu&apos;s exact price is used at sale</div></div>
+            <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of ${paperbackPricing.balance.toFixed(2)} (price minus printing cost)</div></div>
+            <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold, 70% of the balance</div></div>
+            <div><div className="stat-label">Royalty Via Affiliate Link</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.royaltyViaAffiliate.toFixed(2)}</div><div className="stat-sub">60% of the balance; the affiliate earns ${paperbackPricing.affiliateCommission.toFixed(2)}</div></div>
           </div>
         )}
         {hardcoverEnabled && (
           <div className="stat-grid" style={{ marginTop: paperbackEnabled ? 20 : 12, marginBottom: 0 }}>
-            <div><div className="stat-label">Hardcover Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Via Lulu print partner</div></div>
-            <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of retail price</div></div>
-            <div><div className="stat-label">Author Profit</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.authorProfit.toFixed(2)}</div><div className="stat-sub">After printing cost</div></div>
-            <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold</div></div>
+            <div><div className="stat-label">Hardcover Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Estimate; Lulu&apos;s exact price is used at sale</div></div>
+            <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of ${hardcoverPricing.balance.toFixed(2)} (price minus printing cost)</div></div>
+            <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold, 70% of the balance</div></div>
+            <div><div className="stat-label">Royalty Via Affiliate Link</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.royaltyViaAffiliate.toFixed(2)}</div><div className="stat-sub">60% of the balance; the affiliate earns ${hardcoverPricing.affiliateCommission.toFixed(2)}</div></div>
           </div>
         )}
       </Card>
@@ -951,7 +948,7 @@ export function PrintSubmissionForm({
         <button
           type="button"
           className="btn btn-primary btn-small"
-          disabled={submitting || !!ageGroupProblem(ageGroup) || !preflightPassed}
+          disabled={submitting || !!ageGroupProblem(ageGroup) || !preflightPassed || !aiChoiceOf(aiDeclaration)}
           onClick={() => handleSubmit(true)}
         >
           {submitting
@@ -962,6 +959,9 @@ export function PrintSubmissionForm({
         </button>
         {extraActions}
         </div>
+        {!aiChoiceOf(aiDeclaration) && (
+          <div className="field-hint" style={{ marginTop: 6 }}>Tick one AI use box in the Book Information section first.</div>
+        )}
         {!preflightPassed && (
           <div className="field-hint" style={{ marginTop: 6 }}>
             {!hasPrintFiles

@@ -101,7 +101,7 @@ export function GoogleIndexingTable({ rows }: { rows: GoogleIndexingRow[] }) {
         <span style={{ fontSize: 12, color: "var(--admin-text-faint, #6B7385)" }}>{filtered.length} of {rows.length} rows</span>
       </div>
 
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>

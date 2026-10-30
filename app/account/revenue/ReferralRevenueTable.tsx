@@ -89,7 +89,7 @@ export function ReferralRevenueTable({ rows }: { rows: ReferralRawRow[] }) {
       ) : grouped.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No referral revenue in this period.</div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ width: "100%" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>

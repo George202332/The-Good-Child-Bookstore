@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { refreshFromLulu, type LuluReport } from "@/actions/admin-lulu";
+import { refreshFromLulu, registerLuluWebhook, type LuluReport } from "@/actions/admin-lulu";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import { BUCKET_LABEL, type StatusBucket } from "@/lib/lulu-report";
 
@@ -33,6 +33,7 @@ export function LuluClient({ report, range, from, to }: { report: LuluReport; ra
   const [customFrom, setCustomFrom] = useState(from);
   const [customTo, setCustomTo] = useState(to);
   const [msg, setMsg] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
   const t = report.totals;
   const p = report.performance;
 
@@ -49,6 +50,14 @@ export function LuluClient({ report, range, from, to }: { report: LuluReport; ra
       router.refresh();
     });
 
+  const connect = () =>
+    start(async () => {
+      const res = await registerLuluWebhook();
+      setMsg(res.message);
+    });
+
+  const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+
   const buckets: StatusBucket[] = ["SUBMITTED", "IN_PRODUCTION", "SHIPPED", "REJECTED", "FAILED", "NOT_SENT"];
 
   return (
@@ -63,6 +72,7 @@ export function LuluClient({ report, range, from, to }: { report: LuluReport; ra
         <label style={{ fontSize: 12 }}>To<br /><input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} /></label>
         <button type="button" className="btn btn-ghost btn-small" disabled={!customFrom || !customTo} onClick={() => go("custom", customFrom, customTo)}>Apply</button>
         <span style={{ flex: 1 }} />
+        <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={connect} title="Asks Lulu to tell this site the moment a print job changes, so rejections reach authors straight away">Connect Lulu Notifications</button>
         <button type="button" className="btn btn-primary btn-small" disabled={pending} onClick={refresh}>{pending ? "Checking…" : "Refresh from Lulu"}</button>
       </div>
       <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
@@ -115,14 +125,12 @@ export function LuluClient({ report, range, from, to }: { report: LuluReport; ra
         </p>
       </Card>
 
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
               <th style={TH_STYLE}>Order</th>
-              <th style={TH_STYLE}>Date</th>
               <th style={TH_STYLE}>Book</th>
-              <th style={TH_STYLE}>Format</th>
               <th style={TH_STYLE}>Lulu Status</th>
               <th style={TH_STYLE}>Production Printing</th>
               <th style={TH_STYLE}>Shipping</th>
@@ -130,22 +138,65 @@ export function LuluClient({ report, range, from, to }: { report: LuluReport; ra
           </thead>
           <tbody>
             {report.rows.length === 0 && (
-              <tr><td style={TD_STYLE} colSpan={7}>No printed orders in this period.</td></tr>
+              <tr><td style={TD_STYLE} colSpan={5}>No printed orders in this period.</td></tr>
             )}
             {report.rows.map((r) => (
-              <tr key={r.orderId} style={r.flagged ? { background: "#FDECEA" } : undefined}>
-                <td style={TD_STYLE}>#{r.orderNumber}</td>
-                <td style={TD_STYLE}>{new Date(r.date).toLocaleDateString()}</td>
-                <td style={TD_STYLE}>{r.books}</td>
-                <td style={TD_STYLE}>{r.formats}</td>
-                <td style={TD_STYLE}>
-                  {r.flagged && <strong style={{ color: "#B3261E" }}>⚠ {r.bucketLabel}: </strong>}
-                  {r.luluStatus}
-                  {r.error && <div style={{ fontSize: 11.5, color: "#B3261E", maxWidth: 260 }}>{r.error}</div>}
-                </td>
-                <td style={TD_STYLE}>{money(r.production)}</td>
-                <td style={TD_STYLE}>{money(r.shipping)}</td>
-              </tr>
+              <Fragment key={r.orderId}>
+                <tr style={{ ...(r.flagged ? { background: "#FDECEA" } : {}), cursor: "pointer" }} onClick={() => setOpen(open === r.orderId ? null : r.orderId)}>
+                  <td style={TD_STYLE}>
+                    <div style={{ fontWeight: 700 }}>#{r.orderNumber}</div>
+                    <div style={{ color: "var(--ink-faint)" }}>{new Date(r.date).toLocaleDateString()}</div>
+                    <div style={{ color: "var(--ink-faint)" }}>{r.customer}</div>
+                  </td>
+                  <td style={TD_STYLE}>
+                    <div style={{ fontWeight: 600 }}>{r.books}</div>
+                    <div style={{ color: "var(--ink-faint)" }}>{r.authors}</div>
+                    <div style={{ color: "var(--ink-faint)" }}>{r.formats}</div>
+                  </td>
+                  <td style={TD_STYLE}>
+                    {r.problemLabel && (
+                      <div style={{ display: "inline-block", padding: "2px 8px", borderRadius: 6, background: "#B3261E", color: "#fff", fontWeight: 700, marginBottom: 4 }}>
+                        ⚠ {r.problemLabel}
+                      </div>
+                    )}
+                    <div>{r.luluStatus}</div>
+                    {r.reason && (
+                      <div style={{ color: "#8C1D18", marginTop: 4 }}>
+                        Reason: {r.reason.length > 110 ? `${r.reason.slice(0, 110)}…` : r.reason}
+                        <button type="button" className="btn btn-ghost btn-small" style={{ marginLeft: 6 }} onClick={(e) => { e.stopPropagation(); setOpen(open === r.orderId ? null : r.orderId); }}>
+                          {open === r.orderId ? "Hide Full Message" : "View Full Message"}
+                        </button>
+                      </div>
+                    )}
+                    {r.problemLabel && r.authorNotifiedAt && (
+                      <div style={{ marginTop: 4, fontWeight: 600, color: "#165236" }}>Author Notified: {when(r.authorNotifiedAt)}</div>
+                    )}
+                    {r.problemLabel === "Rejected By Lulu" && !r.authorNotifiedAt && (
+                      <div style={{ marginTop: 4, color: "var(--ink-faint)" }}>Author not notified yet</div>
+                    )}
+                  </td>
+                  <td style={TD_STYLE}>{money(r.production)}</td>
+                  <td style={TD_STYLE}>{money(r.shipping)}</td>
+                </tr>
+                {open === r.orderId && (
+                  <tr>
+                    <td colSpan={5} style={{ ...TD_STYLE, background: "var(--cream)" }}>
+                      <div><strong>Order:</strong> #{r.orderNumber} &middot; {when(r.date)} &middot; customer {r.customer}</div>
+                      <div><strong>Book:</strong> {r.books} &middot; <strong>Format:</strong> {r.formats} &middot; <strong>Author:</strong> {r.authors}</div>
+                      <div><strong>Lulu status:</strong> {r.luluStatus}{r.problemLabel ? ` (${r.problemLabel})` : ""}</div>
+                      {r.reason ? (
+                        <>
+                          <div style={{ marginTop: 6 }}><strong>Full message from Lulu:</strong></div>
+                          <div style={{ whiteSpace: "pre-wrap", padding: "8px 10px", border: "1px solid #E7B4B0", background: "#FFF", borderRadius: 6, marginTop: 4 }}>{r.reason}</div>
+                        </>
+                      ) : (
+                        <div style={{ marginTop: 6, color: "var(--ink-faint)" }}>Lulu has not reported a problem with this order.</div>
+                      )}
+                      {r.authorNotifiedAt && <div style={{ marginTop: 6 }}><strong>Author Notified:</strong> {when(r.authorNotifiedAt)} (in their account notifications and by email, sent once)</div>}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>

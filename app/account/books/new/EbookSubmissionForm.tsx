@@ -9,6 +9,8 @@ import { FileUploadField } from "@/components/FileUploadField";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 import { PublisherField } from "./PublisherField";
+import { AiDeclarationField } from "@/components/AiDeclarationField";
+import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
 import { AgeGroupField } from "./AgeGroupField";
 import { ageGroupProblem } from "@/lib/age-groups";
 import { isRealIsbn } from "@/lib/identifiers";
@@ -104,8 +106,11 @@ export function EbookSubmissionForm({
   onSharedFieldsChange,
   onSubmitted,
   extraActions,
+  aiShared,
 }: {
   initial?: EbookSubmissionInitial;
+  /** The book-wide AI declaration, held by the tabs so the eBook and Print forms always show the same answer. */
+  aiShared?: { value: string; onChange: (v: string) => void };
   /** Edit view only: extra buttons shown in the same row, to the right of Save / Publish. */
   extraActions?: React.ReactNode;
   /** New-title wizard only: called once the eBook / audiobook part has been saved, instead
@@ -195,7 +200,9 @@ export function EbookSubmissionForm({
   // AI use declaration — the author's own statement of how (or whether)
   // AI was used in creating this book, shown on the product page's
   // detail card. Free text, not validated.
-  const [aiDeclaration, setAiDeclaration] = useState(initial?.aiDeclaration ?? "");
+  const [aiLocal, setAiLocal] = useState(initial?.aiDeclaration ?? "");
+  const aiDeclaration = aiShared ? aiShared.value : aiLocal;
+  const setAiDeclaration = aiShared ? aiShared.onChange : setAiLocal;
 
   // Keywords
   const [keywords, setKeywords] = useState<string[]>(initial?.keywords ?? []);
@@ -287,6 +294,7 @@ export function EbookSubmissionForm({
     ...(audiobookFileId ? [{ label: "Audiobook price set", ok: Number(audiobookPrice) > 0 }] : []),
     ...(!worldwideRights ? [{ label: "Restricted countries chosen (or turn on worldwide rights)", ok: restrictedCountries.length > 0 }] : []),
     { label: "Copyright holder named", ok: !!copyrightHolder.trim() },
+    { label: "AI use declared (tick one box)", ok: !!aiChoiceOf(aiDeclaration) },
   ];
   const allChecksPass = checklist.every((c) => c.ok);
   const metadataMismatch = !!manuscriptFileId && !!title.trim() && metadataCheck.checked && (!metadataCheck.titleFound || !metadataCheck.authorFound);
@@ -677,19 +685,7 @@ export function EbookSubmissionForm({
           <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} title={title} />
         </div>
         <div style={{ marginTop: 18 }}>
-          <label className="field-label" htmlFor="f-ai-declaration">AI use declaration</label>
-          <p className="field-hint" style={{ margin: "0 0 8px" }}>
-            Tell readers how, if at all, you used AI in creating this book — for example writing, editing, translation,
-            or the cover and interior art. This shows on the book&apos;s product page exactly as written.
-          </p>
-          <textarea
-            className="field"
-            id="f-ai-declaration"
-            rows={3}
-            placeholder="e.g. &quot;Written and illustrated entirely by the author, with no AI involvement.&quot; or &quot;Text written by the author; cover art generated with AI.&quot;"
-            value={aiDeclaration}
-            onChange={(e) => setAiDeclaration(e.target.value)}
-          />
+          <AiDeclarationField id="f-ai-declaration" value={aiDeclaration} onChange={setAiDeclaration} legacyNote={isLegacyAiText(initial?.aiDeclaration) && !aiChoiceOf(aiDeclaration)} />
         </div>
       </Card>
 

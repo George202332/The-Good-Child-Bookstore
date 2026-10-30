@@ -64,3 +64,15 @@ test("eBooks and audiobooks are unchanged (no printing cost)", () => {
   assert.equal(s.companyShare, 3);
   assert.equal(s.printingCost, 0);
 });
+
+import { computePrintPricing } from "../lib/lulu-pricing";
+
+test("Pricing preview matches the real split for the example in the brief ($15.99, $1.97 cost)", () => {
+  const p = computePrintPricing(15.99, "PB", 32);
+  assert.equal(p.printingCost, 1.97);
+  assert.equal(p.balance, 14.02);
+  assert.equal(p.companyRevenue, 4.21);
+  assert.equal(p.estimatedRoyalty, 9.81);
+  assert.equal(p.royaltyViaAffiliate, 8.41);
+  assert.equal(p.affiliateCommission, 1.4);
+});

@@ -154,7 +154,7 @@ export function DashboardOverview({
             <h3 style={{ fontSize: 16 }}>Recent Transactions</h3>
             <Link href={transactionsHref} className="see-all">View all →</Link>
           </div>
-          <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+          <div className="map-card" style={{ padding: 0 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ textAlign: "left" }}>

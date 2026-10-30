@@ -83,7 +83,7 @@ export default async function GoogleInfrastructurePage() {
 
       {/* Google Services Status — overview first */}
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Google Services Status</h3>
-      <div className="map-card" style={{ padding: 0, marginBottom: 28, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0, marginBottom: 28 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <tbody>
             {services.map((s) => (

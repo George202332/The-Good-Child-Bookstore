@@ -52,7 +52,7 @@ export default async function InvestorOverviewPage() {
       <p style={{ fontSize: 12.5, color: "var(--ink-faint)", margin: "-6px 0 10px" }}>
         &quot;Active&quot; means at least one real, paid sale that month — not simply being registered.
       </p>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto", marginBottom: 24 }}>
+      <div className="map-card" style={{ padding: 0, marginBottom: 24 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>
@@ -76,7 +76,7 @@ export default async function InvestorOverviewPage() {
       </div>
 
       <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Affiliate retention — new joins vs. active</h3>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>

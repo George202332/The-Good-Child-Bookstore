@@ -7,22 +7,19 @@ import { ColHelp } from "@/components/ColHelp";
 import { Modal } from "@/components/Modal";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
-const TH: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11.5, letterSpacing: "0.03em" };
-const TD: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
+const TH: React.CSSProperties = { ...TH_STYLE, padding: "9px 6px", fontSize: 10.5, letterSpacing: "0.02em" };
+const TD: React.CSSProperties = { ...TD_STYLE, padding: "8px 6px", fontSize: undefined, verticalAlign: undefined };
 
 const COLUMNS: { label: string; help: string }[] = [
-  { label: "Trans. ID", help: "A short reference for this row — the full ID appears in the detail pop-up." },
-  { label: "Date", help: "When this sale or payout happened." },
-  { label: "Time", help: "The exact time this sale or payout happened, same timestamp as the Date column." },
+  { label: "Date", help: "When this sale or payout happened: the date, the exact time and its short Trans. ID underneath. The full ID is in the detail pop-up." },
   { label: "Type", help: "Whether this row is a book Sale or a Payout." },
   { label: "Party", help: "For a sale, the buyer. For a payout, who received it." },
   { label: "Details", help: "The book and format sold, or the payout's earnings type." },
-  { label: "Amount", help: "The total amount of this sale, or the amount sent out for a payout." },
+  { label: "Amount", help: "The total amount of this sale, or the amount sent out for a payout, with how the money moved underneath (Paystack, PayPal - Card, PayPal - Email, or the payout method)." },
   { label: "Company", help: "The company's share of this sale." },
   { label: "Royalty", help: "The author's share (royalty) of this sale." },
   { label: "Commission", help: "The affiliate's commission on this sale, and which affiliate earned it, if any." },
   { label: "Shipping", help: "The Lulu shipping the customer paid on a printed order, passed through to Lulu. It is charged once per order, so it shows on the order's first printed item. A dash means a digital item. Shipping is never part of anyone's earnings." },
-  { label: "Mode", help: "How the money moved: Paystack, PayPal - Card, PayPal - Email, or (for a payout) the method it is sent by." },
 ];
 
 /**
@@ -48,7 +45,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
 
   return (
     <>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr>
@@ -60,7 +57,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={12} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
+                <td colSpan={9} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
                   No transactions recorded yet — this table will fill in as sales and payouts happen.
                 </td>
               </tr>
@@ -76,24 +73,24 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                     onMouseEnter={(e) => (e.currentTarget.style.background = "var(--admin-panel-hover, rgba(0,0,0,0.03))")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                   >
-                    <td style={{ ...TD, fontFamily: "monospace", fontSize: 12 }}>{r.id.slice(0, 8).toUpperCase()}</td>
-                    <td style={{ ...TD, whiteSpace: "nowrap" }}>
-                      {new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    </td>
-                    <td style={{ ...TD, whiteSpace: "nowrap" }}>
-                      {new Date(r.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                    <td style={TD}>
+                      <div>{new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                      <div style={{ color: "var(--ink-faint)" }}>{new Date(r.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</div>
+                      <div style={{ fontFamily: "monospace", fontSize: 10.5, color: "var(--ink-faint)" }}>{r.id.slice(0, 8).toUpperCase()}</div>
                     </td>
                     <td style={TD}><span className="age-pill">{r.type}</span></td>
                     <td style={TD}>{r.party}</td>
                     <td style={TD}>{r.detail}</td>
-                    <td style={{ ...TD, fontWeight: 700 }}>{r.type === "Payout" ? "-" : ""}${r.amount.toFixed(2)}</td>
+                    <td style={TD}>
+                      <div style={{ fontWeight: 700 }}>{r.type === "Payout" ? "-" : ""}${r.amount.toFixed(2)}</div>
+                      <div style={{ color: "var(--ink-faint)" }}>{loadingKey === rowKey ? "Loading…" : r.mode}</div>
+                    </td>
                     <td style={TD}>{r.companyShare !== null ? `$${r.companyShare.toFixed(2)}` : "—"}</td>
                     <td style={TD}>{r.authorShare !== null ? `$${r.authorShare.toFixed(2)}` : "—"}</td>
                     <td style={{ ...TD, color: r.affiliateShare ? "#165236" : "var(--ink-faint)", fontWeight: r.affiliateShare ? 700 : 400 }}>
                       {r.affiliateShare !== null ? `$${r.affiliateShare.toFixed(2)}${r.affiliateName ? ` (${r.affiliateName})` : ""}` : "—"}
                     </td>
                     <td style={TD}>{r.shipping !== null ? `$${r.shipping.toFixed(2)}` : "—"}</td>
-                    <td style={{ ...TD, whiteSpace: "nowrap" }}>{loadingKey === rowKey ? <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>Loading…</span> : r.mode}</td>
                   </tr>
                 );
               })

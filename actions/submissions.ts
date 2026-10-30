@@ -15,6 +15,8 @@ import { PRINT_METADATA_KEYS, mergeFormatFields, mergeMetadata, scopeOf } from "
 import { gatePrintEdition, attachCheckToBook } from "@/lib/print-preflight-server";
 import { cleanIsbn } from "@/lib/identifiers";
 import type { SavedPreflight } from "@/lib/print-preflight-result";
+import { isAiDeclaration, isLegacyAiText } from "@/lib/ai-declaration";
+import { titleKey } from "@/lib/book-groups";
 
 export interface AuthorAliasRow {
   id: string;
@@ -467,7 +469,7 @@ function sanitizePrintMetadata(input: SubmitBookInput): void {
   else meta.printIsbn = one;
 }
 
-export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
+async function submitBookInner(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
   const session = await auth();
   if (session?.user?.role !== "AUTHOR") {
     return { ok: false, error: "Only author accounts can submit books." };
@@ -663,7 +665,7 @@ export interface UpdateBookFullResult {
  * serving) until an admin approves it. Whether a file was replaced is
  * decided here, on the server, from the stored file references.
  */
-export async function updateBookFull(bookId: string, input: SubmitBookInput): Promise<UpdateBookFullResult> {
+async function updateBookFullInner(bookId: string, input: SubmitBookInput): Promise<UpdateBookFullResult> {
   const session = await auth();
   if (session?.user?.role !== "AUTHOR") return { ok: false, error: "Only author accounts can edit books." };
   if (!input.title.trim()) return { ok: false, error: "Title is required." };
@@ -1332,4 +1334,53 @@ export async function deleteEdition(bookId: string, edition: "digital" | "print"
   revalidatePath("/account/books");
   revalidatePath("/bookshelf");
   return { ok: true, remainingBookId: bookId };
+}
+
+
+/**
+ * The AI use declaration is ONE answer per book, whatever formats it exists in. It must be exactly one
+ * of the two statements (lib/ai-declaration.ts) before a book is sent for review, and once saved it is
+ * copied onto every other edition of the same title so the formats can never contradict each other.
+ * An older written declaration is kept on record as aiDeclarationLegacyText; nothing is lost.
+ */
+const AI_REQUIRED = "Please tick one AI use declaration box: either AI tools were used, or no AI tools were used.";
+
+async function syncAiDeclaration(authorId: string, bookId: string, title: string, statement: string) {
+  try {
+    const rows = await prisma.book.findMany({ where: { authorId, deletedByAuthorAt: null } });
+    const key = titleKey(title);
+    for (const r of rows) {
+      if (titleKey(r.title) !== key) continue;
+      const meta = ((r.submissionMetadata as Record<string, unknown> | null) ?? {}) as Record<string, unknown>;
+      const current = typeof meta.aiDeclaration === "string" ? meta.aiDeclaration : "";
+      if (current === statement) continue;
+      const next: Record<string, unknown> = { ...meta, aiDeclaration: statement };
+      if (isLegacyAiText(current) && !meta.aiDeclarationLegacyText) next.aiDeclarationLegacyText = current;
+      await prisma.book.update({ where: { id: r.id }, data: { submissionMetadata: next as never } });
+    }
+  } catch (e) {
+    console.error("AI declaration sync failed", bookId, e instanceof Error ? e.message : "error");
+  }
+}
+
+export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
+  if (input.submitForReview && !isAiDeclaration(input.metadata?.aiDeclaration)) return { ok: false, error: AI_REQUIRED };
+  const res = await submitBookInner(input);
+  if (res.ok && res.bookId && isAiDeclaration(input.metadata?.aiDeclaration)) {
+    const session = await auth();
+    const profile = session?.user?.id ? await prisma.authorProfile.findUnique({ where: { userId: session.user.id } }) : null;
+    if (profile) await syncAiDeclaration(profile.id, res.bookId, input.title, (input.metadata?.aiDeclaration ?? "").trim());
+  }
+  return res;
+}
+
+export async function updateBookFull(bookId: string, input: SubmitBookInput): Promise<UpdateBookFullResult> {
+  if (!isAiDeclaration(input.metadata?.aiDeclaration)) return { ok: false, error: AI_REQUIRED };
+  const res = await updateBookFullInner(bookId, input);
+  if (res.ok) {
+    const session = await auth();
+    const profile = session?.user?.id ? await prisma.authorProfile.findUnique({ where: { userId: session.user.id } }) : null;
+    if (profile) await syncAiDeclaration(profile.id, bookId, input.title, (input.metadata?.aiDeclaration ?? "").trim());
+  }
+  return res;
 }

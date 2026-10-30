@@ -32,7 +32,7 @@ export default async function AuthorTransactionHistoryPage() {
             <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Every purchase you&apos;ve made.</p>
           </div>
         </div>
-        <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+        <div className="map-card" style={{ padding: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr style={{ textAlign: "left" }}>
@@ -88,7 +88,7 @@ export default async function AuthorTransactionHistoryPage() {
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Every sale and payout on your account.</p>
         </div>
       </div>
-      <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
+      <div className="map-card" style={{ padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
             <tr style={{ textAlign: "left" }}>

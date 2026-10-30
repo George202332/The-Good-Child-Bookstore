@@ -19,7 +19,7 @@ export default async function LuluPage({ searchParams }: { searchParams?: Promis
     <AdminShell role="ADMIN" activeKey="lulu" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 20 }}>Lulu</h2>
+          <h2 style={{ fontSize: 20 }}>Lulu Publishing</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             Printed orders sent to Lulu: what customers paid, what Lulu charges, and how each order is progressing. Use the dates to match Lulu&apos;s invoices.
           </p>

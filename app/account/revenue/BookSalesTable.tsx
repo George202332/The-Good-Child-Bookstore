@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { ColHelp } from "@/components/ColHelp";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import { useRevenueHighlightActive } from "@/components/RevenueHighlight";
@@ -35,8 +35,8 @@ export interface BookSalesRow {
   isNew?: boolean;
 }
 
-const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
-const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
+const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "9px 6px", fontSize: 10.5, letterSpacing: undefined };
+const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "8px 6px", fontSize: undefined, verticalAlign: undefined };
 const isPrintFormat = (format: string) => /paperback|hardcover/i.test(format);
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -47,6 +47,7 @@ const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "Ju
 export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
   const [month, setMonth] = useState("all");
   const [year, setYear] = useState("all");
+  const [openRow, setOpenRow] = useState<number | null>(null);
   const highlightActive = useRevenueHighlightActive();
 
   const years = useMemo(() => {
@@ -93,17 +94,14 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
       ) : filtered.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>No sales in this period.</div>
       ) : (
-        <div style={{ overflowX: "auto" }}>
+        <div style={{ width: "100%" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
                 <th style={TABLE_HEAD_STYLE}>Date<ColHelp text="The date of the most recent sale in this row. Every sale here shares the exact same book, format, sale type, and price — the date shown is simply the latest one among them." /></th>
-                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The title of the book that was sold." /></th>
-                <th style={TABLE_HEAD_STYLE}>Format<ColHelp text="The edition purchased: eBook, Paperback, Hardcover, or Audiobook. Each format can have its own price, so it's tracked separately." /></th>
+                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The title of the book that was sold, with its format underneath: eBook, Paperback, Hardcover, or Audiobook. Each format can have its own price, so it is tracked separately. Click a row to see the company share and the affiliate commission for one copy." /></th>
                 <th style={TABLE_HEAD_STYLE}>Price<ColHelp text="The price the customer paid for one copy in this format. If this book's price ever changes, sales at the old and new price appear as separate rows." /></th>
                 <th style={TABLE_HEAD_STYLE}>Printing Cost<ColHelp text="Lulu's production printing cost for a printed copy (Paperback or Hardcover), taken off the price before your royalty is worked out. eBook and Audiobook rows show a dash. Shipping is paid by the customer and is never included here." /></th>
-                <th style={TABLE_HEAD_STYLE}>Company<ColHelp text="The company's cut of a single copy at this price: normally 30%, or a smaller share if part of it was carved out to pay an affiliate's referral commission." /></th>
-                <th style={TABLE_HEAD_STYLE}>Affiliate<ColHelp text="The commission an affiliate earns on a single copy sold through their link: 10% of the price. Always $0.00 for organic sales, since no affiliate was involved." /></th>
                 <th style={TABLE_HEAD_STYLE}>Share<ColHelp text="Your royalty for a single copy at this price: what you personally earn per book sold, before multiplying by how many were sold. For printed copies it is worked out after Lulu's printing cost is taken off the price." /></th>
                 <th style={TABLE_HEAD_STYLE}>Units<ColHelp text="How many copies were sold at exactly this price, in this format, under this sale type. If the price changes, or a sale happens through an affiliate instead of organically, that becomes its own separate row with its own count." /></th>
                 <th style={TABLE_HEAD_STYLE}>Royalty<ColHelp text="Your total earnings for this whole row: Share multiplied by Units. This is the actual amount you're owed for all the copies sold under this exact condition." /></th>
@@ -111,18 +109,27 @@ export function BookSalesTable({ rows }: { rows: BookSalesRow[] }) {
             </thead>
             <tbody>
               {filtered.map((r, i) => (
-                <tr key={i} className={highlightActive && r.isNew ? "revenue-row-new" : undefined}>
-                  <td style={TABLE_CELL_STYLE}>{new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                  <td style={TABLE_CELL_STYLE}>{r.title}</td>
-                  <td style={TABLE_CELL_STYLE}>{r.format}</td>
-                  <td style={TABLE_CELL_STYLE}>${r.price.toFixed(2)}</td>
-                  <td style={TABLE_CELL_STYLE}>{r.printingCost != null ? `$${r.printingCost.toFixed(2)}` : isPrintFormat(r.format) ? "Not recorded" : "—"}</td>
-                  <td style={TABLE_CELL_STYLE}>${r.company.toFixed(2)}</td>
-                  <td style={TABLE_CELL_STYLE}>${r.affiliate.toFixed(2)}</td>
-                  <td style={TABLE_CELL_STYLE}>${r.share.toFixed(2)}</td>
-                  <td style={TABLE_CELL_STYLE}>{r.units}</td>
-                  <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>${(r.share * r.units).toFixed(2)}</td>
-                </tr>
+                <Fragment key={i}>
+                  <tr className={highlightActive && r.isNew ? "revenue-row-new" : undefined} onClick={() => setOpenRow(openRow === i ? null : i)} style={{ cursor: "pointer" }} aria-expanded={openRow === i}>
+                    <td style={TABLE_CELL_STYLE}>{new Date(r.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                    <td style={TABLE_CELL_STYLE}>
+                      <div>{r.title}</div>
+                      <div style={{ color: "var(--ink-faint)" }}>{r.format}</div>
+                    </td>
+                    <td style={TABLE_CELL_STYLE}>${r.price.toFixed(2)}</td>
+                    <td style={TABLE_CELL_STYLE}>{r.printingCost != null ? `$${r.printingCost.toFixed(2)}` : isPrintFormat(r.format) ? "Not recorded" : "—"}</td>
+                    <td style={TABLE_CELL_STYLE}>${r.share.toFixed(2)}</td>
+                    <td style={TABLE_CELL_STYLE}>{r.units}</td>
+                    <td style={{ ...TABLE_CELL_STYLE, fontWeight: 700 }}>${(r.share * r.units).toFixed(2)}</td>
+                  </tr>
+                  {openRow === i && (
+                    <tr>
+                      <td colSpan={7} style={{ ...TABLE_CELL_STYLE, background: "var(--cream)", color: "var(--ink-soft)" }}>
+                        For one copy at this price: company share <strong>${r.company.toFixed(2)}</strong> &middot; affiliate commission <strong>${r.affiliate.toFixed(2)}</strong>{r.affiliate === 0 ? " (organic sale, no affiliate)" : ""}.
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
