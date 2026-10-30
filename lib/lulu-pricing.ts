@@ -1,16 +1,9 @@
 /**
- * Print cost estimation, matching the "Pricing" section's cost/royalty
- * breakdown (printing cost, company revenue, estimated royalty). Lulu's real per-copy printing cost depends
- * on trim size, interior color, paper, binding, and page count, and is
- * normally fetched live from Lulu's Print API cost-calculation endpoint.
- *
- * IMPORTANT HONESTY NOTE: this environment has no network access to call
- * that live endpoint, so this is a documented approximation using
- * publicly-typical Lulu per-copy cost ranges for a standard children's
- * picture book (a modest fixed cost plus a small per-page rate, higher
- * for hardcover's linen wrap binding) — not a real-time quote. Wiring
- * this to Lulu's actual cost-calculation API is the natural next step
- * once real API credentials and network access are available.
+ * Print cost ESTIMATE, the fallback only. The Pricing section asks Lulu for the real printing cost of
+ * the book's detected specifications (actions/print-specs.ts quotePrintCost, which calls Lulu's cost
+ * calculator, the same one real orders use). This estimate (a fixed amount plus a small per-page rate,
+ * higher for the hardcover) is shown, clearly labelled, only before an interior file is uploaded or when
+ * Lulu cannot be asked.
  */
 
 import { calculateSplits } from "@/lib/revenue";
@@ -39,10 +32,9 @@ export interface PrintPricingBreakdown {
 }
 
 /** The Pricing preview uses the SAME split engine as real sales (lib/revenue.ts), so the
- * figures shown here are the figures recorded when a copy is sold (apart from the printing
- * cost, which is Lulu's exact price at that time). */
-export function computePrintPricing(retailPrice: number, binding: "PB" | "CO" | "LW", pageCount?: number): PrintPricingBreakdown {
-  const printingCost = estimatePrintingCost(binding, pageCount);
+ * figures shown here are the figures recorded when a copy is sold. Pass Lulu's real quote for the
+ * book's detected specs as `printingCost` (actions/print-specs.ts quotePrintCost). */
+export function computePrintPricingFromCost(retailPrice: number, printingCost: number): PrintPricingBreakdown {
   const organic = calculateSplits(retailPrice, false, undefined, printingCost);
   const viaAffiliate = calculateSplits(retailPrice, true, undefined, printingCost);
   return {
@@ -53,4 +45,10 @@ export function computePrintPricing(retailPrice: number, binding: "PB" | "CO" | 
     royaltyViaAffiliate: viaAffiliate.authorShare,
     affiliateCommission: viaAffiliate.affiliateShare,
   };
+}
+
+/** The same breakdown using the site's own cost ESTIMATE. Only for when Lulu has not been asked
+ * (no interior uploaded yet) or cannot answer; the form labels it as an estimate. */
+export function computePrintPricing(retailPrice: number, binding: "PB" | "CO" | "LW", pageCount?: number): PrintPricingBreakdown {
+  return computePrintPricingFromCost(retailPrice, estimatePrintingCost(binding, pageCount));
 }

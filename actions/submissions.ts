@@ -13,6 +13,7 @@ import { LULU_CONFIG } from "@/lib/lulu-config";
 import { ageGroupProblem } from "@/lib/age-groups";
 import { PRINT_METADATA_KEYS, mergeFormatFields, mergeMetadata, scopeOf } from "@/lib/format-scope";
 import { gatePrintEdition, attachCheckToBook } from "@/lib/print-preflight-server";
+import { printPriceProblem } from "@/lib/print-price-server";
 import { cleanIsbn } from "@/lib/identifiers";
 import type { SavedPreflight } from "@/lib/print-preflight-result";
 import { isAiDeclaration, isLegacyAiText } from "@/lib/ai-declaration";
@@ -251,6 +252,8 @@ export interface SubmissionMetadata {
   foilStampTitleText?: string;
   foilStampAuthorText?: string;
   printReadyPdfFileId?: string;
+  /** When fonts were embedded for the author, the file they originally uploaded (kept untouched). */
+  printReadyOriginalPdfFileId?: string;
   frontCoverImageUrl?: string;
   customBackCoverPdfFileId?: string;
   /** Which cover goes to Lulu: "auto" sends the auto-generated wraparound
@@ -509,6 +512,10 @@ async function submitBookInner(input: SubmitBookInput): Promise<{ ok: boolean; e
       metadata: input.metadata, requirePass: input.submitForReview,
     });
     if (!gate.ok) return { ok: false, error: gate.error };
+    if (input.submitForReview) {
+      const priceProblem = await printPriceProblem(input.metadata as Parameters<typeof printPriceProblem>[0]);
+      if (priceProblem) return { ok: false, error: priceProblem };
+    }
     savedPreflight = gate.saved;
     if (savedPreflight) (prep.metadata as SubmissionMetadata).printPreflight = savedPreflight;
   }
@@ -725,6 +732,8 @@ async function updateBookFullInner(bookId: string, input: SubmitBookInput): Prom
       metadata: input.metadata, existingMetadata: existingMetaAll, requirePass: filesChanged,
     });
     if (!gate.ok) return { ok: false, error: gate.error };
+    const priceProblem = await printPriceProblem(input.metadata as Parameters<typeof printPriceProblem>[0]);
+    if (priceProblem) return { ok: false, error: priceProblem };
     savedPreflight = gate.saved;
     if (savedPreflight) (prep.metadata as SubmissionMetadata).printPreflight = savedPreflight;
     else if (existingMetaAll?.printPreflight) (prep.metadata as SubmissionMetadata).printPreflight = existingMetaAll.printPreflight;

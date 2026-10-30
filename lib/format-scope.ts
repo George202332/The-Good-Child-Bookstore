@@ -57,7 +57,7 @@ export function mergeFormatFields(scope: EditScope, existing: FormatFields, inco
 export const PRINT_METADATA_KEYS = [
   "interiorColor", "printQuality", "binding", "paperType", "coverFinish", "linenColor", "foilColor",
   "trimSizeCode", "podPackageId", "paperbackEnabled", "hardcoverEnabled", "paperbackRetailPrice",
-  "hardcoverRetailPrice", "foilStampTitleText", "foilStampAuthorText", "printReadyPdfFileId",
+  "hardcoverRetailPrice", "foilStampTitleText", "foilStampAuthorText", "printReadyPdfFileId", "printReadyOriginalPdfFileId",
   "frontCoverImageUrl", "customBackCoverPdfFileId", "backCoverMode", "sellThroughWebsite",
   "luluGlobalDistribution", "privatePrinting", "affiliateEligiblePrint", "promotionalCampaignEligible",
   "printPreflight", "printIsbns", "printIsbn",

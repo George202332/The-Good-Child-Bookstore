@@ -13,7 +13,7 @@
  * without a network.
  */
 
-import type { PDFDict, PDFDocument as PDFDocumentT } from "pdf-lib";
+import type { PDFDocument as PDFDocumentT } from "pdf-lib";
 import { LULU_CONFIG } from "@/lib/lulu-config";
 import { detectTrimFromPageSize, formatInches, trimCodeToInches } from "@/lib/trim-size";
 
@@ -138,7 +138,7 @@ export interface PdfInspection {
 /** Opens a PDF and reads page sizes plus which fonts are not embedded. Throws
  * "ENCRYPTED" or "UNREADABLE" (as the message) when the file cannot be read. */
 export async function inspectPdf(bytes: Uint8Array): Promise<PdfInspection> {
-  const { PDFDocument, PDFDict: PDFDictV, PDFName, PDFRef, PDFArray, PDFStream } = await import("pdf-lib");
+  const { PDFDocument } = await import("pdf-lib");
   let doc: PDFDocumentT;
   try {
     doc = await PDFDocument.load(bytes, { ignoreEncryption: false, updateMetadata: false });
@@ -154,69 +154,9 @@ export async function inspectPdf(bytes: Uint8Array): Promise<PdfInspection> {
     return { widthIn: width / 72, heightIn: height / 72 };
   });
 
-  const ctx = doc.context;
-  const seen = new Set<string>();
+  const { scanFonts } = await import("@/lib/pdf-font-scan");
   const unembedded = new Set<string>();
-
-  const lookupDict = (v: unknown) => {
-    const o = v instanceof PDFRef ? ctx.lookup(v) : v;
-    if (o instanceof PDFDictV) return o;
-    if (o instanceof PDFStream) return o.dict;
-    return undefined;
-  };
-  const hasFontFile = (desc: PDFDict | undefined) =>
-    !!desc && (desc.has(PDFName.of("FontFile")) || desc.has(PDFName.of("FontFile2")) || desc.has(PDFName.of("FontFile3")));
-  const baseName = (font: PDFDict) => {
-    const raw = font.get(PDFName.of("BaseFont"));
-    const s = raw ? String(raw).replace(/^\//, "") : "unnamed font";
-    return s.replace(/^[A-Z]{6}\+/, "");
-  };
-
-  const checkFont = (font: PDFDict) => {
-    const subtype = String(font.get(PDFName.of("Subtype")) ?? "");
-    if (subtype === "/Type3") return; // glyphs are drawn inside the file
-    if (subtype === "/Type0") {
-      const desc = font.get(PDFName.of("DescendantFonts"));
-      const arr = desc instanceof PDFRef ? ctx.lookup(desc) : desc;
-      const first = arr instanceof PDFArray ? lookupDict(arr.get(0)) : undefined;
-      const fd = first ? lookupDict(first.get(PDFName.of("FontDescriptor"))) : undefined;
-      if (!hasFontFile(fd)) unembedded.add(baseName(font));
-      return;
-    }
-    const fd = lookupDict(font.get(PDFName.of("FontDescriptor")));
-    if (!hasFontFile(fd)) unembedded.add(baseName(font));
-  };
-
-  const walkResources = (resources: PDFDict | undefined, depth: number) => {
-    if (!resources || depth > 6) return;
-    const fonts = lookupDict(resources.get(PDFName.of("Font")));
-    if (fonts) {
-      for (const key of fonts.keys()) {
-        const raw = fonts.get(key);
-        const id = raw instanceof PDFRef ? raw.toString() : `${depth}:${key}`;
-        if (seen.has(id)) continue;
-        seen.add(id);
-        const f = lookupDict(raw);
-        if (f) checkFont(f);
-      }
-    }
-    const xobjects = lookupDict(resources.get(PDFName.of("XObject")));
-    if (xobjects) {
-      for (const key of xobjects.keys()) {
-        const raw = xobjects.get(key);
-        const id = raw instanceof PDFRef ? "x" + raw.toString() : "";
-        if (id) { if (seen.has(id)) continue; seen.add(id); }
-        const x = raw instanceof PDFRef ? ctx.lookup(raw) : raw;
-        if (x instanceof PDFStream && String(x.dict.get(PDFName.of("Subtype"))) === "/Form") {
-          walkResources(lookupDict(x.dict.get(PDFName.of("Resources"))), depth + 1);
-        }
-      }
-    }
-  };
-
-  for (const page of pdfPages) {
-    walkResources(page.node.Resources(), 0);
-  }
+  for (const f of await scanFonts(doc)) if (!f.embedded) unembedded.add(f.name);
 
   return { pageCount: pdfPages.length, pages, unembeddedFonts: [...unembedded].sort() };
 }

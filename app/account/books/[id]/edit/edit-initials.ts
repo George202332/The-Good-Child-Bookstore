@@ -119,6 +119,7 @@ export function buildPrintInitial(book: BookWithRelations): PrintSubmissionIniti
     editor: str(meta.editor),
     translator: str(meta.translator),
     printReadyPdfFileId: fileIdOf(book, "MANUSCRIPT"),
+    printReadyOriginalPdfFileId: str(meta.printReadyOriginalPdfFileId) || undefined,
     pages: meta.pages != null ? Number(meta.pages) : undefined,
     dimensions: str(meta.dimensions) || undefined,
     frontCoverImageUrl: str(meta.frontCoverImageUrl) || book.coverImageUrl || "",

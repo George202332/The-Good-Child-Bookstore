@@ -199,6 +199,43 @@ export async function quoteLuluCosts(
   }
 }
 
+/** A fixed US delivery address, used only to ask Lulu's cost calculator for a printing cost. The
+ * production printing cost does not depend on where the copy is sent (shipping is quoted and
+ * charged separately, and never enters the royalty split). */
+const COST_QUOTE_ADDRESS: LuluAddress = {
+  name: "Cost Quote", street1: "350 5th Ave", city: "New York", state_code: "NY", postcode: "10118", country_code: "US", phone_number: "2125550100", email: "quote@example.com",
+};
+
+/** Lulu's production printing cost for ONE copy of a book with these exact specifications (the pod
+ * package id carries trim size, colour, quality, binding, paper and finish) and page count. This is
+ * the same cost calculator real orders use, so the Pricing preview and the money recorded at sale
+ * come from the same source. `rejected` is true when Lulu answered that it does not offer this
+ * combination; false means Lulu could not be asked (not set up, offline, unreadable reply). Never throws. */
+export async function quotePrintingCostPerCopy(podPackageId: string, pageCount: number): Promise<{ ok: true; cost: number } | { ok: false; rejected: boolean; error: string }> {
+  try {
+    if (!(await luluIsConfigured())) return { ok: false, rejected: false, error: "Lulu is not set up on this site yet." };
+    const baseUrl = luluBaseUrl(await getLuluEnvironment());
+    const token = await getAccessToken(baseUrl);
+    const res = await fetch(`${baseUrl}/print-job-cost-calculations/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        line_items: [{ page_count: pageCount, pod_package_id: podPackageId, quantity: 1 }],
+        shipping_address: luluQuoteAddress(COST_QUOTE_ADDRESS),
+        shipping_option: "MAIL",
+      }),
+    });
+    if (!res.ok) {
+      const rejected = res.status === 400 || res.status === 404 || res.status === 422;
+      return { ok: false, rejected, error: `Lulu's cost calculator answered ${res.status}.` };
+    }
+    const quote = parseLuluCostCalculation(await res.json(), 1);
+    return quote ? { ok: true, cost: quote.lineCosts[0] } : { ok: false, rejected: false, error: "Lulu's cost calculator reply could not be read." };
+  } catch (e) {
+    return { ok: false, rejected: false, error: e instanceof Error ? e.message : "Lulu's cost calculator could not be reached." };
+  }
+}
+
 /** The shipping quote for one chosen method: Lulu's live quote when it has
  * one, otherwise the store's estimate. */
 export async function shippingQuoteForLevel(lines: ShippingQuoteLine[], address: LuluAddress, level: LuluShippingLevel): Promise<ShippingQuote> {

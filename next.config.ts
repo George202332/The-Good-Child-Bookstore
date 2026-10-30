@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
    * Vercel's serverless functions, which fails silently at runtime in
    * production even though everything works fine in local dev. */
   serverExternalPackages: ["sharp"],
+  /* The open-licence fonts embedded into print PDFs (lib/pdf-fonts) are read from disk at run time, so
+   * they must be shipped with every server function that can make or fix a print PDF. */
+  outputFileTracingIncludes: {
+    "/*": ["./lib/pdf-fonts/*.ttf"],
+  },
   experimental: {
     /* The actual root cause of "no image upload works at all": Next.js
      * Server Actions default to a 1MB request body limit. Every image

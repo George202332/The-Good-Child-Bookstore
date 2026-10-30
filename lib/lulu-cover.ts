@@ -74,7 +74,9 @@ export async function buildCoverWrapPdf(opts: {
   author?: string;
 }): Promise<Uint8Array> {
   const sharp = (await import("sharp")).default;
-  const { PDFDocument, StandardFonts, rgb, degrees } = await import("pdf-lib");
+  const { PDFDocument, rgb, degrees } = await import("pdf-lib");
+  const fontkit = (await import("@pdf-lib/fontkit")).default;
+  const { readBundledFont } = await import("@/lib/pdf-fonts");
   const { layout: L } = opts;
 
   // pdf-lib embeds PNG/JPEG only; uploads are stored as WebP, so convert.
@@ -83,6 +85,7 @@ export async function buildCoverWrapPdf(opts: {
   const back = pickBackColor({ r: avg[0] ?? 128, g: avg[1] ?? 128, b: avg[2] ?? 128 });
 
   const doc = await PDFDocument.create();
+  doc.registerFontkit(fontkit);
   const page = doc.addPage([L.width, L.height]);
   page.drawRectangle({ x: 0, y: 0, width: L.width, height: L.height, color: rgb(back.r / 255, back.g / 255, back.b / 255) });
 
@@ -99,7 +102,9 @@ export async function buildCoverWrapPdf(opts: {
 
   // Spine title, only when the spine is wide enough to read.
   if (L.spine >= 22) {
-    const font = await doc.embedFont(StandardFonts.HelveticaBold);
+    // A real font file is embedded (Arimo Bold, open licence), never one of the 14 built-in names the
+    // PDF would only refer to: Lulu rejects covers whose fonts are not stored in the file.
+    const font = await doc.embedFont(await readBundledFont("Arimo_700Bold.ttf"), { subset: true });
     const lum = (0.299 * back.r + 0.587 * back.g + 0.114 * back.b) / 255;
     const ink = lum > 0.55 ? rgb(0.08, 0.08, 0.1) : rgb(1, 1, 1);
     const text = (opts.author ? `${opts.title}  —  ${opts.author}` : opts.title).replace(/[^\x20-\x7E]/g, "");
@@ -120,5 +125,18 @@ export async function buildCoverWrapPdf(opts: {
     });
   }
 
-  return doc.save();
+  const bytes = await doc.save();
+  await verifyCoverFontsEmbedded(bytes);
+  return bytes;
+}
+
+/** Every font in a generated cover must be stored inside the file. Throws, naming the problem, if not. */
+export async function verifyCoverFontsEmbedded(bytes: Uint8Array): Promise<void> {
+  const { PDFDocument } = await import("pdf-lib");
+  const { scanFonts } = await import("@/lib/pdf-font-scan");
+  const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+  const missing = [...new Set((await scanFonts(doc)).filter((f) => !f.embedded).map((f) => f.name))];
+  if (missing.length > 0) {
+    throw new Error(`The generated cover has fonts that are not embedded (${missing.join(", ")}), so Lulu would reject it.`);
+  }
 }

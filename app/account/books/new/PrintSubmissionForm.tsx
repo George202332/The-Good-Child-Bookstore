@@ -17,7 +17,10 @@ import { CoverWrapPreview } from "@/components/CoverWrapPreview";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 import { Ean13Barcode } from "@/components/Ean13Barcode";
 import { LULU_CONFIG, buildPodPackageId, labelForCode } from "@/lib/lulu-config";
-import { computePrintPricing } from "@/lib/lulu-pricing";
+import { computePrintPricing, computePrintPricingFromCost } from "@/lib/lulu-pricing";
+import { analyzePrintInterior, fixPrintFonts, quotePrintCost, type FixFontsResult, type PrintCostItem, type PrintSpecReport } from "@/actions/print-specs";
+import { checkPriceFloor } from "@/lib/print-specs";
+import { PrintSpecsPanel } from "./PrintSpecsPanel";
 import { AiDeclarationField } from "@/components/AiDeclarationField";
 import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
 import { computeCoverGeometry } from "@/lib/cover-preview";
@@ -60,6 +63,8 @@ export interface PrintSubmissionInitial {
   editor?: string;
   translator?: string;
   printReadyPdfFileId?: string;
+  /** The file the author first uploaded, when fonts were embedded in a copy for them. */
+  printReadyOriginalPdfFileId?: string;
   pages?: number;
   dimensions?: string;
   frontCoverImageUrl?: string;
@@ -158,6 +163,8 @@ export function PrintSubmissionForm({
 
   // Section 3
   const [printReadyPdfFileId, setPrintReadyPdfFileId] = useState<string | undefined>(initial?.printReadyPdfFileId);
+  // When fonts are embedded for the author, the fixed copy becomes the interior and the file they uploaded is kept here.
+  const [originalPdfFileId, setOriginalPdfFileId] = useState<string | undefined>(initial?.printReadyOriginalPdfFileId);
   // Page count + trim-size dimensions, auto-detected from the uploaded
   // print-ready PDF itself (same readPdfMetadata() helper the eBook
   // manuscript upload already uses — see actions/files.ts) — reviewed/
@@ -165,6 +172,9 @@ export function PrintSubmissionForm({
   // correct" pattern as the eBook tab.
   const [printPages, setPrintPages] = useState(initial?.pages ? String(initial.pages) : "");
   const [printPagesAutoDetected, setPrintPagesAutoDetected] = useState(false);
+  // Mirrors printPagesAutoDetected for the async file reader below (set only from event handlers).
+  const pagesAutoRef = useRef(false);
+  const markPagesAuto = (v: boolean) => { setPrintPagesAutoDetected(v); pagesAutoRef.current = v; };
   const [printDimensions, setPrintDimensions] = useState(initial?.dimensions ?? "");
   const [printDimensionsAutoDetected, setPrintDimensionsAutoDetected] = useState(false);
   const [frontCoverImageUrl, setFrontCoverImageUrl] = useState(initial?.frontCoverImageUrl ?? "");
@@ -217,9 +227,9 @@ export function PrintSubmissionForm({
   function applyInteriorMeta(result: UploadFileResult | undefined) {
     if (typeof result?.pageCount === "number") {
       setPrintPages(String(result.pageCount));
-      setPrintPagesAutoDetected(true);
+      markPagesAuto(true);
     } else {
-      setPrintPagesAutoDetected(false);
+      markPagesAuto(false);
     }
     if (result?.dimensions) {
       setPrintDimensions(result.dimensions);
@@ -354,6 +364,78 @@ export function PrintSubmissionForm({
   const preflightPassed = preflight?.status === "PASSED" || (!preflight && unchangedSaved);
   const hasPrintFiles = !!printReadyPdfFileId && (!!frontCoverImageUrl || (backCoverMode === "custom" && !!customBackCoverPdfFileId));
 
+
+  // ---- What we read from the file, fonts, and Lulu's real printing cost ----------------------
+  const [specReport, setSpecReport] = useState<PrintSpecReport | null>(null);
+  const [specBusy, setSpecBusy] = useState(false);
+  const [fontBusy, setFontBusy] = useState(false);
+  const [fontResult, setFontResult] = useState<FixFontsResult | null>(null);
+  const autoFontTried = useRef("");
+  const specSettings = useMemo(
+    () => ({ paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor }),
+    [paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor],
+  );
+
+  // Reads the uploaded interior again whenever the file, the selected size or a print setting changes.
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      if (!printReadyPdfFileId) { setSpecReport(null); return; }
+      setSpecBusy(true);
+      const r = await analyzePrintInterior({ fileId: printReadyPdfFileId, chosenTrimCode: trimCode, ...specSettings }).catch(() => null);
+      if (cancelled) return;
+      setSpecBusy(false);
+      if (r) {
+        setSpecReport(r);
+        // A replacement file (or a font fix) can change the page count: keep the Pages box in step when it was auto-detected.
+        if (r.ok && typeof r.pageCount === "number" && pagesAutoRef.current) setPrintPages(String(r.pageCount));
+      }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [printReadyPdfFileId, trimCode, specSettings]);
+
+  const embedFonts = useCallback(async (approved: string[]) => {
+    if (!printReadyPdfFileId) return;
+    setFontBusy(true);
+    const res = await fixPrintFonts({ fileId: printReadyPdfFileId, approved }).catch(() => ({ ok: false, error: "The fonts could not be embedded. Please try again.", embedded: [], skipped: [], remaining: [] }) as FixFontsResult);
+    setFontBusy(false);
+    setFontResult(res);
+    if (res.ok && res.fileId) {
+      setOriginalPdfFileId((o) => o ?? printReadyPdfFileId);
+      autoFontTried.current = res.fileId;
+      setCarriedFileName(res.fileName);
+      setPrintReadyPdfFileId(res.fileId);
+    }
+  }, [printReadyPdfFileId]);
+
+  // Fonts we have ourselves are embedded without asking. Stand-ins wait for the author's approval.
+  useEffect(() => {
+    if (!specReport?.ok || !printReadyPdfFileId || fontBusy) return;
+    if (autoFontTried.current === printReadyPdfFileId) return;
+    if (!specReport.fonts?.unembedded.some((f) => f.status === "auto")) return;
+    autoFontTried.current = printReadyPdfFileId;
+    const t = setTimeout(() => { void embedFonts([]); }, 0);
+    return () => clearTimeout(t);
+  }, [specReport, printReadyPdfFileId, fontBusy, embedFonts]);
+
+  // Lulu's real printing cost for these exact specifications. It does not depend on the retail price,
+  // so a price change only redoes the split below; a spec or page-count change asks Lulu again.
+  const pagesNum = Number(printPages) || 0;
+  const [costItems, setCostItems] = useState<Partial<Record<"paperback" | "hardcover", PrintCostItem>>>({});
+  const [costBusy, setCostBusy] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      if (!pagesNum || (!paperbackEnabled && !hardcoverEnabled)) { setCostItems({}); return; }
+      setCostBusy(true);
+      const r = await quotePrintCost({ trimCode, ...specSettings, pageCount: pagesNum }).catch(() => null);
+      if (cancelled) return;
+      setCostBusy(false);
+      setCostItems(r?.ok ? Object.fromEntries(r.items.map((i) => [i.format, i])) : {});
+    }, 500);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [pagesNum, trimCode, specSettings, paperbackEnabled, hardcoverEnabled]);
+
   const foilCharsUsed = foilStampTitleText.length + foilStampAuthorText.length;
 
   const paperbackPodId = buildPodPackageId({
@@ -363,8 +445,25 @@ export function PrintSubmissionForm({
     trimCode, colorCode: interiorColor, qualityCode: printQuality, bindingCode: "LW", paperCode: paperType, finishCode: coverFinish, linenCode: linenColor, foilCode: foilColor,
   });
 
-  const paperbackPricing = computePrintPricing(Number(paperbackRetailPrice) || 0, paperbackBinding as "PB" | "CO");
-  const hardcoverPricing = computePrintPricing(Number(hardcoverRetailPrice) || 0, "LW");
+  const pbRetail = Number(paperbackRetailPrice) || 0;
+  const hcRetail = Number(hardcoverRetailPrice) || 0;
+  const pbItem = costItems.paperback;
+  const hcItem = costItems.hardcover;
+  const paperbackPricing = pbItem && pbItem.cost !== null ? computePrintPricingFromCost(pbRetail, pbItem.cost) : computePrintPricing(pbRetail, paperbackBinding as "PB" | "CO", pagesNum || undefined);
+  const hardcoverPricing = hcItem && hcItem.cost !== null ? computePrintPricingFromCost(hcRetail, hcItem.cost) : computePrintPricing(hcRetail, "LW", pagesNum || undefined);
+  const costLabel = (item: PrintCostItem | undefined) =>
+    item?.source === "lulu" ? "Lulu's quote for your file's specs" : item?.source === "refused" ? "Lulu does not offer these settings" : pagesNum ? "Estimate: Lulu could not be asked" : "Estimate: upload your interior PDF to get Lulu's quote";
+  // The price must cover Lulu's printing cost and leave the author a positive royalty. Publishing is blocked until it does.
+  const priceProblems: string[] = [];
+  if (paperbackEnabled) {
+    if (pbItem?.source === "refused") priceProblems.push(`Paperback: ${pbItem.message}`);
+    else { const r = checkPriceFloor(pbRetail, paperbackPricing.printingCost, "Paperback"); if (!r.ok && r.message) priceProblems.push(r.message); }
+  }
+  if (hardcoverEnabled) {
+    if (hcItem?.source === "refused") priceProblems.push(`Hardcover: ${hcItem.message}`);
+    else { const r = checkPriceFloor(hcRetail, hardcoverPricing.printingCost, "Hardcover"); if (!r.ok && r.message) priceProblems.push(r.message); }
+  }
+  const priceBlocked = priceProblems.length > 0 || costBusy;
 
   async function handleSubmit(submitForReview: boolean) {
     const ageProblem = ageGroupProblem(ageGroup);
@@ -418,6 +517,7 @@ export function PrintSubmissionForm({
         foilStampTitleText,
         foilStampAuthorText,
         printReadyPdfFileId,
+        printReadyOriginalPdfFileId: originalPdfFileId,
         frontCoverImageUrl,
         customBackCoverPdfFileId,
         backCoverMode,
@@ -603,7 +703,7 @@ export function PrintSubmissionForm({
             accept=".pdf"
             initialFileName={initial?.printReadyPdfFileId ? "Print-ready PDF already uploaded" : undefined}
             externalFileName={printReadyPdfFileId ? carriedFileName : undefined}
-            onUploaded={(ids) => { setPrintReadyPdfFileId(ids[0]); setCarriedFileName(undefined); }}
+            onUploaded={(ids) => { setPrintReadyPdfFileId(ids[0]); setCarriedFileName(undefined); setOriginalPdfFileId(undefined); setFontResult(null); autoFontTried.current = ""; }}
             onFileMeta={(results) => applyInteriorMeta(results[0])}
             fillWidth
           />
@@ -627,6 +727,15 @@ export function PrintSubmissionForm({
             fillWidth
           />
         </div>
+        <PrintSpecsPanel
+          report={specReport}
+          busy={specBusy}
+          chosenTrimCode={trimCode}
+          onUseTrim={setTrimCode}
+          fontBusy={fontBusy}
+          fontResult={fontResult}
+          onEmbed={(names) => { void embedFonts(names); }}
+        />
         <p style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8 }}>
           {backCoverMode === "custom"
             ? "Your uploaded wraparound cover (front, spine, and back) is the one that will be sent to Lulu — the auto-generated version won't be used."
@@ -813,7 +922,7 @@ export function PrintSubmissionForm({
               min={1}
               placeholder="Upload a print-ready PDF to auto-fill"
               value={printPages}
-              onChange={(e) => { setPrintPages(e.target.value); setPrintPagesAutoDetected(false); }}
+              onChange={(e) => { setPrintPages(e.target.value); markPagesAuto(false); }}
             />
             <div className="field-hint">
               {printPagesAutoDetected ? "Auto-detected from your uploaded print-ready PDF — edit if it's not quite right." : "Auto-fills once you upload the print-ready PDF above."}
@@ -893,7 +1002,7 @@ export function PrintSubmissionForm({
         </div>
         {paperbackEnabled && (
           <div className="stat-grid" style={{ marginTop: 12, marginBottom: 0 }}>
-            <div><div className="stat-label">Paperback Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Estimate; Lulu&apos;s exact price is used at sale</div></div>
+            <div><div className="stat-label">Paperback Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><div className="stat-sub">{costLabel(pbItem)}</div></div>
             <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of ${paperbackPricing.balance.toFixed(2)} (price minus printing cost)</div></div>
             <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold, 70% of the balance</div></div>
             <div><div className="stat-label">Royalty Via Affiliate Link</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.royaltyViaAffiliate.toFixed(2)}</div><div className="stat-sub">60% of the balance; the affiliate earns ${paperbackPricing.affiliateCommission.toFixed(2)}</div></div>
@@ -901,10 +1010,17 @@ export function PrintSubmissionForm({
         )}
         {hardcoverEnabled && (
           <div className="stat-grid" style={{ marginTop: paperbackEnabled ? 20 : 12, marginBottom: 0 }}>
-            <div><div className="stat-label">Hardcover Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><div className="stat-sub">Estimate; Lulu&apos;s exact price is used at sale</div></div>
+            <div><div className="stat-label">Hardcover Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><div className="stat-sub">{costLabel(hcItem)}</div></div>
             <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of ${hardcoverPricing.balance.toFixed(2)} (price minus printing cost)</div></div>
             <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold, 70% of the balance</div></div>
             <div><div className="stat-label">Royalty Via Affiliate Link</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.royaltyViaAffiliate.toFixed(2)}</div><div className="stat-sub">60% of the balance; the affiliate earns ${hardcoverPricing.affiliateCommission.toFixed(2)}</div></div>
+          </div>
+        )}
+              {costBusy && <p role="status" className="field-hint" style={{ marginTop: 10 }}>Asking Lulu for the printing cost of your file&apos;s specifications…</p>}
+        {priceProblems.length > 0 && (
+          <div role="alert" className="field-hint" style={{ marginTop: 10, color: "var(--coral-deep)" }}>
+            {priceProblems.map((m) => <p key={m} style={{ margin: "0 0 6px" }}><strong>Price too low.</strong> {m}</p>)}
+            <p style={{ margin: 0 }}>Publishing is blocked until this is fixed.</p>
           </div>
         )}
       </Card>
@@ -948,7 +1064,7 @@ export function PrintSubmissionForm({
         <button
           type="button"
           className="btn btn-primary btn-small"
-          disabled={submitting || !!ageGroupProblem(ageGroup) || !preflightPassed || !aiChoiceOf(aiDeclaration)}
+          disabled={submitting || !!ageGroupProblem(ageGroup) || !preflightPassed || !aiChoiceOf(aiDeclaration) || priceBlocked || fontBusy}
           onClick={() => handleSubmit(true)}
         >
           {submitting
@@ -962,6 +1078,12 @@ export function PrintSubmissionForm({
         {!aiChoiceOf(aiDeclaration) && (
           <div className="field-hint" style={{ marginTop: 6 }}>Tick one AI use box in the Book Information section first.</div>
         )}
+        {priceBlocked && (
+          <div className="field-hint" role="alert" style={{ marginTop: 6 }}>
+            {costBusy ? "Waiting for Lulu's printing cost…" : "Publishing is blocked until the price in the Pricing section covers Lulu's printing cost and leaves you a royalty."}
+          </div>
+        )}
+        {fontBusy && <div className="field-hint" style={{ marginTop: 6 }}>Waiting for the fonts to finish embedding…</div>}
         {!preflightPassed && (
           <div className="field-hint" style={{ marginTop: 6 }}>
             {!hasPrintFiles
