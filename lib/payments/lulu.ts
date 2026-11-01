@@ -39,9 +39,9 @@
  */
 
 import { getLuluCredentials, getLuluEnvironment } from "@/lib/api-keys";
+import { luluFileUrl, PRINT_JOB_LINK_SECONDS } from "@/lib/signed-file-url";
 import {
   ALL_SHIPPING_LEVEL_IDS,
-  absoluteFileUrl,
   buildLuluAddress,
   buildLuluPrintJobBody,
   lineProblems,
@@ -363,7 +363,7 @@ async function resolveCoverUrl(opts: {
 }): Promise<string> {
   const { prisma } = await import("@/lib/prisma");
   if (opts.meta?.backCoverMode === "custom" && opts.meta.customBackCoverPdfFileId) {
-    return absoluteFileUrl(`/api/files/${opts.meta.customBackCoverPdfFileId}`, opts.siteUrl) ?? "";
+    return luluFileUrl(`/api/files/${opts.meta.customBackCoverPdfFileId}`, opts.siteUrl, PRINT_JOB_LINK_SECONDS) ?? "";
   }
 
   const imageUrl = opts.meta?.frontCoverImageUrl || opts.bookCoverImageUrl;
@@ -381,7 +381,7 @@ async function resolveCoverUrl(opts: {
   const saved = await prisma.uploadedFile.create({
     data: { data: Uint8Array.from(pdf), mimeType: "application/pdf", originalName: `cover-wrap-${opts.orderId.slice(0, 8)}.pdf` },
   });
-  return absoluteFileUrl(`/api/files/${saved.id}`, opts.siteUrl) ?? "";
+  return luluFileUrl(`/api/files/${saved.id}`, opts.siteUrl, PRINT_JOB_LINK_SECONDS) ?? "";
 }
 
 export interface PrintJobOutcome {
@@ -511,7 +511,7 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
           title: l.book.title,
           podPackageId,
           coverUrl,
-          interiorUrl: absoluteFileUrl(manuscript?.url, siteUrl) ?? "",
+          interiorUrl: luluFileUrl(manuscript?.url, siteUrl, PRINT_JOB_LINK_SECONDS) ?? "",
           quantity,
         });
       }

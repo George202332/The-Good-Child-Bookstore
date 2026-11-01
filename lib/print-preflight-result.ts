@@ -9,7 +9,7 @@
  *   UNAVAILABLE  the check could not be completed (Lulu unreachable, not set up, or too slow)
  */
 
-import { explainLuluError } from "@/lib/lulu-validation";
+import { explainLuluError, isSiteFetchError } from "@/lib/lulu-validation";
 import type { PreflightIssue } from "@/lib/print-preflight";
 
 export type PreflightStatus = "CHECKING" | "PASSED" | "FAILED" | "UNAVAILABLE";
@@ -23,6 +23,18 @@ export interface PreflightJob {
   state: "running" | "passed" | "failed" | "error";
   status?: string;
   errors: string[];
+  /** The stored file Lulu is asked to download, so the check can be started again by itself. */
+  fileId?: string;
+  /** How many times the check was started again automatically after Lulu could not download the file. */
+  retries?: number;
+}
+
+/** How many times a check is started again automatically when Lulu could not fetch the file from our site. */
+export const MAX_FETCH_RETRIES = 3;
+
+/** A Lulu job that failed only because Lulu could not download the file from us: our problem, not the file's. */
+export function isSiteSideFailure(job: PreflightJob): boolean {
+  return job.state === "failed" && job.errors.length > 0 && job.errors.every(isSiteFetchError);
 }
 
 /** Which file a problem belongs to: the interior pages, the cover, or both/unknown. */
@@ -69,7 +81,7 @@ function summarizeCore(opts: { siteIssues: PreflightIssue[]; jobs: PreflightJob[
 
   const seen = new Set<string>();
   for (const job of opts.jobs) {
-    if (job.state !== "failed") continue;
+    if (job.state !== "failed" || isSiteSideFailure(job)) continue;
     for (const raw of job.errors.length > 0 ? job.errors : ["The file did not pass."]) {
       const e = explainLuluError(raw);
       const both = opts.jobs.some((j) => j !== job && j.kind === job.kind && j.format !== job.format);
@@ -80,6 +92,14 @@ function summarizeCore(opts: { siteIssues: PreflightIssue[]; jobs: PreflightJob[
     }
   }
   if (issues.length > 0) return { status: "FAILED", issues };
+
+  const siteSide = opts.jobs.find(isSiteSideFailure);
+  if (siteSide) {
+    return {
+      status: "UNAVAILABLE",
+      issues: [{ source: "lulu", file: siteSide.kind, message: "We could not finish Lulu's check because of a problem on our side: Lulu could not download your file from our site, even after trying again. Nothing is wrong with your file, so there is nothing to fix in it.", fix: "We will try again automatically. If this message stays, tell support." }],
+    };
+  }
 
   const errored = opts.jobs.find((j) => j.state === "error");
   if (errored) {
@@ -120,13 +140,13 @@ export function packageKey(ids: string[]): string {
 
 /** What happened to each file, so the interior and the cover each get their own verdict. */
 function verdictFor(kind: "interior" | "cover", core: Pick<PreflightSummary, "status" | "issues">, opts: { siteIssues: PreflightIssue[]; jobs: PreflightJob[] }): FileVerdict {
-  if (core.issues.some((i) => i.file === kind || (i.file === "both" && core.status === "FAILED"))) return "FAILED";
+  if (core.status === "FAILED" && core.issues.some((i) => i.file === kind || i.file === "both")) return "FAILED";
   if (opts.siteIssues.length > 0) return "WAITING"; // Lulu is only asked once the site checks pass
   const mine = opts.jobs.filter((j) => j.kind === kind);
   if (core.status === "UNAVAILABLE") return "UNAVAILABLE";
   if (mine.length > 0 && mine.every((j) => j.state === "passed")) return "PASSED";
-  if (mine.some((j) => j.state === "failed")) return "FAILED";
-  if (mine.some((j) => j.state === "error")) return "UNAVAILABLE";
+  if (mine.some((j) => j.state === "failed" && !isSiteSideFailure(j))) return "FAILED";
+  if (mine.some((j) => j.state === "error" || isSiteSideFailure(j))) return "UNAVAILABLE";
   return "CHECKING";
 }
 

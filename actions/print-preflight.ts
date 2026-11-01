@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { absoluteFileUrl } from "@/lib/lulu-order";
+import { CHECK_LINK_SECONDS, luluFileUrl } from "@/lib/signed-file-url";
 import { packagesFor } from "@/lib/print-preflight-packages";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { checkCoverSize, inspectPdf, runInteriorChecks, type PreflightIssue } from "@/lib/print-preflight";
@@ -15,6 +15,8 @@ import {
   type ShownIssue,
   type FileVerdict,
   type PreflightSummary,
+  MAX_FETCH_RETRIES,
+  isSiteSideFailure,
 } from "@/lib/print-preflight-result";
 import { getLuluValidation, luluExpectedCoverSize, luluIsConfigured, startLuluValidation, storeGeneratedCoverWrap } from "@/lib/payments/lulu";
 import { reportSystemError } from "@/lib/site-health/alert";
@@ -161,12 +163,12 @@ export async function startPrintPreflight(input: PrintPreflightInput): Promise<P
   // Start Lulu's validation for the interior and the cover, for each print format.
   const jobs: PreflightJob[] = [];
   let coverWrapFileId: string | null = null;
-  const interiorUrl = absoluteFileUrl(`/api/files/${input.interiorFileId}`, siteUrl)!;
+  const interiorUrl = luluFileUrl(`/api/files/${input.interiorFileId}`, siteUrl, CHECK_LINK_SECONDS)!;
   for (const p of packages) {
     const i = await startLuluValidation({ kind: "interior", sourceUrl: interiorUrl, podPackageId: p.packageId });
     jobs.push(i.ok
-      ? { kind: "interior", format: p.format, packageId: p.packageId, id: i.id, state: i.parsed.state, status: i.parsed.status, errors: i.parsed.errors }
-      : { kind: "interior", format: p.format, packageId: p.packageId, state: "error", errors: [i.error] });
+      ? { kind: "interior", format: p.format, packageId: p.packageId, id: i.id, state: i.parsed.state, status: i.parsed.status, errors: i.parsed.errors, fileId: input.interiorFileId }
+      : { kind: "interior", format: p.format, packageId: p.packageId, state: "error", errors: [i.error], fileId: input.interiorFileId });
 
     let coverFileId = input.customCoverFileId ?? null;
     if (!coverFileId) {
@@ -182,11 +184,11 @@ export async function startPrintPreflight(input: PrintPreflightInput): Promise<P
       coverWrapFileId = wrap.fileId;
     }
     const c = await startLuluValidation({
-      kind: "cover", sourceUrl: absoluteFileUrl(`/api/files/${coverFileId}`, siteUrl)!, podPackageId: p.packageId, interiorPageCount: pageCount ?? undefined,
+      kind: "cover", sourceUrl: luluFileUrl(`/api/files/${coverFileId}`, siteUrl, CHECK_LINK_SECONDS)!, podPackageId: p.packageId, interiorPageCount: pageCount ?? undefined,
     });
     jobs.push(c.ok
-      ? { kind: "cover", format: p.format, packageId: p.packageId, id: c.id, state: c.parsed.state, status: c.parsed.status, errors: c.parsed.errors }
-      : { kind: "cover", format: p.format, packageId: p.packageId, state: "error", errors: [c.error] });
+      ? { kind: "cover", format: p.format, packageId: p.packageId, id: c.id, state: c.parsed.state, status: c.parsed.status, errors: c.parsed.errors, fileId: coverFileId }
+      : { kind: "cover", format: p.format, packageId: p.packageId, state: "error", errors: [c.error], fileId: coverFileId });
   }
 
   const summary = summarizePreflight({ siteIssues: [], jobs, startedAt: new Date() });
@@ -217,6 +219,21 @@ export async function pollPrintPreflight(checkId: string): Promise<PrintPrefligh
     job.state = r.parsed.state;
     job.status = r.parsed.status;
     job.errors = r.parsed.errors;
+  }
+  // Lulu could not download a file from our site: that is our problem, not the author's. Start that check again
+  // by itself, with a fresh link, a few times before anything is shown.
+  const siteUrl = getPublicSiteUrl();
+  for (const job of jobs) {
+    if (!isSiteSideFailure(job) || !job.fileId || (job.retries ?? 0) >= MAX_FETCH_RETRIES) continue;
+    const again = await startLuluValidation({
+      kind: job.kind,
+      sourceUrl: luluFileUrl(`/api/files/${job.fileId}`, siteUrl, CHECK_LINK_SECONDS)!,
+      podPackageId: job.packageId,
+      interiorPageCount: job.kind === "cover" ? row.pageCount ?? undefined : undefined,
+    });
+    const retries = (job.retries ?? 0) + 1;
+    if (again.ok) { job.id = again.id; job.state = again.parsed.state; job.status = again.parsed.status; job.errors = again.parsed.errors; }
+    job.retries = retries;
   }
   const summary = summarizePreflight({ siteIssues: [], jobs, startedAt: row.createdAt });
   const updated = await prisma.printPreflightCheck.update({

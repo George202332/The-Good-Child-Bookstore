@@ -49,6 +49,14 @@ export function parseLuluValidation(json: unknown, kind: "interior" | "cover"): 
   return { status, state: "running", errors };
 }
 
+/** True when Lulu's message says it could not download the file from our address ("Failed to fetch from the source
+ * URL ... received a 500 status code"). That is a problem on OUR side, never a problem in the author's file. */
+export function isSiteFetchError(raw: string): boolean {
+  const t = raw.toLowerCase();
+  return t.includes("failed to fetch") || t.includes("source url") || /received an? \d{3} status/.test(t)
+    || t.includes("unable to retrieve") || t.includes("could not retrieve") || t.includes("not accessible") || t.includes("unable to download") || t.includes("could not download");
+}
+
 /** Lulu's wording turned into something an author can act on. Unknown messages are
  * shown as Lulu wrote them, after a plain lead-in. */
 export function explainLuluError(raw: string): { message: string; fix: string } {
@@ -71,8 +79,8 @@ export function explainLuluError(raw: string): { message: string; fix: string } 
   if (t.includes("transparen")) {
     return { message: "Lulu reports that the PDF uses transparency it cannot print.", fix: "Flatten transparency when exporting (PDF/X-1a does this) and upload the file again." };
   }
-  if (t.includes("download") || t.includes("unable to retrieve") || t.includes("could not retrieve") || t.includes("not accessible")) {
-    return { message: "Lulu could not download the file to check it.", fix: "Wait a minute and press \"Check again\". If it keeps happening, tell support." };
+  if (isSiteFetchError(raw)) {
+    return { message: "The check could not be completed because of a problem on our side: Lulu could not download your file from our site. Nothing is wrong with your file.", fix: "We try again automatically. If this message stays, tell support." };
   }
   return { message: `Lulu's file check reported: "${raw}"`, fix: "Fix this in the file and upload it again. If you are not sure how, send the message above to support." };
 }
