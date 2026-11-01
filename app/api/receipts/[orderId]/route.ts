@@ -45,6 +45,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ orde
     })),
     totalAmount: Number(order.totalAmount),
     shippingAmount: Number(order.shippingAmount ?? 0),
+    fulfillmentAmount: Number(order.fulfillmentAmount ?? 0),
   });
 
   return new NextResponse(Buffer.from(bytes), {

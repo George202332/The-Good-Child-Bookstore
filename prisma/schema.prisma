@@ -768,6 +768,10 @@ model Order {
   /// postal code it was quoted for), saved so what the customer saw is what was charged. Null for orders without
   /// printed copies and for orders placed before this was recorded.
   shippingQuote Json?
+  /// Lulu's per-order "fulfillment fee", charged to the customer as its own line on top of books and shipping, read
+  /// from Lulu's own cost quote when the order is placed. A pass-through like shipping: it never enters any royalty
+  /// or commission. Null on older orders and on orders with no printed copies.
+  fulfillmentAmount Decimal? @db.Decimal(10, 2)
   // Real status of the Lulu print-job submission (see
   // lib/payments/lulu.ts) — null if this order has no physical copies,
   // otherwise reflects what actually happened, not an assumption.

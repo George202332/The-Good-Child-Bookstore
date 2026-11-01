@@ -42,6 +42,9 @@ export interface TransactionRow {
   /** The Lulu shipping the customer paid on this printed order (charged once per order, so it
    * shows on the order's first printed item), or null (shown as a dash) for digital items. */
   shipping: number | null;
+  /** Lulu's per-order fulfillment fee the customer paid, shown once per order next to Shipping (on the first printed
+   * item); null (a dash) for digital items. A pass-through: never part of anyone's earnings. */
+  fulfillment: number | null;
   status: string;
   /** How the money moved: Paystack, PayPal - Card, PayPal - Email, or the payout method. */
   mode: string;
@@ -82,7 +85,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       affiliateShare: unknown;
       book: { title: string };
       format: string | null;
-      order: { status: string; shippingAmount: unknown; reader: { user: { name: string } }; paymentLogs: { gateway: string; rawPayload: unknown }[]; lines: { id: string; format: string | null; createdAt: Date }[] };
+      order: { status: string; shippingAmount: unknown; fulfillmentAmount: unknown; reader: { user: { name: string } }; paymentLogs: { gateway: string; rawPayload: unknown }[]; lines: { id: string; format: string | null; createdAt: Date }[] };
       affiliateLink: { affiliate: { user: { name: string } } } | null;
     };
 
@@ -92,6 +95,12 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       if (!isPrint(s.format) || s.order.shippingAmount == null) return null;
       const firstPrint = [...s.order.lines].filter((l) => isPrint(l.format)).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))[0];
       return firstPrint && firstPrint.id === s.id ? Number(s.order.shippingAmount) : null;
+    };
+
+    const fulfillmentShownOn = (s: SaleLineRow): number | null => {
+      if (!isPrint(s.format) || s.order.fulfillmentAmount == null) return null;
+      const firstPrint = [...s.order.lines].filter((l) => isPrint(l.format)).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))[0];
+      return firstPrint && firstPrint.id === s.id ? Number(s.order.fulfillmentAmount) : null;
     };
 
     const saleRows: TransactionRow[] = (saleLines as SaleLineRow[]).map((s) => {
@@ -108,6 +117,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
         affiliateShare: Number(s.affiliateShare),
         affiliateName: isAffiliateSale ? s.affiliateLink!.affiliate.user.name : null,
         shipping: shippingShownOn(s),
+        fulfillment: fulfillmentShownOn(s),
         status: s.order.status,
         mode: saleModeLabel(s.order.paymentLogs[0]),
       };
@@ -132,6 +142,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       affiliateShare: null,
       affiliateName: null,
       shipping: null,
+      fulfillment: null,
       status: p.status,
       mode: payoutModeLabel(p.recipient?.type),
     }));
@@ -165,6 +176,7 @@ export interface TransactionDetail {
   /** Printed items only: Lulu's production printing cost for this line, and the order's shipping. */
   printingCost?: number | null;
   shipping?: number | null;
+  fulfillment?: number | null;
   // Payout-only fields.
   currency?: string;
   earningsType?: string;
@@ -218,6 +230,7 @@ export async function getTransactionDetail(id: string, type: "sale" | "payout"):
         affiliateName: line.affiliateLink?.affiliate?.user?.name ?? null,
         printingCost: line.printingCost != null ? Number(line.printingCost) : null,
         shipping: isPrint(line.format) && line.order.shippingAmount != null ? Number(line.order.shippingAmount) : null,
+        fulfillment: isPrint(line.format) && line.order.fulfillmentAmount != null ? Number(line.order.fulfillmentAmount) : null,
       };
     }
 
@@ -296,9 +309,9 @@ export async function deleteTransaction(id: string, type: "sale" | "payout"): Pr
         // is tied to the order itself, which is now gone too.
         await deleteNotificationsForRecords([line.orderId]);
       } else {
-        const orderRow = await prisma.order.findUnique({ where: { id: line.orderId }, select: { shippingAmount: true } });
-        // The customer-paid shipping stays part of the order total.
-        const newTotal = remaining.reduce((sum: number, l: { grossAmount: unknown }) => sum + Number(l.grossAmount), 0) + Number(orderRow?.shippingAmount ?? 0);
+        const orderRow = await prisma.order.findUnique({ where: { id: line.orderId }, select: { shippingAmount: true, fulfillmentAmount: true } });
+        // The customer-paid shipping and Lulu fulfillment fee stay part of the order total.
+        const newTotal = remaining.reduce((sum: number, l: { grossAmount: unknown }) => sum + Number(l.grossAmount), 0) + Number(orderRow?.shippingAmount ?? 0) + Number(orderRow?.fulfillmentAmount ?? 0);
         await prisma.order.update({ where: { id: line.orderId }, data: { totalAmount: newTotal } });
       }
     } else {

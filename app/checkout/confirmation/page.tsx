@@ -125,7 +125,10 @@ export default async function CheckoutConfirmationPage({
         {order.shippingAmount > 0 && (
           <div className="summary-row" style={{ marginTop: 14 }}><span>Shipping (paid by you)</span><span>${order.shippingAmount.toFixed(2)}</span></div>
         )}
-        <div className="summary-row total" style={{ marginTop: order.shippingAmount > 0 ? 6 : 14 }}><span>Total paid</span><span>${order.totalAmount.toFixed(2)}</span></div>
+        {order.fulfillmentAmount > 0 && (
+          <div className="summary-row" style={{ marginTop: order.shippingAmount > 0 ? 6 : 14 }}><span>Fulfillment Fee (paid by you)</span><span>${order.fulfillmentAmount.toFixed(2)}</span></div>
+        )}
+        <div className="summary-row total" style={{ marginTop: order.shippingAmount > 0 || order.fulfillmentAmount > 0 ? 6 : 14 }}><span>Total paid</span><span>${order.totalAmount.toFixed(2)}</span></div>
         {/* A plain download link: the PDF saves straight away (no new window, no sign-in),
             protected by this order's secret key. */}
         <a href={receiptUrl(order.id)} download style={{ display: "inline-block", marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "var(--coral-deep)" }}>

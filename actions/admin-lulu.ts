@@ -26,6 +26,8 @@ export interface LuluOrderRow {
   production: number | null;
   shipping: number | null;
   paidShipping: number;
+  paidFulfillment: number;
+  fulfillment: number | null;
   error: string | null;
   flagged: boolean;
   /** "Rejected By Lulu", "Cancelled At Lulu", "Failed To Send" or "Not Sent Yet" on a row that needs attention. */
@@ -90,7 +92,7 @@ export async function getLuluReport(preset?: string, from?: string, to?: string)
     const luluFulfillment = num(o.luluActualFulfillment) ?? num(o.luluFulfillmentCost);
     const input: LuluOrderInput = {
       orderId: o.id, createdAt: o.createdAt, printJobStatus: o.printJobStatus, luluStatus: o.luluStatus, luluShippedAt: o.luluShippedAt,
-      shippingPaid: Number(o.shippingAmount ?? 0), luluProduction, luluShipping, luluFulfillment, lines: lineInputs,
+      shippingPaid: Number(o.shippingAmount ?? 0), fulfillmentPaid: Number(o.fulfillmentAmount ?? 0), luluProduction, luluShipping, luluFulfillment, lines: lineInputs,
     };
     inputs.push(input);
     if (o.luluSyncedAt && (!lastSynced || o.luluSyncedAt > lastSynced)) lastSynced = o.luluSyncedAt;
@@ -105,7 +107,7 @@ export async function getLuluReport(preset?: string, from?: string, to?: string)
       formats: [...new Set(printLines.map((l: { format: string | null }) => (l.format === "hardcover" ? "Hardcover" : "Paperback")))].join(", "),
       luluStatus: o.luluStatus ?? (o.printJobStatus === "SUBMITTED" ? "Sent (not yet checked)" : o.printJobStatus === "FAILED" ? "Failed" : "Not sent"),
       bucket, bucketLabel: BUCKET_LABEL[bucket],
-      production: luluProduction, shipping: luluShipping, paidShipping: Number(o.shippingAmount ?? 0),
+      production: luluProduction, shipping: luluShipping, paidShipping: Number(o.shippingAmount ?? 0), paidFulfillment: Number(o.fulfillmentAmount ?? 0), fulfillment: luluFulfillment,
       error: o.printJobError ?? null,
       flagged: bucket === "REJECTED" || bucket === "FAILED" || bucket === "NOT_SENT",
       problemLabel: problemLabelFor(bucket, o.luluStatus, o.luluRejectionReason),

@@ -8,7 +8,9 @@
  *   unavailable  Lulu could not be asked right now: a clear message to try again, and nothing to pick. (An estimate is
  *                never charged, so none is offered here.)
  */
-export type ShippingState = "ok" | "incomplete" | "cannot-ship" | "unavailable" | "none";
+export type ShippingState = "ok" | "incomplete" | "cannot-ship" | "unavailable" | "price-unavailable" | "none";
+// "price-unavailable": Lulu can ship to this address, but its printing price (cost calculator) could not be confirmed
+// for this order, so nothing is offered and the customer is told exactly why (see lib/lulu-quote-failure.ts).
 
 export function shippingOutcome(opts: { lulu: "ok" | "none" | "error" | "incomplete"; offered: number; countryName: string }): { state: ShippingState; message?: string } {
   const where = opts.countryName ? `to ${opts.countryName}` : "to this address";

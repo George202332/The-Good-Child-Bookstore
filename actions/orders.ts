@@ -52,6 +52,7 @@ const createPendingOrderSchema = z.object({
   /** The sealed quote the customer was shown (lib/shipping-quote-token.ts) and the price displayed with it. */
   shippingQuoteToken: z.string().max(1000).optional(),
   shippingAmountShown: z.number().min(0).max(100000).optional(),
+  fulfillmentAmountShown: z.number().min(0).max(100000).optional(),
 });
 
 /**
@@ -100,6 +101,8 @@ export interface CreateOrderResult {
   totalAmount?: number;
   /** True when the postage changed since the customer saw it; the checkout then asks again and shows the new price. */
   shippingChanged?: boolean;
+  /** True when Lulu's printing price could not be confirmed: the checkout re-asks and keeps Pay switched off until it can. */
+  priceUnavailable?: boolean;
 }
 
 /** Finds the current session's reader profile, or creates one for them
@@ -188,6 +191,7 @@ export async function createPendingOrder(input: {
   /** The sealed quote shown at checkout, and the amount displayed with it. */
   shippingQuoteToken?: string;
   shippingAmountShown?: number;
+  fulfillmentAmountShown?: number;
 }): Promise<CreateOrderResult> {
   const parsed = createPendingOrderSchema.safeParse(input);
   if (!parsed.success) {
@@ -241,6 +245,8 @@ export async function createPendingOrder(input: {
   const printingCostByLine = new Map<(typeof lines)[number], number>();
   let luluShippingCost: number | null = null;
   let luluFulfillmentCost: number | null = null;
+  // What the customer pays for Lulu's per-order fulfillment fee (a pass-through, like postage).
+  let fulfillmentAmount: number | null = null;
   if (hasPrintLine) {
     const { buildLuluAddress, shippingProblems } = await import("@/lib/lulu-order");
     const addr = buildLuluAddress({
@@ -340,11 +346,27 @@ export async function createPendingOrder(input: {
       shippingLevel as import("@/lib/lulu-order").LuluShippingLevel,
     );
     if (!costs.ok) {
-      return { ok: false, error: "We couldn't get Lulu's printing price for this order right now. Please try again in a moment." };
+      // Say exactly what went wrong (and alert the team when it is on our side) instead of a vague "try again".
+      const { needsTeamAlert } = await import("@/lib/lulu-quote-failure");
+      if (needsTeamAlert(costs.failure.kind)) {
+        const { reportSystemError } = await import("@/lib/site-health/alert");
+        await reportSystemError("CHECKOUT", new Error(`Order could not be created: Lulu's printing price was not available (${costs.failure.kind}${costs.failure.status ? `, HTTP ${costs.failure.status}` : ""}): ${costs.failure.detail || "no detail"}`), {}).catch(() => undefined);
+      }
+      return { ok: false, priceUnavailable: true, error: costs.failure.customerMessage };
     }
     printLines.forEach((l, i) => printingCostByLine.set(l, costs.quote.lineCosts[i]));
     luluShippingCost = costs.quote.shippingCost;
     luluFulfillmentCost = costs.quote.fulfillmentCost;
+    // Lulu's fulfillment fee is charged to the customer, exactly as quoted, once per order. If it is not what the
+    // checkout showed, the order is not created and the checkout shows the new figure.
+    fulfillmentAmount = costs.quote.fulfillmentCost;
+    if (typeof input.fulfillmentAmountShown === "number" && Math.abs(fulfillmentAmount - input.fulfillmentAmountShown) > 0.005) {
+      return {
+        ok: false,
+        shippingChanged: true,
+        error: `The fulfillment fee for your order changed from $${input.fulfillmentAmountShown.toFixed(2)} to $${fulfillmentAmount.toFixed(2)}. Your total has been updated; please review it and press pay again.`,
+      };
+    }
   }
 
   const { readerProfileId, error } = await resolveReaderProfileId(input.guestEmail, input.guestName);
@@ -384,7 +406,7 @@ export async function createPendingOrder(input: {
   // Books plus postage. Postage is not part of any line, so it never enters
   // the author / affiliate / company split.
   const { orderTotalWithShipping } = await import("@/lib/shipping-quote");
-  const totalAmount = orderTotalWithShipping(+subtotal.toFixed(2), shippingAmount ?? 0);
+  const totalAmount = orderTotalWithShipping(+subtotal.toFixed(2), shippingAmount ?? 0, fulfillmentAmount ?? 0);
   const commissionRates = await getCommissionRates();
 
   // Referral commission is tiered (Hawk/Falcon/Eagle/Phoenix — see
@@ -422,6 +444,7 @@ export async function createPendingOrder(input: {
       shippingQuote: shippingQuoteRecord ? (JSON.parse(JSON.stringify(shippingQuoteRecord)) as object) : undefined,
       luluShippingCost,
       luluFulfillmentCost,
+      fulfillmentAmount,
       lines: {
         create: lines.map((l) => {
           const lineGross = +(l.unitPrice * l.qty).toFixed(2);
@@ -539,6 +562,8 @@ export interface OrderSummary {
   totalAmount: number;
   /** Postage the customer paid (included in totalAmount); 0 when none. */
   shippingAmount: number;
+  /** Lulu's per-order fulfillment fee the customer paid (included in totalAmount); 0 when none. */
+  fulfillmentAmount: number;
   printJobStatus: string | null;
   printJobError: string | null;
   items: { title: string; price: number; downloadUrl: string | null; hasEbook: boolean; hasAudiobook: boolean; isPrint: boolean; coverImageUrl: string | null }[];
@@ -564,6 +589,7 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary | n
       status: order.status,
       totalAmount: Number(order.totalAmount),
       shippingAmount: order.shippingAmount != null ? Number(order.shippingAmount) : 0,
+      fulfillmentAmount: order.fulfillmentAmount != null ? Number(order.fulfillmentAmount) : 0,
       printJobStatus: order.printJobStatus,
       printJobError: order.printJobError,
       items: order.lines.map((l) => {

@@ -85,20 +85,22 @@ export function LuluClient({ report, range, from, to }: { report: LuluReport; ra
           <Line label="Book prices (print)" value={money(t.paidBooks)} />
           <Line label="Of which production printing" value={money(t.paidProduction)} />
           <Line label="Shipping" value={money(t.paidShipping)} />
-          <Line label="Production + shipping" value={money(t.paidProduction + t.paidShipping)} bold />
+          <Line label="Fulfillment fee" value={money(t.paidFulfillment)} />
+          <Line label="Production + shipping + fulfillment fee" value={money(t.paidProduction + t.paidShipping + t.paidFulfillment)} bold />
         </Card>
         <Card title="What Lulu Charges">
           <Line label="Production printing" value={money(t.luluProduction)} />
           <Line label="Shipping" value={money(t.luluShipping)} />
-          <Line label="Fulfilment fee (company cost)" value={money(t.luluFulfillment)} />
+          <Line label="Fulfillment fee" value={money(t.luluFulfillment)} />
           <Line label="Total owed to Lulu" value={money(t.luluTotal)} bold />
         </Card>
         <Card title="Difference">
           <Line label="Production printing" value={signed(t.productionDifference)} />
           <Line label="Shipping" value={signed(t.shippingDifference)} />
-          <Line label="Production + shipping" value={signed(t.totalDifference)} bold />
+          <Line label="Fulfillment fee" value={signed(t.fulfillmentDifference)} />
+          <Line label="Production + shipping + fulfillment fee" value={signed(t.grandDifference)} bold />
           <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>
-            Customer payments minus Lulu charges. Zero means they match; a minus means Lulu charged more than customers paid. The fulfilment fee is not included.
+            Customer payments minus Lulu charges. Zero means they match; a minus means Lulu charged more than customers paid. The fulfillment fee is charged to the customer and passed to Lulu, so it is included.
           </p>
         </Card>
       </div>
@@ -134,11 +136,12 @@ export function LuluClient({ report, range, from, to }: { report: LuluReport; ra
               <th style={TH_STYLE}>Lulu Status</th>
               <th style={TH_STYLE}>Production Printing</th>
               <th style={TH_STYLE}>Shipping</th>
+              <th style={TH_STYLE}>Fulfillment Fee</th>
             </tr>
           </thead>
           <tbody>
             {report.rows.length === 0 && (
-              <tr><td style={TD_STYLE} colSpan={5}>No printed orders in this period.</td></tr>
+              <tr><td style={TD_STYLE} colSpan={6}>No printed orders in this period.</td></tr>
             )}
             {report.rows.map((r) => (
               <Fragment key={r.orderId}>
@@ -177,10 +180,11 @@ export function LuluClient({ report, range, from, to }: { report: LuluReport; ra
                   </td>
                   <td style={TD_STYLE}>{money(r.production)}</td>
                   <td style={TD_STYLE}>{money(r.shipping)}</td>
+                  <td style={TD_STYLE}>{money(r.fulfillment)}</td>
                 </tr>
                 {open === r.orderId && (
                   <tr>
-                    <td colSpan={5} style={{ ...TD_STYLE, background: "var(--cream)" }}>
+                    <td colSpan={6} style={{ ...TD_STYLE, background: "var(--cream)" }}>
                       <div><strong>Order:</strong> #{r.orderNumber} &middot; {when(r.date)} &middot; customer {r.customer}</div>
                       <div><strong>Book:</strong> {r.books} &middot; <strong>Format:</strong> {r.formats} &middot; <strong>Author:</strong> {r.authors}</div>
                       <div><strong>Lulu status:</strong> {r.luluStatus}{r.problemLabel ? ` (${r.problemLabel})` : ""}</div>

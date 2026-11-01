@@ -14,6 +14,23 @@ import { reportSystemError } from "@/lib/site-health/alert";
  * re-throwing (both callers already handle a thrown error from this
  * function: the webhook route lets it 500 so Paystack retries, and the
  * return-page catch falls back to its own DB-status check). */
+/** Whether this payment was made with test money or real money, saved on the payment record so a test payment can
+ * never later be treated as a real one (see lib/print-submission-guard.ts). Never contains a key: only "test" or "live". */
+async function gatewayModeOf(gateway: "PAYSTACK" | "PAYPAL", rawPayload: unknown): Promise<"test" | "live"> {
+  try {
+    const { getPaystackCredentials, getPaypalCredentials } = await import("@/lib/api-keys");
+    if (gateway === "PAYPAL") return (await getPaypalCredentials()).environment === "live" ? "live" : "test";
+    const domain = (rawPayload as { data?: { domain?: unknown } } | null)?.data?.domain;
+    if (domain === "test") return "test";
+    const c = await getPaystackCredentials();
+    if (c.secretKey?.startsWith("sk_test_")) return "test";
+    if (c.secretKey?.startsWith("sk_live_")) return "live";
+    return c.mode === "live" ? "live" : "test";
+  } catch {
+    return "test"; // when in doubt, treat it as test money: the print job is held, never wrongly sent
+  }
+}
+
 export async function finalizeOrderPayment(
   orderId: string,
   gateway: "PAYSTACK" | "PAYPAL",
@@ -41,8 +58,10 @@ export async function finalizeOrderPayment(
         reader: { include: { user: true } },
       },
     });
+    const siteGatewayMode = await gatewayModeOf(gateway, rawPayload);
+    const base = rawPayload && typeof rawPayload === "object" && !Array.isArray(rawPayload) ? (rawPayload as Record<string, unknown>) : { payload: rawPayload ?? null };
     await prisma.paymentLog.create({
-      data: { orderId, gateway, rawPayload: rawPayload as object, verified: true },
+      data: { orderId, gateway, rawPayload: { ...base, siteGatewayMode } as object, verified: true },
     });
   } catch (e) {
     // Put the order back to PENDING so Paystack's retry (or the buyer's return) can finish the job.

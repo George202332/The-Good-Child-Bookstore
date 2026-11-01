@@ -94,7 +94,8 @@ export function pickShippingQuote(
   return luluQuotes.find((q) => q.level === level) ?? estimateShipping(level, countryIso, copies);
 }
 
-/** Books + postage, to the cent. */
-export function orderTotalWithShipping(subtotal: number, shipping: number): number {
-  return Math.round((subtotal + shipping) * 100) / 100;
+/** Books + postage (+ Lulu's per-order fulfillment fee when there is one), to the cent. Neither the postage nor the
+ * fee is part of any line, so neither ever enters the author / affiliate / company split. */
+export function orderTotalWithShipping(subtotal: number, shipping: number, fulfillment: number = 0): number {
+  return Math.round((subtotal + shipping + fulfillment) * 100) / 100;
 }

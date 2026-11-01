@@ -47,6 +47,8 @@ export interface PurchaseEmailInput {
   buyerEmail: string;
   lines: PurchaseEmailLine[];
   shippingAmount: number;
+  /** Lulu's per-order fulfillment fee the customer paid (0 when none). */
+  fulfillmentAmount?: number;
   totalAmount: number;
   shipTo?: { name?: string | null; address?: string | null; country?: string | null } | null;
   /** Present only for a brand-new guest account (Case A). */
@@ -131,6 +133,7 @@ export function buildPurchaseEmail(input: PurchaseEmailInput): { subject: string
     <p style="margin:0 0 4px;color:#6b6178;font-size:13px;">Order <strong style="color:#2E2440;">#${input.orderNumber}</strong> &middot; ${dateText}</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:10px 0 6px;font-size:14px;">${rows}</table>
     ${input.shippingAmount > 0 ? `<p style="margin:4px 0;text-align:right;font-size:14px;">Shipping: ${money(input.shippingAmount)}</p>` : ""}
+    ${(input.fulfillmentAmount ?? 0) > 0 ? `<p style="margin:4px 0;text-align:right;font-size:14px;">Fulfillment Fee: ${money(input.fulfillmentAmount ?? 0)}</p>` : ""}
     <p style="margin:4px 0 0;text-align:right;font-weight:bold;font-size:15px;">Total paid: ${money(input.totalAmount)}</p>
     ${digitalHtml}
     ${printHtml}
@@ -198,6 +201,7 @@ export async function sendPurchaseEmail(orderId: string, opts?: { onlyIfRecent?:
         fileReady: l.format === "audiobook" ? l.book.files.some((f) => f.kind === "AUDIOBOOK") : true,
       })),
       shippingAmount: Number(order.shippingAmount ?? 0),
+      fulfillmentAmount: Number(order.fulfillmentAmount ?? 0),
       totalAmount: Number(order.totalAmount),
       shipTo: { name: order.shipName, address: order.shipAddress, country: order.shipCountry },
       setPasswordUrl,
@@ -215,6 +219,7 @@ export async function sendPurchaseEmail(orderId: string, opts?: { onlyIfRecent?:
         items: order.lines.map((l) => ({ title: l.book.title, format: l.format ?? "ebook", price: Number(l.grossAmount) })),
         totalAmount: Number(order.totalAmount),
         shippingAmount: Number(order.shippingAmount ?? 0),
+        fulfillmentAmount: Number(order.fulfillmentAmount ?? 0),
       });
       attachment = { filename: `receipt-${orderId.slice(0, 8)}.pdf`, content: bytes };
     } catch (e) {

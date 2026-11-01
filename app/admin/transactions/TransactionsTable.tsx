@@ -20,6 +20,7 @@ const COLUMNS: { label: string; help: string }[] = [
   { label: "Royalty", help: "The author's share (royalty) of this sale." },
   { label: "Commission", help: "The affiliate's commission on this sale, and which affiliate earned it, if any." },
   { label: "Shipping", help: "The Lulu shipping the customer paid on a printed order, passed through to Lulu. It is charged once per order, so it shows on the order's first printed item. A dash means a digital item. Shipping is never part of anyone's earnings." },
+  { label: "Fulfillment Fee", help: "Lulu's per-order fulfillment fee, paid by the customer and passed to Lulu exactly as Lulu quoted it. It is charged once per order, so it shows on the order's first printed item. A dash means a digital item. It is never part of anyone's earnings." },
 ];
 
 /**
@@ -91,6 +92,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                       {r.affiliateShare !== null ? `$${r.affiliateShare.toFixed(2)}${r.affiliateName ? ` (${r.affiliateName})` : ""}` : "—"}
                     </td>
                     <td style={TD}>{r.shipping !== null ? `$${r.shipping.toFixed(2)}` : "—"}</td>
+                    <td style={TD}>{r.fulfillment !== null ? `$${r.fulfillment.toFixed(2)}` : "—"}</td>
                   </tr>
                 );
               })
@@ -127,6 +129,7 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                     <DetailRow label="Author share" value={`$${(detail.authorShare ?? 0).toFixed(2)}`} />
                     {detail.printingCost != null && <DetailRow label="Printing cost (Lulu)" value={`$${detail.printingCost.toFixed(2)}`} />}
                     {detail.shipping != null && <DetailRow label="Shipping (paid by customer, passed to Lulu)" value={`$${detail.shipping.toFixed(2)}`} />}
+                    {detail.fulfillment != null && <DetailRow label="Fulfillment fee (paid by customer, passed to Lulu)" value={`$${detail.fulfillment.toFixed(2)}`} />}
                     <DetailRow label="Affiliate share" value={`$${(detail.affiliateShare ?? 0).toFixed(2)}${detail.affiliateName ? ` — ${detail.affiliateName}` : ""}`} />
                     <DetailRow label="Author referral share" value={`$${(detail.authorReferralShare ?? 0).toFixed(2)}`} />
                   </>

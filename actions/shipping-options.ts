@@ -7,6 +7,9 @@ import { shippingLevelsFor, type LuluShippingLevel } from "@/lib/lulu-order";
 import { quoteCartShippingDetailed } from "@/lib/payments/cart-shipping";
 import { shippingOutcome, type ShippingState } from "@/lib/shipping-options-state";
 import { quoteFingerprint, sealQuote } from "@/lib/shipping-quote-token";
+import { buildLuluAddress } from "@/lib/lulu-order";
+import { quoteLuluCosts, type ShippingQuoteLine } from "@/lib/payments/lulu";
+import type { QuoteFailure } from "@/lib/lulu-quote-failure";
 
 export interface ShippingOptionRow {
   id: LuluShippingLevel;
@@ -19,6 +22,9 @@ export interface ShippingOptionRow {
   source: "lulu" | "estimate";
   minDays?: number;
   maxDays?: number;
+  /** Lulu's per-order fulfillment fee for this order (USD), read from Lulu's own cost quote. Charged to the customer
+   * once per order, as its own line; never part of any royalty. Only present for Lulu's own quotes. */
+  fulfillment?: number;
   /** The sealed quote for this exact price (only for Lulu's own quotes). Sent back when the order is placed so the
    * customer is charged exactly what they were shown. */
   token?: string;
@@ -38,6 +44,22 @@ export interface ShippingOptionsResult {
   state: ShippingState;
   /** A plain-language explanation to show when the state is "cannot-ship" or "unavailable". */
   message?: string;
+}
+
+// Team alerts about a Lulu problem on OUR side are sent at most once every 15 minutes per kind, so a customer
+// retyping an address cannot flood the alert list.
+const alerted = new Map<string, number>();
+async function alertOnce(failure: QuoteFailure): Promise<void> {
+  if (failure.kind !== "auth" && failure.kind !== "unreadable" && failure.kind !== "pages" && failure.kind !== "not-configured") return;
+  const last = alerted.get(failure.kind) ?? 0;
+  if (Date.now() - last < 15 * 60 * 1000) return;
+  alerted.set(failure.kind, Date.now());
+  try {
+    const { reportSystemError } = await import("@/lib/site-health/alert");
+    await reportSystemError("CHECKOUT", new Error(`Checkout could not get Lulu's printing price (${failure.kind}${failure.status ? `, HTTP ${failure.status}` : ""}): ${failure.detail || "no detail"}`), {});
+  } catch {
+    // an alert that cannot be sent must never break checkout
+  }
 }
 
 const cache = new Map<string, { at: number; result: ShippingOptionsResult }>();
@@ -87,11 +109,36 @@ export async function getShippingOptions(input: ShippingOptionsInput): Promise<S
   // A method Lulu does not offer for this address (for example Priority Mail) is never shown with an estimate.
   if (lulu === "ok") rows = rows.filter((r) => r.source === "lulu");
   if (lulu === "none" || lulu === "error") rows = [];
-  const { state, message } = shippingOutcome({ lulu, offered: rows.length, countryName: input.country });
+  let { state, message } = shippingOutcome({ lulu, offered: rows.length, countryName: input.country });
   if (state !== "ok" && state !== "incomplete") rows = [];
+
+  // Lulu's printing price (and its fulfillment fee) for this exact order and each offered method is confirmed
+  // BEFORE the customer can continue, so the payment step is never reached with an unconfirmed price. A method whose
+  // price cannot be confirmed is not offered.
+  let costFailure: QuoteFailure | undefined;
+  if (state === "ok" && rows.length > 0) {
+    const costLines: ShippingQuoteLine[] = lines.map((l) => ({
+      title: l.title, format: l.format as "paperback" | "hardcover", quantity: l.qty, submissionMetadata: l.submissionMetadata,
+      manuscriptUrl: l.files.find((f: { kind: string; url: string }) => f.kind === "MANUSCRIPT")?.url,
+    }));
+    const costAddress = buildLuluAddress({ name: input.name || "Customer", email: "quote@thegoodchildbookstore.com", rawAddress: input.address, countryIso: iso, phone: input.phone });
+    const costs = await Promise.all(rows.map((r) => quoteLuluCosts(costLines, costAddress, r.id)));
+    const priced: ShippingOptionRow[] = [];
+    rows.forEach((r, i) => {
+      const c = costs[i];
+      if (c.ok) priced.push({ ...r, fulfillment: c.quote.fulfillmentCost });
+      else costFailure = costFailure ?? c.failure;
+    });
+    rows = priced;
+    if (rows.length === 0 && costFailure) {
+      state = "price-unavailable";
+      message = costFailure.customerMessage;
+      await alertOnce(costFailure);
+    }
+  }
   const result: ShippingOptionsResult = { rows, state, message };
   // A temporary failure is never remembered, so the next check asks Lulu again.
-  if (lulu !== "error") {
+  if (lulu !== "error" && state !== "price-unavailable") {
     if (cache.size > 200) cache.clear();
     cache.set(key, { at: Date.now(), result });
   }

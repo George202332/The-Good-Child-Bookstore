@@ -56,7 +56,7 @@ export const BUCKET_LABEL: Record<StatusBucket, string> = {
 export function bucketFor(printJobStatus: string | null | undefined, luluStatus: string | null | undefined): StatusBucket {
   const ours = (printJobStatus ?? "").toUpperCase();
   if (ours === "FAILED") return "FAILED";
-  if (!ours || ours === "SUBMITTING") return "NOT_SENT";
+  if (!ours || ours === "SUBMITTING" || ours === "HELD_TEST") return "NOT_SENT";
   const l = (luluStatus ?? "").toUpperCase();
   if (l === "SHIPPED") return "SHIPPED";
   if (l === "IN_PRODUCTION") return "IN_PRODUCTION";
@@ -116,6 +116,8 @@ export interface LuluOrderInput {
   luluStatus: string | null;
   luluShippedAt: Date | null;
   shippingPaid: number; // what the customer paid for shipping
+  /** What the customer paid for Lulu's per-order fulfillment fee (a pass-through, like shipping). */
+  fulfillmentPaid?: number;
   /** What Lulu charges: the print job's own figures when synced, otherwise the quote saved at order time. */
   luluProduction: number | null;
   luluShipping: number | null;
@@ -131,6 +133,7 @@ export interface LuluTotals {
   paidBooks: number;
   paidProduction: number; // the part of the book price that covers Lulu's production printing
   paidShipping: number;
+  paidFulfillment: number;
   /** (b) What Lulu charges the company. */
   luluProduction: number;
   luluShipping: number;
@@ -140,13 +143,19 @@ export interface LuluTotals {
    * Zero means they match; the fulfilment fee is a separate company cost. */
   productionDifference: number;
   shippingDifference: number;
+  /** Customers' fulfillment-fee payments minus the fulfillment fee Lulu charges. */
+  fulfillmentDifference: number;
+  /** Production + shipping only (as before). */
   totalDifference: number;
+  /** Production + shipping + fulfillment fee: zero means everything customers paid matches what Lulu charges. */
+  grandDifference: number;
 }
 
 export function summarizeTotals(orders: LuluOrderInput[]): LuluTotals {
-  let paidBooks = 0, paidProduction = 0, paidShipping = 0, lp = 0, ls = 0, lf = 0;
+  let paidBooks = 0, paidProduction = 0, paidShipping = 0, paidFulfillment = 0, lp = 0, ls = 0, lf = 0;
   for (const o of orders) {
     paidShipping += o.shippingPaid;
+    paidFulfillment += o.fulfillmentPaid ?? 0;
     for (const l of o.lines) {
       paidBooks += l.paidBooks;
       paidProduction += l.printingCost ?? 0;
@@ -157,11 +166,13 @@ export function summarizeTotals(orders: LuluOrderInput[]): LuluTotals {
   }
   const productionDifference = r2(paidProduction - lp);
   const shippingDifference = r2(paidShipping - ls);
+  const fulfillmentDifference = r2(paidFulfillment - lf);
   return {
     orders: orders.length,
-    paidBooks: r2(paidBooks), paidProduction: r2(paidProduction), paidShipping: r2(paidShipping),
+    paidBooks: r2(paidBooks), paidProduction: r2(paidProduction), paidShipping: r2(paidShipping), paidFulfillment: r2(paidFulfillment),
     luluProduction: r2(lp), luluShipping: r2(ls), luluFulfillment: r2(lf), luluTotal: r2(lp + ls + lf),
-    productionDifference, shippingDifference, totalDifference: r2(productionDifference + shippingDifference),
+    productionDifference, shippingDifference, fulfillmentDifference, totalDifference: r2(productionDifference + shippingDifference),
+    grandDifference: r2(productionDifference + shippingDifference + fulfillmentDifference),
   };
 }
 

@@ -58,6 +58,7 @@ import { coverLayout, toPoints, buildCoverWrapPdf } from "@/lib/lulu-cover";
 import { parseLuluShippingOptions, pickShippingQuote, type ShippingQuote } from "@/lib/shipping-quote";
 import { parseLuluCostCalculation, type LuluCostQuote } from "@/lib/print-costs";
 import { classifyFailure } from "@/lib/lulu-rejection";
+import { classifyQuoteFailure, type QuoteFailure } from "@/lib/lulu-quote-failure";
 
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 
@@ -187,29 +188,70 @@ export async function quoteLuluShippingDetailed(
   }
 }
 
+const LULU_REQUEST_TIMEOUT_MS = 8000;
+const LULU_RETRY_DELAYS_MS = [500, 1500];
+
+/** POSTs a quote request to Lulu. A network error, a timeout, "slow down" (429) or a server error (5xx) is asked
+ * again (up to three tries in all); a clear "no" from Lulu (4xx) is never repeated. Never throws. */
+async function postLuluQuote(url: string, token: string, body: unknown): Promise<{ status: number; text: string } | { network: string }> {
+  let last: { status: number; text: string } | { network: string } = { network: "no attempt was made" };
+  for (let attempt = 0; attempt <= LULU_RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(LULU_REQUEST_TIMEOUT_MS),
+      });
+      const text = await res.text().catch(() => "");
+      last = { status: res.status, text };
+      if (res.status < 500 && res.status !== 429 && res.status !== 408) return last;
+    } catch (e) {
+      last = { network: e instanceof Error ? (e.name === "TimeoutError" ? "Lulu did not answer in time" : e.message) : "Lulu could not be reached" };
+    }
+    if (attempt < LULU_RETRY_DELAYS_MS.length) await new Promise((r) => setTimeout(r, LULU_RETRY_DELAYS_MS[attempt]));
+  }
+  return last;
+}
+
 /** Lulu's production printing cost for each printed line (and its shipping and fulfilment
  * charges) for this exact order, via Lulu's cost calculator. Used when an order is placed so
- * the printing cost saved on each sale line is exactly what Lulu quoted. Never throws. */
+ * the printing cost saved on each sale line is exactly what Lulu quoted. Asks again a few times when Lulu is
+ * slow or briefly failing, and says exactly why when it cannot get a price. Never throws. */
 export async function quoteLuluCosts(
   lines: ShippingQuoteLine[],
   address: LuluAddress,
   level: LuluShippingLevel,
-): Promise<{ ok: true; quote: LuluCostQuote } | { ok: false; error: string }> {
+): Promise<{ ok: true; quote: LuluCostQuote } | { ok: false; error: string; failure: QuoteFailure }> {
+  const fail = (failure: QuoteFailure) => {
+    // Server log only: the kind, Lulu's HTTP status and its short reason. Never a key, token or secret.
+    console.error(`[lulu-quote] cost calculation failed kind=${failure.kind} status=${failure.status ?? "none"} level=${level} country=${address.country_code} detail=${failure.detail || "none"}`);
+    return { ok: false as const, error: failure.detail ? `${failure.kind}: ${failure.detail}` : failure.kind, failure };
+  };
   try {
+    if (!(await luluIsConfigured())) return fail(classifyQuoteFailure({ notConfigured: true }));
     const items = await buildQuoteItems(lines);
-    if (!items) return { ok: false, error: "A printed book's page count is unknown, so Lulu's printing cost cannot be quoted." };
+    if (!items) return fail(classifyQuoteFailure({ pagesMissing: true }));
     const baseUrl = luluBaseUrl(await getLuluEnvironment());
-    const token = await getAccessToken(baseUrl);
-    const res = await fetch(`${baseUrl}/print-job-cost-calculations/`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ line_items: items, shipping_address: luluQuoteAddress(address), shipping_option: level }),
+    let token: string;
+    try {
+      token = await getAccessToken(baseUrl);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      const auth = /authentication failed \((\d+)\)/i.exec(msg);
+      return fail(auth ? classifyQuoteFailure({ status: Number(auth[1]) >= 500 ? Number(auth[1]) : 401, body: msg }) : classifyQuoteFailure({ network: msg || "Lulu could not be reached" }));
+    }
+    const res = await postLuluQuote(`${baseUrl}/print-job-cost-calculations/`, token, {
+      line_items: items, shipping_address: luluQuoteAddress(address), shipping_option: level,
     });
-    if (!res.ok) return { ok: false, error: `Lulu's cost calculator answered ${res.status}.` };
-    const quote = parseLuluCostCalculation(await res.json(), items.length);
-    return quote ? { ok: true, quote } : { ok: false, error: "Lulu's cost calculator reply could not be read." };
+    if ("network" in res) return fail(classifyQuoteFailure({ network: res.network }));
+    if (res.status < 200 || res.status >= 300) return fail(classifyQuoteFailure({ status: res.status, body: res.text }));
+    let json: unknown = null;
+    try { json = JSON.parse(res.text); } catch { /* handled below */ }
+    const quote = parseLuluCostCalculation(json, items.length);
+    return quote ? { ok: true, quote } : fail(classifyQuoteFailure({ status: res.status, unreadable: true, body: res.text.slice(0, 200) }));
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Lulu's cost calculator could not be reached." };
+    return fail(classifyQuoteFailure({ network: e instanceof Error ? e.message : "Lulu's cost calculator could not be reached." }));
   }
 }
 
@@ -401,7 +443,7 @@ async function resolveCoverUrl(opts: {
 export interface PrintJobOutcome {
   ok: boolean;
   /** "none" = the order has no print copies; "already" = it was already sent. */
-  state: "submitted" | "failed" | "none" | "already" | "missing" | "not-paid";
+  state: "submitted" | "failed" | "none" | "already" | "missing" | "not-paid" | "held";
   error?: string;
 }
 
@@ -442,6 +484,33 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
 
     const printLines = order.lines.filter((l: { format: string | null }) => l.format === "paperback" || l.format === "hardcover");
     if (printLines.length === 0) return { ok: true, state: "none" };
+
+    // Already sent: nothing more to decide.
+    if (order.printJobStatus === "SUBMITTED" && !opts.resend) return { ok: true, state: "already" };
+
+    // Safety check: a REAL Lulu print job (live account) is created only for an order whose payment was confirmed
+    // by the gateway AND made with real money. A test payment is held, never sent (lib/print-submission-guard.ts).
+    {
+      const { printSubmissionDecision, savedPaymentMode, HELD_STATUS } = await import("@/lib/print-submission-guard");
+      const { getPaystackCredentials, getPaypalCredentials } = await import("@/lib/api-keys");
+      const log = await prisma.paymentLog.findFirst({ where: { orderId, verified: true }, orderBy: { createdAt: "desc" }, select: { gateway: true, rawPayload: true } });
+      const decision = printSubmissionDecision({
+        luluEnvironment: await getLuluEnvironment(),
+        gateway: log && (log.gateway === "PAYSTACK" || log.gateway === "PAYPAL") ? log.gateway : null,
+        paymentMode: savedPaymentMode(log?.rawPayload),
+        currentPaystackMode: (await getPaystackCredentials()).mode,
+        currentPaypalMode: (await getPaypalCredentials()).environment === "live" ? "live" : "test",
+        isTestData: order.isTestData,
+      });
+      if (!decision.allow) {
+        await prisma.order.updateMany({
+          where: { id: orderId, OR: [{ printJobStatus: null }, { printJobStatus: HELD_STATUS }, { printJobStatus: "FAILED" }] },
+          data: { printJobStatus: HELD_STATUS, printJobError: decision.message },
+        });
+        console.warn("Print job held (not sent to Lulu) for order", orderId, decision.code);
+        return { ok: false, state: "held", error: decision.message };
+      }
+    }
 
     // Claim the order so only one caller submits it. A normal call only
     // claims an order that was never sent or previously failed; an admin

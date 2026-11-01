@@ -20,6 +20,8 @@ import { restrictionMessage } from "@/lib/book-country-restriction";
 import { isLineRestricted } from "@/lib/book-visibility";
 import { getSiteSettings } from "@/actions/site-settings";
 import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-settings";
+import { PhonePrefixSelect } from "@/components/PhonePrefixSelect";
+import { prefixAfterCountryChange, prefixAfterManualChoice } from "@/lib/phone-prefix";
 
 /**
  * Converted from checkoutHTML() and its 5 step-render functions
@@ -44,6 +46,8 @@ interface CheckoutData {
   email: string;
   phone: string;
   phoneCountryCode: string;
+  /** True once the customer chose the prefix by hand: from then on a country change does not overwrite it. */
+  phoneCodeManual: boolean;
   country: string;
   billingAddress: string;
   /** Apartment, suite, unit (optional) — print orders only. */
@@ -93,6 +97,7 @@ export function CheckoutClient({
     email: "",
     phone: "",
     phoneCountryCode: "+1",
+    phoneCodeManual: false,
     country: "",
     billingAddress: "",
     street2: "",
@@ -181,9 +186,13 @@ export function CheckoutClient({
   // The customer pays postage for printed copies, on top of the books.
   const chosenShipping = hasPrintItem ? shippingOptions.find((o) => o.id === shippingLevel) : undefined;
   // What the order is created with: the method and the exact sealed quote the customer was shown.
-  const shippingOrderFields = hasPrintItem ? { shippingLevel, shippingQuoteToken: chosenShipping?.token, shippingAmountShown: chosenShipping?.amount } : {};
+  const shippingOrderFields = hasPrintItem ? { shippingLevel, shippingQuoteToken: chosenShipping?.token, shippingAmountShown: chosenShipping?.amount, fulfillmentAmountShown: chosenShipping?.fulfillment } : {};
   const shippingCost = chosenShipping?.amount ?? 0;
-  const grandTotal = Math.round((subtotal + shippingCost) * 100) / 100;
+  // Lulu's per-order fulfillment fee, as quoted by Lulu for this order, charged once and passed on to Lulu.
+  const fulfillmentFee = chosenShipping?.fulfillment ?? 0;
+  const grandTotal = Math.round((subtotal + shippingCost + fulfillmentFee) * 100) / 100;
+  // The Pay buttons are ready only once Lulu's printing price (and fee) for this exact order is confirmed.
+  const printPriceConfirmed = !hasPrintItem || (!shippingBusy && !!chosenShipping && chosenShipping.source === "lulu" && typeof chosenShipping.fulfillment === "number");
   // Print copies are shipped by our print partner, which needs a complete
   // address; the order stores it as street / city / state / postal code.
   const shipAddressValue = hasPrintItem
@@ -235,7 +244,7 @@ export function CheckoutClient({
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);
-      if (created.shippingChanged) setShippingRefresh((n) => n + 1);
+      if (created.shippingChanged || created.priceUnavailable) setShippingRefresh((n) => n + 1);
       setPaymentError(created.error ?? "Something went wrong creating your order.");
       return;
     }
@@ -265,7 +274,7 @@ export function CheckoutClient({
     });
     if (!created.ok || !created.orderId) {
       setSubmitting(false);
-      if (created.shippingChanged) setShippingRefresh((n) => n + 1);
+      if (created.shippingChanged || created.priceUnavailable) setShippingRefresh((n) => n + 1);
       setPaymentError(created.error ?? "Something went wrong creating your order.");
       return;
     }
@@ -297,7 +306,7 @@ export function CheckoutClient({
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);
-      if (created.shippingChanged) setShippingRefresh((n) => n + 1);
+      if (created.shippingChanged || created.priceUnavailable) setShippingRefresh((n) => n + 1);
       setPaymentError(created.error ?? "Something went wrong creating your order.");
       return;
     }
@@ -414,8 +423,8 @@ export function CheckoutClient({
           <div className="checkout-summary-card">
             <h3>Order Summary</h3>
             <div className="summary-row"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div>
-            {hasPrintItem && <div className="summary-row"><span>Shipping (printed copies)</span><span>Added at checkout</span></div>}
-            <div className="summary-row total"><span>{hasPrintItem ? "Total before shipping" : "Total"}</span><span>${subtotal.toFixed(2)}</span></div>
+            {hasPrintItem && <div className="summary-row"><span>Shipping and Fulfillment Fee (printed copies)</span><span>Added at checkout</span></div>}
+            <div className="summary-row total"><span>{hasPrintItem ? "Total before shipping and fee" : "Total"}</span><span>${subtotal.toFixed(2)}</span></div>
             {restrictedNotice}
             <button className="btn btn-primary" style={{ width: "100%", justifyContent: "center", marginTop: 18 }} disabled={hasRestricted} onClick={() => goTo(2)}>
               Continue
@@ -446,8 +455,12 @@ export function CheckoutClient({
             required
             value={data.country}
             onChange={(e) => {
-              const selected = COUNTRIES.find((c) => c.name === e.target.value);
-              setData((d) => ({ ...d, country: e.target.value, phoneCountryCode: selected?.dialCode ?? d.phoneCountryCode }));
+              const country = e.target.value;
+              // The prefix follows the country (the typed number is kept) unless the customer chose a prefix by hand.
+              setData((d) => {
+                const next = prefixAfterCountryChange({ prefix: d.phoneCountryCode, manual: d.phoneCodeManual }, country);
+                return { ...d, country, phoneCountryCode: next.prefix, phoneCodeManual: next.manual };
+              });
             }}
           >
             <option value="">Select a country</option>
@@ -455,15 +468,13 @@ export function CheckoutClient({
           </select>
           <label className="field-label field-label-compact" htmlFor="co-phone">Phone number {!hasPrintItem && <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(optional)</span>}</label>
           <div style={{ display: "flex", gap: 8 }}>
-            <select
-              className="field field-compact"
-              style={{ maxWidth: 110, flexShrink: 0 }}
-              aria-label="Phone country code"
+            <PhonePrefixSelect
               value={data.phoneCountryCode}
-              onChange={(e) => setData((d) => ({ ...d, phoneCountryCode: e.target.value }))}
-            >
-              {COUNTRIES.map((c) => <option key={c.iso2} value={c.dialCode}>{c.dialCode} {c.iso2}</option>)}
-            </select>
+              onChange={(prefix) => setData((d) => {
+                const next = prefixAfterManualChoice(prefix);
+                return { ...d, phoneCountryCode: next.prefix, phoneCodeManual: next.manual };
+              })}
+            />
             <input className="field field-compact" id="co-phone" type="tel" style={{ flex: 1 }} required={hasPrintItem} value={data.phone} onChange={(e) => setData((d) => ({ ...d, phone: e.target.value }))} />
           </div>
           <label className="field-label field-label-compact" htmlFor="co-address">{hasPrintItem ? "Street address" : "Billing address"}</label>
@@ -483,11 +494,11 @@ export function CheckoutClient({
                 {shippingBusy && (
                   <div className="ship-updating" role="status" aria-live="polite"><span className="ship-spinner" aria-hidden="true" />Updating Shipping…</div>
                 )}
-                {shippingResult && !shippingBusy && (shippingResult.state === "cannot-ship" || shippingResult.state === "unavailable") && (
+                {shippingResult && !shippingBusy && (shippingResult.state === "cannot-ship" || shippingResult.state === "unavailable" || shippingResult.state === "price-unavailable") && (
                   <div className="ship-problem" role="alert">{shippingResult.message}</div>
                 )}
                 {shippingOptions.length === 0 ? (
-                  !shippingBusy && !(shippingResult && (shippingResult.state === "cannot-ship" || shippingResult.state === "unavailable")) && (
+                  !shippingBusy && !(shippingResult && (shippingResult.state === "cannot-ship" || shippingResult.state === "unavailable" || shippingResult.state === "price-unavailable")) && (
                     <div className="field-hint">Choose your country above to see the shipping methods and prices available to you.</div>
                   )
                 ) : (
@@ -523,7 +534,7 @@ export function CheckoutClient({
           </div>
           <div className="checkout-actions">
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(1)}>← Back to Cart</button>
-            <button className="btn btn-primary btn-small" type="submit" disabled={hasPrintItem && (shippingBusy || !chosenShipping || chosenShipping.source !== "lulu")}>Continue</button>
+            <button className="btn btn-primary btn-small" type="submit" disabled={hasPrintItem && !printPriceConfirmed}>Continue</button>
           </div>
         </form>
       )}
@@ -557,13 +568,16 @@ export function CheckoutClient({
                 <span>{chosenShipping ? `$${chosenShipping.amount.toFixed(2)}${chosenShipping.source === "estimate" ? " (estimate)" : ""}` : "Choose a method"}</span>
               </div>
             )}
+            {hasPrintItem && chosenShipping && typeof chosenShipping.fulfillment === "number" && (
+              <div className="summary-row"><span>Fulfillment Fee</span><span>${chosenShipping.fulfillment.toFixed(2)}</span></div>
+            )}
             <div className="summary-row"><span>Taxes</span><span>Calculated at payment</span></div>
             <div className="summary-row total"><span>Grand total</span><span>${grandTotal.toFixed(2)}</span></div>
           </div>
           {restrictedNotice && <div style={{ marginTop: 16 }}>{restrictedNotice}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 20 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(2)}>← Back</button>
-            <button className="btn btn-primary btn-small" disabled={hasRestricted} onClick={() => goTo(4)}>Continue to Payment</button>
+            <button className="btn btn-primary btn-small" disabled={hasRestricted || !printPriceConfirmed} onClick={() => goTo(4)}>Continue to Payment</button>
           </div>
         </div>
       )}
@@ -579,7 +593,7 @@ export function CheckoutClient({
                     <strong>{m.cardType ?? "Card"} •••• {m.last4}</strong>
                     <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{m.bank}</div>
                   </div>
-                  <button type="button" className="btn btn-primary btn-small" disabled={submitting || hasRestricted} onClick={() => payWithSaved(m.id)}>
+                  <button type="button" className="btn btn-primary btn-small" disabled={submitting || hasRestricted || !printPriceConfirmed} onClick={() => payWithSaved(m.id)}>
                     {submitting ? "Processing…" : `Pay $${grandTotal.toFixed(2)}`}
                   </button>
                 </div>
@@ -593,7 +607,7 @@ export function CheckoutClient({
               <button
                 type="button"
                 className="btn btn-block"
-                disabled={submitting || hasRestricted}
+                disabled={submitting || hasRestricted || !printPriceConfirmed}
                 onClick={payWithPayPal}
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#FFC439", color: "#111", fontWeight: 700 }}
               >
@@ -630,6 +644,18 @@ export function CheckoutClient({
           )}
 
           {restrictedNotice}
+          {!printPriceConfirmed && (
+            <div className="checkout-error" role="alert">
+              {shippingBusy
+                ? "Confirming the printing price for your order with our print partner…"
+                : shippingResult?.message ?? "We could not confirm the printing price for your order, so payment is switched off. Nothing has been charged."}
+              {!shippingBusy && (
+                <div style={{ marginTop: 8 }}>
+                  <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(3)}>← Back to shipping</button>
+                </div>
+              )}
+            </div>
+          )}
           {paymentError && (
             <div className="checkout-error" role="alert">
               {paymentError}
@@ -643,7 +669,7 @@ export function CheckoutClient({
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 16 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(3)}>← Back</button>
             {(availability === null || availability.paystack) && (
-              <button className="btn btn-primary btn-small" onClick={completeOrder} disabled={submitting || hasRestricted || availability === null}>
+              <button className="btn btn-primary btn-small" onClick={completeOrder} disabled={submitting || hasRestricted || availability === null || !printPriceConfirmed}>
                 {submitting ? "Processing…" : "Pay by Card"}
               </button>
             )}
