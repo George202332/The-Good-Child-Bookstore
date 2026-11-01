@@ -1169,3 +1169,32 @@ model PrintPreflightCheck {
   @@index([interiorFileId])
   @@index([bookId])
 }
+
+/// Round 53: a simple log of every print sale line whose royalty was recalculated after Lulu's printing cost.
+/// It keeps the figures that were stored before the recalculation. Nothing reads it except the audit.
+model SaleLineRoyaltyLog {
+  id                       String   @id @default(cuid())
+  saleLineId               String
+  orderId                  String?
+  bookId                   String?
+  /// Figures stored BEFORE the recalculation.
+  previousPrintingCost     Decimal? @db.Decimal(10, 2)
+  previousCompanyShare     Decimal  @db.Decimal(10, 2)
+  previousAuthorShare      Decimal  @db.Decimal(10, 2)
+  previousAffiliateShare   Decimal  @db.Decimal(10, 2)
+  previousAuthorReferralShare Decimal @db.Decimal(10, 2)
+  /// Figures stored AFTER it.
+  newPrintingCost          Decimal  @db.Decimal(10, 2)
+  newCompanyShare          Decimal  @db.Decimal(10, 2)
+  newAuthorShare           Decimal  @db.Decimal(10, 2)
+  newAffiliateShare        Decimal  @db.Decimal(10, 2)
+  newAuthorReferralShare   Decimal  @db.Decimal(10, 2)
+  /// recorded | lulu-specs | estimate-specs | none
+  costSource               String
+  /// True when the order had no recorded printing cost, so the cost for the book's specs was used.
+  flagged                  Boolean  @default(false)
+  createdAt                DateTime @default(now())
+
+  @@index([saleLineId])
+  @@index([createdAt])
+}

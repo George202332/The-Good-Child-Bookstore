@@ -34,36 +34,93 @@ export function coverGuides(d: CoverDims): CoverGuides {
   return { ...d, outerIn: +outerIn.toFixed(3), bleedIn, wrapIn: +Math.max(0, outerIn - bleedIn).toFixed(3), safeIn: COVER_SAFE_IN };
 }
 
-const r = (n: number) => +n.toFixed(3);
+const PT = 72;
 
-/** An SVG guide at true size (1 user unit = 1 inch): bleed edge, trim lines, safe area, spine and fold lines. */
-export function coverTemplateSvg(g: CoverGuides, pageCount?: number): string {
-  const { widthIn: W, heightIn: H, outerIn: o, trimWIn: tw, trimHIn: th, spineIn: sp, safeIn: s } = g;
+/** PDF's standard fonts only cover Latin-1; anything else is shown as "?" so a title can never break the file. */
+export function pdfSafeText(text: string): string {
+  return Array.from(text).map((c) => (c.codePointAt(0)! <= 255 && c.codePointAt(0)! >= 32 ? c : "?")).join("");
+}
+
+export interface CoverTemplateInfo { title?: string; trimLabel: string; pageCount?: number }
+
+/**
+ * The downloadable cover template: ONE PDF page at exactly the full-wrap size (back cover, spine, front cover),
+ * with the guides drawn at true size. Colours: pink = bleed, orange = hardcover wrap, black = trim, green dashed = safe
+ * zone, blue dashed = spine fold lines, grey box = barcode area. A header note and a legend sit inside the back cover.
+ */
+export async function coverTemplatePdf(g: CoverGuides, info: CoverTemplateInfo): Promise<Uint8Array> {
+  const { PDFDocument, StandardFonts, rgb, degrees } = await import("pdf-lib");
+  const doc = await PDFDocument.create();
+  const W = g.widthIn * PT, H = g.heightIn * PT;
+  const page = doc.addPage([W, H]);
+  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const reg = await doc.embedFont(StandardFonts.Helvetica);
+  const C = {
+    bleed: rgb(1, 0.82, 0.82), bleedLine: rgb(0.85, 0.15, 0.15), wrap: rgb(1, 0.9, 0.72), trim: rgb(0, 0, 0),
+    safe: rgb(0.1, 0.55, 0.25), fold: rgb(0.15, 0.35, 0.85), spine: rgb(0.87, 0.92, 1), ink: rgb(0.15, 0.15, 0.15), grey: rgb(0.45, 0.45, 0.45),
+  };
+  const o = g.outerIn * PT, bleed = g.bleedIn * PT, tw = g.trimWIn * PT, th = g.trimHIn * PT, sp = g.spineIn * PT, safe = g.safeIn * PT;
   const backX = o, spineX = o + tw, frontX = o + tw + sp;
-  const label = g.format === "hardcover" ? "Hardcover" : "Paperback";
-  const fs = Math.min(0.22, Math.max(0.1, tw / 20));
-  const text = (x: number, y: number, t: string, anchor = "middle", size = fs, fill = "#555") =>
-    `<text x="${r(x)}" y="${r(y)}" font-family="Arial, Helvetica, sans-serif" font-size="${r(size)}" fill="${fill}" text-anchor="${anchor}">${t}</text>`;
-  return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${r(W)}in" height="${r(H)}in" viewBox="0 0 ${r(W)} ${r(H)}">`,
-    `<rect width="${r(W)}" height="${r(H)}" fill="#ffffff"/>`,
-    // bleed / wrap area (outside the trim)
-    `<rect width="${r(W)}" height="${r(H)}" fill="#ffe3e3"/>`,
-    `<rect x="${r(o)}" y="${r(o)}" width="${r(W - 2 * o)}" height="${r(H - 2 * o)}" fill="#ffffff"/>`,
-    // spine
-    `<rect x="${r(spineX)}" y="${r(o)}" width="${r(sp)}" height="${r(th)}" fill="#e8f0ff"/>`,
-    // safe areas
-    `<rect x="${r(backX + s)}" y="${r(o + s)}" width="${r(tw - 2 * s)}" height="${r(th - 2 * s)}" fill="none" stroke="#2a9d4a" stroke-width="0.012" stroke-dasharray="0.06 0.04"/>`,
-    `<rect x="${r(frontX + s)}" y="${r(o + s)}" width="${r(tw - 2 * s)}" height="${r(th - 2 * s)}" fill="none" stroke="#2a9d4a" stroke-width="0.012" stroke-dasharray="0.06 0.04"/>`,
-    // trim lines and spine folds
-    `<rect x="${r(o)}" y="${r(o)}" width="${r(W - 2 * o)}" height="${r(th)}" fill="none" stroke="#d62828" stroke-width="0.012"/>`,
-    `<line x1="${r(spineX)}" y1="0" x2="${r(spineX)}" y2="${r(H)}" stroke="#3366cc" stroke-width="0.01" stroke-dasharray="0.08 0.05"/>`,
-    `<line x1="${r(frontX)}" y1="0" x2="${r(frontX)}" y2="${r(H)}" stroke="#3366cc" stroke-width="0.01" stroke-dasharray="0.08 0.05"/>`,
-    text(backX + tw / 2, H / 2, "BACK COVER", "middle", fs * 1.4),
-    text(frontX + tw / 2, H / 2, "FRONT COVER", "middle", fs * 1.4),
-    sp >= 0.25 ? `<text transform="translate(${r(spineX + sp / 2 + fs / 3)} ${r(H / 2)}) rotate(-90)" font-family="Arial, Helvetica, sans-serif" font-size="${r(Math.min(fs, sp * 0.5))}" fill="#555" text-anchor="middle">SPINE ${r(sp)} in</text>` : "",
-    text(W / 2, 0.16, `${label} cover wrap ${r(W)} x ${r(H)} in${pageCount ? `, ${pageCount} pages` : ""}`, "middle", 0.13, "#222"),
-    text(W / 2, H - 0.06, `Pink = bleed${g.wrapIn > 0 ? " and wrap" : ""} (${r(o)} in beyond trim, artwork must reach it)  |  Red = trim  |  Green = keep text inside (${s} in from trim)  |  Blue = spine folds`, "middle", 0.1, "#222"),
-    `</svg>`,
-  ].filter(Boolean).join("\n");
+  const rect = (x: number, y: number, w: number, h: number, color: ReturnType<typeof rgb>) => page.drawRectangle({ x, y, width: w, height: h, color });
+  const frame = (x: number, y: number, w: number, h: number, color: ReturnType<typeof rgb>, dash?: number[], width = 0.9) =>
+    page.drawRectangle({ x, y, width: w, height: h, borderColor: color, borderWidth: width, borderDashArray: dash, borderDashPhase: 0 });
+  const t = (text: string, x: number, y: number, size: number, opts: { font?: typeof bold; color?: ReturnType<typeof rgb>; rotate?: number } = {}) =>
+    page.drawText(pdfSafeText(text), { x, y, size, font: opts.font ?? reg, color: opts.color ?? C.ink, rotate: opts.rotate ? degrees(opts.rotate) : undefined });
+  const center = (text: string, cx: number, y: number, size: number, font = reg, color = C.ink) => t(text, cx - font.widthOfTextAtSize(pdfSafeText(text), size) / 2, y, size, { font, color });
+
+  // Outer margin: wrap (orange) first, then the bleed strip (pink) on top of its outer edge.
+  rect(0, 0, W, H, g.wrapIn > 0 ? C.wrap : C.bleed);
+  if (g.wrapIn > 0) {
+    rect(0, 0, W, bleed, C.bleed); rect(0, H - bleed, W, bleed, C.bleed); rect(0, 0, bleed, H, C.bleed); rect(W - bleed, 0, bleed, H, C.bleed);
+  }
+  rect(o, o, W - 2 * o, th, rgb(1, 1, 1));
+  rect(spineX, o, sp, th, C.spine);
+  // Trim, safe zones and folds
+  frame(o, o, W - 2 * o, th, C.trim, undefined, 1);
+  frame(bleed, bleed, W - 2 * bleed, H - 2 * bleed, C.bleedLine, [4, 3], 0.8);
+  frame(backX + safe, o + safe, Math.max(0, tw - 2 * safe), Math.max(0, th - 2 * safe), C.safe, [5, 3]);
+  frame(frontX + safe, o + safe, Math.max(0, tw - 2 * safe), Math.max(0, th - 2 * safe), C.safe, [5, 3]);
+  for (const x of [spineX, frontX]) page.drawLine({ start: { x, y: 0 }, end: { x, y: H }, thickness: 0.9, color: C.fold, dashArray: [6, 4] });
+
+  // Panel labels
+  const mid = o + th / 2;
+  center("BACK COVER", backX + tw / 2, mid, 22, bold, C.grey);
+  center("FRONT COVER", frontX + tw / 2, mid, 22, bold, C.grey);
+  if (sp >= 0.22 * PT) t(`SPINE ${g.spineIn.toFixed(3)} in`, spineX + sp / 2 + Math.min(5, sp * 0.18), mid - 40, Math.min(11, sp * 0.45), { font: bold, color: C.fold, rotate: 90 });
+  else center("SPINE", spineX + sp / 2, o + th + 4, 6, bold, C.fold);
+
+  // Header note (inside the back cover, top, inside the safe zone)
+  const hx = backX + safe + 6;
+  let hy = o + th - safe - 14;
+  const line = (text: string, size = 10, font = reg) => { t(text, hx, hy, size, { font }); hy -= size + 4; };
+  line(info.title ? `Title: ${info.title}` : "Cover template", 12, bold);
+  line(`Trim size: ${info.trimLabel}${info.pageCount ? `   Pages: ${info.pageCount}` : ""}`);
+  line(`Spine width: ${g.spineIn.toFixed(3)} in`);
+  line(`Full wrap: ${g.widthIn.toFixed(3)} x ${g.heightIn.toFixed(3)} in (${g.format === "hardcover" ? "Hardcover" : "Paperback"})`);
+  line(`Bleed: ${g.bleedIn} in${g.wrapIn > 0 ? `   Wrap: ${g.wrapIn.toFixed(3)} in` : ""}   Safe margin: ${g.safeIn} in`);
+
+  // Barcode area: back cover, lower right, inside the safe zone (2 in x 1.2 in)
+  const bw = Math.min(2 * PT, tw - 2 * safe), bh = 1.2 * PT;
+  const bx = backX + tw - safe - bw, by = o + safe;
+  page.drawRectangle({ x: bx, y: by, width: bw, height: bh, color: rgb(0.93, 0.93, 0.93), borderColor: C.grey, borderWidth: 0.8 });
+  center("BARCODE AREA", bx + bw / 2, by + bh / 2 - 3, 9, bold, C.grey);
+
+  // Legend (back cover, lower left, inside the safe zone)
+  const lx = backX + safe + 6;
+  let ly = o + safe + 62;
+  const swatch = (color: ReturnType<typeof rgb>, label: string, line?: boolean) => {
+    if (line) page.drawLine({ start: { x: lx, y: ly + 3 }, end: { x: lx + 18, y: ly + 3 }, thickness: 1.2, color, dashArray: [4, 2] });
+    else page.drawRectangle({ x: lx, y: ly, width: 18, height: 7, color, borderColor: C.grey, borderWidth: 0.3 });
+    t(label, lx + 24, ly, 8);
+    ly -= 11;
+  };
+  t("LEGEND", lx, ly + 11, 8, { font: bold });
+  swatch(C.bleed, "Bleed: artwork must reach the edge");
+  if (g.wrapIn > 0) swatch(C.wrap, "Wrap: folds round the board");
+  swatch(C.trim, "Trim line (where the book is cut)");
+  swatch(C.safe, "Safe zone: keep text inside", true);
+  swatch(C.fold, "Fold lines (spine edges)", true);
+
+  doc.setTitle(`${g.format} cover template`);
+  return doc.save();
 }

@@ -246,9 +246,14 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
             <span className="age-pill">Ages {b.age} years</span>
           </div>
 
-          <div className="az-desc">
-            <p>{b.blurb}</p>
-          </div>
+          {b.descriptionHtml ? (
+            // Cleaned when saved and again when read (lib/description-html.ts): only normal formatting reaches this point.
+            <div className="az-desc rich-description" dangerouslySetInnerHTML={{ __html: b.descriptionHtml }} />
+          ) : (
+            <div className="az-desc">
+              <p>{b.blurb}</p>
+            </div>
+          )}
 
           {/* Only rendered when the author actually provided one — no
              "no statement provided" fallback — and sits above the
@@ -273,27 +278,22 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
               <div className="az-details-row" id={`details-track-${b.id}`}>
                 {!audiobookOnly && (!isRealBook || shownPages > 0) && (
                   <div className="az-detail-item">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 2h9l3 3v17H6z" /><path d="M14 2v4h4" /></svg>
                     <strong>{shownPages}</strong><span>Pages</span>
                   </div>
                 )}
                 <div className="az-detail-item">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx={12} cy={12} r={9} /><path d="M3 12h18M12 3c2.2 2.4 3.5 5.5 3.5 9s-1.3 6.6-3.5 9c-2.2-2.4-3.5-5.5-3.5-9s1.3-6.6 3.5-9z" /></svg>
                   <strong>{b.language || "English"}</strong><span>Language</span>
                 </div>
                 {b.series && (
                   <div className="az-detail-item az-detail-item-wide">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M6 3h12v18l-6-4-6 4V3z" /></svg>
                     <strong title={b.series}>{b.series}</strong><span>Category</span>
                   </div>
                 )}
                 <div className="az-detail-item az-detail-item-wide">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={4} width={18} height={18} rx={2} /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
                   <strong>{b.pubDate}</strong><span>Published</span>
                 </div>
                 {(!isRealBook || b.publisher) && (
                 <div className="az-detail-item az-detail-item-wide">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={3} y={7} width={18} height={14} rx={2} /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                   <strong>{b.publisher || "Good Child Press"}</strong><span>Publisher</span>
                 </div>
                 )}
@@ -301,13 +301,11 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                   <>
                     {(!isRealBook || shownDimensions) && (
                     <div className="az-detail-item">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x={4} y={3} width={16} height={18} rx={1} /><path d="M8 3v18M16 3v18" /></svg>
                       <strong>{shownDimensions || "5.5 × 8.5 in"}</strong><span>Dimensions</span>
                     </div>
                     )}
                     {(!isRealBook || b.fileSizeKB) && (
                     <div className="az-detail-item">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
                       <strong>{formatFileSize(b.fileSizeKB, b.pages)}</strong><span>File Size</span>
                     </div>
                     )}

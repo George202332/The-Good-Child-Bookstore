@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { editionAffiliateEligible } from "@/lib/affiliate-eligibility";
+import { sanitizeDescriptionHtml, plainToDescriptionHtml } from "@/lib/description-html";
 import { capitalizeName } from "@/lib/person-name";
 import { canonicalCategory, categoryOfSubcategory, normalizeGenre, isSubcategoryOf } from "@/lib/taxonomy";
 import { parseRestrictedCountries } from "@/lib/book-country-restriction";
@@ -114,6 +115,7 @@ export function buildPrintInitial(book: BookWithRelations): PrintSubmissionIniti
     ageGroup: book.ageGroup ?? "",
     readingLevel: str(meta.readingLevel),
     description: book.description ?? "",
+    descriptionHtml: sanitizeDescriptionHtml(str(meta.printDescriptionHtml) || str(meta.longDescriptionHtml)) || plainToDescriptionHtml(book.description),
     aiDeclaration: str(meta.aiDeclaration),
     authorFirstName: capitalizeName(str(meta.authorFirstName)),
     authorLastName: capitalizeName(str(meta.authorLastName)),
@@ -163,6 +165,7 @@ export function sharedPrefill(book: BookWithRelations, c: { category: string; ge
     authorFirstName: capitalizeName(str(meta.authorFirstName)),
     authorLastName: capitalizeName(str(meta.authorLastName)),
     description: (book.description ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+    descriptionHtml: sanitizeDescriptionHtml(str(meta.longDescriptionHtml) || str(meta.printDescriptionHtml)) || undefined,
     aiDeclaration: str(meta.aiDeclaration),
     publisher: str(meta.publisher),
     // Each edition has its own switch: a print-only record keeps it in affiliateEligiblePrint, the others in affiliateEnabled.

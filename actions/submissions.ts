@@ -17,6 +17,7 @@ import { printPriceProblem } from "@/lib/print-price-server";
 import { cleanIsbn, isbn13Of, isbnProblem } from "@/lib/identifiers";
 import type { SavedPreflight } from "@/lib/print-preflight-result";
 import { isAiDeclaration, isLegacyAiText } from "@/lib/ai-declaration";
+import { sanitizeDescriptionHtml, descriptionToPlainText } from "@/lib/description-html";
 import { capitalizeName } from "@/lib/person-name";
 import { titleKey } from "@/lib/book-groups";
 
@@ -50,6 +51,9 @@ export async function rememberAuthorAlias(firstNameRaw: string, lastNameRaw: str
   const profile = await prisma.authorProfile.findUnique({ where: { userId: session.user.id } });
   if (!profile) return;
   try {
+    // Never a second copy that differs only by capitals or spacing from one already saved.
+    const same = await prisma.authorAlias.findFirst({ where: { authorProfileId: profile.id, firstName: { equals: firstName.trim(), mode: "insensitive" }, lastName: { equals: lastName.trim(), mode: "insensitive" } } });
+    if (same) return;
     await prisma.authorAlias.upsert({
       where: { authorProfileId_firstName_lastName: { authorProfileId: profile.id, firstName: firstName.trim(), lastName: lastName.trim() } },
       update: {},
@@ -205,6 +209,8 @@ export interface SubmissionMetadata {
   schoolGrade?: string;
   curriculum?: string;
   longDescriptionHtml?: string;
+  /** The Print edition's own formatted description (cleaned when saved). */
+  printDescriptionHtml?: string;
   backCoverDescription?: string;
   learningObjectives?: string;
   educationalBenefits?: string;
@@ -673,8 +679,9 @@ export interface UpdateBookFullResult {
   error?: string;
   /** "live": a published book's edits are live now. "live_files_pending":
    * edits are live, a replaced manuscript/cover awaits review.
-   * "resubmitted": a non-published book went (back) to review. */
-  outcome?: "live" | "live_files_pending" | "resubmitted";
+   * "resubmitted": a non-published book went (back) to review.
+   * "saved": a book that is not published yet was saved as it is, with no change of status. */
+  outcome?: "live" | "live_files_pending" | "resubmitted" | "saved";
   /** Which replaced file(s) are on hold, when outcome is "live_files_pending". */
   held?: "manuscript" | "cover" | "both";
   message?: string;
@@ -708,6 +715,9 @@ async function updateBookFullInner(bookId: string, input: SubmitBookInput): Prom
 
   const existing = await prisma.book.findUnique({ where: { id: bookId } });
   if (!existing || existing.authorId !== user.authorProfile.id || existing.deletedByAuthorAt) return { ok: false, error: "Book not found." };
+  // "Save Changes" on a book that is not published yet: the details are saved as they are and the book stays
+  // where it is (no review, no print-check requirement). Publishing (submitForReview) does the full checks.
+  const saveOnly = input.submitForReview === false && existing.status !== "PUBLISHED";
 
   // Publishing or editing one format must never change another. The Print form writes
   // print fields only and the eBook / Audiobook form writes those only (lib/format-scope.ts).
@@ -732,7 +742,7 @@ async function updateBookFullInner(bookId: string, input: SubmitBookInput): Prom
   // page size (same rule as a new submission), and a PDF that matches no
   // printable size is refused when the save sends the book for review.
   if (input.formats.print && !input.formats.ebook && input.manuscriptFileId) {
-    const fixed = await alignTrimSizeWithPdf({ ...input, submitForReview: true });
+    const fixed = await alignTrimSizeWithPdf({ ...input, submitForReview: !saveOnly });
     if (!fixed.ok) return { ok: false, error: fixed.error };
   }
 
@@ -755,10 +765,10 @@ async function updateBookFullInner(bookId: string, input: SubmitBookInput): Prom
       : true;
     const gate = await gatePrintEdition({
       userId: session.user.id, interiorFileId: input.manuscriptFileId || fileRefKey(liveManuscriptRef) || undefined, coverImageUrl: input.coverImageUrl,
-      metadata: input.metadata, existingMetadata: existingMetaAll, requirePass: filesChanged,
+      metadata: input.metadata, existingMetadata: existingMetaAll, requirePass: filesChanged && !saveOnly,
     });
     if (!gate.ok) return { ok: false, error: gate.error };
-    const priceProblem = await printPriceProblem(input.metadata as Parameters<typeof printPriceProblem>[0]);
+    const priceProblem = saveOnly ? null : await printPriceProblem(input.metadata as Parameters<typeof printPriceProblem>[0]);
     if (priceProblem) return { ok: false, error: priceProblem };
     savedPreflight = gate.saved;
     if (savedPreflight) (prep.metadata as SubmissionMetadata).printPreflight = savedPreflight;
@@ -978,7 +988,7 @@ async function updateBookFullInner(bookId: string, input: SubmitBookInput): Prom
         description: input.description.trim(),
         isbn: draftIsbn,
         price: scope === "print" ? prep.basePrice : merged.hasEbook ? (prep.ebookPrice ?? prep.basePrice) : merged.hasAudiobook ? (prep.audiobookPrice ?? prep.basePrice) : existing.price,
-        status: "PENDING_REVIEW",
+        status: saveOnly ? existing.status : "PENDING_REVIEW",
         ageGroup: input.ageGroup,
         language: input.language || "en",
         coverImageUrl: input.coverImageUrl?.trim() || null,
@@ -1002,6 +1012,12 @@ async function updateBookFullInner(bookId: string, input: SubmitBookInput): Prom
   ]);
 
   await attachCheckToBook(savedPreflight?.checkId, bookId);
+
+  if (saveOnly) {
+    revalidatePath("/account/books");
+    revalidatePath(`/account/books/${bookId}/edit`);
+    return { ok: true, outcome: "saved", message: "Changes saved." };
+  }
 
   // Back in review: an earlier "revision requested" notice is cleared.
   const { clearBookNotLiveNotices } = await import("@/lib/notification-cleanup");
@@ -1385,6 +1401,14 @@ function normaliseAuthorNames(input: SubmitBookInput) {
   if (typeof m.authorLastName === "string") m.authorLastName = capitalizeName(m.authorLastName);
 }
 
+/** The formatted description is cleaned before it is stored: only normal formatting survives (lib/description-html.ts). */
+function cleanDescriptionFields(input: SubmitBookInput) {
+  const m = input.metadata as { longDescriptionHtml?: string; printDescriptionHtml?: string };
+  if (typeof m.longDescriptionHtml === "string") m.longDescriptionHtml = sanitizeDescriptionHtml(m.longDescriptionHtml);
+  if (typeof m.printDescriptionHtml === "string") m.printDescriptionHtml = sanitizeDescriptionHtml(m.printDescriptionHtml);
+  if (typeof input.description === "string") input.description = descriptionToPlainText(input.description);
+}
+
 const AI_REQUIRED = "Please tick one AI use declaration box: either AI tools were used, or no AI tools were used.";
 
 async function syncAiDeclaration(authorId: string, bookId: string, title: string, statement: string) {
@@ -1407,6 +1431,7 @@ async function syncAiDeclaration(authorId: string, bookId: string, title: string
 
 export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean; error?: string; bookId?: string }> {
   normaliseAuthorNames(input);
+  cleanDescriptionFields(input);
   if (input.submitForReview && !isAiDeclaration(input.metadata?.aiDeclaration)) return { ok: false, error: AI_REQUIRED };
   const res = await submitBookInner(input);
   if (res.ok && res.bookId && isAiDeclaration(input.metadata?.aiDeclaration)) {
@@ -1419,7 +1444,8 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
 
 export async function updateBookFull(bookId: string, input: SubmitBookInput): Promise<UpdateBookFullResult> {
   normaliseAuthorNames(input);
-  if (!isAiDeclaration(input.metadata?.aiDeclaration)) return { ok: false, error: AI_REQUIRED };
+  cleanDescriptionFields(input);
+  if (input.submitForReview !== false && !isAiDeclaration(input.metadata?.aiDeclaration)) return { ok: false, error: AI_REQUIRED };
   const res = await updateBookFullInner(bookId, input);
   if (res.ok) {
     const session = await auth();

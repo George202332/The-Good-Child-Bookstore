@@ -202,6 +202,8 @@ export interface Book {
   aiDeclaration?: string;
   format: string;
   blurb: string;
+  /** The description with the author's formatting (already cleaned): shown on the product page as written. */
+  descriptionHtml?: string;
   featured: boolean;
   affiliateEnabled: boolean;
   coverImage?: string;

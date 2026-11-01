@@ -1,6 +1,9 @@
 "use client";
 
 import { PublisherField } from "./PublisherField";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { descriptionToPlainText, plainToDescriptionHtml } from "@/lib/description-html";
+import { AuthorAliasField } from "./AuthorAliasField";
 import { AgeGroupField } from "./AgeGroupField";
 import { ageGroupProblem } from "@/lib/age-groups";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -22,12 +25,12 @@ import { LULU_CONFIG, buildPodPackageId, labelForCode } from "@/lib/lulu-config"
 import { computePrintPricing, computePrintPricingFromCost } from "@/lib/lulu-pricing";
 import { analyzePrintInterior, fixPrintFonts, quotePrintCost, type FixFontsResult, type PrintCostItem, type PrintSpecReport } from "@/actions/print-specs";
 import { checkPriceFloor } from "@/lib/print-specs";
-import { capitalizeName } from "@/lib/person-name";
 import { isbn13Of, isbnProblem } from "@/lib/identifiers";
 import { PrintSpecsPanel } from "./PrintSpecsPanel";
 import { AiDeclarationField } from "@/components/AiDeclarationField";
 import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
 import { detectTrimFromPageSize, formatInches, type DetectedTrim } from "@/lib/trim-size";
+import { PublishPanel, scrollToFirstMissing, type ChecklistItem, type PublishNotice } from "./PublishPanel";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 
 import { CATEGORIES, GENRES, subcategoriesFor } from "@/lib/taxonomy";
@@ -58,6 +61,8 @@ export interface PrintSubmissionInitial {
   ageGroup?: string;
   readingLevel?: string;
   description?: string;
+  /** The description with its formatting (bold, headings, lists...). */
+  descriptionHtml?: string;
   aiDeclaration?: string;
   authorFirstName?: string;
   authorLastName?: string;
@@ -143,8 +148,10 @@ export function PrintSubmissionForm({
   const [subcategory, setSubcategory] = useState(initial?.subcategory ?? prefill?.subcategory ?? "");
   const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || prefill?.ageGroup || "0-2 years");
   const [readingLevel, setReadingLevel] = useState(initial?.readingLevel || prefill?.readingLevel || READING_LEVELS[0]);
-  const [description, setDescription] = useState(initial?.description ?? prefill?.description ?? "");
-  const descriptionWordCount = description.trim() ? description.trim().split(/\s+/).filter(Boolean).length : 0;
+  // The description is written in the rich editor; `description` is its plain-text version (cards, search, SEO).
+  const [descriptionHtml, setDescriptionHtml] = useState(initial?.descriptionHtml ?? prefill?.descriptionHtml ?? plainToDescriptionHtml(initial?.description ?? prefill?.description ?? ""));
+  const [descriptionEditorKey, setDescriptionEditorKey] = useState(0);
+  const description = useMemo(() => descriptionToPlainText(descriptionHtml), [descriptionHtml]);
   // The author's own statement of how (or whether) they used AI in
   // creating this book — shown on the product page's detail card.
   const [aiLocal, setAiLocal] = useState(initial?.aiDeclaration ?? prefill?.aiDeclaration ?? "");
@@ -212,8 +219,11 @@ export function PrintSubmissionForm({
   const [affiliateEligiblePrint, setAffiliateEligiblePrint] = useState(initial?.affiliateEligiblePrint ?? false);
   const [promotionalCampaignEligible, setPromotionalCampaignEligible] = useState(initial?.promotionalCampaignEligible ?? false);
 
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [busy, setBusy] = useState<"idle" | "saving" | "publishing">("idle");
+  const [notice, setNotice] = useState<PublishNotice | null>(null);
+  const [showMissing, setShowMissing] = useState(false);
+  // A new title becomes a saved book on the first Save Changes; later saves update that same book.
+  const [savedBookId, setSavedBookId] = useState<string | undefined>(initial?.bookId);
   const [autofillNote, setAutofillNote] = useState<string | null>(null);
 
   // Reads a freshly uploaded (or carried-over) interior PDF: page count, page size and the
@@ -274,7 +284,11 @@ export function PrintSubmissionForm({
     take(prefill.subcategory, setSubcategory, "subcategory");
     take(prefill.ageGroup, setAgeGroup, "age range");
     take(prefill.readingLevel, setReadingLevel, "reading level");
-    take(prefill.description, setDescription, "description");
+    if (prefill.descriptionHtml?.trim() || prefill.description?.trim()) {
+      setDescriptionHtml(prefill.descriptionHtml?.trim() ? prefill.descriptionHtml : plainToDescriptionHtml(prefill.description));
+      setDescriptionEditorKey((k) => k + 1);
+      copied.push("description");
+    }
     take(prefill.aiDeclaration, setAiDeclaration, "AI statement");
     take(prefill.authorFirstName, setAuthorFirstName, "author first name");
     take(prefill.authorLastName, setAuthorLastName, "author last name");
@@ -316,6 +330,8 @@ export function PrintSubmissionForm({
   );
   const currentKeys = `${printReadyPdfFileId ?? ""}|${coverKey}|${packageKey(packages.map((p) => p.packageId))}`;
   const checkedKeys = useRef<string>("");
+  const autoRetries = useRef(0);
+  const [retryTick, setRetryTick] = useState(0);
   const runPreflight = useCallback(async () => {
     if (!printReadyPdfFileId || packages.length === 0 || (!frontCoverImageUrl && !(backCoverMode === "custom" && customBackCoverPdfFileId))) return;
     setPreflightBusy(true);
@@ -329,6 +345,11 @@ export function PrintSubmissionForm({
     }).catch(() => ({ ok: false, error: "The check could not be started. Please try again." }) as PrintPreflightView);
     setPreflight(res);
     setPreflightBusy(false);
+    // No button to press: when the check could not be started or finish, it is tried again by itself (twice at most).
+    if ((!res.status || res.status === "UNAVAILABLE") && autoRetries.current < 2) {
+      autoRetries.current += 1;
+      setTimeout(() => { checkedKeys.current = ""; setRetryTick((n) => n + 1); }, 8000);
+    } else if (res.status === "PASSED" || res.status === "FAILED") autoRetries.current = 0;
   }, [printReadyPdfFileId, packages, frontCoverImageUrl, backCoverMode, customBackCoverPdfFileId, currentKeys, trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor, title, authorFirstName, authorLastName]);
 
   useEffect(() => {
@@ -340,7 +361,7 @@ export function PrintSubmissionForm({
     }
     const t = setTimeout(() => { void runPreflight(); }, 700);
     return () => clearTimeout(t);
-  }, [currentKeys, printReadyPdfFileId, runPreflight, editing, initial]);
+  }, [currentKeys, printReadyPdfFileId, runPreflight, editing, initial, retryTick]);
 
   // While Lulu is working, ask for progress every few seconds (each ask is quick).
   useEffect(() => {
@@ -388,27 +409,30 @@ export function PrintSubmissionForm({
     return () => { cancelled = true; clearTimeout(t); };
   }, [printReadyPdfFileId, trimCode, specSettings]);
 
-  const embedFonts = useCallback(async (approved: string[]) => {
+  const embedFonts = useCallback(async () => {
     if (!printReadyPdfFileId) return;
     setFontBusy(true);
-    const res = await fixPrintFonts({ fileId: printReadyPdfFileId, approved }).catch(() => ({ ok: false, error: "The fonts could not be embedded. Please try again.", embedded: [], skipped: [], remaining: [] }) as FixFontsResult);
+    const res = await fixPrintFonts({ fileId: printReadyPdfFileId }).catch(() => ({ ok: false, error: "The fonts could not be embedded. Please try again.", embedded: [], skipped: [], remaining: [] }) as FixFontsResult);
     setFontBusy(false);
     setFontResult(res);
     if (res.ok && res.fileId) {
       setOriginalPdfFileId((o) => o ?? printReadyPdfFileId);
       autoFontTried.current = res.fileId;
       setCarriedFileName(res.fileName);
+      // A stand-in font can change the page count: take the new count so the specs, printing cost, royalty preview and cover follow.
+      if (typeof res.pageCountAfter === "number" && res.pageCountAfter !== res.pageCountBefore) setPrintPages(String(res.pageCountAfter));
       setPrintReadyPdfFileId(res.fileId);
     }
   }, [printReadyPdfFileId]);
 
-  // Fonts we have ourselves are embedded without asking. Stand-ins wait for the author's approval.
+  // Every font we can embed is embedded automatically (the exact font when we have it, otherwise the closest
+  // match), with no permission step. The new file is then read and checked again by itself, Lulu's verdict included.
   useEffect(() => {
     if (!specReport?.ok || !printReadyPdfFileId || fontBusy) return;
     if (autoFontTried.current === printReadyPdfFileId) return;
-    if (!specReport.fonts?.unembedded.some((f) => f.status === "auto")) return;
+    if (!specReport.fonts?.unembedded.some((f) => f.status === "auto" || f.status === "needs-approval")) return;
     autoFontTried.current = printReadyPdfFileId;
-    const t = setTimeout(() => { void embedFonts([]); }, 0);
+    const t = setTimeout(() => { void embedFonts(); }, 0);
     return () => clearTimeout(t);
   }, [specReport, printReadyPdfFileId, fontBusy, embedFonts]);
 
@@ -461,14 +485,38 @@ export function PrintSubmissionForm({
   }
   const priceBlocked = priceProblems.length > 0 || costBusy;
 
-  async function handleSubmit(submitForReview: boolean) {
-    const ageProblem = ageGroupProblem(ageGroup);
-    if (ageProblem) {
-      setError(ageProblem);
+  // The publishing checklist is the list of rules that really decide whether this print book can be published today.
+  const checklist: ChecklistItem[] = [
+    { label: "Print-ready interior PDF and cover uploaded, and the print file check passed", ok: hasPrintFiles && preflightPassed, section: "files" },
+    ...(fontBusy ? [{ label: "Fonts finished embedding", ok: false, section: "files" }] : []),
+    { label: "Book title", ok: !!title.trim(), section: "info" },
+    { label: "Book description", ok: !!description.trim(), section: "info" },
+    { label: "Category, Subcategory and Genre selected", ok: !!category && !!subcategory && !!genre, section: "info" },
+    { label: "Age groups are consecutive", ok: !!ageGroup && !ageGroupProblem(ageGroup), section: "info" },
+    ...(isbnError ? [{ label: "ISBN is valid (or leave it empty)", ok: false, section: "info" }] : []),
+    { label: "AI use declared (tick one box)", ok: !!aiChoiceOf(aiDeclaration), section: "info" },
+    { label: "Price covers Lulu's printing cost and leaves a royalty", ok: !priceBlocked && (paperbackEnabled || hardcoverEnabled), section: "pricing" },
+  ];
+  const flag = (section: string) => showMissing && checklist.some((c) => !c.ok && c.section === section);
+
+  /** Save Changes keeps the author on the form; Publish sends the book for review (or live) and returns to My Books. */
+  async function handleAction(kind: "save" | "publish") {
+    setNotice(null);
+    const publishing = kind === "publish";
+    if ((publishing || editingPublished) && checklist.some((c) => !c.ok)) {
+      setShowMissing(true);
+      scrollToFirstMissing(checklist);
       return;
     }
-    setSubmitting(true);
-    setError(null);
+    setShowMissing(false);
+    const ageProblem = ageGroupProblem(ageGroup);
+    if (ageProblem) {
+      setNotice({ kind: "error", text: ageProblem });
+      return;
+    }
+    // A published book's edits always go through the live-edit path, so Save Changes uses it too.
+    const submitForReview = publishing || editingPublished;
+    setBusy(publishing ? "publishing" : "saving");
     const payload = {
       title,
       subtitle,
@@ -483,6 +531,7 @@ export function PrintSubmissionForm({
       manuscriptFileId: printReadyPdfFileId,
       formats: { ebook: false, print: true, audiobook: false },
       metadata: {
+        printDescriptionHtml: descriptionHtml,
         authorFirstName,
         authorLastName,
         edition,
@@ -531,25 +580,32 @@ export function PrintSubmissionForm({
       },
       submitForReview,
     };
-    if (initial?.bookId) {
-      const res = await updateBookFull(initial.bookId, payload);
-      setSubmitting(false);
-      if (!res.ok) {
-        setError(res.error ?? "Something went wrong.");
+    try {
+      let outcome: string | undefined;
+      let held: string | undefined;
+      let message: string | undefined;
+      if (savedBookId) {
+        const res = await updateBookFull(savedBookId, payload);
+        if (!res.ok) { setNotice({ kind: "error", text: res.error ?? "Something went wrong. Nothing was lost, so you can try again." }); return; }
+        outcome = res.outcome; held = res.held; message = res.message;
+      } else {
+        const res = await submitBook(payload);
+        if (!res.ok) { setNotice({ kind: "error", text: res.error ?? "Something went wrong. Nothing was lost, so you can try again." }); return; }
+        setSavedBookId(res.bookId);
+        outcome = publishing ? "resubmitted" : "saved";
+      }
+      if (!publishing) {
+        setNotice({ kind: "ok", text: outcome === "live_files_pending" ? (message ?? "Changes saved. Your new file is under review.") : "Changes saved." });
         return;
       }
-      if (res.outcome === "live") router.push("/account/books?saved=live");
-      else if (res.outcome === "live_files_pending") router.push(`/account/books?saved=files-review-${res.held ?? "manuscript"}`);
-      else router.push("/account/books");
-      return;
+      if (outcome === "live") router.push("/account/books?saved=live");
+      else if (outcome === "live_files_pending") router.push(`/account/books?saved=files-review-${held ?? "manuscript"}`);
+      else router.push("/account/books?saved=review");
+    } catch {
+      setNotice({ kind: "error", text: "Something went wrong and the action did not finish. Nothing was lost, so you can try again." });
+    } finally {
+      setBusy("idle");
     }
-    const res = await submitBook(payload);
-    setSubmitting(false);
-    if (!res.ok) {
-      setError(res.error ?? "Something went wrong.");
-      return;
-    }
-    router.push("/account/books");
   }
 
   return (
@@ -576,7 +632,7 @@ export function PrintSubmissionForm({
         </div>
       )}
       {/* Section 1: Files come first, because everything below can be filled in while the files are checked. */}
-      <Card>
+      <Card id="sec-files" flagged={flag("files")}>
         <SectionHeader n={1} title="Files" sub="The central upload area for all print assets. Print-ready files are validated automatically on upload." />
         <div className="upload-cards-row">
           <FileUploadField
@@ -600,7 +656,7 @@ export function PrintSubmissionForm({
             fillWidth
           />
           <FileUploadField
-            label="Custom Cover (optional)"
+            label="Custom Cover (Optional)"
             sizeHint="PDF — your own complete wraparound cover (front, spine, back)"
             allowedTypes={["application/pdf"]}
             accept=".pdf"
@@ -617,7 +673,7 @@ export function PrintSubmissionForm({
           onUseTrim={setTrimCode}
           fontBusy={fontBusy}
           fontResult={fontResult}
-          onEmbed={(names) => { void embedFonts(names); }}
+          title={title}
         />
         <p style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8 }}>
           {backCoverMode === "custom"
@@ -629,7 +685,6 @@ export function PrintSubmissionForm({
           busy={preflightBusy}
           result={preflight}
           savedFromBook={unchangedSaved ? initial?.preflight : undefined}
-          onRetry={() => { checkedKeys.current = ""; void runPreflight(); }}
         />
 
         {/* Interior: a page-by-page preview of the file as uploaded (it refreshes by itself when
@@ -702,13 +757,27 @@ export function PrintSubmissionForm({
             saved={unchangedSaved && !preflight ? initial?.preflight : undefined}
           />
         </div>
+
+        <div className="specs-block" style={{ marginTop: 22 }}>
+          <h3 className="specs-title" style={{ marginBottom: 6 }}>Publication Format</h3>
+          <p className="specs-text">Choose Paperback, Hardcover, or both as separate printable editions of this title.</p>
+          <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}>
+              <input type="checkbox" checked={paperbackEnabled} onChange={(e) => setPaperbackEnabled(e.target.checked)} /> Paperback
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}>
+              <input type="checkbox" checked={hardcoverEnabled} onChange={(e) => setHardcoverEnabled(e.target.checked)} /> Hardcover (Linen Wrap)
+            </label>
+          </div>
+        </div>
       </Card>
 
       {/* Section 2 */}
-      <Card>
+      <Card id="sec-info" flagged={flag("info")}>
         <SectionHeader n={2} title="Book Information" sub="Core bibliographic details for the print edition." />
-        <label className="field-label" htmlFor="p-title">Book title</label>
+        <label className="field-label" htmlFor="p-title">Book Title</label>
         <input className="field" id="p-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <AuthorAliasField idPrefix="p" firstName={authorFirstName} lastName={authorLastName} onChange={(f, l) => { setAuthorFirstName(f); setAuthorLastName(l); }} />
         <div className="form-grid-2">
           <div>
             <label className="field-label" htmlFor="p-subtitle">Subtitle</label>
@@ -719,7 +788,7 @@ export function PrintSubmissionForm({
             <input className="field" id="p-series" type="text" value={seriesName} onChange={(e) => setSeriesName(e.target.value)} />
           </div>
         </div>
-        <div className="form-grid-3">
+        <div className="form-grid-2">
           <div>
             <label className="field-label" htmlFor="p-edition">Edition</label>
             <input className="field" id="p-edition" type="text" value={edition} onChange={(e) => setEdition(e.target.value)} />
@@ -728,64 +797,41 @@ export function PrintSubmissionForm({
             <label className="field-label" htmlFor="p-isbn">ISBN</label>
             <input className="field" id="p-isbn" type="text" inputMode="numeric" placeholder="Enter your own ISBN (optional)" value={printIsbn} onChange={(e) => setPrintIsbn(e.target.value)} aria-invalid={!!isbnError} />
             {isbnError && <div className="field-hint" role="alert" style={{ color: "var(--coral-deep)" }}>{isbnError}</div>}
+            {!printIsbn.trim() && !isbnError && (
+              <div className="field-hint" role="status">
+                {hasPrintFiles && preflightPassed
+                  ? "Your files passed. An ISBN cannot be assigned automatically: Lulu does not issue ISBNs through the connection this site uses. Enter your own ISBN here, or leave this empty and Lulu can supply a free one when the book goes to Global Distribution on their website. Printing for this store does not need one."
+                  : "Optional. If you have your own ISBN, enter it here and its barcode appears below."}
+              </div>
+            )}
           </div>
-          <ChoiceChips id="p-lang" label="Language" options={LANGUAGES} value={language} onChange={setLanguage} />
         </div>
-        <PublisherField id="p-publisher" value={publisher} onChange={setPublisher} />
-        <label className="field-label" htmlFor="p-pubdate">Publication date</label>
-        <input className="field" id="p-pubdate" type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} />
+        <ChoiceChips id="p-lang" label="Language" options={LANGUAGES} value={language} onChange={setLanguage} />
+        <div className="form-grid-2">
+          <PublisherField id="p-publisher" value={publisher} onChange={setPublisher} />
+          <div>
+            <label className="field-label" htmlFor="p-pubdate">Publication Date</label>
+            <input className="field" id="p-pubdate" type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} />
+          </div>
+        </div>
         <ChoiceChips id="p-category" label="Category" options={CATEGORIES} value={category} onChange={(v) => { setCategory(v); setSubcategory(""); }} />
-        <ChoiceChips id="p-genre" label="Genre" options={GENRES} value={genre} onChange={setGenre} />
         <ChoiceChips id="p-subcategory" label="Subcategory" options={subcategoriesFor(category)} value={subcategory} onChange={setSubcategory} disabled={!category} hint={category ? undefined : "Choose a category first."} />
+        <ChoiceChips id="p-genre" label="Genre" options={GENRES} value={genre} onChange={setGenre} />
         <div>
           <AgeGroupField id="p-age" value={ageGroup} onChange={setAgeGroup} />
         </div>
-        <ChoiceChips id="p-readinglevel" label="Reading level" options={READING_LEVELS} value={readingLevel} onChange={setReadingLevel} />
-        <label className="field-label" htmlFor="p-desc">Book description</label>
-        <textarea className="field" id="p-desc" rows={6} placeholder="A short back-cover description of the book…" value={description} onChange={(e) => setDescription(e.target.value)} />
-        <div
-          className="field-hint"
-          style={descriptionWordCount > 200 ? { color: "var(--coral-deep)", fontWeight: 700 } : undefined}
-        >
-          {descriptionWordCount} / 200 words{descriptionWordCount > 200 ? " — over the limit, please shorten it" : ""}
-        </div>
+        <ChoiceChips id="p-readinglevel" label="Reading Level" options={READING_LEVELS} value={readingLevel} onChange={setReadingLevel} />
+        <label className="field-label" htmlFor="p-desc">Book Description</label>
+        <RichTextEditor key={descriptionEditorKey} id="p-desc" value={descriptionHtml} onChange={setDescriptionHtml} placeholder="A short back-cover description of the book…" maxWords={200} />
         <div style={{ marginTop: 14 }}>
           <AiDeclarationField id="p-ai-declaration" value={aiDeclaration} onChange={setAiDeclaration} legacyNote={isLegacyAiText(initial?.aiDeclaration) && !aiChoiceOf(aiDeclaration)} />
         </div>
       </Card>
 
-      {/* Section 3 */}
-      <Card>
-        <SectionHeader n={3} title="Author Information" sub="The author name shown on this edition." />
-        <div className="form-grid-2">
-          <div>
-            <label className="field-label" htmlFor="p-authfirst">First Name</label>
-            <input className="field" id="p-authfirst" type="text" value={authorFirstName} onChange={(e) => setAuthorFirstName(e.target.value)} onBlur={() => setAuthorFirstName((v) => capitalizeName(v))} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-authlast">Last Name</label>
-            <input className="field" id="p-authlast" type="text" value={authorLastName} onChange={(e) => setAuthorLastName(e.target.value)} onBlur={() => setAuthorLastName((v) => capitalizeName(v))} />
-          </div>
-        </div>
-      </Card>
-
-      {/* Section 4 */}
-      <Card>
-        <SectionHeader n={4} title="Publication Format" sub="Choose Paperback, Hardcover, or both as separate printable editions of this title." />
-        <div style={{ display: "flex", gap: 32 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}>
-            <input type="checkbox" checked={paperbackEnabled} onChange={(e) => setPaperbackEnabled(e.target.checked)} /> Paperback
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600, marginLeft: "3.5in" }}>
-            <input type="checkbox" checked={hardcoverEnabled} onChange={(e) => setHardcoverEnabled(e.target.checked)} /> Hardcover (Linen Wrap)
-          </label>
-        </div>
-      </Card>
-
       {/* Section 5 */}
       <Card>
-        <SectionHeader n={5} title="Book Specifications" sub="Every option here maps directly to a Lulu Print API POD Package code." />
-        <label className="field-label">Trim size</label>
+        <SectionHeader n={3} title="Book Specifications" sub="Every option here maps directly to a Lulu Print API POD Package code." />
+        <label className="field-label">Trim Size</label>
         <ButtonGroup options={LULU_CONFIG.trimSizes} value={trimCode} onChange={setTrimCode} />
         {detectedTrim && detectedTrim.code === trimCode && (
           <div className="field-hint">
@@ -804,35 +850,35 @@ export function PrintSubmissionForm({
         )}
         {paperbackEnabled && (
           <>
-            <label className="field-label">Paperback binding</label>
+            <label className="field-label">Paperback Binding</label>
             <ButtonGroup options={PAPERBACK_BINDINGS} value={paperbackBinding} onChange={setPaperbackBinding} />
           </>
         )}
-        <label className="field-label">Interior color</label>
+        <label className="field-label">Interior Color</label>
         <ButtonGroup options={LULU_CONFIG.interiorColors} value={interiorColor} onChange={setInteriorColor} />
-        <label className="field-label">Print quality</label>
+        <label className="field-label">Print Quality</label>
         <ButtonGroup options={LULU_CONFIG.printQualities} value={printQuality} onChange={setPrintQuality} />
-        <label className="field-label">Paper type</label>
+        <label className="field-label">Paper Type</label>
         <ButtonGroup options={LULU_CONFIG.paperTypes} value={paperType} onChange={setPaperType} />
         {paperbackEnabled && (
           <>
-            <label className="field-label">Cover finish (paperback/coil)</label>
+            <label className="field-label">Cover Finish (Paperback/Coil)</label>
             <ButtonGroup options={LULU_CONFIG.coverFinishes} value={coverFinish} onChange={setCoverFinish} />
           </>
         )}
         {hardcoverEnabled && (
           <>
-            <label className="field-label">Linen wrap color (hardcover)</label>
+            <label className="field-label">Linen Wrap Color (Hardcover)</label>
             <ButtonGroup options={LULU_CONFIG.linenColors.filter((l) => l.code !== "X")} value={linenColor} onChange={setLinenColor} />
-            <label className="field-label">Foil stamp color (hardcover spine)</label>
+            <label className="field-label">Foil Stamp Color (Hardcover Spine)</label>
             <ButtonGroup options={LULU_CONFIG.foilColors.filter((f) => f.code !== "X")} value={foilColor} onChange={setFoilColor} />
             <div className="form-grid-2">
               <div>
-                <label className="field-label" htmlFor="p-foiltitle">Foil stamp: title text</label>
+                <label className="field-label" htmlFor="p-foiltitle">Foil Stamp: Title Text</label>
                 <input className="field" id="p-foiltitle" type="text" value={foilStampTitleText} onChange={(e) => setFoilStampTitleText(e.target.value.slice(0, 42 - foilStampAuthorText.length))} />
               </div>
               <div>
-                <label className="field-label" htmlFor="p-foilauthor">Foil stamp: author text</label>
+                <label className="field-label" htmlFor="p-foilauthor">Foil Stamp: Author Text</label>
                 <input className="field" id="p-foilauthor" type="text" value={foilStampAuthorText} onChange={(e) => setFoilStampAuthorText(e.target.value.slice(0, 42 - foilStampTitleText.length))} />
               </div>
             </div>
@@ -858,7 +904,7 @@ export function PrintSubmissionForm({
             </div>
           </div>
           <div>
-            <label className="field-label" htmlFor="p-dimensions">Trim dimensions (as uploaded)</label>
+            <label className="field-label" htmlFor="p-dimensions">Trim Dimensions (As Uploaded)</label>
             <input
               className="field"
               id="p-dimensions"
@@ -913,18 +959,18 @@ export function PrintSubmissionForm({
       </Card>
 
       {/* Section 6 */}
-      <Card>
-        <SectionHeader n={6} title="Pricing" sub="Each format is priced and printed as a separate edition." />
+      <Card id="sec-pricing" flagged={flag("pricing")}>
+        <SectionHeader n={4} title="Pricing" sub="Each format is priced and printed as a separate edition." />
         <div className="form-grid-2">
           {paperbackEnabled && (
             <div>
-              <label className="field-label" htmlFor="p-pbprice">Paperback retail price</label>
+              <label className="field-label" htmlFor="p-pbprice">Paperback Retail Price</label>
               <input className="field" id="p-pbprice" type="number" step={0.01} value={paperbackRetailPrice} onChange={(e) => setPaperbackRetailPrice(e.target.value)} />
             </div>
           )}
           {hardcoverEnabled && (
             <div>
-              <label className="field-label" htmlFor="p-hcprice">Hardcover retail price</label>
+              <label className="field-label" htmlFor="p-hcprice">Hardcover Retail Price</label>
               <input className="field" id="p-hcprice" type="number" step={0.01} value={hardcoverRetailPrice} onChange={(e) => setHardcoverRetailPrice(e.target.value)} />
             </div>
           )}
@@ -956,7 +1002,7 @@ export function PrintSubmissionForm({
 
       {/* Section 8 */}
       <Card>
-        <SectionHeader n={7} title="Distribution" sub="Where this print edition can be sold." />
+        <SectionHeader n={5} title="Distribution" sub="Where this print edition can be sold." />
         <div className="form-grid-2">
           <div>
             <div className="toggle-row">
@@ -965,17 +1011,17 @@ export function PrintSubmissionForm({
             </div>
             <div className="toggle-row">
               <label className="toggle-switch"><input type="checkbox" checked={promotionalCampaignEligible} onChange={(e) => setPromotionalCampaignEligible(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Promotional campaign eligible</span>
+              <span>Promotional Campaign Eligible</span>
             </div>
           </div>
           <div>
             <div className="toggle-row">
               <label className="toggle-switch"><input type="checkbox" checked={luluGlobalDistribution} onChange={(e) => setLuluGlobalDistribution(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Lulu global distribution</span>
+              <span>Lulu Global Distribution</span>
             </div>
             <div className="toggle-row">
               <label className="toggle-switch"><input type="checkbox" checked={affiliateEligiblePrint} onChange={(e) => setAffiliateEligiblePrint(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Affiliate eligible</span>
+              <span>Affiliate Eligible</span>
             </div>
             {!initial && prefill && <AffiliateCopyOffer from="eBook and Audiobook" value={prefill.affiliateEligible} current={affiliateEligiblePrint} onCopy={setAffiliateEligiblePrint} />}
           </div>
@@ -984,46 +1030,23 @@ export function PrintSubmissionForm({
 
       {/* Section 10 */}
       <Card>
-        <SectionHeader n={8} title="ISBN Barcode" sub="Made from your ISBN as soon as it is valid. Download it to place on your own back cover." />
+        <SectionHeader n={6} title="ISBN Barcode" sub="Made from your ISBN as soon as it is valid. Download it to place on your own back cover." />
         {barcodeIsbn ? <Ean13Barcode isbn={barcodeIsbn} /> : <p className="field-hint">Enter a valid ISBN in Book Information and its barcode appears here, with PNG and SVG downloads you can place on your own back cover.</p>}
       </Card>
 
-      {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}
-      <div>
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
-        <button
-          type="button"
-          className="btn btn-primary btn-small"
-          disabled={submitting || !!ageGroupProblem(ageGroup) || !preflightPassed || !aiChoiceOf(aiDeclaration) || priceBlocked || fontBusy || !!isbnError}
-          onClick={() => handleSubmit(true)}
-        >
-          {submitting
-            ? (editing ? "Saving…" : "Submitting…")
-            : editing
-            ? (editingPublished ? "Save Changes" : "Save and Resubmit for Review")
-            : "Submit Print Copy"}
-        </button>
-        {extraActions}
-        </div>
-        {!aiChoiceOf(aiDeclaration) && (
-          <div className="field-hint" style={{ marginTop: 6 }}>Tick one AI use box in the Book Information section first.</div>
-        )}
-        {priceBlocked && (
-          <div className="field-hint" role="alert" style={{ marginTop: 6 }}>
-            {costBusy ? "Waiting for Lulu's printing cost…" : "Publishing is blocked until the price in the Pricing section covers Lulu's printing cost and leaves you a royalty."}
-          </div>
-        )}
-        {fontBusy && <div className="field-hint" style={{ marginTop: 6 }}>Waiting for the fonts to finish embedding…</div>}
-        {!preflightPassed && (
-          <div className="field-hint" style={{ marginTop: 6 }}>
-            {!hasPrintFiles
-              ? "Upload the print-ready PDF and a cover in the Files section first; they are checked for printing straight away."
-              : preflight?.status === "FAILED"
-              ? `Publishing is blocked until ${[preflight.interior === "FAILED" && "the interior file", preflight.cover === "FAILED" && "the cover"].filter(Boolean).join(" and ") || "the print files"} ${preflight.interior === "FAILED" && preflight.cover === "FAILED" ? "are" : "is"} replaced with a file that passes the check above.`
-              : "Waiting for the print file check above to finish."}
-          </div>
-        )}
-      </div>
+      <PublishPanel
+        n={7}
+        sub="Everything below is needed before this print edition can be published. It updates as you fill the form in."
+        items={checklist}
+        showMissing={showMissing}
+        showPublish={!editingPublished}
+        busy={busy}
+        onSave={() => handleAction("save")}
+        onPublish={() => handleAction("publish")}
+        notice={notice}
+        missingIntro={editingPublished ? "Please finish these before saving:" : undefined}
+        extraActions={extraActions}
+      />
     </div>
   );
 }
@@ -1036,12 +1059,11 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = 
 };
 
 /** The print file check result, in plain language, right inside the Print tab. */
-function PreflightPanel({ hasFiles, busy, result, savedFromBook, onRetry }: {
+function PreflightPanel({ hasFiles, busy, result, savedFromBook }: {
   hasFiles: boolean;
   busy: boolean;
   result: PrintPreflightView | null;
   savedFromBook?: SavedPreflight;
-  onRetry: () => void;
 }) {
   const status = busy && !result ? "CHECKING" : result?.status ?? (savedFromBook ? savedFromBook.status : undefined);
   const style = status ? STATUS_STYLE[status] : undefined;
@@ -1050,9 +1072,6 @@ function PreflightPanel({ hasFiles, busy, result, savedFromBook, onRetry }: {
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <strong style={{ fontSize: 14 }}>Print file check</strong>
         {style && <span style={{ background: style.bg, color: style.fg, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 700 }}>{style.label}</span>}
-        {hasFiles && status !== "CHECKING" && (
-          <button type="button" className="btn btn-ghost btn-small" onClick={onRetry} disabled={busy}>Check Again</button>
-        )}
       </div>
       {!hasFiles && (
         <p className="field-hint" style={{ margin: "8px 0 0" }}>

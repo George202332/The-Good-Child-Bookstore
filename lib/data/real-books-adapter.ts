@@ -7,6 +7,7 @@ import { LULU_CONFIG } from "@/lib/lulu-config";
 import { categoryOfSubcategory, type BookCategory } from "@/lib/taxonomy";
 import { attributeCategory, countBooksByCategory, type CategoryAttributionInput } from "@/lib/category-counts";
 import { groupEditions } from "@/lib/book-groups";
+import { sanitizeDescriptionHtml } from "@/lib/description-html";
 import { identifierFor, printFieldsOf, type IdentifierFormat } from "@/lib/identifiers";
 import { genreLabelFromShelfId, shelfIdFromGenreLabel } from "@/lib/shelf-mapping";
 import {
@@ -188,6 +189,7 @@ function toCatalogBook(row: RealBookRow): Book {
     fileSizeKB: printOnly ? undefined : meta?.fileSizeKB,
     format: [row.hasEbook && "eBook", row.hasPrint && "Print", row.hasAudiobook && "Audiobook"].filter(Boolean).join(", ") || "eBook",
     blurb: row.description ?? "",
+    descriptionHtml: descriptionHtmlOf(row),
     featured: meta?.includeInPromotions ?? false,
     affiliateEnabled: meta?.affiliateEnabled ?? false,
     coverImage: row.coverImageUrl ?? undefined,
@@ -205,11 +207,21 @@ function identifiersOf(row: RealBookRow): NonNullable<Book["identifiers"]> {
   return out;
 }
 
+/** The formatted description of one record, cleaned again on the way out (print-only records use their own). */
+function descriptionHtmlOf(row: RealBookRow): string | undefined {
+  const meta = (row.submissionMetadata as { longDescriptionHtml?: string; printDescriptionHtml?: string } | null) ?? null;
+  const printOnly = row.hasPrint && !row.hasEbook && !row.hasAudiobook;
+  const raw = printOnly ? meta?.printDescriptionHtml || meta?.longDescriptionHtml : meta?.longDescriptionHtml || meta?.printDescriptionHtml;
+  const clean = sanitizeDescriptionHtml(raw);
+  return clean || undefined;
+}
+
 /** Turns the records of ONE title (see lib/book-groups.ts) into the single catalog book
  * the storefront shows: one product page with a price tab per format. Each format keeps
  * the price, identifier and record of its own edition; nothing is shared between formats. */
 function toGroupedCatalogBook(rows: RealBookRow[]): Book {
   const main = toCatalogBook(rows[0]);
+  const descriptionHtml = rows.map(descriptionHtmlOf).find(Boolean) ?? main.descriptionHtml;
   if (rows.length === 1) return { ...main, identifiers: identifiersOf(rows[0]) };
 
   const formats = ["ebook", "audiobook", "paperback", "hardcover"] as const;
@@ -256,6 +268,7 @@ function toGroupedCatalogBook(rows: RealBookRow[]): Book {
   const labels = [available.ebook && "eBook", (available.paperback || available.hardcover) && "Print", available.audiobook && "Audiobook"].filter(Boolean).join(", ");
   return {
     ...main,
+    descriptionHtml,
     price,
     formats: prices,
     formatAvailable: available,

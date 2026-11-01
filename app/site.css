@@ -1155,7 +1155,7 @@
   .detail-cover .motif{width:44%;height:44%;}
   .az-sample-btns{display:flex;flex-direction:column;gap:8px;margin-top:18px;}
   .az-author-card{
-    margin-top:auto;border:1px solid var(--line);border-radius:14px;padding:16px 20px;height:96px;flex-shrink:0;
+    margin-top:auto;border:1px solid var(--line);border-radius:14px;padding:16px 20px;height:var(--az-card-h);flex-shrink:0;
     display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;
   }
   .az-author-card-label{font-size:11.5px;color:var(--ink-faint);margin-bottom:8px;}
@@ -1209,8 +1209,11 @@
      example "Emotional Wellness and Mindfulness") wraps onto a second line INSIDE its own
      card instead of running into the next one, and because every value box is the same
      minimum height the labels line up across the whole strip. */
+  /* The Details card and the About the Author card are the same height side by side (one shared value).
+     On a phone, where they stack, each keeps its own natural height (see the max-width:760px rule below). */
+  .az-details-card,.az-author-card{--az-card-h:96px;}
   .az-details-card{
-    margin-top:auto;border:1px solid var(--line);border-radius:14px;padding:14px 14px;min-height:112px;flex-shrink:0;min-width:0;
+    margin-top:auto;border:1px solid var(--line);border-radius:14px;padding:10px 12px;height:var(--az-card-h);flex-shrink:0;min-width:0;
     display:flex;align-items:center;box-sizing:border-box;overflow:visible;
   }
   .az-details-card .carousel-outer{width:100%;min-width:0;}
@@ -2054,7 +2057,7 @@
     position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;border:none;padding:0;
   }
   .description-editable{
-    min-height:240px;padding:16px 18px;font-family:inherit;font-size:14px;line-height:1.7;
+    min-height:360px; /* 50% taller than the original 240px, set once here for both tabs */padding:16px 18px;font-family:inherit;font-size:14px;line-height:1.7;
     outline:none;color:var(--ink);
   }
   .description-editable:empty:before{content:attr(data-placeholder);color:var(--ink-faint);}
@@ -2683,3 +2686,34 @@ html.dark-mode .dashboard-content [style*="background"]:not([style*="width"]):no
   .specs-panel .spec-requirement-table td:first-child{width:42%;}
   .specs-actions .btn{width:100%;white-space:normal;}
 }
+
+/* Product page: on a phone the Details and About the Author cards stack, and each keeps its natural height.
+   (Placed after the base rules so it wins.) */
+@media (max-width:760px){
+  .az-details-card,.az-author-card{height:auto;min-height:0;}
+  .az-details-card{margin-top:18px;}
+}
+
+/* The Book Description: the same styles in the editor and on the product page, so it is shown as written. */
+.rich-description p{margin:0 0 12px;}
+.rich-description h2{font-size:19px;line-height:1.3;margin:0 0 10px;}
+.rich-description h3{font-size:16px;line-height:1.3;margin:0 0 8px;}
+.rich-description ul,.rich-description ol{margin:0 0 12px;padding-left:24px;}
+.rich-description ul{list-style:disc;}
+.rich-description ol{list-style:decimal;}
+.rich-description a{color:var(--coral-deep);text-decoration:underline;}
+.rich-description > :last-child{margin-bottom:0;}
+.editor-block-select{height:30px;border:1px solid var(--line);border-radius:6px;background:var(--paper);font:inherit;font-size:12.5px;padding:0 6px;color:var(--ink-soft);}
+.az-desc.rich-description ul,.az-desc.rich-description ol,.az-desc.rich-description h2,.az-desc.rich-description h3{max-width:640px;font-size:14.5px;line-height:1.7;color:var(--ink);}
+.az-desc.rich-description h2{font-size:19px;line-height:1.3;}
+.az-desc.rich-description h3{font-size:16px;line-height:1.3;}
+
+/* A section with something still missing before publishing is outlined until it is complete. */
+.form-section.section-flagged{outline:2px solid var(--coral-deep);outline-offset:2px;}
+.publish-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px 28px;margin-top:20px;}
+.publish-row-main{display:flex;flex-wrap:wrap;align-items:center;gap:12px;}
+.publish-row-end{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;max-width:100%;}
+.publish-msg{margin-top:12px;padding:10px 14px;border-radius:10px;font-size:13.5px;line-height:1.5;}
+.publish-msg.is-ok{background:#E3F5EA;color:#165236;border:1px solid #BFE3CC;}
+.publish-msg.is-error{background:#FDECEA;color:#8A2E1F;border:1px solid #F3B6AE;}
+.publish-msg ul{margin:6px 0 0;padding-left:20px;}

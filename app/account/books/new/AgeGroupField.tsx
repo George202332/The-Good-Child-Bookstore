@@ -18,8 +18,8 @@ export function AgeGroupField({ value, onChange, id }: { value: string; onChange
 
   return (
     <div>
-      <label className="field-label" htmlFor={`${id}-${AGE_TIERS[0]}`}>Age group</label>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }} role="group" aria-label="Age group">
+      <label className="field-label" htmlFor={`${id}-${AGE_TIERS[0]}`}>Age Group</label>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }} role="group" aria-label="Age Group">
         {AGE_TIERS.map((t) => {
           const on = selected.includes(t);
           return (

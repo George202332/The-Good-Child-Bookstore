@@ -12,8 +12,9 @@ export function SectionHeader({ n, title, sub }: { n: number; title: string; sub
   );
 }
 
-export function Card({ children }: { children: React.ReactNode }) {
-  return <div className="form-section">{children}</div>;
+/** A form section. `flagged` outlines it when something the author must finish before publishing is missing in it. */
+export function Card({ children, id, flagged = false }: { children: React.ReactNode; id?: string; flagged?: boolean }) {
+  return <div id={id} className={`form-section${flagged ? " section-flagged" : ""}`}>{children}</div>;
 }
 
 /**
@@ -43,6 +44,8 @@ export interface SharedSubmissionFields {
   authorFirstName: string;
   authorLastName: string;
   description: string;
+  /** The description with its formatting (bold, headings, lists...), when the other edition has one. */
+  descriptionHtml?: string;
   aiDeclaration: string;
   publisher: string;
   /** The Affiliate Eligible switch of the edition these details come from (offered, never forced, on the other edition). */

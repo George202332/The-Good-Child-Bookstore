@@ -1,3 +1,4 @@
+import { FlashNotice } from "@/components/FlashNotice";
 import { EndlessTbody } from "@/components/EndlessRows";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -51,6 +52,7 @@ const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px
  * tab, each with its own Delete book button.
  */
 const SAVED_NOTICES: Record<string, string> = {
+  review: "Your book was sent for review. We will publish it as soon as it is approved.",
   live: "Your changes were saved and are live now.",
   "files-review-manuscript": "Your changes were saved. Your new manuscript is under review and will go live once approved.",
   "files-review-cover": "Your changes were saved. Your new cover is under review and will go live once approved.",
@@ -85,7 +87,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
         <Link href="/account/books/new" className="btn btn-primary btn-small">Submit a New Title</Link>
       </div>
       {savedNotice && (
-        <div role="status" className="field-hint" style={{ marginBottom: 14 }}>{savedNotice}</div>
+        <FlashNotice text={savedNotice} />
       )}
       {groups.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>

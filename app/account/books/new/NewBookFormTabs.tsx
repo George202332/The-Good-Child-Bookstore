@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { EbookSubmissionForm } from "./EbookSubmissionForm";
 import { PrintSubmissionForm } from "./PrintSubmissionForm";
 import type { SharedSubmissionFields } from "./shared";
@@ -29,9 +28,7 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
   ];
   const visibleFormats = ALL_FORMATS.filter((f) => enabledFormats[f.key]);
   const [activeFormat, setActiveFormat] = useState<Format>(visibleFormats[0]?.key ?? "ebook");
-  const router = useRouter();
   // Set once the eBook / Audiobook part has been saved: the wizard then asks whether to continue on Print.
-  const [ebookSaved, setEbookSaved] = useState(false);
   const [sharedFields, setSharedFields] = useState<SharedSubmissionFields | undefined>(undefined);
   // One AI declaration for the whole book: both forms read and write this same value.
   const [ai, setAi] = useState("");
@@ -73,26 +70,7 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
           eBook details to copy. */}
       {enabledFormats.ebook && (
         <div style={{ display: activeFormat === "ebook" ? "block" : "none" }}>
-          {ebookSaved ? (
-            <div className="form-section" role="status" style={{ background: "var(--cream)" }}>
-              <h3 style={{ fontSize: 15, marginBottom: 6 }}>Your eBook and Audiobook Are Saved</h3>
-              {enabledFormats.print ? (
-                <>
-                  <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 12 }}>
-                    Would you like to move on to the Print tab now and add a printed edition of this book? Your title, author, description and cover can be filled in for you.
-                  </p>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button type="button" className="btn btn-primary btn-small" onClick={() => setActiveFormat("print")}>Yes, Go to the Print Tab</button>
-                    <button type="button" className="btn btn-ghost btn-small" onClick={() => router.push("/account/books")}>No, Take Me to My Books</button>
-                  </div>
-                </>
-              ) : (
-                <button type="button" className="btn btn-primary btn-small" onClick={() => router.push("/account/books")}>Go to My Books</button>
-              )}
-            </div>
-          ) : (
-            <EbookSubmissionForm aiShared={{ value: ai, onChange: setAi }} audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setSharedFields} onSubmitted={() => { setEbookSaved(true); window.scrollTo?.({ top: 0 }); }} />
-          )}
+          <EbookSubmissionForm aiShared={{ value: ai, onChange: setAi }} audiobookEnabled={enabledFormats.audiobook} onSharedFieldsChange={setSharedFields} />
         </div>
       )}
       {enabledFormats.print && (

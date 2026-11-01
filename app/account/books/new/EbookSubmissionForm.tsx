@@ -8,6 +8,7 @@ import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
+import { PublishPanel, scrollToFirstMissing, type ChecklistItem, type PublishNotice } from "./PublishPanel";
 import { PublisherField } from "./PublisherField";
 import { AiDeclarationField } from "@/components/AiDeclarationField";
 import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
@@ -109,7 +110,6 @@ export function EbookSubmissionForm({
   audiobookEnabled = true,
   onSharedFieldsChange,
   affiliateOffer,
-  onSubmitted,
   extraActions,
   aiShared,
 }: {
@@ -118,9 +118,6 @@ export function EbookSubmissionForm({
   aiShared?: { value: string; onChange: (v: string) => void };
   /** Edit view only: extra buttons shown in the same row, to the right of Save / Publish. */
   extraActions?: React.ReactNode;
-  /** New-title wizard only: called once the eBook / audiobook part has been saved, instead
-   * of leaving for My Books, so the wizard can offer to continue on the Print tab. */
-  onSubmitted?: () => void;
   /** Admin's "Formats open for submission" toggle for Audio book (see
    * PublishingFormatToggles) — when off, the Audiobook upload slot is
    * still shown (so nothing disappears silently) but disabled, with a
@@ -231,8 +228,11 @@ export function EbookSubmissionForm({
   const [copyrightHolder, setCopyrightHolder] = useState(initial?.copyrightHolder ?? "");
   const [licenseType, setLicenseType] = useState(initial?.licenseType || LICENSE_TYPES[0]);
 
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [busy, setBusy] = useState<"idle" | "saving" | "publishing">("idle");
+  const [notice, setNotice] = useState<PublishNotice | null>(null);
+  const [showMissing, setShowMissing] = useState(false);
+  // A new title becomes a saved book on the first Save Changes; later saves update that same book.
+  const [savedBookId, setSavedBookId] = useState<string | undefined>(initial?.bookId);
 
   // SEO — fully derived from what's already been filled in elsewhere,
   // never a separate author input. Kept aligned with the same
@@ -266,6 +266,7 @@ export function EbookSubmissionForm({
       category, genre, subcategory, ageGroup, readingLevel,
       authorFirstName, authorLastName,
       description: plainTextFromHtml(descriptionHtml),
+      descriptionHtml,
       aiDeclaration,
       publisher,
       affiliateEligible: affiliateEnabled,
@@ -275,7 +276,7 @@ export function EbookSubmissionForm({
       manuscriptMimeType: manuscriptMime,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onSharedFieldsChange is expected to be a stable callback from the parent; including it would re-run this on every parent render for no reason.
-  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, aiDeclaration, publisher, affiliateEnabled, coverImageUrl, manuscriptFileId, manuscriptFileName, manuscriptMime]);
+  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, descriptionHtml, aiDeclaration, publisher, affiliateEnabled, coverImageUrl, manuscriptFileId, manuscriptFileName, manuscriptMime]);
 
   const [metadataCheck, setMetadataCheck] = useState<MetadataCheckResult>({ titleFound: true, authorFound: true, checked: false });
   useEffect(() => {
@@ -286,36 +287,46 @@ export function EbookSubmissionForm({
     return () => clearTimeout(timer);
   }, [manuscriptFileId, title, authorFirstName, authorLastName]);
 
-  const checklist = [
-    { label: "Manuscript or audiobook file uploaded", ok: !!manuscriptFileId || !!audiobookFileId },
-    { label: "Book identifier (your ISBN, or an SN number we generate)", ok: hasOwnIsbn ? !!isbn.trim() : true },
-    { label: "Cover image uploaded", ok: !!coverImageUrl },
-    { label: "Book title", ok: !!title.trim() },
-    { label: "Author name", ok: !!authorFirstName.trim() && !!authorLastName.trim() },
-    { label: "Age groups are consecutive", ok: !ageGroupProblem(ageGroup) },
-    { label: "Category selected", ok: !!category },
-    { label: "Genre selected", ok: !!genre },
-    { label: "Subcategory selected", ok: !!subcategory },
-    { label: "Age group selected", ok: !!ageGroup },
-    { label: "Book description", ok: !!plainTextFromHtml(descriptionHtml) },
-    { label: `Description within ${DESCRIPTION_WORD_LIMIT}-word limit`, ok: descriptionWordCount <= DESCRIPTION_WORD_LIMIT },
-    ...(manuscriptFileId ? [{ label: "List price set", ok: Number(price) > 0 }] : []),
-    ...(audiobookFileId ? [{ label: "Audiobook price set", ok: Number(audiobookPrice) > 0 }] : []),
-    ...(!worldwideRights ? [{ label: "Restricted countries chosen (or turn on worldwide rights)", ok: restrictedCountries.length > 0 }] : []),
-    { label: "Copyright holder named", ok: !!copyrightHolder.trim() },
-    { label: "AI use declared (tick one box)", ok: !!aiChoiceOf(aiDeclaration) },
+  const checklist: ChecklistItem[] = [
+    { label: "Manuscript or audiobook file uploaded", ok: !!manuscriptFileId || !!audiobookFileId, section: "files" },
+    { label: "Book identifier (your ISBN, or an SN number we generate)", ok: hasOwnIsbn ? !!isbn.trim() : true, section: "info" },
+    { label: "Cover image uploaded", ok: !!coverImageUrl, section: "files" },
+    { label: "Book title", ok: !!title.trim(), section: "info" },
+    { label: "Author name", ok: !!authorFirstName.trim() && !!authorLastName.trim(), section: "info" },
+    { label: "Age groups are consecutive", ok: !ageGroupProblem(ageGroup), section: "class" },
+    { label: "Category selected", ok: !!category, section: "class" },
+    { label: "Genre selected", ok: !!genre, section: "class" },
+    { label: "Subcategory selected", ok: !!subcategory, section: "class" },
+    { label: "Age group selected", ok: !!ageGroup, section: "class" },
+    { label: "Book description", ok: !!plainTextFromHtml(descriptionHtml), section: "desc" },
+    { label: `Description within ${DESCRIPTION_WORD_LIMIT}-word limit`, ok: descriptionWordCount <= DESCRIPTION_WORD_LIMIT, section: "desc" },
+    ...(manuscriptFileId ? [{ label: "List price set", ok: Number(price) > 0, section: "pricing" }] : []),
+    ...(audiobookFileId ? [{ label: "Audiobook price set", ok: Number(audiobookPrice) > 0, section: "pricing" }] : []),
+    ...(!worldwideRights ? [{ label: "Restricted countries chosen (or turn on worldwide rights)", ok: restrictedCountries.length > 0, section: "rights" }] : []),
+    { label: "Copyright holder named", ok: !!copyrightHolder.trim(), section: "rights" },
+    { label: "AI use declared (tick one box)", ok: !!aiChoiceOf(aiDeclaration), section: "desc" },
   ];
-  const allChecksPass = checklist.every((c) => c.ok);
+  const flag = (section: string) => showMissing && checklist.some((c) => !c.ok && c.section === section);
   const metadataMismatch = !!manuscriptFileId && !!title.trim() && metadataCheck.checked && (!metadataCheck.titleFound || !metadataCheck.authorFound);
 
-  async function handleSubmit(submitForReview: boolean) {
-    const ageProblem = ageGroupProblem(ageGroup);
-    if (ageProblem) {
-      setError(ageProblem);
+  /** Save Changes keeps the author on the form; Publish sends the book for review (or live) and returns to My Books. */
+  async function handleAction(kind: "save" | "publish") {
+    setNotice(null);
+    const publishing = kind === "publish";
+    if ((publishing || editingPublished) && checklist.some((c) => !c.ok)) {
+      setShowMissing(true);
+      scrollToFirstMissing(checklist);
       return;
     }
-    setSubmitting(true);
-    setError(null);
+    setShowMissing(false);
+    const ageProblem = ageGroupProblem(ageGroup);
+    if (ageProblem) {
+      setNotice({ kind: "error", text: ageProblem });
+      return;
+    }
+    // A published book's edits always go through the live-edit path, so Save Changes uses it too.
+    const submitForReview = publishing || editingPublished;
+    setBusy(publishing ? "publishing" : "saving");
     const payload = {
       title,
       subtitle,
@@ -375,29 +386,32 @@ export function EbookSubmissionForm({
       },
       submitForReview,
     };
-    if (initial?.bookId) {
-      const res = await updateBookFull(initial.bookId, payload);
-      setSubmitting(false);
-      if (!res.ok) {
-        setError(res.error ?? "Something went wrong.");
+    try {
+      let outcome: string | undefined;
+      let held: string | undefined;
+      let message: string | undefined;
+      if (savedBookId) {
+        const res = await updateBookFull(savedBookId, payload);
+        if (!res.ok) { setNotice({ kind: "error", text: res.error ?? "Something went wrong. Nothing was lost, so you can try again." }); return; }
+        outcome = res.outcome; held = res.held; message = res.message;
+      } else {
+        const res = await submitBook(payload);
+        if (!res.ok) { setNotice({ kind: "error", text: res.error ?? "Something went wrong. Nothing was lost, so you can try again." }); return; }
+        setSavedBookId(res.bookId);
+        outcome = publishing ? "resubmitted" : "saved";
+      }
+      if (!publishing) {
+        setNotice({ kind: "ok", text: outcome === "live_files_pending" ? (message ?? "Changes saved. Your new file is under review.") : "Changes saved." });
         return;
       }
-      if (res.outcome === "live") router.push("/account/books?saved=live");
-      else if (res.outcome === "live_files_pending") router.push(`/account/books?saved=files-review-${res.held ?? "manuscript"}`);
-      else router.push("/account/books");
-      return;
+      if (outcome === "live") router.push("/account/books?saved=live");
+      else if (outcome === "live_files_pending") router.push(`/account/books?saved=files-review-${held ?? "manuscript"}`);
+      else router.push("/account/books?saved=review");
+    } catch {
+      setNotice({ kind: "error", text: "Something went wrong and the action did not finish. Nothing was lost, so you can try again." });
+    } finally {
+      setBusy("idle");
     }
-    const res = await submitBook(payload);
-    setSubmitting(false);
-    if (!res.ok) {
-      setError(res.error ?? "Something went wrong.");
-      return;
-    }
-    if (onSubmitted) {
-      onSubmitted();
-      return;
-    }
-    router.push("/account/books");
   }
 
   const editingPublished = !!initial?.bookId && initial.bookStatus === "PUBLISHED";
@@ -408,7 +422,7 @@ export function EbookSubmissionForm({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Section 1 — Files, first per explicit instruction */}
-      <Card>
+      <Card id="sec-files" flagged={flag("files")}>
         <SectionHeader n={1} title="Files" sub="Manuscript and/or audiobook, plus your cover — this is where we start." />
         <div className="upload-cards-row">
           <FileUploadField
@@ -456,9 +470,9 @@ export function EbookSubmissionForm({
             }}
             fillWidth
           />
-          <ImageUploadField label="Cover image" recommendedSize="Any image format — Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} fillWidth />
+          <ImageUploadField label="Cover Image" recommendedSize="Any image format — Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} fillWidth />
           <FileUploadField
-            label="Audiobook file (MP3 or M4A)"
+            label="Audiobook File (MP3 or M4A)"
             sizeHint="Max 4MB"
             allowedTypes={["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/aac"]}
             accept=".mp3,.m4a,.aac"
@@ -479,10 +493,13 @@ export function EbookSubmissionForm({
       </Card>
 
       {/* Section 2 — Book information */}
-      <Card>
+      <Card id="sec-info" flagged={flag("info")}>
         <SectionHeader n={2} title="Book Information" sub="Core bibliographic details." />
-        <label className="field-label" htmlFor="f-title">Book title</label>
+        <label className="field-label" htmlFor="f-title">Book Title</label>
         <input className="field" id="f-title" type="text" placeholder="Working title" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <AuthorAliasField firstName={authorFirstName} lastName={authorLastName} onChange={(f, l) => { setAuthorFirstName(f); setAuthorLastName(l); }} />
+        <label className="field-label" htmlFor="f-authorbio">Author Bio</label>
+        <textarea className="field" id="f-authorbio" rows={3} placeholder="A couple of sentences about you, for your author page" value={authorBio} onChange={(e) => setAuthorBio(e.target.value)} />
         <div className="form-grid-2">
           <div>
             <label className="field-label" htmlFor="f-subtitle">Subtitle</label>
@@ -495,32 +512,36 @@ export function EbookSubmissionForm({
         </div>
         <div className="form-grid-2">
           <div>
-            <label className="field-label" htmlFor="f-series">Series name</label>
+            <label className="field-label" htmlFor="f-series">Series Name</label>
             <input className="field" id="f-series" type="text" value={seriesName} onChange={(e) => setSeriesName(e.target.value)} />
           </div>
           <div>
-            <label className="field-label" htmlFor="f-seriesnum">Series number</label>
+            <label className="field-label" htmlFor="f-seriesnum">Series Number</label>
             <input className="field" id="f-seriesnum" type="number" value={seriesNumber} onChange={(e) => setSeriesNumber(e.target.value)} />
           </div>
         </div>
+        <ChoiceChips id="f-lang" label="Language" options={LANGUAGES} value={language} onChange={setLanguage} />
         <div className="form-grid-2">
-          <ChoiceChips id="f-lang" label="Language" options={LANGUAGES} value={language} onChange={setLanguage} />
           <PublisherField id="f-publisher" value={publisher} onChange={setPublisher} />
+          <div>
+            <label className="field-label" htmlFor="f-pubdate">Publication Date</label>
+            <input className="field" id="f-pubdate" type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} />
+          </div>
         </div>
         <div className="form-grid-2">
           <div>
-            <label className="field-label" htmlFor="f-pubdate">Publication date</label>
-            <input className="field" id="f-pubdate" type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="f-origpubdate">Original publication date</label>
+            <label className="field-label" htmlFor="f-origpubdate">Original Publication Date</label>
             <input className="field" id="f-origpubdate" type="date" value={originalPublicationDate} onChange={(e) => setOriginalPublicationDate(e.target.value)} />
             <div className="field-hint">Only if this is a reprint or new edition.</div>
           </div>
-        </div>
-        <div className="form-grid-2">
           <div>
-            <label className="field-label">SN number / ISBN</label>
+            <label className="field-label" htmlFor="f-copyrightyear">Copyright Year</label>
+            <input className="field" id="f-copyrightyear" type="number" value={copyrightYear} onChange={(e) => setCopyrightYear(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <div>
+            <label className="field-label">SN Number / ISBN</label>
             <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 400 }}>
                 <input type="radio" name="isbn-mode" checked={!hasOwnIsbn} onChange={() => setHasOwnIsbn(false)} />
@@ -566,30 +587,18 @@ export function EbookSubmissionForm({
               </>
             )}
           </div>
-          <div>
-            <label className="field-label" htmlFor="f-copyrightyear">Copyright year</label>
-            <input className="field" id="f-copyrightyear" type="number" value={copyrightYear} onChange={(e) => setCopyrightYear(e.target.value)} />
-          </div>
         </div>
       </Card>
 
-      {/* Section 3 — Author information */}
-      <Card>
-        <SectionHeader n={3} title="Author Information" sub="Who's credited on this title." />
-        <AuthorAliasField firstName={authorFirstName} lastName={authorLastName} onChange={(f, l) => { setAuthorFirstName(f); setAuthorLastName(l); }} />
-        <label className="field-label" htmlFor="f-authorbio">Author bio</label>
-        <textarea className="field" id="f-authorbio" rows={3} placeholder="A couple of sentences about you, for your author page" value={authorBio} onChange={(e) => setAuthorBio(e.target.value)} />
-      </Card>
-
       {/* Section 4 — Book classification */}
-      <Card>
-        <SectionHeader n={4} title="Book Classification" sub="How this title is categorized and shelved." />
+      <Card id="sec-class" flagged={flag("class")}>
+        <SectionHeader n={3} title="Book Classification" sub="How this title is categorized and shelved." />
         <ChoiceChips id="f-category" label="Category" options={CATEGORIES} value={category} onChange={(v) => { setCategory(v); setSubcategory(""); }} />
-        <ChoiceChips id="f-genre" label="Genre" options={GENRES} value={genre} onChange={setGenre} />
         <ChoiceChips id="f-subcategory" label="Subcategory" options={subcategoriesFor(category)} value={subcategory} onChange={setSubcategory} disabled={!category} hint={category ? undefined : "Choose a category first."} />
+        <ChoiceChips id="f-genre" label="Genre" options={GENRES} value={genre} onChange={setGenre} />
         <div>
           <AgeGroupField id="f-age" value={ageGroup} onChange={setAgeGroup} />
-          <ChoiceChips id="f-readinglevel" label="Reading level" options={READING_LEVELS} value={readingLevel} onChange={setReadingLevel} />
+          <ChoiceChips id="f-readinglevel" label="Reading Level" options={READING_LEVELS} value={readingLevel} onChange={setReadingLevel} />
         </div>
         <div className="form-grid-2">
           <div>
@@ -628,7 +637,7 @@ export function EbookSubmissionForm({
         </div>
         <div className="form-grid-2">
           <div>
-            <label className="field-label" htmlFor="f-filesize">File size (KB)</label>
+            <label className="field-label" htmlFor="f-filesize">File Size (KB)</label>
             <input
               className="field"
               id="f-filesize"
@@ -646,10 +655,10 @@ export function EbookSubmissionForm({
       </Card>
 
       {/* Section 5 — Book description + Keywords */}
-      <Card>
-        <SectionHeader n={5} title="Book Description" sub="The copy readers, teachers, and our editorial team will see." />
-        <label className="field-label">Description</label>
-        <RichTextEditor value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={DESCRIPTION_WORD_LIMIT} minHeight={325} />
+      <Card id="sec-desc" flagged={flag("desc")}>
+        <SectionHeader n={4} title="Book Description" sub="The copy readers, teachers, and our editorial team will see." />
+        <label className="field-label" htmlFor="f-desc">Book Description</label>
+        <RichTextEditor id="f-desc" value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={DESCRIPTION_WORD_LIMIT} />
         <div style={{ marginTop: 18 }}>
           <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} title={title} />
         </div>
@@ -659,19 +668,19 @@ export function EbookSubmissionForm({
       </Card>
 
       {/* Section 6 — Pricing */}
-      <Card>
-        <SectionHeader n={6} title="Pricing" sub="What readers pay, in US dollars — any currency conversion happens at checkout, outside this site." />
+      <Card id="sec-pricing" flagged={flag("pricing")}>
+        <SectionHeader n={5} title="Pricing" sub="What readers pay, in US dollars — any currency conversion happens at checkout, outside this site." />
         {/* The audiobook price is not rendered at all until an audiobook file
             exists, so the list price lays out alone (no empty column). */}
         <div className={audiobookFileId ? "form-grid-2" : undefined}>
           <div>
-            <label className="field-label" htmlFor="f-price">List price (USD)</label>
+            <label className="field-label" htmlFor="f-price">List Price (USD)</label>
             <input className="field" id="f-price" type="number" step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} />
             {!manuscriptFileId && <div className="field-hint">Required with a manuscript.</div>}
           </div>
           {audiobookFileId && (
             <div>
-              <label className="field-label" htmlFor="f-audiobook-price">Audiobook price (USD)</label>
+              <label className="field-label" htmlFor="f-audiobook-price">Audiobook Price (USD)</label>
               <input
                 className="field"
                 id="f-audiobook-price"
@@ -682,7 +691,7 @@ export function EbookSubmissionForm({
                 onChange={(e) => setAudiobookPrice(e.target.value)}
               />
               <div className="field-hint">The Audiobook format only appears on the book&apos;s page once both a file and a price are set.</div>
-              <label className="field-label" htmlFor="f-audiobook-live" style={{ marginTop: 10 }}>Audiobook status</label>
+              <label className="field-label" htmlFor="f-audiobook-live" style={{ marginTop: 10 }}>Audiobook Status</label>
               <select className="field" id="f-audiobook-live" value={audiobookLive ? "live" : "draft"} onChange={(e) => setAudiobookLive(e.target.value === "live")}>
                 <option value="live">Published</option>
                 <option value="draft">Draft (not for sale yet)</option>
@@ -691,7 +700,7 @@ export function EbookSubmissionForm({
             </div>
           )}
         </div>
-        <label className="field-label" htmlFor="f-tax">Tax settings</label>
+        <label className="field-label" htmlFor="f-tax">Tax Settings</label>
         <select className="field" id="f-tax" value={taxSetting} onChange={(e) => setTaxSetting(e.target.value)}>
           {TAX_SETTINGS.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
@@ -699,15 +708,15 @@ export function EbookSubmissionForm({
 
       {/* Section 7 — Distribution */}
       <Card>
-        <SectionHeader n={7} title="Distribution" sub="Where and how this title can be found and sold." />
+        <SectionHeader n={6} title="Distribution" sub="Where and how this title can be found and sold." />
         <div className="toggle-row" style={{ opacity: 0.6 }}>
           <label className="toggle-switch"><input type="checkbox" checked={false} disabled readOnly /><span className="toggle-slider" /></label>
-          <span>Request featured placement</span>
+          <span>Request Featured Placement</span>
           <span className="field-hint" style={{ margin: "0 0 0 8px" }}>(This feature is not yet available. You will be notified when it becomes available.)</span>
         </div>
         <div className="toggle-row">
           <label className="toggle-switch"><input type="checkbox" checked={affiliateEnabled} onChange={(e) => setAffiliateEnabled(e.target.checked)} /><span className="toggle-slider" /></label>
-          <span>Enable this book for the affiliate program</span>
+          <span>Affiliate Eligible</span>
         </div>
         {!initial && affiliateOffer && <AffiliateCopyOffer from={affiliateOffer.from} value={affiliateOffer.value} current={affiliateEnabled} onCopy={setAffiliateEnabled} />}
         {affiliateEnabled && (
@@ -718,19 +727,19 @@ export function EbookSubmissionForm({
       </Card>
 
       {/* Section 8 — Rights */}
-      <Card>
-        <SectionHeader n={8} title="Rights" sub="Ownership and licensing terms for this title." />
+      <Card id="sec-rights" flagged={flag("rights")}>
+        <SectionHeader n={7} title="Rights" sub="Ownership and licensing terms for this title." />
         <div className="toggle-row" style={{ marginBottom: 16 }}>
           <label className="toggle-switch"><input type="checkbox" checked={worldwideRights} onChange={(e) => setWorldwideRights(e.target.checked)} /><span className="toggle-slider" /></label>
-          <span>Worldwide distribution rights</span>
+          <span>Worldwide Distribution Rights</span>
         </div>
         <div className="form-grid-2">
           <div>
-            <label className="field-label" htmlFor="f-copyrightholder">Copyright holder</label>
+            <label className="field-label" htmlFor="f-copyrightholder">Copyright Holder</label>
             <input className="field" id="f-copyrightholder" type="text" value={copyrightHolder} onChange={(e) => setCopyrightHolder(e.target.value)} />
           </div>
           <div>
-            <label className="field-label" htmlFor="f-license">License type</label>
+            <label className="field-label" htmlFor="f-license">License Type</label>
             <select className="field" id="f-license" value={licenseType} onChange={(e) => setLicenseType(e.target.value)}>
               {LICENSE_TYPES.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
@@ -743,14 +752,14 @@ export function EbookSubmissionForm({
 
       {/* Section 9 — SEO, fully derived, not author-editable */}
       <Card>
-        <SectionHeader n={9} title="SEO" sub="Automatically built from what you've already filled in above — matches the SEO system used across the rest of the site." />
-        <label className="field-label">SEO title</label>
+        <SectionHeader n={8} title="SEO" sub="Automatically built from what you've already filled in above — matches the SEO system used across the rest of the site." />
+        <label className="field-label">SEO Title</label>
         <div className="field" style={{ background: "var(--cream)", cursor: "default" }}>{seoTitle}</div>
-        <label className="field-label">SEO description</label>
+        <label className="field-label">SEO Description</label>
         <div className="field" style={{ background: "var(--cream)", cursor: "default", minHeight: 44 }}>{seoDescription || "Write a description above to see it here."}</div>
         <label className="field-label">Keywords</label>
         <div className="field" style={{ background: "var(--cream)", cursor: "default" }}>{keywords.length > 0 ? keywords.join(", ") : "Add keywords above to see them here."}</div>
-        <label className="field-label">Search preview</label>
+        <label className="field-label">Search Preview</label>
         <div className="search-preview">
           <div className="sp-url">thegoodchildbookstore.com › {seoSlug}</div>
           <div className="sp-title">{seoTitle}</div>
@@ -760,10 +769,10 @@ export function EbookSubmissionForm({
 
       {/* Section 10 — Preview */}
       <Card>
-        <SectionHeader n={10} title="Preview" sub="How this title will look once it's live." />
+        <SectionHeader n={9} title="Preview" sub="How this title will look once it's live." />
         <div className="form-grid-2">
           <div>
-            <label className="field-label">Cover preview</label>
+            <label className="field-label">Cover Preview</label>
             {coverImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- live preview of an uploaded cover
               <img src={coverImageUrl} alt="Cover preview" style={{ width: 140, borderRadius: 10, border: "1px solid var(--line)" }} />
@@ -780,7 +789,7 @@ export function EbookSubmissionForm({
             )}
           </div>
           <div>
-            <label className="field-label">Store listing preview</label>
+            <label className="field-label">Store Listing Preview</label>
             <div className="map-card" style={{ padding: 16 }}>
               <div style={{ fontWeight: 700 }}>{title || "Your book title"}</div>
               <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>by {authorFirstName || authorLastName ? `${authorFirstName} ${authorLastName}`.trim() : "Author name"}</div>
@@ -803,21 +812,20 @@ export function EbookSubmissionForm({
         )}
       </Card>
 
-      {/* Section 11 — Submission checklist */}
-      <Card>
-        <SectionHeader n={11} title="Submission Checklist" sub="Everything below must be complete before submitting." />
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {checklist.map((c) => (
-            <div key={c.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: c.ok ? "#165236" : "var(--coral-deep)" }}>
-              {c.ok ? (
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
-              ) : (
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" /></svg>
-              )}
-              {c.label}{!c.ok && " — missing"}
-            </div>
-          ))}
-        </div>
+      {/* Section 10 — Publishing checklist and the action buttons */}
+      <PublishPanel
+        n={10}
+        sub="Everything below is needed before this title can be published. It updates as you fill the form in."
+        items={checklist}
+        showMissing={showMissing}
+        showPublish={!editingPublished}
+        busy={busy}
+        onSave={() => handleAction("save")}
+        onPublish={() => handleAction("publish")}
+        notice={notice}
+        missingIntro={editingPublished ? "Please finish these before saving:" : undefined}
+        extraActions={extraActions}
+      >
         {metadataMismatch && (
           <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 10, background: "#FDECEA", border: "1px solid #F3B6AE", fontSize: 13, color: "#8A2E1F" }}>
             ⚠ We checked the first couple of pages of your uploaded manuscript, and{" "}
@@ -829,19 +837,7 @@ export function EbookSubmissionForm({
             . Please double check you&apos;ve uploaded the right file for this title.
           </div>
         )}
-        {error && <div className="field-hint" style={{ color: "var(--coral-deep)", marginTop: 12 }}>{error}</div>}
-        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginTop: 20 }}>
-          {!editingPublished && (
-            <button type="button" className="btn btn-ghost btn-small" disabled={submitting || !!ageGroupProblem(ageGroup)} onClick={() => handleSubmit(false)}>
-              Save as Draft
-            </button>
-          )}
-          <button type="button" className="btn btn-primary btn-small" disabled={submitting || !allChecksPass} onClick={() => handleSubmit(true)}>
-            {submitting ? (initial?.bookId ? "Saving…" : "Publishing…") : (initial?.bookId ? (editingPublished ? "Save Changes" : "Save and Resubmit for Review") : "Publish")}
-          </button>
-          {extraActions}
-        </div>
-      </Card>
+      </PublishPanel>
     </div>
   );
 }

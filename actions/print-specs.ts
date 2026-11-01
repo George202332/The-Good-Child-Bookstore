@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { packagesFor, type PackageSettings } from "@/lib/print-preflight-packages";
 import { detectTrimFromPageSize, formatInches, trimCodeToInches } from "@/lib/trim-size";
 import { evaluateTrim, recommendTrim, trimLabel, unsupportedSizeMessage, type TrimEvaluation } from "@/lib/print-specs";
-import { planFontFixes, embedMissingFonts, type FontFixItem } from "@/lib/pdf-fonts";
+import { planFontFixes, embedMissingFonts, fontsNote, type FontFixItem } from "@/lib/pdf-fonts";
 import { scanFonts } from "@/lib/pdf-font-scan";
 import { coverLayout } from "@/lib/lulu-cover";
 import { estimatePrintingCost } from "@/lib/lulu-pricing";
@@ -147,9 +147,9 @@ export interface FixFontsResult {
   note?: string;
 }
 
-/** Embeds the fonts that can be embedded in a copy of the uploaded PDF. `approved` names the fonts the
- * author agreed to have replaced by a stand-in. The original upload is never changed. */
-export async function fixPrintFonts(input: { fileId: string; approved: string[] }): Promise<FixFontsResult> {
+/** Embeds every font that can be embedded in a copy of the uploaded PDF, with no permission step: the exact
+ * font when we have it, otherwise the closest match. The original upload is never changed. */
+export async function fixPrintFonts(input: { fileId: string }): Promise<FixFontsResult> {
   const none = { embedded: [], skipped: [], remaining: [] };
   if (!(await requireAuthor())) return { ok: false, error: "Only author accounts can fix print files.", ...none };
   const file = await prisma.uploadedFile.findUnique({ where: { id: input.fileId } });
@@ -158,7 +158,7 @@ export async function fixPrintFonts(input: { fileId: string; approved: string[] 
   try {
     const { PDFDocument } = await import("pdf-lib");
     const before = (await PDFDocument.load(new Uint8Array(file.data), { updateMetadata: false })).getPageCount();
-    const result = await embedMissingFonts(new Uint8Array(file.data), input.approved ?? []);
+    const result = await embedMissingFonts(new Uint8Array(file.data), "all");
     if (result.embedded.length === 0) {
       return { ok: true, embedded: [], skipped: result.skipped, remaining: result.remaining, pageCountBefore: before, pageCountAfter: before, note: "No font could be embedded automatically." };
     }
@@ -177,7 +177,7 @@ export async function fixPrintFonts(input: { fileId: string; approved: string[] 
       remaining: result.remaining,
       pageCountBefore: before,
       pageCountAfter: after,
-      note: `Fonts were embedded for you (${names}). Your original file was kept as it was.`,
+      note: fontsNote(names, result.embedded, before, after),
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";

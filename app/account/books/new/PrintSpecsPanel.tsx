@@ -13,7 +13,7 @@ const WARN = { color: "var(--coral-deep)" } as const;
  * from the file against the size selected), and the fonts step (embedding, approvals, processing state).
  */
 export function PrintSpecsPanel({
-  report, busy, chosenTrimCode, onUseTrim, fontBusy, fontResult, onEmbed,
+  report, busy, chosenTrimCode, onUseTrim, fontBusy, fontResult, title,
 }: {
   report: PrintSpecReport | null;
   busy: boolean;
@@ -21,11 +21,10 @@ export function PrintSpecsPanel({
   onUseTrim: (code: string) => void;
   fontBusy: boolean;
   fontResult: FixFontsResult | null;
-  /** Embed fonts, replacing the named fonts with the stand-ins the author approved. */
-  onEmbed: (approved: string[]) => void;
+  /** The book title, printed in the cover template header. */
+  title?: string;
 }) {
   if (!report && !busy && !fontBusy) return null;
-  const waiting: FontFixItem[] = report?.fonts?.unembedded.filter((f) => f.status === "needs-approval") ?? [];
   const blocked: FontFixItem[] = report?.fonts?.unembedded.filter((f) => f.status === "unavailable") ?? [];
   const recommendedOther = report?.recommendedTrimCode && report.recommendedTrimCode !== chosenTrimCode ? report.recommendedTrimCode : null;
   const recommendedLabel = report?.candidates?.find((c) => c.code === recommendedOther)?.label;
@@ -37,7 +36,7 @@ export function PrintSpecsPanel({
       {(busy || fontBusy) && (
         <p role="status" className="specs-text" style={{ fontWeight: 600 }}>
           {fontBusy
-            ? "Processing: embedding fonts in a copy of your PDF. This usually takes a few seconds, and up to about half a minute for a large file. Please keep this page open."
+            ? "Embedding the fonts in a copy of your PDF. This usually takes a few seconds, and up to about half a minute for a large file. Please keep this page open. Your file is checked again by itself afterwards."
             : "Processing: reading your file and asking Lulu about it…"}
         </p>
       )}
@@ -80,7 +79,7 @@ export function PrintSpecsPanel({
                       <tr><td>Safe margin</td><td>Keep text {g.safeIn} in inside the trim edge</td></tr>
                     </tbody>
                   </table>
-                  <CoverTemplateDownload cover={c} pageCount={report.pageCount} />
+                  <CoverTemplateDownload cover={c} pageCount={report.pageCount} title={title} />
                 </div>
               );
             }) : <p className="specs-text">Lulu could not give the cover size right now. It is worked out again when you reload.</p>}
@@ -107,25 +106,6 @@ export function PrintSpecsPanel({
             </div>
           )}
 
-          {waiting.length > 0 && (
-            <div className="specs-block">
-              <h4 className="specs-subtitle">Fonts That Need Your Approval</h4>
-              {waiting.map((f) => (
-                <div key={f.name} className="specs-font">
-                  <p className="specs-text">{f.message}</p>
-                  <div className="specs-actions">
-                    <button type="button" className="btn btn-ghost btn-small" disabled={fontBusy} onClick={() => onEmbed([f.name])}>Embed {f.substitute} instead of {f.name}</button>
-                  </div>
-                </div>
-              ))}
-              {waiting.length > 1 && (
-                <div className="specs-actions">
-                  <button type="button" className="btn btn-primary btn-small" disabled={fontBusy} onClick={() => onEmbed(waiting.map((f) => f.name))}>Approve All Stand-Ins</button>
-                </div>
-              )}
-            </div>
-          )}
-
           {blocked.length > 0 && (
             <div className="specs-block" role="alert">
               <h4 className="specs-subtitle" style={WARN}>Fonts We Cannot Embed For You</h4>
@@ -141,8 +121,6 @@ export function PrintSpecsPanel({
           {fontResult.ok && fontResult.note && fontResult.embedded.length > 0 && (
             <p className="specs-text">
               {fontResult.note}
-              {fontResult.embedded.some((e) => !e.sameWidths) && " A different font was used for some text, so check the preview: spacing can differ."}
-              {fontResult.pageCountBefore !== fontResult.pageCountAfter && ` The page count changed from ${fontResult.pageCountBefore} to ${fontResult.pageCountAfter}; the cover and printing cost were worked out again.`}
               {fontResult.remaining.length > 0 && ` Still not embedded: ${fontResult.remaining.join(", ")}.`}
             </p>
           )}

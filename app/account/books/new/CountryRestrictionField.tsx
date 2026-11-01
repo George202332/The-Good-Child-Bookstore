@@ -31,7 +31,7 @@ export function CountryRestrictionField({
 
   return (
     <div>
-      <label className="field-label" htmlFor={`${idPrefix}-countryrestrict`}>Country restrictions</label>
+      <label className="field-label" htmlFor={`${idPrefix}-countryrestrict`}>Country Restrictions</label>
       <p className="field-hint" style={{ margin: "0 0 8px" }}>
         Tick every country where this book may NOT be sold.
       </p>

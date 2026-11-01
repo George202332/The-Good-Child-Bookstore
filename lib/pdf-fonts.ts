@@ -150,24 +150,25 @@ function winAnsiChar(code: number): string {
 }
 
 /**
- * Embeds the fonts that can be embedded. `approved` lists the names (as the PDF writes them) the
- * author has agreed to have replaced by a stand-in; fonts we have ourselves ("auto") need no approval.
+ * Embeds the fonts that can be embedded. "all" embeds every font we can (the exact font when we have it,
+ * otherwise the closest match, with no permission step); a list of names embeds only those stand-ins.
  * The page content is untouched. The result is re-read to prove every font that was fixed is now embedded.
  */
-export async function embedMissingFonts(input: Uint8Array, approved: string[] = []): Promise<FontFixResult> {
+export async function embedMissingFonts(input: Uint8Array, approved: string[] | "all" = []): Promise<FontFixResult> {
   const { PDFDocument, PDFName, PDFNumber } = await import("pdf-lib");
   const fontkit = (await import("@pdf-lib/fontkit")).default;
   const doc = await PDFDocument.load(input, { ignoreEncryption: false, updateMetadata: false });
   const fonts = await scanFonts(doc);
   const plan = planFontFixes(fonts);
-  const approvedSet = new Set(approved);
+  const approvedSet = new Set(approved === "all" ? [] : approved);
+  const approveAll = approved === "all";
   const ctx = doc.context;
   const fileRefs = new Map<string, PDFRef>();
   const embedded: FontFixResult["embedded"] = [];
   const skipped: FontFixItem[] = [];
 
   for (const item of plan) {
-    if (item.status === "unavailable" || (item.status === "needs-approval" && !approvedSet.has(item.name))) { skipped.push(item); continue; }
+    if (item.status === "unavailable" || (item.status === "needs-approval" && !approveAll && !approvedSet.has(item.name))) { skipped.push(item); continue; }
     const c = classifyFontName(item.name);
     const fam = FAMILIES[c.family!];
     const file = fam.files[faceKey(c)];
@@ -229,3 +230,17 @@ export async function embedMissingFonts(input: Uint8Array, approved: string[] = 
 }
 
 export type { PDFDocument };
+
+/** The plain note shown to the author after fonts were embedded: a short confirmation, and, when a stand-in
+ * font may have changed the layout or the page count, which fonts and exactly what changed. */
+export function fontsNote(names: string, embedded: { name: string; substitute: string; sameWidths: boolean }[], before: number, after: number): string {
+  let note = `Fonts were embedded for you (${names}). Your original file was kept as it was.`;
+  const changed = embedded.filter((e) => !e.sameWidths);
+  if (before !== after) {
+    note += ` The page count changed from ${before} to ${after} because ${changed.length ? changed.map((e) => `${e.substitute} replaced ${e.name}`).join(", ") : "of the new fonts"}. The specs, printing cost, royalty preview and cover were updated for the new page count.`;
+  } else if (changed.length > 0) {
+    note += ` ${changed.map((e) => `${e.substitute} replaced ${e.name}`).join(", ")}: the letter widths differ slightly, so check the preview for spacing. The page count did not change.`;
+  }
+  return note;
+}
+
