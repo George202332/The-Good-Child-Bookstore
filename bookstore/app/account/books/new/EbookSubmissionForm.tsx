@@ -1,0 +1,843 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { submitBook, updateBookFull, generateUniqueSerialNumber } from "@/actions/submissions";
+import { checkManuscriptMetadata, type MetadataCheckResult } from "@/actions/metadata-check";
+import { ImageUploadField } from "@/components/ImageUploadField";
+import { FileUploadField } from "@/components/FileUploadField";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
+import { PublishPanel, scrollToFirstMissing, type ChecklistItem, type PublishNotice } from "./PublishPanel";
+import { PublisherField } from "./PublisherField";
+import { AiDeclarationField } from "@/components/AiDeclarationField";
+import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
+import { ChoiceChips } from "@/components/ChoiceChips";
+import { AffiliateCopyOffer } from "@/components/AffiliateCopyOffer";
+import { AgeGroupField } from "./AgeGroupField";
+import { ageGroupProblem } from "@/lib/age-groups";
+import { isRealIsbn } from "@/lib/identifiers";
+import { AuthorAliasField } from "./AuthorAliasField";
+import { KeywordsField } from "./KeywordsField";
+import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
+import { CountryRestrictionField } from "./CountryRestrictionField";
+import { CATEGORIES, GENRES, subcategoriesFor } from "@/lib/taxonomy";
+import { DIMENSION_OPTIONS, DEFAULT_DIMENSION, nearestDimensionOption } from "@/lib/book-dimensions";
+const READING_LEVELS = ["Pre-reader", "Beginner", "Early Reader", "Independent Reader", "Fluent Reader"];
+const LANGUAGES = ["English", "Spanish", "French", "Swahili"];
+const LICENSE_TYPES = ["All rights reserved", "Exclusive Distribution", "Non-Exclusive Distribution"];
+const TAX_SETTINGS = ["Calculate automatically by customer location", "Tax Exempt", "Fixed Rate"];
+
+function plainTextFromHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function slugFromTitle(title: string): string {
+  return title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
+export interface EbookSubmissionInitial {
+  bookId: string;
+  manuscriptFileId?: string;
+  coverImageUrl?: string;
+  /** Current status of the book being edited — a PUBLISHED book keeps its
+   * live listing; only a replaced manuscript or cover goes to review. */
+  bookStatus?: string;
+  /** An optional audiobook file already uploaded on this title — see
+   * the Audiobook upload field in the Files section below. */
+  audiobookFileId?: string;
+  /** The audiobook's own retail price, as a string for the price input
+   * — only ever meaningful (and only ever rendered) once an audiobook
+   * file exists. */
+  audiobookPrice?: string;
+  /** The audiobook's own Published/Draft switch; missing means published (it follows the record). */
+  audiobookLive?: boolean;
+  title: string;
+  subtitle?: string;
+  edition?: string;
+  seriesName?: string;
+  seriesNumber?: string;
+  language?: string;
+  publisher?: string;
+  publicationDate?: string;
+  originalPublicationDate?: string;
+  isbn?: string;
+  copyrightYear?: string;
+  authorFirstName?: string;
+  authorLastName?: string;
+  authorBio?: string;
+  /** One of CATEGORIES (lib/taxonomy.ts), or empty when unknown. */
+  category?: string;
+  /** One of GENRES, or empty when unknown. */
+  genre?: string;
+  /** A subcategory of `category`, or empty when unknown. */
+  subcategory?: string;
+  ageGroup?: string;
+  readingLevel?: string;
+  pages?: number;
+  dimensions?: string;
+  fileSizeKB?: number;
+  descriptionHtml?: string;
+  aiDeclaration?: string;
+  keywords?: string[];
+  price?: string;
+  taxSetting?: string;
+  affiliateEnabled?: boolean;
+  worldwideRights?: boolean;
+  /** ISO-2 codes where this book may NOT be sold. */
+  restrictedCountries?: string[];
+  copyrightHolder?: string;
+  licenseType?: string;
+}
+
+/**
+ * eBook submission — Files come first (manuscript + cover only），then
+ * Book information, Author (a reusable name picker, not tied to the
+ * account's real name), Book classification, Book description (long
+ * description only) + Keywords, Pricing, Distribution, Rights, SEO
+ * (fully derived, not author-editable), Preview, and the submission
+ * checklist.
+ *
+ * When `initial` is provided, this is genuinely the same page in edit
+ * mode — every field pre-filled from the existing book, saving calls
+ * updateBookFull() instead of submitBook(). A book that is not yet
+ * published is resent for review on save; a published book saves live,
+ * and only a replaced manuscript or cover goes to review. Not a separate, simplified edit form — the same
+ * page, the same fields, per explicit instruction.
+ */
+export function EbookSubmissionForm({
+  initial,
+  audiobookEnabled = true,
+  onSharedFieldsChange,
+  affiliateOffer,
+  extraActions,
+  aiShared,
+}: {
+  initial?: EbookSubmissionInitial;
+  /** The book-wide AI declaration, held by the tabs so the eBook and Print forms always show the same answer. */
+  aiShared?: { value: string; onChange: (v: string) => void };
+  /** Edit view only: extra buttons shown in the same row, to the right of Save / Publish. */
+  extraActions?: React.ReactNode;
+  /** Admin's "Formats open for submission" toggle for Audio book (see
+   * PublishingFormatToggles) — when off, the Audiobook upload slot is
+   * still shown (so nothing disappears silently) but disabled, with a
+   * note that audiobook uploads aren't open right now. */
+  audiobookEnabled?: boolean;
+  /** Reports this form's shared fields (title, author, description,
+   * category, age range, etc) up to the parent wizard every time they
+   * change, so the Print tab can be pre-filled with them — see
+   * SharedSubmissionFields in ./shared.tsx. */
+  onSharedFieldsChange?: (fields: SharedSubmissionFields) => void;
+  /** When this edition is added to a title that already has another edition: that edition's Affiliate Eligible setting, offered (never forced). */
+  affiliateOffer?: { from: string; value: boolean };
+} = {}) {
+  const router = useRouter();
+
+  // Files
+  const [manuscriptFileId, setManuscriptFileId] = useState<string | undefined>(initial?.manuscriptFileId);
+  const [coverImageUrl, setCoverImageUrl] = useState(initial?.coverImageUrl ?? "");
+  // The manuscript's name and type, so the Print tab's "Autofill from eBook" can carry the
+  // file across (only a PDF can be printed).
+  const [manuscriptFileName, setManuscriptFileName] = useState<string | undefined>(undefined);
+  const [manuscriptMime, setManuscriptMime] = useState<string | undefined>(undefined);
+
+  // Audiobook — lives on this same tab (relabeled "eBook / Audiobook" by
+  // the parent wizard) rather than a separate Audiobook tab. It is fully
+  // independent of the manuscript: a title needs a manuscript, an audiobook
+  // file, or both. The audiobook price field (Pricing section) is not
+  // rendered at all until a file has actually been uploaded here.
+  const [audiobookFileId, setAudiobookFileId] = useState<string | undefined>(initial?.audiobookFileId);
+  const [audiobookPrice, setAudiobookPrice] = useState(initial?.audiobookPrice ?? "");
+  const [audiobookLive, setAudiobookLive] = useState(initial?.audiobookLive ?? true);
+
+  // Book information
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [subtitle, setSubtitle] = useState(initial?.subtitle ?? "");
+  const [edition, setEdition] = useState(initial?.edition ?? "");
+  const [seriesName, setSeriesName] = useState(initial?.seriesName ?? "");
+  const [seriesNumber, setSeriesNumber] = useState(initial?.seriesNumber ?? "");
+  const [language, setLanguage] = useState(initial?.language || LANGUAGES[0]);
+  const [publisher, setPublisher] = useState(initial?.publisher ?? "");
+  const [publicationDate, setPublicationDate] = useState(initial?.publicationDate ?? "");
+  const [originalPublicationDate, setOriginalPublicationDate] = useState(initial?.originalPublicationDate ?? "");
+  const [isbn, setIsbn] = useState(initial?.isbn ?? "");
+  // The identifier is an SN number the site generates, unless the author has their own ISBN
+  // for the eBook (which then replaces it). The audiobook shares whichever it is.
+  const [hasOwnIsbn, setHasOwnIsbn] = useState(!!initial?.isbn && isRealIsbn(initial.isbn));
+  const [generatedSn, setGeneratedSn] = useState<string | null>(initial?.isbn && !isRealIsbn(initial.isbn) ? initial.isbn : null);
+  const [generatingSn, setGeneratingSn] = useState(false);
+  const [copyrightYear, setCopyrightYear] = useState(initial?.copyrightYear ?? String(new Date().getFullYear()));
+
+  // Author information
+  const [authorFirstName, setAuthorFirstName] = useState(initial?.authorFirstName ?? "");
+  const [authorLastName, setAuthorLastName] = useState(initial?.authorLastName ?? "");
+  const [authorBio, setAuthorBio] = useState(initial?.authorBio ?? "");
+
+  // Book classification
+  // Category, Genre and Subcategory are three independent, required
+  // dropdowns; Subcategory depends on Category and resets when it changes.
+  const [category, setCategory] = useState(initial?.category ?? "");
+  const [genre, setGenre] = useState(initial?.genre ?? "");
+  const [subcategory, setSubcategory] = useState(initial?.subcategory ?? "");
+  const [ageGroup, setAgeGroup] = useState(initial?.ageGroup || "0-2 years");
+  const [readingLevel, setReadingLevel] = useState(initial?.readingLevel || READING_LEVELS[0]);
+  // Pages, Dimensions, and File size all auto-fill from the uploaded
+  // manuscript itself (see the Files section's onFileMeta below) but
+  // stay editable — detection doesn't run for EPUB/MOBI (dimensions
+  // aren't a well-defined property of those formats the way they are
+  // for a PDF's page size), and an author can always review and correct
+  // whatever was detected before submitting; whatever is in these
+  // fields at submission time is what gets saved and shown on the
+  // product page's detail card.
+  const [pages, setPages] = useState(initial?.pages ? String(initial.pages) : "");
+  const [pagesAutoDetected, setPagesAutoDetected] = useState(false);
+  const [dimensions, setDimensions] = useState(initial?.dimensions || DEFAULT_DIMENSION);
+  const [dimensionsAutoDetected, setDimensionsAutoDetected] = useState(false);
+  const [dimensionsUnmatched, setDimensionsUnmatched] = useState<string | null>(null);
+  // Stored value outside the standard list (edit mode) stays selectable.
+  const dimensionChoices = DIMENSION_OPTIONS.includes(dimensions) ? DIMENSION_OPTIONS : [...DIMENSION_OPTIONS, dimensions];
+  const [fileSizeKB, setFileSizeKB] = useState(initial?.fileSizeKB ? String(initial.fileSizeKB) : "");
+  const [fileSizeAutoDetected, setFileSizeAutoDetected] = useState(false);
+
+  // Book description
+  const [descriptionHtml, setDescriptionHtml] = useState(initial?.descriptionHtml ?? "");
+
+  // AI use declaration — the author's own statement of how (or whether)
+  // AI was used in creating this book, shown on the product page's
+  // detail card. Free text, not validated.
+  const [aiLocal, setAiLocal] = useState(initial?.aiDeclaration ?? "");
+  const aiDeclaration = aiShared ? aiShared.value : aiLocal;
+  const setAiDeclaration = aiShared ? aiShared.onChange : setAiLocal;
+
+  // Keywords
+  const [keywords, setKeywords] = useState<string[]>(initial?.keywords ?? []);
+
+  // Pricing — USD only; one regular price per format (no discounts).
+  const [price, setPrice] = useState(initial?.price ?? "12.99");
+  const [taxSetting, setTaxSetting] = useState(initial?.taxSetting || TAX_SETTINGS[0]);
+
+  // Distribution
+  // "Sell on store" is no longer a choice (every book is sold on the
+  // store) and featured placement isn't available yet — both are fixed
+  // server side (sellOnStore: true, featuredRequest: false).
+  const [affiliateEnabled, setAffiliateEnabled] = useState(initial?.affiliateEnabled ?? false);
+
+  // Rights
+  const [worldwideRights, setWorldwideRights] = useState(initial?.worldwideRights ?? true);
+  const [restrictedCountries, setRestrictedCountries] = useState<string[]>(initial?.restrictedCountries ?? []);
+  const [copyrightHolder, setCopyrightHolder] = useState(initial?.copyrightHolder ?? "");
+  const [licenseType, setLicenseType] = useState(initial?.licenseType || LICENSE_TYPES[0]);
+
+  const [busy, setBusy] = useState<"idle" | "saving" | "publishing">("idle");
+  const [notice, setNotice] = useState<PublishNotice | null>(null);
+  const [showMissing, setShowMissing] = useState(false);
+  // A new title becomes a saved book on the first Save Changes; later saves update that same book.
+  const [savedBookId, setSavedBookId] = useState<string | undefined>(initial?.bookId);
+
+  // SEO — fully derived from what's already been filled in elsewhere,
+  // never a separate author input. Kept aligned with the same
+  // structure the rest of the site's SEO already uses (see
+  // lib/seo/json-ld.ts and the per-page metadata pattern).
+  const authorDisplayName = `${authorFirstName} ${authorLastName}`.trim();
+  const seoTitle = title
+    ? `${title}${authorDisplayName ? ` by ${authorDisplayName}` : ""} | The Good Child Bookstore`
+    : "Your book title";
+  const seoDescription = useMemo(() => {
+    const plain = plainTextFromHtml(descriptionHtml);
+    return plain.length > 160 ? `${plain.slice(0, 157)}…` : plain;
+  }, [descriptionHtml]);
+  const seoSlug = title ? slugFromTitle(title) : "…";
+  // Word count enforced at submission time (see checklist/allChecksPass
+  // below) rather than blocked live while typing — contentEditable
+  // doesn't handle having its content truncated mid-keystroke cleanly,
+  // and the limit only needs to hold by the time the author submits.
+  const descriptionWordCount = useMemo(() => {
+    const plain = plainTextFromHtml(descriptionHtml);
+    return plain ? plain.split(/\s+/).filter(Boolean).length : 0;
+  }, [descriptionHtml]);
+  const DESCRIPTION_WORD_LIMIT = 200;
+
+  // Report the shared subset of fields up to the parent wizard on every
+  // change, so switching to the Print tab can pre-fill them there — see
+  // SharedSubmissionFields in ./shared.tsx.
+  useEffect(() => {
+    onSharedFieldsChange?.({
+      title, subtitle, edition, seriesName, language, publicationDate,
+      category, genre, subcategory, ageGroup, readingLevel,
+      authorFirstName, authorLastName,
+      description: plainTextFromHtml(descriptionHtml),
+      descriptionHtml,
+      aiDeclaration,
+      publisher,
+      affiliateEligible: affiliateEnabled,
+      coverImageUrl,
+      manuscriptFileId,
+      manuscriptFileName,
+      manuscriptMimeType: manuscriptMime,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onSharedFieldsChange is expected to be a stable callback from the parent; including it would re-run this on every parent render for no reason.
+  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, descriptionHtml, aiDeclaration, publisher, affiliateEnabled, coverImageUrl, manuscriptFileId, manuscriptFileName, manuscriptMime]);
+
+  const [metadataCheck, setMetadataCheck] = useState<MetadataCheckResult>({ titleFound: true, authorFound: true, checked: false });
+  useEffect(() => {
+    if (!manuscriptFileId || !title.trim()) return;
+    const timer = setTimeout(() => {
+      checkManuscriptMetadata(manuscriptFileId, title, `${authorFirstName} ${authorLastName}`.trim()).then(setMetadataCheck);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [manuscriptFileId, title, authorFirstName, authorLastName]);
+
+  const checklist: ChecklistItem[] = [
+    { label: "Manuscript or audiobook file uploaded", ok: !!manuscriptFileId || !!audiobookFileId, section: "files" },
+    { label: "Book identifier (your ISBN, or an SN number we generate)", ok: hasOwnIsbn ? !!isbn.trim() : true, section: "info" },
+    { label: "Cover image uploaded", ok: !!coverImageUrl, section: "files" },
+    { label: "Book title", ok: !!title.trim(), section: "info" },
+    { label: "Author name", ok: !!authorFirstName.trim() && !!authorLastName.trim(), section: "info" },
+    { label: "Age groups are consecutive", ok: !ageGroupProblem(ageGroup), section: "class" },
+    { label: "Category selected", ok: !!category, section: "class" },
+    { label: "Genre selected", ok: !!genre, section: "class" },
+    { label: "Subcategory selected", ok: !!subcategory, section: "class" },
+    { label: "Age group selected", ok: !!ageGroup, section: "class" },
+    { label: "Book description", ok: !!plainTextFromHtml(descriptionHtml), section: "desc" },
+    { label: `Description within ${DESCRIPTION_WORD_LIMIT}-word limit`, ok: descriptionWordCount <= DESCRIPTION_WORD_LIMIT, section: "desc" },
+    ...(manuscriptFileId ? [{ label: "List price set", ok: Number(price) > 0, section: "pricing" }] : []),
+    ...(audiobookFileId ? [{ label: "Audiobook price set", ok: Number(audiobookPrice) > 0, section: "pricing" }] : []),
+    ...(!worldwideRights ? [{ label: "Restricted countries chosen (or turn on worldwide rights)", ok: restrictedCountries.length > 0, section: "rights" }] : []),
+    { label: "Copyright holder named", ok: !!copyrightHolder.trim(), section: "rights" },
+    { label: "AI use declared (tick one box)", ok: !!aiChoiceOf(aiDeclaration), section: "desc" },
+  ];
+  const flag = (section: string) => showMissing && checklist.some((c) => !c.ok && c.section === section);
+  const metadataMismatch = !!manuscriptFileId && !!title.trim() && metadataCheck.checked && (!metadataCheck.titleFound || !metadataCheck.authorFound);
+
+  /** Save Changes keeps the author on the form; Publish sends the book for review (or live) and returns to My Books. */
+  async function handleAction(kind: "save" | "publish") {
+    setNotice(null);
+    const publishing = kind === "publish";
+    if ((publishing || editingPublished) && checklist.some((c) => !c.ok)) {
+      setShowMissing(true);
+      scrollToFirstMissing(checklist);
+      return;
+    }
+    setShowMissing(false);
+    const ageProblem = ageGroupProblem(ageGroup);
+    if (ageProblem) {
+      setNotice({ kind: "error", text: ageProblem });
+      return;
+    }
+    // A published book's edits always go through the live-edit path, so Save Changes uses it too.
+    const submitForReview = publishing || editingPublished;
+    setBusy(publishing ? "publishing" : "saving");
+    const payload = {
+      title,
+      subtitle,
+      isbn: hasOwnIsbn ? isbn : (generatedSn ?? ""),
+      // No character slice here — that was silently cutting the stored
+      // description (and the product page's visible text with it) off
+      // mid-sentence at 500 characters, well short of a real description.
+      // The 200-word submission limit above is what keeps this bounded now.
+      description: plainTextFromHtml(descriptionHtml),
+      // The eBook list price only applies with a manuscript; an
+      // audiobook-only title is priced by its audiobook price (the server
+      // derives Book.price from it).
+      price: manuscriptFileId ? Number(price) || 0 : 0,
+      ageGroup,
+      category,
+      genre,
+      subcategory,
+      restrictedCountries: worldwideRights ? [] : restrictedCountries,
+      language,
+      coverImageUrl,
+      manuscriptFileId,
+      audiobookFileId,
+      formats: { ebook: !!manuscriptFileId, print: false, audiobook: !!audiobookFileId },
+      metadata: {
+        authorFirstName,
+        authorLastName,
+        edition,
+        seriesName,
+        seriesNumber: seriesNumber ? Number(seriesNumber) : undefined,
+        publisher,
+        publicationDate,
+        originalPublicationDate,
+        copyrightYear: copyrightYear ? Number(copyrightYear) : undefined,
+        authorBio,
+        readingLevel,
+        // Manuscript-derived details: optional, and dropped for an
+        // audiobook-only title (no manuscript to describe).
+        pages: manuscriptFileId && pages ? Number(pages) : undefined,
+        dimensions: manuscriptFileId ? dimensions.trim() || undefined : undefined,
+        fileSizeKB: manuscriptFileId && fileSizeKB ? Number(fileSizeKB) : undefined,
+        longDescriptionHtml: descriptionHtml,
+        aiDeclaration: aiDeclaration.trim() || undefined,
+        taxSetting,
+        worldwideRights,
+        countryRestrictions: worldwideRights ? undefined : restrictedCountries.join(", "),
+        copyrightHolder,
+        licenseType,
+        sellOnStore: true,
+        featuredRequest: false,
+        affiliateEnabled,
+        seoTitle,
+        seoDescription,
+        keywords: keywords.join(", "),
+        audiobookEnabled: !!audiobookFileId,
+        audiobookLive: audiobookFileId ? audiobookLive : undefined,
+        audiobookRetailPrice: audiobookFileId ? Number(audiobookPrice) || 0 : undefined,
+      },
+      submitForReview,
+    };
+    try {
+      let outcome: string | undefined;
+      let held: string | undefined;
+      let message: string | undefined;
+      if (savedBookId) {
+        const res = await updateBookFull(savedBookId, payload);
+        if (!res.ok) { setNotice({ kind: "error", text: res.error ?? "Something went wrong. Nothing was lost, so you can try again." }); return; }
+        outcome = res.outcome; held = res.held; message = res.message;
+      } else {
+        const res = await submitBook(payload);
+        if (!res.ok) { setNotice({ kind: "error", text: res.error ?? "Something went wrong. Nothing was lost, so you can try again." }); return; }
+        setSavedBookId(res.bookId);
+        outcome = publishing ? "resubmitted" : "saved";
+      }
+      if (!publishing) {
+        setNotice({ kind: "ok", text: outcome === "live_files_pending" ? (message ?? "Changes saved. Your new file is under review.") : "Changes saved." });
+        return;
+      }
+      if (outcome === "live") router.push("/account/books?saved=live");
+      else if (outcome === "live_files_pending") router.push(`/account/books?saved=files-review-${held ?? "manuscript"}`);
+      else router.push("/account/books?saved=review");
+    } catch {
+      setNotice({ kind: "error", text: "Something went wrong and the action did not finish. Nothing was lost, so you can try again." });
+    } finally {
+      setBusy("idle");
+    }
+  }
+
+  const editingPublished = !!initial?.bookId && initial.bookStatus === "PUBLISHED";
+  // A published title keeps its live manuscript when a save sends none, so
+  // that file can be replaced but not removed; any other manuscript can.
+  const manuscriptRemovable = !(editingPublished && initial?.manuscriptFileId);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Section 1 — Files, first per explicit instruction */}
+      <Card id="sec-files" flagged={flag("files")}>
+        <SectionHeader n={1} title="Files" sub="Manuscript and/or audiobook, plus your cover — this is where we start." />
+        <div className="upload-cards-row">
+          <FileUploadField
+            label="Manuscript (PDF, EPUB, or MOBI)"
+            sizeHint="Max 4MB"
+            allowedTypes={["application/pdf", "application/epub+zip", "application/x-mobipocket-ebook"]}
+            accept=".pdf,.epub,.mobi"
+            onUploaded={(ids) => setManuscriptFileId(ids[0])}
+            onRemove={manuscriptRemovable ? () => { setManuscriptFileId(undefined); setPagesAutoDetected(false); setDimensionsAutoDetected(false); setDimensionsUnmatched(null); setFileSizeAutoDetected(false); } : undefined}
+            initialFileName={initial?.manuscriptFileId ? "Manuscript already uploaded" : undefined}
+            onFileMeta={(results) => {
+              const result = results[0];
+              setManuscriptFileName(result?.fileName);
+              setManuscriptMime(result?.mimeType);
+              const detectedPages = result?.pageCount;
+              // typeof check (not just truthiness) so a genuine 0 — an
+              // edge case, but possible for an odd/empty PDF — doesn't
+              // get silently treated as "nothing detected."
+              if (typeof detectedPages === "number") {
+                setPages(String(detectedPages));
+                setPagesAutoDetected(true);
+              } else {
+                setPagesAutoDetected(false);
+              }
+
+              // Only a detected size that matches a standard option (within
+              // 0.1in) is applied; a non-standard size never overwrites the
+              // author's own choice.
+              const matched = nearestDimensionOption(result?.dimensions);
+              if (matched) {
+                setDimensions(matched);
+                setDimensionsAutoDetected(true);
+                setDimensionsUnmatched(null);
+              } else {
+                setDimensionsAutoDetected(false);
+                setDimensionsUnmatched(result?.dimensions ?? null);
+              }
+
+              if (typeof result?.fileSizeBytes === "number") {
+                setFileSizeKB(String(Math.max(1, Math.round(result.fileSizeBytes / 1024))));
+                setFileSizeAutoDetected(true);
+              } else {
+                setFileSizeAutoDetected(false);
+              }
+            }}
+            fillWidth
+          />
+          <ImageUploadField label="Cover Image" recommendedSize="Any image format — Recommended 1600×2400px" value={coverImageUrl} onChange={setCoverImageUrl} fillWidth />
+          <FileUploadField
+            label="Audiobook File (MP3 or M4A)"
+            sizeHint="Max 4MB"
+            allowedTypes={["audio/mpeg", "audio/mp4", "audio/x-m4a", "audio/aac"]}
+            accept=".mp3,.m4a,.aac"
+            onUploaded={(ids) => setAudiobookFileId(ids[0])}
+            onRemove={() => { setAudiobookFileId(undefined); setAudiobookPrice(""); }}
+            initialFileName={initial?.audiobookFileId ? "Audiobook already uploaded" : undefined}
+            checkSizeLimit
+            disabled={!audiobookEnabled}
+            disabledNote="Audiobook uploads aren't open for submission right now."
+            fillWidth
+          />
+        </div>
+        <p className="field-hint" style={{ marginTop: 10 }}>
+          Upload a manuscript (eBook), an audiobook file, or both — at least one is required, and each is optional on
+          its own. Readers get a free preview of the first 10 pages of a manuscript from the &quot;Read Sample&quot;
+          button on the book&apos;s page — there&apos;s nothing separate to upload for that.
+        </p>
+      </Card>
+
+      {/* Section 2 — Book information */}
+      <Card id="sec-info" flagged={flag("info")}>
+        <SectionHeader n={2} title="Book Information" sub="Core bibliographic details." />
+        <label className="field-label" htmlFor="f-title">Book Title</label>
+        <input className="field" id="f-title" type="text" placeholder="Working title" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <AuthorAliasField firstName={authorFirstName} lastName={authorLastName} onChange={(f, l) => { setAuthorFirstName(f); setAuthorLastName(l); }} />
+        <label className="field-label" htmlFor="f-authorbio">Author Bio</label>
+        <textarea className="field" id="f-authorbio" rows={3} placeholder="A couple of sentences about you, for your author page" value={authorBio} onChange={(e) => setAuthorBio(e.target.value)} />
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="f-subtitle">Subtitle</label>
+            <input className="field" id="f-subtitle" type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="f-edition">Edition</label>
+            <input className="field" id="f-edition" type="text" placeholder="1st edition" value={edition} onChange={(e) => setEdition(e.target.value)} />
+          </div>
+        </div>
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="f-series">Series Name</label>
+            <input className="field" id="f-series" type="text" value={seriesName} onChange={(e) => setSeriesName(e.target.value)} />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="f-seriesnum">Series Number</label>
+            <input className="field" id="f-seriesnum" type="number" value={seriesNumber} onChange={(e) => setSeriesNumber(e.target.value)} />
+          </div>
+        </div>
+        <ChoiceChips id="f-lang" label="Language" options={LANGUAGES} value={language} onChange={setLanguage} />
+        <div className="form-grid-2">
+          <PublisherField id="f-publisher" value={publisher} onChange={setPublisher} />
+          <div>
+            <label className="field-label" htmlFor="f-pubdate">Publication Date</label>
+            <input className="field" id="f-pubdate" type="date" value={publicationDate} onChange={(e) => setPublicationDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="f-origpubdate">Original Publication Date</label>
+            <input className="field" id="f-origpubdate" type="date" value={originalPublicationDate} onChange={(e) => setOriginalPublicationDate(e.target.value)} />
+            <div className="field-hint">Only if this is a reprint or new edition.</div>
+          </div>
+          <div>
+            <label className="field-label" htmlFor="f-copyrightyear">Copyright Year</label>
+            <input className="field" id="f-copyrightyear" type="number" value={copyrightYear} onChange={(e) => setCopyrightYear(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <div>
+            <label className="field-label">SN Number / ISBN</label>
+            <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 400 }}>
+                <input type="radio" name="isbn-mode" checked={!hasOwnIsbn} onChange={() => setHasOwnIsbn(false)} />
+                Auto-generate an SN number for me
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 400 }}>
+                <input type="radio" name="isbn-mode" checked={hasOwnIsbn} onChange={() => setHasOwnIsbn(true)} />
+                I have my own ISBN
+              </label>
+            </div>
+            {hasOwnIsbn ? (
+              <>
+                <input className="field" id="f-isbn" type="text" placeholder="978-1-59299-541-7" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
+                <div className="field-hint">Enter your existing ISBN for this eBook. It replaces the SN number, and the audiobook uses it too.</div>
+              </>
+            ) : generatedSn ? (
+              <>
+                <input className="field" type="text" value={generatedSn} readOnly disabled style={{ fontFamily: "monospace", letterSpacing: 1 }} />
+                <div className="field-hint" style={{ margin: 0 }}>
+                  Your SN number — a 13-digit, all-numeric reference starting with 5, distinct from a real ISBN, and
+                  checked against every other book on the platform so it&apos;s guaranteed unique. Shared by the eBook and audiobook.
+                </div>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-small"
+                  disabled={generatingSn}
+                  onClick={async () => {
+                    setGeneratingSn(true);
+                    const sn = await generateUniqueSerialNumber();
+                    setGeneratedSn(sn);
+                    setGeneratingSn(false);
+                  }}
+                >
+                  {generatingSn ? "Generating…" : "Generate SN"}
+                </button>
+                <div className="field-hint" style={{ margin: "6px 0 0" }}>
+                  Optional: preview your SN number now. If you skip this, one is generated for you when you submit.
+                  The eBook and audiobook share it.
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </Card>
+
+      {/* Section 4 — Book classification */}
+      <Card id="sec-class" flagged={flag("class")}>
+        <SectionHeader n={3} title="Book Classification" sub="How this title is categorized and shelved." />
+        <ChoiceChips id="f-category" label="Category" options={CATEGORIES} value={category} onChange={(v) => { setCategory(v); setSubcategory(""); }} />
+        <ChoiceChips id="f-subcategory" label="Subcategory" options={subcategoriesFor(category)} value={subcategory} onChange={setSubcategory} disabled={!category} hint={category ? undefined : "Choose a category first."} />
+        <ChoiceChips id="f-genre" label="Genre" options={GENRES} value={genre} onChange={setGenre} />
+        <div>
+          <AgeGroupField id="f-age" value={ageGroup} onChange={setAgeGroup} />
+          <ChoiceChips id="f-readinglevel" label="Reading Level" options={READING_LEVELS} value={readingLevel} onChange={setReadingLevel} />
+        </div>
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="f-pages">Pages</label>
+            <input
+              className="field"
+              id="f-pages"
+              type="number"
+              min={1}
+              placeholder="Upload a manuscript to auto-fill"
+              value={pages}
+              onChange={(e) => { setPages(e.target.value); setPagesAutoDetected(false); }}
+            />
+            <div className="field-hint">
+              {pagesAutoDetected ? "Auto-detected from your uploaded manuscript — edit if it's not quite right." : "Auto-fills once you upload a PDF manuscript above; enter it yourself for EPUB/MOBI. Optional for an audiobook-only title."}
+            </div>
+          </div>
+          <div>
+            <label className="field-label" htmlFor="f-dimensions">Dimensions</label>
+            <select
+              className="field"
+              id="f-dimensions"
+              value={dimensions}
+              onChange={(e) => { setDimensions(e.target.value); setDimensionsAutoDetected(false); setDimensionsUnmatched(null); }}
+            >
+              {dimensionChoices.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+            <div className="field-hint">
+              {dimensionsAutoDetected
+                ? "Auto-detected from your uploaded manuscript — change it if it's not quite right."
+                : dimensionsUnmatched
+                ? `Your manuscript measures about ${dimensionsUnmatched}, which isn't a standard size — pick the closest option.`
+                : "Preselected when your PDF manuscript matches a standard size; choose it yourself for EPUB/MOBI."}
+            </div>
+          </div>
+        </div>
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="f-filesize">File Size (KB)</label>
+            <input
+              className="field"
+              id="f-filesize"
+              type="number"
+              min={1}
+              placeholder="Upload a manuscript to auto-fill"
+              value={fileSizeKB}
+              onChange={(e) => { setFileSizeKB(e.target.value); setFileSizeAutoDetected(false); }}
+            />
+            <div className="field-hint">
+              {fileSizeAutoDetected ? "Auto-detected from your uploaded manuscript — edit if it's not quite right." : "Auto-fills once you upload a manuscript above; enter it yourself if needed."}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Section 5 — Book description + Keywords */}
+      <Card id="sec-desc" flagged={flag("desc")}>
+        <SectionHeader n={4} title="Book Description" sub="The copy readers, teachers, and our editorial team will see." />
+        <label className="field-label" htmlFor="f-desc">Book Description</label>
+        <RichTextEditor id="f-desc" value={descriptionHtml} onChange={setDescriptionHtml} placeholder="Write a few paragraphs about the story…" maxWords={DESCRIPTION_WORD_LIMIT} />
+        <div style={{ marginTop: 18 }}>
+          <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} title={title} />
+        </div>
+        <div style={{ marginTop: 18 }}>
+          <AiDeclarationField id="f-ai-declaration" value={aiDeclaration} onChange={setAiDeclaration} legacyNote={isLegacyAiText(initial?.aiDeclaration) && !aiChoiceOf(aiDeclaration)} />
+        </div>
+      </Card>
+
+      {/* Section 6 — Pricing */}
+      <Card id="sec-pricing" flagged={flag("pricing")}>
+        <SectionHeader n={5} title="Pricing" sub="What readers pay, in US dollars — any currency conversion happens at checkout, outside this site." />
+        {/* The audiobook price is not rendered at all until an audiobook file
+            exists, so the list price lays out alone (no empty column). */}
+        <div className={audiobookFileId ? "form-grid-2" : undefined}>
+          <div>
+            <label className="field-label" htmlFor="f-price">List Price (USD)</label>
+            <input className="field" id="f-price" type="number" step={0.01} value={price} onChange={(e) => setPrice(e.target.value)} />
+            {!manuscriptFileId && <div className="field-hint">Required with a manuscript.</div>}
+          </div>
+          {audiobookFileId && (
+            <div>
+              <label className="field-label" htmlFor="f-audiobook-price">Audiobook Price (USD)</label>
+              <input
+                className="field"
+                id="f-audiobook-price"
+                type="number"
+                step={0.01}
+                min={0}
+                value={audiobookPrice}
+                onChange={(e) => setAudiobookPrice(e.target.value)}
+              />
+              <div className="field-hint">The Audiobook format only appears on the book&apos;s page once both a file and a price are set.</div>
+              <label className="field-label" htmlFor="f-audiobook-live" style={{ marginTop: 10 }}>Audiobook Status</label>
+              <select className="field" id="f-audiobook-live" value={audiobookLive ? "live" : "draft"} onChange={(e) => setAudiobookLive(e.target.value === "live")}>
+                <option value="live">Published</option>
+                <option value="draft">Draft (not for sale yet)</option>
+              </select>
+              <div className="field-hint">Separate from the eBook: setting the audiobook to Draft never hides or changes the eBook.</div>
+            </div>
+          )}
+        </div>
+        <label className="field-label" htmlFor="f-tax">Tax Settings</label>
+        <select className="field" id="f-tax" value={taxSetting} onChange={(e) => setTaxSetting(e.target.value)}>
+          {TAX_SETTINGS.map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+      </Card>
+
+      {/* Section 7 — Distribution */}
+      <Card>
+        <SectionHeader n={6} title="Distribution" sub="Where and how this title can be found and sold." />
+        <div className="toggle-row" style={{ opacity: 0.6 }}>
+          <label className="toggle-switch"><input type="checkbox" checked={false} disabled readOnly /><span className="toggle-slider" /></label>
+          <span>Request Featured Placement</span>
+          <span className="field-hint" style={{ margin: "0 0 0 8px" }}>(This feature is not yet available. You will be notified when it becomes available.)</span>
+        </div>
+        <div className="toggle-row">
+          <label className="toggle-switch"><input type="checkbox" checked={affiliateEnabled} onChange={(e) => setAffiliateEnabled(e.target.checked)} /><span className="toggle-slider" /></label>
+          <span>Affiliate Eligible</span>
+        </div>
+        {!initial && affiliateOffer && <AffiliateCopyOffer from={affiliateOffer.from} value={affiliateOffer.value} current={affiliateEnabled} onCopy={setAffiliateEnabled} />}
+        {affiliateEnabled && (
+          <p className="field-hint" style={{ marginTop: 4 }}>
+            Affiliates who sell this book will automatically earn 10% of the list price.
+          </p>
+        )}
+      </Card>
+
+      {/* Section 8 — Rights */}
+      <Card id="sec-rights" flagged={flag("rights")}>
+        <SectionHeader n={7} title="Rights" sub="Ownership and licensing terms for this title." />
+        <div className="toggle-row" style={{ marginBottom: 16 }}>
+          <label className="toggle-switch"><input type="checkbox" checked={worldwideRights} onChange={(e) => setWorldwideRights(e.target.checked)} /><span className="toggle-slider" /></label>
+          <span>Worldwide Distribution Rights</span>
+        </div>
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label" htmlFor="f-copyrightholder">Copyright Holder</label>
+            <input className="field" id="f-copyrightholder" type="text" value={copyrightHolder} onChange={(e) => setCopyrightHolder(e.target.value)} />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="f-license">License Type</label>
+            <select className="field" id="f-license" value={licenseType} onChange={(e) => setLicenseType(e.target.value)}>
+              {LICENSE_TYPES.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+        {!worldwideRights && (
+          <CountryRestrictionField value={restrictedCountries} onChange={setRestrictedCountries} />
+        )}
+      </Card>
+
+      {/* Section 9 — SEO, fully derived, not author-editable */}
+      <Card>
+        <SectionHeader n={8} title="SEO" sub="Automatically built from what you've already filled in above — matches the SEO system used across the rest of the site." />
+        <label className="field-label">SEO Title</label>
+        <div className="field" style={{ background: "var(--cream)", cursor: "default" }}>{seoTitle}</div>
+        <label className="field-label">SEO Description</label>
+        <div className="field" style={{ background: "var(--cream)", cursor: "default", minHeight: 44 }}>{seoDescription || "Write a description above to see it here."}</div>
+        <label className="field-label">Keywords</label>
+        <div className="field" style={{ background: "var(--cream)", cursor: "default" }}>{keywords.length > 0 ? keywords.join(", ") : "Add keywords above to see them here."}</div>
+        <label className="field-label">Search Preview</label>
+        <div className="search-preview">
+          <div className="sp-url">thegoodchildbookstore.com › {seoSlug}</div>
+          <div className="sp-title">{seoTitle}</div>
+          <div className="sp-desc">{seoDescription || "Your SEO description will appear here."}</div>
+        </div>
+      </Card>
+
+      {/* Section 10 — Preview */}
+      <Card>
+        <SectionHeader n={9} title="Preview" sub="How this title will look once it's live." />
+        <div className="form-grid-2">
+          <div>
+            <label className="field-label">Cover Preview</label>
+            {coverImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- live preview of an uploaded cover
+              <img src={coverImageUrl} alt="Cover preview" style={{ width: 140, borderRadius: 10, border: "1px solid var(--line)" }} />
+            ) : (
+              <div style={{ width: 140, height: 200, borderRadius: 10, border: "1px dashed var(--line)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "var(--ink-faint)", textAlign: "center", padding: 8 }}>
+                No cover uploaded yet
+              </div>
+            )}
+            {manuscriptFileId && (
+              <p className="field-hint" style={{ marginTop: 8, maxWidth: 220 }}>
+                Your cover is attached to the manuscript itself — readers who download this book will see it as the
+                very first page.
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="field-label">Store Listing Preview</label>
+            <div className="map-card" style={{ padding: 16 }}>
+              <div style={{ fontWeight: 700 }}>{title || "Your book title"}</div>
+              <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>by {authorFirstName || authorLastName ? `${authorFirstName} ${authorLastName}`.trim() : "Author name"}</div>
+              <div style={{ color: "var(--coral-deep)", fontWeight: 700, marginTop: 6 }}>${(manuscriptFileId ? Number(price) || 0 : Number(audiobookPrice) || 0).toFixed(2)}</div>
+            </div>
+          </div>
+        </div>
+        {manuscriptFileId ? (
+          <div style={{ marginTop: 14 }}>
+            <h3 style={{ textAlign: "center", fontSize: 18, marginBottom: 4 }}>Manuscript Preview</h3>
+            <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--ink-faint)", marginBottom: 14 }}>
+              Read-only — this opens the manuscript for review here, it doesn&apos;t offer a download.
+            </p>
+            <ManuscriptReviewViewer url={`/api/files/${manuscriptFileId}`} title={title || "Manuscript preview"} spread theme="light" scale={2} />
+          </div>
+        ) : (
+          <p className="field-hint" style={{ marginTop: 14 }}>
+            {audiobookFileId ? "No manuscript uploaded — this title will be published as an audiobook only." : "Upload a manuscript above to preview it page by page."}
+          </p>
+        )}
+      </Card>
+
+      {/* Section 10 — Publishing checklist and the action buttons */}
+      <PublishPanel
+        n={10}
+        sub="Everything below is needed before this title can be published. It updates as you fill the form in."
+        items={checklist}
+        showMissing={showMissing}
+        showPublish={!editingPublished}
+        busy={busy}
+        onSave={() => handleAction("save")}
+        onPublish={() => handleAction("publish")}
+        notice={notice}
+        missingIntro={editingPublished ? "Please finish these before saving:" : undefined}
+        extraActions={extraActions}
+      >
+        {metadataMismatch && (
+          <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 10, background: "#FDECEA", border: "1px solid #F3B6AE", fontSize: 13, color: "#8A2E1F" }}>
+            ⚠ We checked the first couple of pages of your uploaded manuscript, and{" "}
+            {!metadataCheck.titleFound && !metadataCheck.authorFound
+              ? "neither the title nor the author name you entered could be found in it"
+              : !metadataCheck.titleFound
+              ? "the title you entered couldn't be found in it"
+              : "the author name you entered couldn't be found in it"}
+            . Please double check you&apos;ve uploaded the right file for this title.
+          </div>
+        )}
+      </PublishPanel>
+    </div>
+  );
+}

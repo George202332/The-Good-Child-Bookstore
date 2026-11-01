@@ -1,0 +1,1200 @@
+// ============================================================
+// The Good Child Bookstore — Prisma schema
+// Phase 2 of the incremental build (architecture -> DATABASE -> auth -> ...)
+//
+// Role model (confirmed with the project owner):
+//   READER, AUTHOR, AFFILIATE  -> existing public-facing frontend roles
+//   ADMIN, EDITOR              -> new, backend/internal-only roles, no
+//                                  matching UI in the original frontend
+//
+// Revenue model (confirmed with the project owner — overrides the
+// generic brief numbers, which were wrong):
+//   Organic sale:            company 25% / author 75%
+//   Affiliate-referred sale: company 25% / affiliate 10% / author 65%
+//   Referral commission:     affiliate earns 5% of the COMPANY's revenue,
+//                            for life, from any author they referred onto
+//                            the platform (separate from the per-sale cut)
+//   No refund/return deductions: store policy is no returns once a
+//   product has been purchased, so unlike the original frontend prototype,
+//   the author's share is NOT reduced by a modeled refund/return rate.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  READER
+  AUTHOR
+  EDITOR
+  CHIEF_EDITOR
+  ADMIN
+  ACCOUNTANT
+  /** Amendment 12 — a new backend-staff role, read-only across every
+   * financial/analytics surface (same login flow as Editor/Accountant,
+   * via lib/auth-admin.ts, never the public reader/author /login page)
+   * with no ability to moderate content, manage users, or mutate
+   * anything. See lib/roles.ts, actions/payout-ledger.ts, and the
+   * app/investor/** route tree. Requires `npx prisma db push`. */
+  INVESTOR
+}
+
+enum ContentStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+  ARCHIVED
+  /** Held back from publishing due to a dispute, copyright concern, etc
+   * — distinct from ARCHIVED (an author voluntarily pulling their own
+   * already-published book off the shelf). */
+  SUSPENDED
+  /** Permanently removed from the shelves by moderation decision. */
+  WITHDRAWN
+}
+
+enum SaleType {
+  ORGANIC
+  AFFILIATE
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PayoutStatus {
+  REQUESTED
+  APPROVED
+  /** No longer used by approvePayoutRequest (actions/admin.ts), which
+   * now flips REQUESTED straight to PAID — a payout is sent manually by
+   * an admin outside this system, so there's no asynchronous gateway
+   * call to be "processing". Kept in the enum so historical rows that
+   * may have landed in this state under the old flow still read sensibly. */
+  PROCESSING
+  PAID
+  REJECTED
+}
+
+enum PaymentGateway {
+  PAYPAL
+  PAYSTACK
+  STRIPE
+  FLUTTERWAVE
+}
+
+enum BookFormat {
+  EBOOK
+  PRINT
+  AUDIOBOOK
+}
+
+// ---------- Core identity ----------
+
+model User {
+  id            String   @id @default(cuid())
+  accountNumber String   @unique
+  email         String   @unique
+  passwordHash  String
+  name          String
+  /** Marks this account as test/demo data rather than a real person —
+   * lets the admin's Live/Test toggle (see /admin/data-management)
+   * filter dashboards and reports without needing to actually delete
+   * anything until an admin explicitly chooses to. Defaults to false:
+   * every new signup going forward is real/live data by default. */
+  isTestData    Boolean  @default(false)
+  mustChangePassword Boolean @default(false)
+  /** True for an account the checkout created automatically for a first-time
+   * guest buyer who has not yet chosen a password. The paid-order email gives
+   * them a one-time "set your password" link; setting a password clears it. */
+  guestSetupPending Boolean @default(false)
+  /** Set once the account's email address is confirmed via the
+   * verification link sent at signup (see lib/email/verification.ts).
+   * Null means unverified — used for both readers/authors generally
+   * and, more importantly, for author identity verification. */
+  emailVerifiedAt DateTime?
+  /** Opt-in only, per explicit instruction — never defaults to true.
+   * Every marketing send includes a real unsubscribe link that flips
+   * this back to false (see lib/email/marketing.ts). */
+  marketingOptIn Boolean @default(false)
+  role          Role     @default(READER)
+  /** Detected automatically from the request's IP at the moment this
+   * account was created (see lib/geo.ts) — there is no manual country
+   * field on any signup form, for any role. Null only if geolocation
+   * couldn't determine a country for that signup request. */
+  country       String?
+  avatarUrl     String?
+  suspended     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  /** The last time this user actually opened their Revenue page (see
+   * app/account/revenue/page.tsx) — persisted, not client-side state,
+   * so it survives refreshes/new sessions. Compared against the
+   * timestamps of this user's own royalty/referral/promotion earnings
+   * to decide (a) whether the Revenue sidebar link should still be
+   * blinking (see components/DashboardShell.tsx's unread-sidebar-key
+   * pattern, reused for this) and (b)/(c) which specific stat card and
+   * ledger row are "new since you last looked" the moment the page
+   * itself loads. Updated to now() every time the page loads — read
+   * BEFORE that update so the page can still compare against the
+   * PREVIOUS visit, see actions/revenue-last-viewed.ts. Null until the
+   * very first visit. */
+  lastViewedRevenueAt DateTime?
+
+  // Role-specific profile extensions (only the relevant one is populated)
+  authorProfile    AuthorProfile?
+  affiliateProfile AffiliateProfile?
+  readerProfile    ReaderProfile?
+
+  settings      Settings?
+  passwordResetTokens PasswordResetToken[]
+  orderLoginTokens    OrderLoginToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  twoFactorConfig TwoFactorConfig?
+  twoFactorChallenges TwoFactorChallenge[]
+  notifications Notification[]
+  reviews       Review[]
+  blogComments  BlogComment[]
+  blogs         Blog[]
+  ratings       Rating[]
+  auditLogs     AuditLog[]        @relation("AuditActor")
+  messagesSent  Message[]         @relation("MessageSender")
+  messagesReceived Message[]      @relation("MessageRecipient")
+  wiseRecipients WiseRecipient[]
+  payoutRequests PayoutRequest[]
+
+  @@index([role])
+}
+
+/** Real password reset — one-time tokens, expiring in 1 hour, usable
+ * exactly once. Works identically for every account type, including
+ * backend roles (Admin/Editor/Accountant), since it's just email-based
+ * identity, not role-specific. */
+/** One-time "sign me in" access for a brand-new guest buyer, tied to the paid
+ * order that created their account. Shown as a button on the payment success
+ * page and repeated as a backup link in the purchase email. Only a SHA-256
+ * hash of the token is stored, so a database leak reveals nothing usable. A
+ * token works once (usedAt), expires within an hour, and is deleted with its
+ * order or account. */
+model OrderLoginToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orderId   String
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([orderId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/** Backs both general account email verification and author identity
+ * verification — same mechanism, distinguished by `purpose` so the
+ * confirmation page can show the right message and, for authors,
+ * trigger the author-specific verified status. */
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  purpose   String   @default("ACCOUNT") // ACCOUNT | AUTHOR
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/**
+ * One row per signup attempt (successful or rejected), keyed by
+ * requesting IP — the basis for actions/auth.ts registerUser()'s
+ * per-IP rate limit. Deliberately not tied to a User row (most of what
+ * this catches never becomes one): a script hammering the signup form
+ * from one IP is throttled here before it can create real accounts,
+ * separately from anything email-verification-related.
+ */
+model SignupAttempt {
+  id        String   @id @default(cuid())
+  ip        String
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+}
+
+/// One row per contact-form submission that got past the first bot checks,
+/// so a single connection cannot flood the support inbox (see
+/// actions/contact.ts and lib/contact-guard.ts).
+model ContactAttempt {
+  id        String   @id @default(cuid())
+  ip        String
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+}
+
+/**
+ * Two-factor authentication configuration — one row per user, created
+ * lazily the first time they start setup. `enabled` only flips to true
+ * once a setup code has actually been verified (see
+ * actions/two-factor.ts confirmTwoFactorSetup). `pendingMethod`/
+ * `pendingPhoneNumber` hold the in-progress choice during setup so a
+ * user can start over cleanly without ever touching the live,
+ * already-enabled method until the new one is proven to work.
+ */
+model TwoFactorConfig {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled           Boolean   @default(false)
+  method            String?   // "EMAIL" | "SMS" — the active, verified method
+  phoneNumber       String?   // E.164, only set when method is "SMS"
+  pendingMethod     String?
+  pendingPhoneNumber String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+/**
+ * A single 2FA code, for either a login challenge or a setup
+ * challenge. The code itself is never stored — only its SHA-256 hash
+ * (`codeHash`) — matching the "never store secrets in plaintext"
+ * requirement. `attempts` enforces a hard cap on guesses before the
+ * challenge is invalidated outright, independent of its expiry.
+ */
+model TwoFactorChallenge {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose     String    // "LOGIN" | "SETUP"
+  method      String    // "EMAIL" | "SMS"
+  destination String    // the email address or phone number this code was actually sent to
+  codeHash    String
+  attempts    Int       @default(0)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, purpose])
+}
+
+model Settings {
+  id                String  @id @default(cuid())
+  userId            String  @unique
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  darkMode          Boolean @default(false)
+  reduceMotion      Boolean @default(false)
+  notifyPayouts     Boolean @default(true)
+  notifyReviews     Boolean @default(true)
+  notifyBlogComments Boolean @default(true)
+  /** Account-area look (reader, author and backend accounts), chosen on the
+   * Settings page. Keys come from lib/account-fonts.ts; "default" = the
+   * current look. Applies only inside the account area, never public pages. */
+  fontFamily        String  @default("default")
+  fontSize          String  @default("default")
+}
+
+// ---------- Role-specific profiles ----------
+
+model AuthorProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio                String?
+  pressKitUrl        String?
+  availableForCollabs Boolean @default(false)
+  showEmailPublicly  Boolean  @default(false)
+  primaryGenre       String?
+  penName            String?
+  socialLinks        String[] @default([])
+  /** Auto-detected from the author's IP at signup (see lib/geo.ts,
+   * actions/auth.ts) — no manual selection field; shown in aggregate to
+   * whichever affiliate referred them (see Referrals page) and on the
+   * author's public profile page. Kept alongside the newer, role-generic
+   * User.country (set the same way for every account) for backward
+   * compatibility with existing reads of this field. */
+  country            String?
+  gender             String?
+  // If this author was referred onto the platform by an affiliate, that
+  // affiliate earns a lifetime 5% cut of the COMPANY's revenue from this
+  // author's sales (see AffiliateProfile.referredAuthors below).
+  referredById       String?
+  referredBy         AffiliateProfile? @relation("AffiliateReferrals", fields: [referredById], references: [id], onDelete: SetNull)
+  books              Book[]
+  aliases            AuthorAlias[]
+  publishers         AuthorPublisher[]
+}
+
+/** A pen name / display name a real author has used when submitting a
+ * book — shown on the order page and book detail page instead of the
+ * account's actual name, if chosen. Deliberately NOT a new
+ * AuthorProfile/User: this is just a remembered label for the "Author"
+ * field on future submissions, not a separate real account, and has no
+ * bearing on who actually gets paid (that's always tied to the real
+ * AuthorProfile/User). */
+model AuthorAlias {
+  id              String        @id @default(cuid())
+  authorProfileId String
+  authorProfile   AuthorProfile @relation(fields: [authorProfileId], references: [id], onDelete: Cascade)
+  firstName       String
+  lastName        String
+  createdAt       DateTime      @default(now())
+
+  @@unique([authorProfileId, firstName, lastName])
+  @@index([authorProfileId])
+}
+
+/** A publisher name an author has used before, remembered so the
+ * Publisher dropdown on the eBook and print forms can offer it again. */
+model AuthorPublisher {
+  id              String        @id @default(cuid())
+  authorProfileId String
+  authorProfile   AuthorProfile @relation(fields: [authorProfileId], references: [id], onDelete: Cascade)
+  name            String
+  createdAt       DateTime      @default(now())
+
+  @@unique([authorProfileId, name])
+  @@index([authorProfileId])
+}
+
+model AffiliateProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  referralCode       String   @unique
+  referredAuthors    AuthorProfile[] @relation("AffiliateReferrals")
+  affiliateLinks     AffiliateLink[]
+  campaigns          Campaign[]
+  authorReferralEarnings SaleLine[] @relation("AuthorReferralEarnings")
+}
+
+model ReaderProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredFormat       BookFormat?
+  shoppingForAgeRanges  String[] @default([])
+  affiliateAccess       Boolean  @default(false)
+  orders                Order[]
+  addresses             Address[]
+  authorNameFollows     AuthorNameFollow[]
+  savedPaymentMethods   SavedPaymentMethod[]
+}
+
+/**
+ * A reader's saved payment method for faster future checkout — stores
+ * only what Paystack's own tokenized "authorization" gives back after a
+ * successful charge (a reusable charge token, plus display-only card
+ * metadata for the reader to recognize it), never raw card numbers or
+ * CVV. Charging it again later goes through Paystack's charge-
+ * authorization endpoint (lib/payments/paystack.ts chargeAuthorization),
+ * so the actual card details never pass through our servers at all,
+ * either the first time or on reuse.
+ */
+model SavedPaymentMethod {
+  id                String        @id @default(cuid())
+  readerId          String
+  reader            ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  gateway           PaymentGateway
+  authorizationCode String
+  cardType          String?
+  last4             String?
+  bank              String?
+  isDefault         Boolean       @default(false)
+  createdAt         DateTime      @default(now())
+}
+
+model Address {
+  id              String        @id @default(cuid())
+  readerId        String
+  reader          ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  label           String
+  line            String
+  city            String
+  country         String
+  isDefault       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+}
+
+/**
+ * Following an author NAME rather than an author account — per explicit
+ * instruction: the same account can publish under different pen names
+ * for different books (see lib/book-author-name.ts), and a reader
+ * following "J. Okoro" should keep being notified about new books under
+ * that name specifically, not lumped in with everything else that
+ * account ever publishes under a different name. `authorName` is
+ * whatever string actually showed on the book's author card when the
+ * reader followed it — the exact same resolved display name computed by
+ * bookAuthorDisplayName(). Replaces the old account-keyed AuthorFollow.
+ */
+model AuthorNameFollow {
+  id         String        @id @default(cuid())
+  readerId   String
+  reader     ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  authorName String
+  createdAt  DateTime      @default(now())
+
+  @@unique([readerId, authorName])
+  @@index([authorName])
+}
+
+// ---------- Catalog ----------
+
+model Book {
+  id           String        @id @default(cuid())
+  title        String
+  subtitle     String?
+  slug         String        @unique
+  description  String?
+  isbn         String?       @unique
+  /** Marks this book as test/demo data — see User.isTestData for the
+   * full explanation of how this powers the admin's Live/Test toggle. */
+  isTestData   Boolean       @default(false)
+  /** Proposed changes to an already-published book, submitted via
+   * edit — stored separately so the live, visible book (title,
+   * description, price, etc, and its PUBLISHED status) is completely
+   * untouched while this is under review. On approval, these values
+   * are applied to the real fields and this is cleared; on rejection,
+   * it's simply cleared and the book is unaffected. Only used when
+   * editing a book that's already PUBLISHED — editing a draft/rejected
+   * book still updates it directly, since there's no live version to
+   * protect. */
+  pendingRevisionData Json?
+  price        Decimal       @db.Decimal(10, 2)
+  coverImageUrl String?
+  /** SEO/accessibility alt text for the cover image — falls back to
+   * "{title} cover" if not set. Blog posts already had this; books
+   * didn't. */
+  coverAltText  String?
+  status       ContentStatus @default(DRAFT)
+  authorId     String
+  author       AuthorProfile @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  categories   CategoryOnBook[]
+  genres       GenreOnBook[]
+  ageGroup     String?
+  /** Top-level Category (one of the eight series, see lib/taxonomy.ts).
+   * Powers the home page "Shop by Category" section. Nullable: books
+   * submitted before this field existed have none. Plain string rather
+   * than a Postgres enum so the list can change without a risky
+   * ALTER TYPE; allowed values are validated in code. */
+  category     String?
+  /** Subcategory nested under `category` (see lib/taxonomy.ts). Nullable
+   * for older books. */
+  subcategory  String?
+  /** ISO-2 country codes where this book may NOT be sold or shown for
+   * sale. Empty = sold worldwide. Enforced at checkout and in listings
+   * (see lib/book-country-restriction.ts). */
+  restrictedCountries String[] @default([])
+  language     String        @default("en")
+  // Which formats this title is published in — an author can enable
+  // any combination from the same submission (see actions/submissions.ts).
+  hasEbook     Boolean       @default(false)
+  /** The editor/admin's comment explaining what needs to change, shown
+   * to the author when a submission is sent back for revision (status
+   * REJECTED). Cleared when the book is later approved. */
+  revisionNotes String?
+  /** An Editor's proposed Suspend/Withdraw, awaiting Admin ratification
+   * — the book's own status doesn't change until an Admin confirms it
+   * (or an Admin acts directly, which applies immediately with no
+   * pending step at all). */
+  pendingAction     String?
+  pendingActionBy   String?
+  pendingActionNote String?
+  /** Which review-checklist items are currently checked for this book,
+   * e.g. {"metadata_title": true, "appropriate_copyright": false} —
+   * keyed by the same item ids as the admin-configurable checklist
+   * template (see Setting "book_review_checklist"). */
+  reviewChecklist   Json?
+  hasPrint     Boolean       @default(false)
+  hasAudiobook Boolean       @default(false)
+  /// Set when the author deletes a title that already has sales. The book
+  /// is then hidden from the author (and withdrawn from sale) but kept so
+  /// its sales and royalty history stays intact. Null = not deleted.
+  deletedByAuthorAt DateTime?
+  /** Real, distinct prices per purchasable format — a customer picks
+   * one of these (not just "the book") at checkout, since eBook/
+   * Paperback/Hardcover/Audiobook are 4 separate purchasable editions
+   * with their own price, matching how the submission forms actually
+   * collect pricing (eBook price, separate paperback/hardcover retail
+   * prices). Only the formats this book actually has enabled will have
+   * a value here. */
+  ebookPrice      Decimal? @db.Decimal(10, 2)
+  paperbackPrice  Decimal? @db.Decimal(10, 2)
+  hardcoverPrice  Decimal? @db.Decimal(10, 2)
+  audiobookPrice  Decimal? @db.Decimal(10, 2)
+  /**
+   * Every other field from the original submission form
+   * (the-good-child-bookstore_54_1.html:10651-10689) that doesn't have
+   * its own dedicated column — edition, series, contributors (co-authors/
+   * illustrator/editor/translator), curriculum details, back-cover copy,
+   * pricing/rights/marketing toggles, format-specific fields (narrator,
+   * trim size, file type), and SEO fields. Kept as one JSON blob rather
+   * than ~30 new dedicated columns, since most of these are optional,
+   * rarely-queried metadata — see SubmissionMetadata in actions/submissions.ts
+   * for the full shape.
+   */
+  submissionMetadata Json?
+  files        BookFile[]
+  reviews      Review[]
+  ratings      Rating[]
+  saleLines    SaleLine[]
+  affiliateLinks AffiliateLink[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([status])
+  @@index([authorId])
+}
+
+model BookFile {
+  id       String   @id @default(cuid())
+  bookId   String
+  book     Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  kind     String   // PDF | EPUB | SAMPLE | COVER
+  url      String
+  createdAt DateTime @default(now())
+}
+
+model Category {
+  id    String @id @default(cuid())
+  name  String @unique
+  books CategoryOnBook[]
+}
+model CategoryOnBook {
+  bookId     String
+  categoryId String
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  @@id([bookId, categoryId])
+}
+
+model Genre {
+  id    String @id @default(cuid())
+  name  String @unique
+  books GenreOnBook[]
+}
+model GenreOnBook {
+  bookId  String
+  genreId String
+  book    Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  genre   Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+  @@id([bookId, genreId])
+}
+
+// ---------- Blog / editorial workflow ----------
+
+model Blog {
+  id              String        @id @default(cuid())
+  title           String
+  subtitle        String?
+  slug            String        @unique
+  content         String
+  coverImageUrl   String?
+  imageAltText    String?
+  // Display byline — defaults to the writer's account name, but can be
+  // overridden per post (e.g. a pen name), matching the editor's
+  // separate "Author first/last name" fields.
+  authorFirstName String?
+  authorLastName  String?
+  shortSummary    String?
+  categories      String[]      @default([])
+  tags            String[]      @default([])
+  metaTitle       String?
+  metaDescription String?
+  seoKeywords     String?
+  canonicalUrl    String?
+  featured        Boolean       @default(false)
+  allowComments   Boolean       @default(true)
+  status          ContentStatus @default(DRAFT)
+  /** The moderator's comment explaining what needs to change, shown to
+   * the writer when a post is sent back for revision (status
+   * REJECTED) — same pattern as Book.revisionNotes. Cleared when the
+   * post is later approved. */
+  revisionNotes   String?
+  // Authorship is by User directly (not AuthorProfile) so Reader and
+  // Affiliate accounts can write blog posts too, not just Author
+  // accounts — blogging is open to every account type.
+  authorId        String
+  author          User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  publishAt       DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  comments        BlogComment[]
+  reads           BlogRead[]
+
+  @@index([status])
+  // Added: every "this writer's own blog data" query (the My Blogs
+  // list, and every Blogs-analytics aggregate in
+  // actions/blog-analytics.ts — reads/comments counts, region
+  // groupBy, top-posts ordering, all filtered or joined through
+  // `blog: { authorId }`) filters or joins on authorId. Book (the
+  // sibling content model) has had both @@index([status]) AND
+  // @@index([authorId]) all along; Blog only ever got the status
+  // index. Without this, every one of those queries requires Postgres
+  // to join/scan without an index on this column, and the cost scales
+  // with the TOTAL size of the Blog table site-wide, not just one
+  // account's own post count — which is consistent with the crash
+  // being reported across every account rather than only high-volume
+  // ones. Requires `npx prisma db push` to actually take effect.
+  @@index([authorId])
+}
+
+/** A single real page view of a published post, geotagged the same way
+ * as a purchase or an affiliate click (see lib/geo.ts) — recorded once
+ * per view from the public blog detail page, powering the new Blogs
+ * analytics page (reads over time, reads by region, top posts). */
+model BlogRead {
+  id        String   @id @default(cuid())
+  blogId    String
+  blog      Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  country   String?
+  region    String?
+  createdAt DateTime @default(now())
+
+  @@index([blogId])
+}
+
+/** Reader comments on a published blog post — new functionality, added
+ * for the admin Blog Moderation dashboard to show alongside each post. */
+model BlogComment {
+  id        String   @id @default(cuid())
+  blogId    String
+  blog      Blog     @relation(fields: [blogId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([blogId])
+  @@index([userId])
+}
+
+// ---------- Reviews / ratings / social ----------
+
+model Review {
+  id        String   @id @default(cuid())
+  bookId    String
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([bookId])
+  @@index([userId])
+}
+
+model Rating {
+  id     String @id @default(cuid())
+  bookId String
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stars  Int
+  @@unique([bookId, userId])
+}
+
+// ---------- Orders / sales / the financial engine ----------
+
+model Order {
+  id            String      @id @default(cuid())
+  readerId      String
+  reader        ReaderProfile @relation(fields: [readerId], references: [id], onDelete: Cascade)
+  status        OrderStatus @default(PENDING)
+  totalAmount   Decimal     @db.Decimal(10, 2)
+  /** Marks this order (and its financial history) as test/demo data —
+   * see User.isTestData for the full explanation. */
+  isTestData    Boolean     @default(false)
+  // Transient — only set when this order created a brand-new guest
+  // account, carries the real temporary password through to the
+  // confirmation email (checkout redirects to an external payment
+  // gateway and back, so this can't just live in client-side state).
+  // Nulled out immediately after that email is sent.
+  guestTempPassword String?
+  /** Set the moment the purchase email for this order has been handed to the
+   * email service, so a webhook retry or a second visit to the confirmation
+   * page can never send it twice. Cleared again if sending fails, so a later
+   * retry can try again. */
+  purchaseEmailSentAt DateTime?
+  lines         SaleLine[]
+  paymentLogs   PaymentLog[]
+  loginTokens   OrderLoginToken[]
+  // Real IP-based geotagging (see lib/geo.ts) captured at the moment of
+  // purchase — works for every order, including eBook-only orders that
+  // never collect a shipping address.
+  country       String?
+  region        String?
+  createdAt     DateTime    @default(now())
+  // Buyer-entered contact/shipping details from checkout — used for
+  // print orders (Lulu print job submission, see lib/payments/lulu.ts)
+  // and order receipts. Optional since eBook-only orders never need them.
+  shipName      String?
+  shipPhone     String?
+  shipCountry   String?
+  shipAddress   String?
+  /// Shipping method the customer chose at checkout for the printed copies
+  /// (a Lulu shipping_level: MAIL, PRIORITY_MAIL, GROUND, EXPEDITED, EXPRESS).
+  /// Null on older orders and on orders with no printed copies.
+  shippingLevel String?
+  /// Postage the CUSTOMER paid at checkout for the printed copies (quoted
+  /// from Lulu). Included in totalAmount; never part of the author's
+  /// royalty. Null on older orders and on orders with no printed copies.
+  shippingAmount Decimal? @db.Decimal(10, 2)
+  // Real status of the Lulu print-job submission (see
+  // lib/payments/lulu.ts) — null if this order has no physical copies,
+  // otherwise reflects what actually happened, not an assumption.
+  printJobStatus String?
+  printJobId     String?
+  printJobError  String?
+
+  /// What Lulu quoted to charge US for shipping this order, saved when the order was placed
+  /// (the customer's own shipping charge is shippingAmount). Null on older / digital orders.
+  luluShippingCost    Decimal? @db.Decimal(10, 2)
+  /// Lulu's per-order fulfilment fee from the same quote. Not charged to authors.
+  luluFulfillmentCost Decimal? @db.Decimal(10, 2)
+  /// Lulu's own status for the print job (CREATED, UNPAID, PRODUCTION_READY, IN_PRODUCTION,
+  /// SHIPPED, REJECTED, CANCELED ...), refreshed from Lulu (Admin > Lulu). Never used for royalties.
+  luluStatus          String?
+  luluStatusAt        DateTime?
+  luluShippedAt       DateTime?
+  /// What Lulu says it actually charged, read back from the print job (for matching invoices).
+  luluActualProduction  Decimal? @db.Decimal(10, 2)
+  luluActualShipping    Decimal? @db.Decimal(10, 2)
+  luluActualFulfillment Decimal? @db.Decimal(10, 2)
+  luluSyncedAt          DateTime?
+  /// When Lulu rejected the print job (or it could not be sent because of a file problem), the exact
+  /// reason Lulu gave, kept in full, and when the author(s) were told. The notification is claimed
+  /// with luluAuthorNotifiedAt in a single update, so it is sent once per rejection.
+  luluRejectionReason   String?   @db.Text
+  luluRejectedAt        DateTime?
+  luluAuthorNotifiedAt  DateTime?
+
+  @@index([readerId])
+  @@index([status])
+}
+
+// One SaleLine per book in an order. This is where the confirmed revenue
+// split is computed and permanently stored (never re-derived on the fly).
+model SaleLine {
+  id                 String   @id @default(cuid())
+  orderId            String
+  order              Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  bookId             String
+  book               Book     @relation(fields: [bookId], references: [id])
+  affiliateLinkId    String?
+  affiliateLink      AffiliateLink? @relation(fields: [affiliateLinkId], references: [id])
+
+  saleType           SaleType
+  /** Which of the 4 purchasable formats (EBOOK/PAPERBACK/HARDCOVER/
+   * AUDIOBOOK) this specific sale was for — real per-sale data now that
+   * checkout actually asks, not an after-the-fact approximation. Null
+   * for old sales made before this existed. */
+  format             String?
+  grossAmount        Decimal  @db.Decimal(10, 2)
+  companyShare       Decimal  @db.Decimal(10, 2)
+  authorShare        Decimal  @db.Decimal(10, 2)
+  affiliateShare     Decimal  @db.Decimal(10, 2) @default(0)
+  /** Lulu's production printing cost for this line (all copies), quoted by Lulu and saved
+   * when the order was placed. Printed copies only; null for eBooks, audiobooks and for
+   * print sales made before this was recorded. Shipping is never part of it. */
+  printingCost       Decimal? @db.Decimal(10, 2)
+
+  /** Lifetime referral commission (5% of the company's share) credited
+   * to the affiliate who referred this book's author onto the platform
+   * — separate from affiliateShare above, which is that sale's own
+   * direct-link commission and may credit a different affiliate
+   * entirely. Carved out of companyShare, not added on top. */
+  authorReferralShare      Decimal @db.Decimal(10, 2) @default(0)
+  authorReferralAffiliateId String?
+  authorReferralAffiliate   AffiliateProfile? @relation("AuthorReferralEarnings", fields: [authorReferralAffiliateId], references: [id], onDelete: SetNull)
+
+  createdAt          DateTime @default(now())
+
+  @@index([bookId])
+  @@index([affiliateLinkId])
+  @@index([authorReferralAffiliateId])
+}
+
+model PaymentLog {
+  id         String         @id @default(cuid())
+  orderId    String
+  order      Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  gateway    PaymentGateway
+  rawPayload Json
+  verified   Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+}
+
+// ---------- Affiliate system ----------
+
+model AffiliateLink {
+  id           String   @id @default(cuid())
+  affiliateId  String
+  affiliate    AffiliateProfile @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  bookId       String?
+  book         Book?    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  campaignId   String?
+  campaign     Campaign? @relation(fields: [campaignId], references: [id])
+  code         String   @unique
+  clicks       AffiliateClick[]
+  saleLines    SaleLine[]
+  createdAt    DateTime @default(now())
+}
+
+/** A named grouping of referral links for a marketing push (e.g. "Back
+ * to school 2026"), so an affiliate can track aggregate clicks/sales
+ * across several promoted books at once instead of only per-link. */
+model Campaign {
+  id          String   @id @default(cuid())
+  affiliateId String
+  affiliate   AffiliateProfile @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+  name        String
+  links       AffiliateLink[]
+  createdAt   DateTime @default(now())
+}
+
+model AffiliateClick {
+  id              String   @id @default(cuid())
+  affiliateLinkId String
+  affiliateLink   AffiliateLink @relation(fields: [affiliateLinkId], references: [id], onDelete: Cascade)
+  ipHash          String?
+  country         String?
+  region          String?
+  createdAt       DateTime @default(now())
+}
+
+model PayoutRequest {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipientId    String
+  recipient      WiseRecipient @relation(fields: [recipientId], references: [id])
+  amount         Decimal      @db.Decimal(10, 2)
+  currency       String
+  status         PayoutStatus @default(REQUESTED)
+  /** "AUTHOR" or "AFFILIATE" — which wallet this specific payout was
+   * queued from (see actions/payouts.ts queueDuePayouts, which runs two
+   * independent loops and creates one PayoutRequest per loop per
+   * person). An author who is also an affiliate gets two separate rows
+   * in the same run, one of each type — this is what lets the admin
+   * payout ledger (app/admin/payouts/page.tsx) show book-sales earnings
+   * and affiliate earnings as genuinely separate figures instead of one
+   * blended number. Defaults to "AUTHOR" so existing rows created
+   * before this field existed still read sensibly. */
+  earningsType   String       @default("AUTHOR")
+  failureReason  String?
+  requestedAt    DateTime     @default(now())
+  resolvedAt     DateTime?
+
+  @@index([userId])
+  @@index([status])
+}
+
+/**
+ * A payout destination on file for an author/affiliate — PayPal, bank
+ * transfer, or M-Pesa. The model name is kept as "WiseRecipient" for
+ * historical reasons (it originally backed a live Wise integration,
+ * since removed per explicit instruction — payouts are now executed
+ * manually by an admin outside this system, see actions/admin.ts
+ * approvePayoutRequest and actions/payout-methods.ts); renaming the
+ * model would force `prisma db push` to drop and recreate the table,
+ * losing production data, so only the action layer and UI were renamed.
+ * `type` is one of "email" (PayPal), "bank", or "mpesa" — see
+ * actions/payout-methods.ts.
+ */
+model WiseRecipient {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  currency          String
+  accountHolderName String
+  details           Json
+  isDefault         Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  payoutRequests    PayoutRequest[]
+}
+
+// ---------- Support / comms / admin ----------
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  /** Drives the Recent Activity card's color/icon coding and which
+   * sidebar nav item blinks — see lib/notification-types.ts. Plain
+   * string (not an enum) so a typo here never blocks a save; it just
+   * falls back to the generic look. */
+  type      String   @default("GENERAL")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  /** Loose (no FK — deliberately, matching the same reasoning as
+   * `type` above) reference to whichever record this notification was
+   * generated from: a SaleLine's id for a "SALE" notification, a
+   * PayoutRequest's id for a "PAYOUT" one. Lets
+   * actions/transactions.ts's deleteTransaction find and remove the
+   * matching notification when an admin deletes that transaction, so
+   * no trace of it (real or test) is left behind in the account it
+   * notified — see the comment there for the full explanation. Null
+   * for every notification type that isn't generated from a
+   * deletable financial record (messages, book/blog moderation, etc). */
+  relatedRecordId String?
+
+  @@index([userId])
+  @@index([relatedRecordId])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient  User     @relation("MessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  body       String
+  readAt     DateTime?
+  /** A saved-but-unsent message — doesn't appear in the recipient's
+   * inbox or trigger anything for them until actually sent, matching
+   * the new Drafts tab. */
+  isDraft    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  /** Set only on a reader/author's first message to Support (see
+   * actions/messages.ts's getSupportRecipient()/sendMessage()) — one of
+   * "ACCOUNT", "PAYMENTS", "TECHNICAL", "CONTENT", "OTHER", picked from
+   * a fixed list at send time so the admin backend's Messages tab
+   * (actions/admin-messages.ts) can show what kind of issue this is
+   * without reading the whole thread first. Null for ordinary
+   * person-to-person messages, which have no such category. */
+  category   String?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actor     User     @relation("AuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+/**
+ * Backs the human-readable, role-sequenced account numbers assigned to
+ * every user (see lib/account-number.ts) — Authors get their own
+ * sequence, distinct from Readers/Affiliates, and every other role
+ * (Editor/Admin/Accountant) gets its own too. One row per role, holding
+ * the last number issued.
+ */
+model IdSequence {
+  role      Role   @id
+  lastValue Int    @default(0)
+}
+
+model Setting {
+  id    String @id @default(cuid())
+  key   String @unique
+  value Json
+}
+
+/**
+ * Uploaded images (logo, payment badges, book covers, etc.), always
+ * converted to WebP on upload before storage (see actions/images.ts).
+ * Stored directly in Postgres rather than an external service like S3/
+ * Cloudinary, since none is configured for this deployment — a real,
+ * working solution rather than a placeholder, though moving to object
+ * storage would be the natural next step if the image library grows
+ * large enough that database size becomes a concern. Served back out
+ * through app/api/images/[id]/route.ts.
+ */
+model UploadedImage {
+  id        String   @id @default(cuid())
+  data      Bytes
+  mimeType  String   @default("image/webp")
+  createdAt DateTime @default(now())
+}
+
+/** Generic file storage for non-image uploads (manuscript PDF/EPUB/MOBI,
+ * sample-page PDF excerpts) — same idea as UploadedImage but without the
+ * WebP conversion, since these aren't images. Served back out through
+ * app/api/files/[id]/route.ts. */
+model UploadedFile {
+  id           String   @id @default(cuid())
+  data         Bytes
+  mimeType     String
+  originalName String
+  createdAt    DateTime @default(now())
+}
+
+model SeoEntry {
+  id          String @id @default(cuid())
+  path        String @unique
+  title       String?
+  description String?
+  ogImageUrl  String?
+}
+
+/** Admin-managed 301/302 redirects — e.g. a book or blog post that was
+ * deleted or had its URL changed, so the old link doesn't just 404.
+ * Checked by middleware.ts on every request that isn't otherwise
+ * matched by a real route. */
+model Redirect {
+  id         String   @id @default(cuid())
+  fromPath   String   @unique
+  toPath     String
+  statusCode Int      @default(301)
+  createdAt  DateTime @default(now())
+}
+
+/** A log of IndexNow submissions — lets an admin see what was
+ * submitted, when, and whether the search engine's endpoint accepted
+ * it, rather than firing pings into a black box with no record. */
+model IndexNowSubmission {
+  id         String   @id @default(cuid())
+  url        String
+  statusCode Int?
+  ok         Boolean
+  createdAt  DateTime @default(now())
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  type      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+/**
+ * Backs the new admin Site Health page (app/admin/site-health) — the
+ * one place an unexpected server-side error from a key code path
+ * (checkout/payment confirmation, the payout pipeline, file uploads,
+ * auth) gets a durable record, going forward. This is deliberately NOT
+ * a general request-logging/APM table: there's no middleware writing
+ * one row per request, just the specific `reportSystemError()` calls
+ * wired into those four pipelines (see lib/site-health/alert.ts) — so
+ * Site Health is honest that this is "errors logged since this round
+ * shipped", not a historical record of every failure the app has ever
+ * had.
+ *
+ * `signature` is a short, deterministic key (source + a normalized
+ * version of the message) used purely for the alert-storm dedup in
+ * reportSystemError() — looking up "has THIS exact error already
+ * alerted recently" is a simple indexed equality lookup rather than a
+ * fuzzy match over `message`. `alertedAt` is set only on the specific
+ * row that actually triggered an outbound email — every other
+ * occurrence of the same signature within the dedup window still gets
+ * its own row (so the real failure count on the dashboard stays
+ * accurate), just without a second email going out.
+ */
+model SystemErrorLog {
+  id        String    @id @default(cuid())
+  /** Which pipeline this came from — "CHECKOUT" | "EMAIL" | "PAYOUT" |
+   * "FILE_UPLOAD" | "AUTH" | "OTHER". Plain string, not an enum,
+   * matching Notification.type's reasoning: a new source should never
+   * be blocked by a missing enum value. */
+  source    String
+  message   String
+  signature String
+  /** Arbitrary extra context (an order id, a user id, the file name,
+   * etc) — whatever the call site had on hand that would help George
+   * track down what happened, never anything secret like a password or
+   * full card number. */
+  context   Json?
+  /** Set only when this specific row is the one that actually sent an
+   * alert email (see reportSystemError's dedup window) — null on every
+   * other occurrence of the same signature logged while that window is
+   * still open. */
+  alertedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([source, createdAt])
+  @@index([signature, createdAt])
+}
+
+
+/// One run of the print pre-flight check (Submit a New Title → Print tab): the
+/// site's own quick checks plus Lulu's file validation, for one interior PDF and
+/// cover. The server keeps the result so a print edition can only be sent for
+/// review when a passing check for exactly these files exists (the browser cannot
+/// claim a pass). Validation only: nothing here creates a print job or an order.
+model PrintPreflightCheck {
+  id             String    @id @default(cuid())
+  userId         String
+  /// Set when the check is saved against a book on submit.
+  bookId         String?
+  interiorFileId String
+  /// The cover this check covered: the front-cover image URL or the custom wrap file id.
+  coverKey       String
+  /// Lulu package ids checked (paperback and/or hardcover), comma separated.
+  packageIds     String
+  pageCount      Int?
+  /// CHECKING | PASSED | FAILED | UNAVAILABLE
+  status         String
+  /// The site's own findings: [{ code, message, fix }]
+  siteIssues     Json      @default("[]")
+  /// Lulu's validation jobs: [{ kind, format, id, status, errors[] }]
+  luluJobs       Json      @default("[]")
+  /// Plain-language reasons shown to the author (site and Lulu combined).
+  reasons        Json      @default("[]")
+  luluEnvironment String?
+  coverWrapFileId String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  completedAt    DateTime?
+
+  @@index([userId, createdAt])
+  @@index([interiorFileId])
+  @@index([bookId])
+}
+
+/// Round 53: a simple log of every print sale line whose royalty was recalculated after Lulu's printing cost.
+/// It keeps the figures that were stored before the recalculation. Nothing reads it except the audit.
+model SaleLineRoyaltyLog {
+  id                       String   @id @default(cuid())
+  saleLineId               String
+  orderId                  String?
+  bookId                   String?
+  /// Figures stored BEFORE the recalculation.
+  previousPrintingCost     Decimal? @db.Decimal(10, 2)
+  previousCompanyShare     Decimal  @db.Decimal(10, 2)
+  previousAuthorShare      Decimal  @db.Decimal(10, 2)
+  previousAffiliateShare   Decimal  @db.Decimal(10, 2)
+  previousAuthorReferralShare Decimal @db.Decimal(10, 2)
+  /// Figures stored AFTER it.
+  newPrintingCost          Decimal  @db.Decimal(10, 2)
+  newCompanyShare          Decimal  @db.Decimal(10, 2)
+  newAuthorShare           Decimal  @db.Decimal(10, 2)
+  newAffiliateShare        Decimal  @db.Decimal(10, 2)
+  newAuthorReferralShare   Decimal  @db.Decimal(10, 2)
+  /// recorded | lulu-specs | estimate-specs | none
+  costSource               String
+  /// True when the order had no recorded printing cost, so the cost for the book's specs was used.
+  flagged                  Boolean  @default(false)
+  createdAt                DateTime @default(now())
+
+  @@index([saleLineId])
+  @@index([createdAt])
+}
