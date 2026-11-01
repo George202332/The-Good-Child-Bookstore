@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { getOrderSummary } from "@/actions/orders";
+import { getOrderSummary } from "@/lib/order-summary";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
 import { EnterAccountButton } from "@/components/EnterAccountButton";
 import { confirmationUrl, orderAccessToken, receiptUrl, verifyOrderAccessToken } from "@/lib/order-access";

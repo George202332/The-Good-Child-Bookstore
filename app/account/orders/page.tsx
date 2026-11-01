@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
+import { loadMyOrders } from "@/lib/my-orders";
 
 interface OrderLine {
   book: { title: string };
@@ -29,15 +29,8 @@ export default async function OrdersPage() {
   // their own order history here as well, not just Readers.
   if (session.user.role !== "READER" && session.user.role !== "AUTHOR") redirect("/account");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: {
-      readerProfile: {
-        include: { orders: { include: { lines: { include: { book: true } } }, orderBy: { createdAt: "desc" } } },
-      },
-    },
-  });
-  const orders = (user?.readerProfile?.orders ?? []) as OrderWithLines[];
+  const { orders: loaded, failed } = await loadMyOrders(session.user.id);
+  const orders = loaded as OrderWithLines[];
 
   return (
     <DashboardShell role={session.user.role} activeKey="orders" displayName={session.user.name ?? ""}>
@@ -47,7 +40,12 @@ export default async function OrdersPage() {
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>Every order you&apos;ve placed, most recent first.</p>
         </div>
       </div>
-      {orders.length === 0 ? (
+      {failed && (
+        <div className="map-card" style={{ padding: 20, marginBottom: 16 }} role="alert">
+          <p style={{ fontSize: 14, margin: 0 }}>Your orders couldn&apos;t load just now. Please try again in a few minutes.</p>
+        </div>
+      )}
+      {failed ? null : orders.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
           No orders yet; <Link href="/bookshelf">browse the bookshelf</Link> to get started.
         </div>

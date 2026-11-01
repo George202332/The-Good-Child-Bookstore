@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
-import { createNotification } from "@/actions/notifications";
+import { createNotification } from "@/lib/notify";
 import { removeBookPromotions } from "@/lib/promotion-cleanup";
 import { clearBookNotLiveNotices, clearBookLiveNotices, clearModerationProposalNotices, clearPayoutNotices } from "@/lib/notification-cleanup";
 import { submitUrlToIndexNow } from "@/lib/indexnow";

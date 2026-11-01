@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { createNotification } from "@/actions/notifications";
+import { createNotification } from "@/lib/notify";
 import { sendEmail } from "@/lib/email";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { fixHint } from "@/lib/lulu-rejection";

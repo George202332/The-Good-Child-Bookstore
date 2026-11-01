@@ -82,6 +82,8 @@ export async function initializePaystackTransaction(
       metadata: { ourOrderId },
     }),
     cache: "no-store",
+    // Never hang: if Paystack does not answer, the checkout shows an error and the buttons come back.
+    signal: AbortSignal.timeout(20000),
   });
   if (!res.ok) {
     const reason = await readPaystackError(res);

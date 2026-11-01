@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { createNotification } from "@/actions/notifications";
+import { createNotification } from "@/lib/notify";
 import { reportSystemError } from "@/lib/site-health/alert";
 
 /**

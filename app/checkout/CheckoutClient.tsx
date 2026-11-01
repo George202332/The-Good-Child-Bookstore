@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -22,6 +22,7 @@ import { getSiteSettings } from "@/actions/site-settings";
 import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-settings";
 import { PhonePrefixSelect } from "@/components/PhonePrefixSelect";
 import { prefixAfterCountryChange, prefixAfterManualChoice } from "@/lib/phone-prefix";
+import { ROUTE_TIMEOUT_MS, RouteTimeoutError, failureMessage, lockNote, timeoutMessage, withTimeout, workingLabel, type PayRoute } from "@/lib/checkout-routes";
 
 /**
  * Converted from checkoutHTML() and its 5 step-render functions
@@ -106,14 +107,20 @@ export function CheckoutClient({
     postcode: "",
     paymentMethod: "paystack",
   });
-  const [paymentError, setPaymentError] = useState<string | null>(null);
   // null = still checking which payment methods are switched on.
   const [availability, setAvailability] = useState<{ paystack: boolean; paypal: boolean } | null>(null);
   useEffect(() => {
     getPaymentAvailability().then(setAvailability).catch(() => setAvailability({ paystack: false, paypal: false }));
   }, []);
   const paypalReady = !!availability?.paypal;
-  const [submitting, setSubmitting] = useState(false);
+  // Each pay route (PayPal, card, saved card) has its OWN working state and its OWN error: clicking one never touches the
+  // others, and an error on one route is never shown on another. Only one route can pay at a time.
+  const [activeRoute, setActiveRoute] = useState<PayRoute | null>(null);
+  const activeRouteRef = useRef<PayRoute | null>(null);
+  const [routeErrors, setRouteErrors] = useState<Record<PayRoute, string | null>>({ paypal: null, card: null, saved: null });
+  // The pending order for the current cart: reused by whichever route the customer picks, and on every retry, so no
+  // click can create a second order for the same purchase.
+  const pendingOrderRef = useRef<{ key: string; orderId: string; totalAmount: number } | null>(null);
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethodRow[]>([]);
   const [resolvedBooks, setResolvedBooks] = useState<Book[] | null>(null);
   // Shipping methods offered for printed copies, for the chosen country.
@@ -130,7 +137,6 @@ export function CheckoutClient({
 
   useEffect(() => {
     const ids = items.map((i) => i.bookId);
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- deliberate: reset to loading state before the new resolution arrives, so stale data from a previous cart never lingers on screen
     setResolvedBooks(null);
     resolveCartBooks(ids).then(setResolvedBooks);
   }, [items]);
@@ -227,12 +233,21 @@ export function CheckoutClient({
     window.scrollTo({ top: 0, behavior: "instant" });
   }
 
-  async function payWithSaved(savedMethodId: string) {
-    if (hasRestricted) return;
-    setSubmitting(true);
-    setPaymentError(null);
+  // Coming back to this page with the browser's Back button (after PayPal or Paystack's page) must never leave a
+  // route stuck as "working".
+  useEffect(() => {
+    const onShow = (e: PageTransitionEvent) => {
+      if (e.persisted) { activeRouteRef.current = null; setActiveRoute(null); }
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, []);
 
-    const created = await createPendingOrder({
+  const REDIRECTING = Symbol("redirecting");
+
+  /** What the order is created with. The same input gives the same pending order. */
+  function orderInput() {
+    return {
       items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
       guestEmail: data.email,
       guestName: data.fullName,
@@ -241,94 +256,87 @@ export function CheckoutClient({
       shipCountry: data.country,
       shipAddress: shipAddressValue,
       ...shippingOrderFields,
-    });
-    if (!created.ok || !created.orderId || created.totalAmount === undefined) {
-      setSubmitting(false);
-      if (created.shippingChanged || created.priceUnavailable) setShippingRefresh((n) => n + 1);
-      setPaymentError(created.error ?? "Something went wrong creating your order.");
-      return;
-    }
-
-    const result = await payWithSavedCard(savedMethodId, created.orderId, created.totalAmount, data.email);
-    setSubmitting(false);
-    if (!result.ok) {
-      setPaymentError(result.error ?? "That card couldn't be charged.");
-      return;
-    }
-    router.push(`/checkout/confirmation?order=${created.orderId}`);
+    };
   }
 
-  async function payWithPayPal() {
-    setPaymentError(null);
-    if (hasRestricted) return;
-    setSubmitting(true);
-    const created = await createPendingOrder({
-      items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
-      guestEmail: data.email,
-      guestName: data.fullName,
-      shipName: data.fullName,
-      shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
-      shipCountry: data.country,
-      shipAddress: shipAddressValue,
-      ...shippingOrderFields,
-    });
-    if (!created.ok || !created.orderId) {
-      setSubmitting(false);
+  /** The pending order for this cart: the one already created when there is one (switching routes or retrying), otherwise a new one. */
+  async function getPendingOrder(): Promise<{ orderId: string; totalAmount: number } | { error: string }> {
+    const input = orderInput();
+    const key = JSON.stringify(input);
+    const have = pendingOrderRef.current;
+    if (have && have.key === key) return { orderId: have.orderId, totalAmount: have.totalAmount };
+    const created = await createPendingOrder(input);
+    if (!created.ok || !created.orderId || created.totalAmount === undefined) {
+      pendingOrderRef.current = null;
       if (created.shippingChanged || created.priceUnavailable) setShippingRefresh((n) => n + 1);
-      setPaymentError(created.error ?? "Something went wrong creating your order.");
-      return;
+      return { error: created.error ?? "Something went wrong creating your order." };
     }
-    const result = await initiatePayPalCheckout(created.orderId);
-    if (!result.ok || !result.redirectUrl) {
-      setSubmitting(false);
-      setPaymentError(result.error ?? "Something went wrong starting PayPal.");
-      return;
-    }
-    // eslint-disable-next-line react-hooks/immutability -- navigation in a click handler, not during render
-    window.location.href = result.redirectUrl;
+    pendingOrderRef.current = { key, orderId: created.orderId, totalAmount: created.totalAmount };
+    return { orderId: created.orderId, totalAmount: created.totalAmount };
   }
 
-  async function completeOrder() {
-    setPaymentError(null);
-    if (hasRestricted) return;
+  /** Runs one pay route: its own working state, its own error, its own 30-second limit. */
+  async function runRoute(route: PayRoute, work: (ctl: { cancelled: boolean }) => Promise<string | null | typeof REDIRECTING>) {
+    if (hasRestricted || activeRouteRef.current) return;
+    activeRouteRef.current = route;
+    setActiveRoute(route);
+    setRouteErrors((e) => ({ ...e, [route]: null }));
+    const ctl = { cancelled: false };
+    let leaving = false;
+    try {
+      const result = await withTimeout(work(ctl), ROUTE_TIMEOUT_MS, () => { ctl.cancelled = true; });
+      if (result === REDIRECTING) leaving = true;
+      else if (result) setRouteErrors((e) => ({ ...e, [route]: result }));
+    } catch (e) {
+      setRouteErrors((errs) => ({ ...errs, [route]: e instanceof RouteTimeoutError ? timeoutMessage(route) : failureMessage(route) }));
+    } finally {
+      if (!leaving) {
+        activeRouteRef.current = null;
+        setActiveRoute(null);
+      }
+    }
+  }
 
-    setSubmitting(true);
-
-    const created = await createPendingOrder({
-      items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
-      guestEmail: data.email,
-      guestName: data.fullName,
-      shipName: data.fullName,
-      shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
-      shipCountry: data.country,
-      shipAddress: shipAddressValue,
-      ...shippingOrderFields,
+  function payWithSaved(savedMethodId: string) {
+    return runRoute("saved", async () => {
+      const order = await getPendingOrder();
+      if ("error" in order) return order.error;
+      const result = await payWithSavedCard(savedMethodId, order.orderId, order.totalAmount, data.email);
+      if (!result.ok) return result.error ?? "That card couldn't be charged.";
+      router.push(`/checkout/confirmation?order=${order.orderId}`);
+      return REDIRECTING;
     });
-    if (!created.ok || !created.orderId || created.totalAmount === undefined) {
-      setSubmitting(false);
-      if (created.shippingChanged || created.priceUnavailable) setShippingRefresh((n) => n + 1);
-      setPaymentError(created.error ?? "Something went wrong creating your order.");
-      return;
-    }
+  }
 
-    const gateway = await initiateGatewayCheckout(created.orderId, data.paymentMethod, created.totalAmount, data.email);
-    if (!gateway.ok) {
-      setSubmitting(false);
-      setPaymentError(gateway.error ?? "Something went wrong starting payment.");
-      return;
-    }
+  function payWithPayPal() {
+    return runRoute("paypal", async (ctl) => {
+      const order = await getPendingOrder();
+      if ("error" in order) return order.error;
+      const result = await initiatePayPalCheckout(order.orderId);
+      if (!result.ok || !result.redirectUrl) return result.error ?? "Something went wrong starting PayPal.";
+      if (ctl.cancelled) return null;
 
-    if (gateway.configured && gateway.redirectUrl) {
-      // Real gateway configured — leave the site for the hosted checkout
-      // page; /checkout/return handles the redirect back.
-      // eslint-disable-next-line react-hooks/immutability -- navigation in a click handler, not during render
-      window.location.href = gateway.redirectUrl;
-      return;
-    }
+      window.location.href = result.redirectUrl;
+      return REDIRECTING;
+    });
+  }
 
-    // No gateway is configured: there is no demo mode on the live site.
-    setSubmitting(false);
-    setPaymentError("Card payments aren't available right now. Please try again later or contact support.");
+  function completeOrder() {
+    return runRoute("card", async (ctl) => {
+      const order = await getPendingOrder();
+      if ("error" in order) return order.error;
+      const gateway = await initiateGatewayCheckout(order.orderId, data.paymentMethod, order.totalAmount, data.email);
+      if (!gateway.ok) return gateway.error ?? "Something went wrong starting payment.";
+      if (gateway.configured && gateway.redirectUrl) {
+        if (ctl.cancelled) return null;
+        // Real gateway configured: leave the site for the hosted checkout page; /checkout/return handles the redirect back.
+
+        window.location.href = gateway.redirectUrl;
+        return REDIRECTING;
+      }
+      // No gateway is configured: there is no demo mode on the live site.
+      return "Card payments aren't available right now. Please try again later or contact support.";
+    });
   }
 
   if (resolvedBooks === null) {
@@ -593,11 +601,20 @@ export function CheckoutClient({
                     <strong>{m.cardType ?? "Card"} •••• {m.last4}</strong>
                     <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{m.bank}</div>
                   </div>
-                  <button type="button" className="btn btn-primary btn-small" disabled={submitting || hasRestricted || !printPriceConfirmed} onClick={() => payWithSaved(m.id)}>
-                    {submitting ? "Processing…" : `Pay $${grandTotal.toFixed(2)}`}
+                  <button type="button" className="btn btn-primary btn-small" disabled={activeRoute !== null || hasRestricted || !printPriceConfirmed} onClick={() => payWithSaved(m.id)}>
+                    {activeRoute === "saved" ? workingLabel("saved") : `Pay $${grandTotal.toFixed(2)}`}
                   </button>
                 </div>
               ))}
+              {lockNote(activeRoute, "saved") && <p className="pay-lock-note" role="status">{lockNote(activeRoute, "saved")}</p>}
+              {routeErrors.saved && (
+                <div className="checkout-error" role="alert">
+                  {routeErrors.saved}
+                  <div style={{ marginTop: 8 }}>
+                    <button type="button" className="btn btn-ghost btn-small" disabled={activeRoute !== null} onClick={() => payWithSaved(savedMethods[0].id)}>Try again</button>
+                  </div>
+                </div>
+              )}
               <div className="auth-divider" style={{ marginTop: 14 }}><span /><small>Or pay with a new card</small><span /></div>
             </div>
           )}
@@ -607,13 +624,22 @@ export function CheckoutClient({
               <button
                 type="button"
                 className="btn btn-block"
-                disabled={submitting || hasRestricted || !printPriceConfirmed}
+                disabled={activeRoute !== null || hasRestricted || !printPriceConfirmed}
                 onClick={payWithPayPal}
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#FFC439", color: "#111", fontWeight: 700 }}
               >
                 <PaymentBadgeIcon type="paypal" width={44} height={28} />
-                {submitting ? "Processing…" : `Pay $${grandTotal.toFixed(2)} with PayPal`}
+                {activeRoute === "paypal" ? workingLabel("paypal") : `Pay $${grandTotal.toFixed(2)} with PayPal`}
               </button>
+              {lockNote(activeRoute, "paypal") && <p className="pay-lock-note" role="status">{lockNote(activeRoute, "paypal")}</p>}
+              {routeErrors.paypal && (
+                <div className="checkout-error" role="alert" style={{ marginTop: 10 }}>
+                  {routeErrors.paypal}
+                  <div style={{ marginTop: 8 }}>
+                    <button type="button" className="btn btn-ghost btn-small" disabled={activeRoute !== null} onClick={payWithPayPal}>Try again</button>
+                  </div>
+                </div>
+              )}
               <p style={{ textAlign: "center", fontSize: 12, color: "var(--ink-faint)", margin: "8px 0 0" }}>
                 On PayPal&apos;s secure page, log in with your PayPal email or pay with a debit or credit card. We never see your card number.
               </p>
@@ -656,9 +682,12 @@ export function CheckoutClient({
               )}
             </div>
           )}
-          {paymentError && (
+          {routeErrors.card && (
             <div className="checkout-error" role="alert">
-              {paymentError}
+              {routeErrors.card}
+              <div style={{ marginTop: 8 }}>
+                <button type="button" className="btn btn-ghost btn-small" disabled={activeRoute !== null} onClick={completeOrder}>Try again</button>
+              </div>
             </div>
           )}
           {availability && !availability.paystack && !paypalReady && (
@@ -669,9 +698,12 @@ export function CheckoutClient({
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 16 }}>
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(3)}>← Back</button>
             {(availability === null || availability.paystack) && (
-              <button className="btn btn-primary btn-small" onClick={completeOrder} disabled={submitting || hasRestricted || availability === null || !printPriceConfirmed}>
-                {submitting ? "Processing…" : "Pay by Card"}
-              </button>
+              <div style={{ textAlign: "right" }}>
+                <button className="btn btn-primary btn-small" onClick={completeOrder} disabled={activeRoute !== null || hasRestricted || availability === null || !printPriceConfirmed}>
+                  {activeRoute === "card" ? workingLabel("card") : "Pay by Card"}
+                </button>
+                {lockNote(activeRoute, "card") && <p className="pay-lock-note" role="status">{lockNote(activeRoute, "card")}</p>}
+              </div>
             )}
           </div>
         </div>

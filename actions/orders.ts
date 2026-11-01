@@ -427,7 +427,33 @@ export async function createPendingOrder(input: {
   const { getSiteDataMode } = await import("@/actions/test-data");
   const siteMode = await getSiteDataMode();
 
-  const order = await prisma.order.create({
+  // Retries, double clicks and switching between PayPal and card must never create a second order for the same
+  // purchase: when this reader already has an unpaid order for exactly these books, address, method and total that was
+  // created a moment ago, it is reused.
+  {
+    const { sameOrderLines, PENDING_REUSE_MINUTES } = await import("@/lib/pending-order");
+    const waiting = await prisma.order.findMany({
+      where: {
+        readerId: readerProfileId,
+        status: "PENDING",
+        shippingLevel,
+        shipAddress: input.shipAddress?.trim() || null,
+        createdAt: { gte: new Date(Date.now() - PENDING_REUSE_MINUTES * 60 * 1000) },
+        paymentLogs: { none: {} },
+      },
+      select: { id: true, totalAmount: true, lines: { select: { bookId: true, format: true, grossAmount: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+    });
+    const wanted = lines.map((l) => ({ bookId: l.bookId, format: l.format as string | null, gross: +(l.unitPrice * l.qty).toFixed(2) }));
+    const same = waiting.find((o) => Math.abs(Number(o.totalAmount) - totalAmount) < 0.005
+      && sameOrderLines(o.lines.map((l) => ({ bookId: l.bookId, format: l.format, gross: Number(l.grossAmount) })), wanted));
+    if (same) return { ok: true, orderId: same.id, totalAmount };
+  }
+
+  let order: { id: string };
+  try {
+  order = await prisma.order.create({
     data: {
       readerId: readerProfileId,
       status: "PENDING",
@@ -471,6 +497,15 @@ export async function createPendingOrder(input: {
       },
     },
   });
+  } catch (e) {
+    // The order could not be saved (for example the database is a step behind the code). Say so plainly instead of leaving
+    // the checkout spinning, tell the team, and keep the reason in the server log (never any key).
+    const code = (e as { code?: string } | null)?.code ?? "unknown";
+    console.error(`[checkout] the order could not be saved (${code}):`, e instanceof Error ? e.message.split("\n").slice(-3).join(" ") : e);
+    const { reportSystemError } = await import("@/lib/site-health/alert");
+    await reportSystemError("DATABASE", e instanceof Error ? e : new Error(String(e)), { step: "createPendingOrder", code }).catch(() => undefined);
+    return { ok: false, error: "We couldn't save your order just now, so nothing has been charged. Please try again in a few minutes; our team has been told." };
+  }
 
   return { ok: true, orderId: order.id, totalAmount };
 }
@@ -553,68 +588,4 @@ export async function confirmOrderPaidDirectly(orderId: string): Promise<{ ok: b
   const { sendOrderReceiptEmail } = await import("@/actions/order-emails");
   await sendOrderReceiptEmail(orderId);
   return { ok: true };
-}
-
-export interface OrderSummary {
-  id: string;
-  /** PENDING / PAID / FAILED / CANCELLED / REFUNDED: the confirmation page only celebrates PAID. */
-  status: string;
-  totalAmount: number;
-  /** Postage the customer paid (included in totalAmount); 0 when none. */
-  shippingAmount: number;
-  /** Lulu's per-order fulfillment fee the customer paid (included in totalAmount); 0 when none. */
-  fulfillmentAmount: number;
-  printJobStatus: string | null;
-  printJobError: string | null;
-  items: { title: string; price: number; downloadUrl: string | null; hasEbook: boolean; hasAudiobook: boolean; isPrint: boolean; coverImageUrl: string | null }[];
-}
-
-/** Fetches an order for the confirmation page — used both by the demo-mode
- * path and the real gateway return flow (app/checkout/return). Includes a
- * real download link for any purchased eBook that has a manuscript file
- * on record (see BookFile kind: "MANUSCRIPT") — the demo catalog's 50
- * seeded books don't have one (they were seeded directly, not submitted
- * through the real upload flow), so those show no download link, same
- * as any book an author hasn't actually uploaded a file for yet. */
-export async function getOrderSummary(orderId: string): Promise<OrderSummary | null> {
-  try {
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: { lines: { include: { book: { include: { files: true } } } } },
-    });
-    if (!order || !Array.isArray(order.lines)) return null;
-    const isPaid = order.status === "PAID";
-    return {
-      id: order.id,
-      status: order.status,
-      totalAmount: Number(order.totalAmount),
-      shippingAmount: order.shippingAmount != null ? Number(order.shippingAmount) : 0,
-      fulfillmentAmount: order.fulfillmentAmount != null ? Number(order.fulfillmentAmount) : 0,
-      printJobStatus: order.printJobStatus,
-      printJobError: order.printJobError,
-      items: order.lines.map((l) => {
-        const isEbook = l.format === "ebook";
-        const isAudiobook = l.format === "audiobook";
-        const isPrint = l.format === "paperback" || l.format === "hardcover";
-        return {
-          title: l.book.title,
-          price: Number(l.grossAmount),
-          // eBook: the manuscript (as before). Audiobook: its own AUDIOBOOK
-          // file, via the purchase-checked download route — the audio file
-          // is never served from a public URL.
-          downloadUrl: !isPaid ? null : isEbook
-            ? (l.book.files.find((f) => f.kind === "MANUSCRIPT")?.url ?? null)
-            : isAudiobook
-            ? (l.book.files.some((f) => f.kind === "AUDIOBOOK") ? `/api/downloads/${l.bookId}?format=audiobook` : null)
-            : null,
-          hasEbook: isEbook,
-          hasAudiobook: isAudiobook,
-          isPrint,
-          coverImageUrl: l.book.coverImageUrl,
-        };
-      }),
-    };
-  } catch {
-    return null;
-  }
 }

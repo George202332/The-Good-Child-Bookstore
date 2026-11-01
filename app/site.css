@@ -2728,3 +2728,5 @@ html.dark-mode .dashboard-content [style*="background"]:not([style*="width"]):no
 @keyframes ship-spin{to{transform:rotate(360deg);}}
 @media (prefers-reduced-motion:reduce){.ship-spinner{animation:none;}}
 .ship-problem{margin:6px 0 0;padding:10px 14px;border-radius:10px;background:#FDECEA;border:1px solid #F3B6AE;color:#8A2E1F;font-size:13px;line-height:1.5;}
+
+.pay-lock-note{margin:6px 0 0;font-size:12px;color:var(--ink-soft);text-align:center;}

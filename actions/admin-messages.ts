@@ -157,7 +157,7 @@ export async function sendAdminReply(counterpartId: string, body: string): Promi
     data: { senderId: session.user.id, recipientId: counterpartId, body: body.trim() },
   });
 
-  const { createNotification } = await import("@/actions/notifications");
+  const { createNotification } = await import("@/lib/notify");
   await createNotification(counterpartId, `New message from ${session.user.name}`, body.trim().slice(0, 140), "MESSAGE");
 
   await sendEmail(

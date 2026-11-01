@@ -6,6 +6,7 @@ import { LibraryReviewButton } from "@/components/LibraryReviewButton";
 import { ColHelp } from "@/components/ColHelp";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
+import { buildLibraryRows, type LibraryItem, type LibraryLineInput } from "@/lib/my-library";
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "10px 14px", fontSize: 11, letterSpacing: undefined, whiteSpace: undefined };
 const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 14px", fontSize: undefined, verticalAlign: undefined };
@@ -28,42 +29,45 @@ export default async function LibraryPage() {
   // role (Affiliate/Editor/etc.) has no library at all.
   if (role !== "READER" && role !== "AUTHOR") redirect("/account");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: {
-      readerProfile: {
-        include: {
-          orders: {
-            where: { status: "PAID" },
-            include: { lines: { include: { book: { include: { author: { include: { user: true } }, files: true } } } } },
+  // Only the columns this page shows are read, and one broken record is skipped rather than crashing the page.
+  let rows: LibraryItem[] = [];
+  let skipped = 0;
+  let loadFailed = false;
+  try {
+    const profile = await prisma.readerProfile.findUnique({ where: { userId: session.user.id }, select: { id: true } });
+    if (profile) {
+      const lines = await prisma.saleLine.findMany({
+        where: { order: { readerId: profile.id, status: "PAID" } },
+        select: {
+          bookId: true,
+          format: true,
+          book: {
+            select: {
+              title: true, isbn: true, submissionMetadata: true,
+              author: { select: { penName: true, user: { select: { name: true } } } },
+              files: { select: { kind: true } },
+            },
           },
         },
-      },
-    },
-  });
-
-  interface LibraryItem { id: string; sn: string; title: string; author: string; format: string; rawFormat: string | null; hasAudio: boolean; copies: number; }
-  const items = new Map<string, LibraryItem>();
-  for (const order of user?.readerProfile?.orders ?? []) {
-    for (const line of order.lines) {
-      const key = `${line.bookId}:${line.format ?? ""}`;
-      const existing = items.get(key);
-      if (existing) existing.copies += 1;
-      else {
-        items.set(key, {
-          id: line.bookId,
-          sn: line.book.isbn || "—",
-          title: line.book.title,
-          author: bookAuthorDisplayName(line.book),
-          format: line.format ? line.format.charAt(0).toUpperCase() + line.format.slice(1) : "—",
-          rawFormat: line.format,
-          hasAudio: line.book.files.some((f) => f.kind === "AUDIOBOOK"),
-          copies: 1,
-        });
-      }
+        orderBy: { createdAt: "desc" },
+        take: 1000,
+      });
+      const built = buildLibraryRows(lines as LibraryLineInput[], (book) =>
+        bookAuthorDisplayName({ submissionMetadata: book.submissionMetadata, author: { penName: book.author?.penName ?? null, user: { name: book.author?.user?.name ?? "" } } }));
+      rows = built.rows;
+      skipped = built.skipped;
     }
+  } catch (e) {
+    loadFailed = true;
+    console.error("[library] could not load the library:", e instanceof Error ? e.message : e);
+    const { reportSystemError } = await import("@/lib/site-health/alert");
+    await reportSystemError("DATABASE", e instanceof Error ? e : new Error(String(e)), { page: "/account/library" }).catch(() => undefined);
   }
-  const rows = Array.from(items.values());
+  if (skipped > 0) {
+    console.error(`[library] ${skipped} record(s) could not be shown and were skipped`);
+    const { reportSystemError } = await import("@/lib/site-health/alert");
+    await reportSystemError("DATABASE", new Error(`My Library skipped ${skipped} unreadable record(s)`), { page: "/account/library" }).catch(() => undefined);
+  }
 
   return (
     <DashboardShell role={role} activeKey="library" displayName={session.user.name ?? ""}>
@@ -74,7 +78,17 @@ export default async function LibraryPage() {
         </div>
       </div>
 
-      {rows.length === 0 ? (
+      {loadFailed && (
+        <div className="map-card" style={{ padding: 20, marginBottom: 16 }} role="alert">
+          <p style={{ fontSize: 14, margin: 0 }}>Your library couldn&apos;t load just now. Your books are safe. Please try again in a few minutes; our team has been told.</p>
+        </div>
+      )}
+      {skipped > 0 && (
+        <div className="map-card" style={{ padding: "12px 16px", marginBottom: 16 }} role="status">
+          <p style={{ fontSize: 13, margin: 0 }}>{skipped === 1 ? "One item" : `${skipped} items`} in your library couldn&apos;t be shown. The rest is below, and our team has been told.</p>
+        </div>
+      )}
+      {loadFailed ? null : rows.length === 0 ? (
         <div className="map-card" style={{ padding: 30, textAlign: "center" }}>
           <p style={{ fontSize: 14.5, color: "var(--ink-soft)" }}>You are yet to purchase your first book.</p>
         </div>

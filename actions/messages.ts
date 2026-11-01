@@ -209,7 +209,7 @@ export async function sendMessage(recipientId: string, body: string, category?: 
   await prisma.message.create({
     data: { senderId: session.user.id, recipientId, body: body.trim(), category: isSupportMessage ? category : null },
   });
-  const { createNotification } = await import("@/actions/notifications");
+  const { createNotification } = await import("@/lib/notify");
   await createNotification(recipientId, `New message from ${session.user.name}`, body.trim().slice(0, 140), "MESSAGE");
 
   if (isSupportMessage) {
@@ -281,7 +281,7 @@ export async function sendDraft(draftId: string): Promise<{ ok: boolean; error?:
   if (!draft.body.trim()) return { ok: false, error: "Draft can't be empty." };
 
   await prisma.message.update({ where: { id: draftId }, data: { isDraft: false, createdAt: new Date() } });
-  const { createNotification } = await import("@/actions/notifications");
+  const { createNotification } = await import("@/lib/notify");
   const sender = await prisma.user.findUnique({ where: { id: session.user.id } });
   await createNotification(draft.recipientId, `New message from ${sender?.name ?? "someone"}`, draft.body.trim().slice(0, 140), "MESSAGE");
 

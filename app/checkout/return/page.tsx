@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { confirmPaystackReference } from "@/lib/payments/paystack-confirm";
 import { capturePaypalOrder, evaluatePaypalCapture } from "@/lib/payments/paypal";
 import { finalizeOrderPayment } from "@/lib/payments/finalize";
-import { saveCardIfReusable } from "@/actions/payment-methods";
+import { saveCardIfReusable } from "@/lib/saved-card";
 import { prisma } from "@/lib/prisma";
 import { confirmationUrl } from "@/lib/order-access";
 

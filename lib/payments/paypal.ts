@@ -100,6 +100,7 @@ export async function getAccessToken(): Promise<{ token: string; base: string }>
     },
     body: "grant_type=client_credentials",
     cache: "no-store",
+    signal: AbortSignal.timeout(20000),
   });
   if (!res.ok) throw new Error(`PayPal sign-in failed (${res.status}). Check the Client ID and Secret.`);
   const data = (await res.json()) as { access_token?: string };
@@ -120,6 +121,8 @@ export async function createPaypalOrder(orderId: string, amountUsd: number, retu
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", "PayPal-Request-Id": `gcb-${orderId}` },
     body: JSON.stringify(buildPaypalOrderBody(orderId, amountUsd, returnUrl, cancelUrl)),
     cache: "no-store",
+    // Never hang: if PayPal does not answer, the checkout shows an error and the buttons come back.
+    signal: AbortSignal.timeout(20000),
   });
   if (!res.ok) throw new Error(`PayPal could not start the payment (${res.status}).`);
   const data = (await res.json()) as { id?: string; links?: PaypalLink[] };

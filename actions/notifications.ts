@@ -13,20 +13,6 @@ import { auth } from "@/lib/auth";
  * matching the original's per-role sidebar.
  */
 
-export async function createNotification(
-  userId: string,
-  title: string,
-  body: string,
-  type: string = "GENERAL",
-  relatedRecordId?: string
-): Promise<void> {
-  try {
-    await prisma.notification.create({ data: { userId, title, body, type, relatedRecordId: relatedRecordId ?? null } });
-  } catch {
-    // Non-critical — a failed notification shouldn't break the action that triggered it.
-  }
-}
-
 export interface NotificationRow {
   id: string;
   title: string;

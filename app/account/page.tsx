@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
+import { loadMyOrders } from "@/lib/my-orders";
 import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { getMyLinkPerformance } from "@/actions/affiliate-performance";
@@ -90,13 +91,10 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const displayName = session.user.name ?? "";
 
   if (role === "READER") {
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: {
-        readerProfile: { include: { orders: { include: { lines: { include: { book: true } } }, orderBy: { createdAt: "desc" } } } },
-      },
-    });
-    const orders = (user?.readerProfile?.orders ?? []) as OrderWithLines[];
+    // Only the columns this dashboard shows are read (see lib/my-orders.ts).
+    const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { guestSetupPending: true, mustChangePassword: true } });
+    const { orders: loadedOrders } = await loadMyOrders(session.user.id);
+    const orders = loadedOrders as OrderWithLines[];
     const booksPurchased = orders.reduce((sum: number, o: OrderWithLines) => sum + o.lines.length, 0);
     // Only eBook and audiobook purchases come with a file download; printed
     // copies are shipped by Lulu, so they are not counted here.

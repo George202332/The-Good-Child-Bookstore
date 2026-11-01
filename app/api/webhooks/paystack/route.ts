@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { verifyPaystackWebhookSignature } from "@/lib/payments/paystack";
 import { confirmPaystackReference } from "@/lib/payments/paystack-confirm";
 import { finalizeOrderPayment } from "@/lib/payments/finalize";
-import { saveCardIfReusable } from "@/actions/payment-methods";
+import { saveCardIfReusable } from "@/lib/saved-card";
 
 /** Paystack webhook — same verify → split (already computed at order
  * time) → record → email → dashboard-update flow as the PayPal handler. */

@@ -6,6 +6,7 @@ import { canModerateContent } from "@/lib/roles";
 import { BlogReviewActions } from "./BlogReviewActions";
 import { CommentModerationList } from "../CommentModerationList";
 import { getBlogCommentsForModeration } from "@/actions/blog-management";
+import { sanitizeDescriptionHtml } from "@/lib/description-html";
 
 const STATUS_LABEL: Record<string, string> = {
   DRAFT: "Draft", PENDING_REVIEW: "Under Review", PUBLISHED: "Approved", REJECTED: "Under Revision",
@@ -79,7 +80,8 @@ export default async function BlogReviewPage({ params }: { params: Promise<{ id:
               )}
               <h2 style={{ fontSize: 20, marginBottom: 4, color: "var(--admin-text)" }}>{post.title}</h2>
               {post.subtitle && <p style={{ fontSize: 14, color: "var(--admin-text-faint)", marginBottom: 14 }}>{post.subtitle}</p>}
-              <div dangerouslySetInnerHTML={{ __html: post.content }} />
+              {/* Author-written text: cleaned before it is shown as HTML, so nothing an author types can run in an admin's browser. */}
+              <div dangerouslySetInnerHTML={{ __html: sanitizeDescriptionHtml(post.content) }} />
             </div>
           </div>
 
