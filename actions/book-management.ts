@@ -7,7 +7,7 @@ import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent } from "@/lib/roles";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
 import { groupEditions } from "@/lib/book-groups";
-import { formatTabsOf, groupIdentifierColumns, type FormatTabView, type FormatViewRow } from "@/lib/book-format-views";
+import { formatTabsOf, formatPostedFlags, groupIdentifierColumns, type FormatTabView, type FormatViewRow } from "@/lib/book-format-views";
 import { prepareBookNotificationCleanup, prepareReviewNotificationCleanup } from "@/lib/notification-cleanup";
 
 /**
@@ -50,6 +50,8 @@ export interface BookManagementRow {
   editions: { id: string; label: string; status: string; hasPendingRevision: boolean }[];
   /** eBook / Print / Audiobook tabs shown when the row is expanded. */
   tabs: FormatTabView[];
+  /** Which formats are posted (live): drives the eBook / Audiobook / Print tick columns. */
+  posted: { ebook: boolean; audiobook: boolean; print: boolean };
   title: string;
   status: string;
   authorName: string;
@@ -93,13 +95,15 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
     const authorName = bookAuthorDisplayName(b);
     const ratings = group.flatMap((r) => r.ratings);
     const cols = groupIdentifierColumns(group);
+    const tabs = formatTabsOf(group);
     const labelOf = (r: Row) => [r.hasEbook && "eBook", r.hasPrint && "Print", r.hasAudiobook && "Audiobook"].filter(Boolean).join(" + ") || "Book";
     return {
       id: b.id,
       snNumber: cols.sn,
       isbn: cols.isbn,
       editions: group.map((r) => ({ id: r.id, label: labelOf(r), status: r.status, hasPendingRevision: r.pendingRevisionData != null })),
-      tabs: formatTabsOf(group),
+      tabs,
+      posted: formatPostedFlags(tabs),
       title: b.title,
       status: b.status,
       authorName,

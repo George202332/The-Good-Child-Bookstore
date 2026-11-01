@@ -764,6 +764,10 @@ model Order {
   /// from Lulu). Included in totalAmount; never part of the author's
   /// royalty. Null on older orders and on orders with no printed copies.
   shippingAmount Decimal? @db.Decimal(10, 2)
+  /// The exact shipping quote used for this order (level, amount, source, delivery days, quote time, country and
+  /// postal code it was quoted for), saved so what the customer saw is what was charged. Null for orders without
+  /// printed copies and for orders placed before this was recorded.
+  shippingQuote Json?
   // Real status of the Lulu print-job submission (see
   // lib/payments/lulu.ts) — null if this order has no physical copies,
   // otherwise reflects what actually happened, not an assumption.

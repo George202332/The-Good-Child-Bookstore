@@ -24,6 +24,17 @@ const STATUS_TABS: { key: "ALL" | "PUBLISHED" | "PENDING_REVIEW" | "DRAFT" | "RE
  * pending-review queue. "Editors approve, Admins override" — both roles
  * can approve/reject (see actions/admin.ts requireModerationRole()).
  */
+const TH = { padding: "10px 8px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" } as const;
+
+function FormatMark({ posted, label }: { posted: boolean; label: string }) {
+  return (
+    <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)", textAlign: "center" }}>
+      <span aria-hidden="true" style={{ fontWeight: 800, fontSize: 16, color: posted ? "#1F8A4C" : "#B0504A" }}>{posted ? "\u2713" : "\u2717"}</span>
+      <span className="sr-only" style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" }}>{label} {posted ? "posted" : "not posted"}</span>
+    </td>
+  );
+}
+
 export default async function BookManagementPage({
   searchParams,
 }: {
@@ -98,34 +109,44 @@ export default async function BookManagementPage({
             Nothing here yet.
           </div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table style={{ width: "100%", tableLayout: "auto", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>SN Number<ColHelp text="The reference number of the eBook and Audiobook (the site-generated SN number, or the author's own ISBN if they entered one). A dash means the book has no eBook or Audiobook." /></th>
-                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>ISBN<ColHelp text="The ISBN of the print edition. A dash means the book has no print edition; 'ISBN pending' on the Print tab means it has not been entered yet." /></th>
-                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Title<ColHelp text="The book's title." /></th>
-                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Author<ColHelp text="The author's display name on this book." /></th>
-                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Account<ColHelp text="The author's account number." /></th>
-                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Status<ColHelp text="Where this book is in the review pipeline: Draft, Pending Review, Published (live on the shelf), or Rejected. A blue tag means a revision is pending review." /></th>
-                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Open<ColHelp text="Open this book's full submission for review." /></th>
-                <th style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--admin-text-faint, #6B7385)", fontWeight: 600, fontSize: 11, textTransform: "uppercase", textAlign: "left" }}>Delete<ColHelp text="Permanently remove this book from the platform." /></th>
+                <th style={TH}>SN Number<ColHelp text="The reference number of the eBook and Audiobook (the site-generated SN number, or the author's own ISBN if they entered one). A dash means the book has no eBook or Audiobook." /></th>
+                <th style={TH}>ISBN<ColHelp text="The ISBN of the print edition. A dash means the book has no print edition; 'ISBN pending' on the Print tab means it has not been entered yet." /></th>
+                <th style={TH}>Title<ColHelp text="The book's title." /></th>
+                <th style={TH}>Author<ColHelp text="The author's display name on this book." /></th>
+                <th style={TH}>Account<ColHelp text="The author's account number." /></th>
+                <th style={TH}>Status<ColHelp text="Where this book is in the review pipeline: Draft, Pending Review, Published (live on the shelf), or Rejected. A blue tag means a revision is pending review." /></th>
+                <th style={{ ...TH, textAlign: "center" }}>eBook<ColHelp text="A tick means the eBook has been posted (it is live on the shelf). A cross means it has not been posted, or the book has no eBook." /></th>
+                <th style={{ ...TH, textAlign: "center" }}>Audiobook<ColHelp text="A tick means the audiobook has been posted (it is live on the shelf). A cross means it has not been posted, or the book has no audiobook." /></th>
+                <th style={{ ...TH, textAlign: "center" }}>Print<ColHelp text="A tick means the print edition has been posted (it is live on the shelf). A cross means it has not been posted, or the book has no print edition." /></th>
+                <th style={TH}>Delete<ColHelp text="Permanently remove this book from the platform." /></th>
               </tr>
             </thead>
             <tbody>
               {books.map((b) => (
                 <tr key={b.id}>
-                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.snNumber || "—"}</td>
-                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.isbn || "—"}</td>
-                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
-                    <strong>{b.title}</strong>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>{b.snNumber || "—"}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>{b.isbn || "—"}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>
+                    <Link href={`/admin/books/${b.id}/review`} title="Open this book's details" style={{ fontWeight: 700, color: "inherit", textDecoration: "underline", overflowWrap: "anywhere" }}>{b.title}</Link>
                     <details style={{ marginTop: 4 }}>
                       <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--admin-accent, #5B8DEF)" }}>Formats ({b.tabs.map((t) => t.label).join(", ")})</summary>
                       <BookFormatTabs tabs={b.tabs} />
+                      {b.editions.length > 1 && (
+                        <div style={{ marginTop: 6, fontSize: 12 }}>
+                          Open record:{" "}
+                          {b.editions.map((e, k) => (
+                            <span key={e.id}>{k > 0 && " · "}<Link href={`/admin/books/${e.id}/review`} style={{ color: "var(--admin-accent, #5B8DEF)" }}>{e.label}</Link></span>
+                          ))}
+                        </div>
+                      )}
                     </details>
                   </td>
-                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.authorName}</td>
-                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>{b.authorAccountNumber}</td>
-                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>{b.authorName}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>{b.authorAccountNumber}</td>
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>
                     {b.status}
                     {b.hasPendingRevision && (
                       <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: "rgba(91,141,239,0.15)", color: "var(--admin-accent, #5B8DEF)" }}>
@@ -133,14 +154,10 @@ export default async function BookManagementPage({
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
-                    {b.editions.map((e) => (
-                      <div key={e.id} style={{ marginBottom: 4 }}>
-                        <Link href={`/admin/books/${e.id}/review`} className="btn btn-primary btn-small" title={`Open the ${e.label} record`}>{b.editions.length > 1 ? `Open ${e.label}` : "Open"}</Link>
-                      </div>
-                    ))}
-                  </td>
-                  <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)" }}>
+                  <FormatMark posted={b.posted.ebook} label="eBook" />
+                  <FormatMark posted={b.posted.audiobook} label="Audiobook" />
+                  <FormatMark posted={b.posted.print} label="Print" />
+                  <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>
                     {b.editions.map((e) => (
                       <div key={e.id} style={{ marginBottom: 4 }}>
                         <DeleteBookButton bookId={e.id} bookTitle={b.editions.length > 1 ? `${b.title} (${e.label})` : b.title} />

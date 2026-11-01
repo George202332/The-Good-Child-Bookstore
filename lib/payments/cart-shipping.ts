@@ -7,7 +7,7 @@
 
 import { buildLuluAddress, shippingProblems, type LuluShippingLevel } from "@/lib/lulu-order";
 import { pickShippingQuote, type ShippingQuote } from "@/lib/shipping-quote";
-import { quoteLuluShipping, type ShippingQuoteLine } from "@/lib/payments/lulu";
+import { quoteLuluShippingDetailed, type ShippingQuoteLine } from "@/lib/payments/lulu";
 
 export interface CartPrintLine {
   title: string;
@@ -17,14 +17,21 @@ export interface CartPrintLine {
   files: { kind: string; url: string }[];
 }
 
-export async function quoteCartShipping(opts: {
+export interface CartShippingResult {
+  quotes: ShippingQuote[];
+  /** ok = Lulu priced this address; none = Lulu cannot ship these books to this address; error = Lulu could not
+   * be asked; incomplete = the address is not complete yet, so only the store's estimate is shown. */
+  lulu: "ok" | "none" | "error" | "incomplete";
+}
+
+export async function quoteCartShippingDetailed(opts: {
   lines: CartPrintLine[];
   countryIso: string;
   rawAddress?: string | null;
   phone?: string | null;
   name?: string | null;
   levels: LuluShippingLevel[];
-}): Promise<ShippingQuote[]> {
+}): Promise<CartShippingResult> {
   const printLines: ShippingQuoteLine[] = opts.lines
     .filter((l) => l.format === "paperback" || l.format === "hardcover")
     .map((l) => ({
@@ -34,7 +41,7 @@ export async function quoteCartShipping(opts: {
       submissionMetadata: l.submissionMetadata,
       manuscriptUrl: l.files.find((f) => f.kind === "MANUSCRIPT")?.url,
     }));
-  if (printLines.length === 0) return [];
+  if (printLines.length === 0) return { quotes: [], lulu: "incomplete" };
 
   const copies = printLines.reduce((n, l) => n + l.quantity, 0);
   const address = buildLuluAddress({
@@ -45,9 +52,17 @@ export async function quoteCartShipping(opts: {
     phone: opts.phone,
   });
 
-  // Lulu can only quote a complete destination; until the customer has typed
-  // one, the store's estimate is shown (and labelled as an estimate).
+  // Lulu can only quote a complete destination (country, region where needed, postal code); until the customer has
+  // typed one, the store's estimate is shown (and labelled as an estimate).
   const complete = shippingProblems(address).length === 0;
-  const luluQuotes = complete ? await quoteLuluShipping(printLines, address) : [];
-  return opts.levels.map((level) => pickShippingQuote(level, luluQuotes, opts.countryIso, copies));
+  const answer = complete ? await quoteLuluShippingDetailed(printLines, address) : { status: "incomplete" as const, quotes: [] };
+  return {
+    quotes: opts.levels.map((level) => pickShippingQuote(level, answer.quotes, opts.countryIso, copies)),
+    lulu: answer.status,
+  };
+}
+
+/** The quotes only (used when an order is created). */
+export async function quoteCartShipping(opts: Parameters<typeof quoteCartShippingDetailed>[0]): Promise<ShippingQuote[]> {
+  return (await quoteCartShippingDetailed(opts)).quotes;
 }

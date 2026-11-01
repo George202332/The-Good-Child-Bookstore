@@ -156,9 +156,19 @@ function luluQuoteAddress(address: LuluAddress) {
  * address, for each shipping method. Returns [] when Lulu cannot be asked or
  * does not answer usefully. Never throws. */
 export async function quoteLuluShipping(lines: ShippingQuoteLine[], address: LuluAddress): Promise<ShippingQuote[]> {
+  return (await quoteLuluShippingDetailed(lines, address)).quotes;
+}
+
+/** Same question, but says WHY there is no answer, so checkout can tell "Lulu cannot ship this book to that
+ * country" (status "none") apart from "Lulu could not be asked right now" (status "error").
+ * Never throws. The address sent is always the customer's real delivery address. */
+export async function quoteLuluShippingDetailed(
+  lines: ShippingQuoteLine[],
+  address: LuluAddress,
+): Promise<{ status: "ok" | "none" | "error"; quotes: ShippingQuote[] }> {
   try {
     const items = await buildQuoteItems(lines);
-    if (!items) return [];
+    if (!items) return { status: "error", quotes: [] };
     const baseUrl = luluBaseUrl(await getLuluEnvironment());
     const token = await getAccessToken(baseUrl);
     const res = await fetch(`${baseUrl}/shipping-options/`, {
@@ -166,10 +176,14 @@ export async function quoteLuluShipping(lines: ShippingQuoteLine[], address: Lul
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ currency: "USD", line_items: items, shipping_address: luluQuoteAddress(address) }),
     });
-    if (!res.ok) return [];
-    return parseLuluShippingOptions(await res.json());
+    // Lulu answering "no" (the address or country is not served, or the combination is refused) is different
+    // from Lulu being unreachable or failing.
+    if (res.status === 400 || res.status === 404 || res.status === 422) return { status: "none", quotes: [] };
+    if (!res.ok) return { status: "error", quotes: [] };
+    const quotes = parseLuluShippingOptions(await res.json());
+    return { status: quotes.length > 0 ? "ok" : "none", quotes };
   } catch {
-    return [];
+    return { status: "error", quotes: [] };
   }
 }
 

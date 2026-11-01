@@ -49,6 +49,9 @@ const createPendingOrderSchema = z.object({
   shipCountry: z.string().max(100).optional(),
   shipAddress: z.string().max(1000).optional(),
   shippingLevel: z.string().max(30).optional(),
+  /** The sealed quote the customer was shown (lib/shipping-quote-token.ts) and the price displayed with it. */
+  shippingQuoteToken: z.string().max(1000).optional(),
+  shippingAmountShown: z.number().min(0).max(100000).optional(),
 });
 
 /**
@@ -95,6 +98,8 @@ export interface CreateOrderResult {
   error?: string;
   orderId?: string;
   totalAmount?: number;
+  /** True when the postage changed since the customer saw it; the checkout then asks again and shows the new price. */
+  shippingChanged?: boolean;
 }
 
 /** Finds the current session's reader profile, or creates one for them
@@ -180,6 +185,9 @@ export async function createPendingOrder(input: {
   shipAddress?: string;
   /** Shipping method chosen for printed copies (a Lulu shipping_level). */
   shippingLevel?: string;
+  /** The sealed quote shown at checkout, and the amount displayed with it. */
+  shippingQuoteToken?: string;
+  shippingAmountShown?: number;
 }): Promise<CreateOrderResult> {
   const parsed = createPendingOrderSchema.safeParse(input);
   if (!parsed.success) {
@@ -227,6 +235,8 @@ export async function createPendingOrder(input: {
   let shippingLevel: string | null = null;
   // What the customer pays for postage (the store never absorbs it).
   let shippingAmount: number | null = null;
+  // The exact quote used for this order (saved on the order).
+  let shippingQuoteRecord: Record<string, unknown> | null = null;
   // Lulu's quoted production printing cost per printed line, and its shipping / fulfilment charges.
   const printingCostByLine = new Map<(typeof lines)[number], number>();
   let luluShippingCost: number | null = null;
@@ -250,19 +260,51 @@ export async function createPendingOrder(input: {
     const { resolveShippingLevel } = await import("@/lib/lulu-order");
     shippingLevel = resolveShippingLevel(input.shippingLevel, shipIso ?? "", await getEnabledShippingLevels());
 
-    // Postage is worked out here, on the server, from the books and address
-    // in the order — the same calculation the checkout page showed — and is
-    // added to what the customer pays. It is never taken from the browser.
+    // Postage is worked out on the server, never taken from the browser. The checkout hands back the sealed quote it
+    // showed (lib/shipping-quote-token.ts): when that is genuine, unexpired and for exactly these books, this address
+    // and this method, the customer is charged EXACTLY that amount. Otherwise Lulu is asked again, and if the new
+    // price differs from the one the customer saw, the order is not created and the checkout shows the new price.
     const { quoteCartShipping } = await import("@/lib/payments/cart-shipping");
-    const [quote] = await quoteCartShipping({
-      lines: lines.map((l) => ({ title: l.book.title, format: l.format, qty: l.qty, submissionMetadata: l.book.submissionMetadata, files: l.book.files })),
-      countryIso: shipIso ?? "",
-      rawAddress: input.shipAddress,
-      phone: input.shipPhone,
-      name: input.shipName || input.guestName,
-      levels: [shippingLevel as import("@/lib/lulu-order").LuluShippingLevel],
-    });
+    const { quoteFingerprint, openQuote } = await import("@/lib/shipping-quote-token");
+    const { parseShipAddress } = await import("@/lib/lulu-order");
+    const printForQuote = lines.filter((l) => l.format === "paperback" || l.format === "hardcover");
+    const fp = quoteFingerprint({ items: printForQuote.map((l) => ({ bookId: l.bookId, qty: l.qty, format: l.format })), countryIso: shipIso ?? "", address: input.shipAddress });
+    const sealed = openQuote(input.shippingQuoteToken, { level: shippingLevel, fp });
+    let quote: { amount: number; source: "lulu" | "estimate"; minDays?: number; maxDays?: number } | undefined;
+    if (sealed) {
+      quote = { amount: sealed.amount, source: "lulu", minDays: sealed.minDays, maxDays: sealed.maxDays };
+    } else {
+      const [fresh] = await quoteCartShipping({
+        lines: lines.map((l) => ({ title: l.book.title, format: l.format, qty: l.qty, submissionMetadata: l.book.submissionMetadata, files: l.book.files })),
+        countryIso: shipIso ?? "",
+        rawAddress: input.shipAddress,
+        phone: input.shipPhone,
+        name: input.shipName || input.guestName,
+        levels: [shippingLevel as import("@/lib/lulu-order").LuluShippingLevel],
+      });
+      quote = fresh;
+      if (fresh && fresh.source === "lulu" && typeof input.shippingAmountShown === "number" && Math.abs(fresh.amount - input.shippingAmountShown) > 0.005) {
+        return {
+          ok: false,
+          shippingChanged: true,
+          error: `The shipping price for your address changed from $${input.shippingAmountShown.toFixed(2)} to $${fresh.amount.toFixed(2)}. Your total has been updated; please review it and press pay again.`,
+        };
+      }
+    }
     shippingAmount = quote ? quote.amount : 0;
+    shippingQuoteRecord = quote
+      ? {
+          level: shippingLevel,
+          amount: quote.amount,
+          source: quote.source,
+          minDays: quote.minDays ?? null,
+          maxDays: quote.maxDays ?? null,
+          quotedAt: new Date().toISOString(),
+          sealedQuoteUsed: !!sealed,
+          country: shipIso ?? "",
+          postcode: parseShipAddress(input.shipAddress).postcode,
+        }
+      : null;
 
     // The customer is charged EXACTLY what Lulu quotes for this address and method: an estimate
     // is never charged. If Lulu cannot quote this method for this address, the order is not
@@ -377,6 +419,7 @@ export async function createPendingOrder(input: {
       shipAddress: input.shipAddress?.trim() || null,
       shippingLevel,
       shippingAmount,
+      shippingQuote: shippingQuoteRecord ? (JSON.parse(JSON.stringify(shippingQuoteRecord)) as object) : undefined,
       luluShippingCost,
       luluFulfillmentCost,
       lines: {

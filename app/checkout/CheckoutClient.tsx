@@ -10,7 +10,7 @@ import { useCart, type CartItem } from "@/hooks/useCart";
 import { createPendingOrder } from "@/actions/orders";
 import { initiateGatewayCheckout, initiatePayPalCheckout, getPaymentAvailability } from "@/actions/payment-init";
 import { resolveCartBooks } from "@/actions/cart-books";
-import { getShippingOptions, type ShippingOptionRow } from "@/actions/shipping-options";
+import { getShippingOptions, type ShippingOptionsResult } from "@/actions/shipping-options";
 import { listMyPaymentMethods, payWithSavedCard, type SavedPaymentMethodRow } from "@/actions/payment-methods";
 import { PaymentBadgeIcon } from "@/components/PaymentBadgeIcon";
 import { COUNTRIES } from "@/lib/countries";
@@ -112,7 +112,10 @@ export function CheckoutClient({
   const [savedMethods, setSavedMethods] = useState<SavedPaymentMethodRow[]>([]);
   const [resolvedBooks, setResolvedBooks] = useState<Book[] | null>(null);
   // Shipping methods offered for printed copies, for the chosen country.
-  const [shippingOptions, setShippingOptions] = useState<ShippingOptionRow[]>([]);
+  // The answer for one exact set of books + country + address. While the customer is still typing (or changing the
+  // country) the key no longer matches the answer, which is what shows "Updating Shipping".
+  const [quoted, setQuoted] = useState<{ key: string; result: ShippingOptionsResult } | null>(null);
+  const [shippingRefresh, setShippingRefresh] = useState(0);
   const [shippingLevel, setShippingLevel] = useState("");
   const [paymentBadges, setPaymentBadges] = useState<PaymentBadgeUrls>(DEFAULT_SITE_SETTINGS.paymentBadges);
 
@@ -140,12 +143,10 @@ export function CheckoutClient({
   const quoteAddress = composeShipAddress({ street: data.billingAddress, street2: data.street2, city: data.city, state: data.state, postcode: data.postcode });
   const quotePhone = data.phone ? `${data.phoneCountryCode}${data.phone}` : "";
   const quoteItemsKey = JSON.stringify(items.filter((i) => i.format === "paperback" || i.format === "hardcover").map((i) => [i.bookId, i.quantity, i.format]));
+  // Everything the postage depends on. Any change (country, region, postal code, street, copies) asks Lulu again.
+  const quoteKey = needsShipping && printCountry ? JSON.stringify([quoteItemsKey, printCountry, quoteAddress, quotePhone, shippingRefresh]) : "";
   useEffect(() => {
-    if (!needsShipping || !printCountry) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- nothing to choose until a country is picked
-      setShippingOptions([]);
-      return;
-    }
+    if (!quoteKey) return;
     let cancelled = false;
     // Wait a moment after typing stops so we ask for a price once, not per keystroke.
     const timer = setTimeout(() => {
@@ -154,15 +155,19 @@ export function CheckoutClient({
         country: printCountry,
         address: quoteAddress,
         phone: quotePhone,
-        name: data.fullName,
-      }).then((opts) => {
-        if (cancelled) return;
-        setShippingOptions(opts);
-        setShippingLevel((cur) => (opts.some((o) => o.id === cur) ? cur : opts[0]?.id ?? ""));
-      });
+      })
+        .catch((): ShippingOptionsResult => ({ rows: [], state: "unavailable", message: "We could not get shipping prices just now. Please wait a moment and check your address again; nothing has been charged." }))
+        .then((result) => {
+          if (cancelled) return;
+          setQuoted({ key: quoteKey, result });
+          setShippingLevel((cur) => (result.rows.some((o) => o.id === cur) ? cur : result.rows[0]?.id ?? ""));
+        });
     }, 500);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [needsShipping, printCountry, quoteAddress, quotePhone, quoteItemsKey, data.fullName]);
+  }, [quoteKey, quoteItemsKey, printCountry, quoteAddress, quotePhone]);
+  const shippingBusy = !!quoteKey && quoted?.key !== quoteKey;
+  const shippingResult = quoteKey ? quoted?.result : undefined;
+  const shippingOptions = shippingResult?.rows ?? [];
 
   const bookSource = resolvedBooks ?? [];
   const FORMAT_LABEL: Record<string, string> = { ebook: "eBook", paperback: "Paperback", hardcover: "Hardcover", audiobook: "Audiobook" };
@@ -175,6 +180,8 @@ export function CheckoutClient({
   const hasPrintItem = lines.some((l) => l.format === "paperback" || l.format === "hardcover");
   // The customer pays postage for printed copies, on top of the books.
   const chosenShipping = hasPrintItem ? shippingOptions.find((o) => o.id === shippingLevel) : undefined;
+  // What the order is created with: the method and the exact sealed quote the customer was shown.
+  const shippingOrderFields = hasPrintItem ? { shippingLevel, shippingQuoteToken: chosenShipping?.token, shippingAmountShown: chosenShipping?.amount } : {};
   const shippingCost = chosenShipping?.amount ?? 0;
   const grandTotal = Math.round((subtotal + shippingCost) * 100) / 100;
   // Print copies are shipped by our print partner, which needs a complete
@@ -224,10 +231,11 @@ export function CheckoutClient({
       shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
       shipCountry: data.country,
       shipAddress: shipAddressValue,
-      shippingLevel: hasPrintItem ? shippingLevel : undefined,
+      ...shippingOrderFields,
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);
+      if (created.shippingChanged) setShippingRefresh((n) => n + 1);
       setPaymentError(created.error ?? "Something went wrong creating your order.");
       return;
     }
@@ -253,10 +261,11 @@ export function CheckoutClient({
       shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
       shipCountry: data.country,
       shipAddress: shipAddressValue,
-      shippingLevel: hasPrintItem ? shippingLevel : undefined,
+      ...shippingOrderFields,
     });
     if (!created.ok || !created.orderId) {
       setSubmitting(false);
+      if (created.shippingChanged) setShippingRefresh((n) => n + 1);
       setPaymentError(created.error ?? "Something went wrong creating your order.");
       return;
     }
@@ -284,10 +293,11 @@ export function CheckoutClient({
       shipPhone: data.phone.trim() ? `${data.phoneCountryCode} ${data.phone.trim()}` : undefined,
       shipCountry: data.country,
       shipAddress: shipAddressValue,
-      shippingLevel: hasPrintItem ? shippingLevel : undefined,
+      ...shippingOrderFields,
     });
     if (!created.ok || !created.orderId || created.totalAmount === undefined) {
       setSubmitting(false);
+      if (created.shippingChanged) setShippingRefresh((n) => n + 1);
       setPaymentError(created.error ?? "Something went wrong creating your order.");
       return;
     }
@@ -470,10 +480,18 @@ export function CheckoutClient({
               <input className="field field-compact" id="co-postcode" type="text" required value={data.postcode} onChange={(e) => setData((d) => ({ ...d, postcode: e.target.value }))} />
               <fieldset style={{ border: "none", padding: 0, margin: "12px 0 0" }}>
                 <legend className="field-label field-label-compact">Shipping method</legend>
+                {shippingBusy && (
+                  <div className="ship-updating" role="status" aria-live="polite"><span className="ship-spinner" aria-hidden="true" />Updating Shipping…</div>
+                )}
+                {shippingResult && !shippingBusy && (shippingResult.state === "cannot-ship" || shippingResult.state === "unavailable") && (
+                  <div className="ship-problem" role="alert">{shippingResult.message}</div>
+                )}
                 {shippingOptions.length === 0 ? (
-                  <div className="field-hint">Choose your country above to see the shipping methods and prices available to you.</div>
+                  !shippingBusy && !(shippingResult && (shippingResult.state === "cannot-ship" || shippingResult.state === "unavailable")) && (
+                    <div className="field-hint">Choose your country above to see the shipping methods and prices available to you.</div>
+                  )
                 ) : (
-                  <div className="ship-options">
+                  <div className={`ship-options${shippingBusy ? " is-updating" : ""}`} aria-busy={shippingBusy}>
                     {shippingOptions.map((o) => (
                       <label key={o.id} className={`ship-option${shippingLevel === o.id ? " selected" : ""}`}>
                         <input
@@ -481,6 +499,7 @@ export function CheckoutClient({
                           name="co-shipping-level"
                           value={o.id}
                           checked={shippingLevel === o.id}
+                          disabled={shippingBusy}
                           onChange={() => setShippingLevel(o.id)}
                         />
                         <span className="ship-option-body">
@@ -502,9 +521,9 @@ export function CheckoutClient({
               ? "Your print copy will be printed and shipped to this address. Shipping is paid by you and is added to your total."
               : "Books are delivered digitally; this address is used for billing and tax purposes only."}
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 10 }}>
+          <div className="checkout-actions">
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(1)}>← Back to Cart</button>
-            <button className="btn btn-primary btn-small" type="submit">Continue</button>
+            <button className="btn btn-primary btn-small" type="submit" disabled={hasPrintItem && (shippingBusy || !chosenShipping || chosenShipping.source !== "lulu")}>Continue</button>
           </div>
         </form>
       )}

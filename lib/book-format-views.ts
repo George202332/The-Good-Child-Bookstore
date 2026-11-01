@@ -117,3 +117,10 @@ export function groupIdentifierColumns(group: readonly FormatViewRow[]): { sn: s
   }
   return { sn, isbn };
 }
+
+/** For the admin table: is each format of this book posted (live on the shelf)? A format counts as posted only when
+ * the book has it AND that format's own record is Published (an audiobook switched to Draft is not posted). */
+export function formatPostedFlags(tabs: readonly Pick<FormatTabView, "key" | "status">[]): Record<TabKey, boolean> {
+  const posted = (k: TabKey) => tabs.some((t) => t.key === k && t.status === "PUBLISHED");
+  return { ebook: posted("ebook"), audiobook: posted("audiobook"), print: posted("print") };
+}
