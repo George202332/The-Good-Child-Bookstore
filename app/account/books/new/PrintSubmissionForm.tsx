@@ -2,6 +2,7 @@
 
 import { PublisherField } from "./PublisherField";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { PrintMockupPreviews } from "@/components/PrintMockupPreviews";
 import { descriptionToPlainText, plainToDescriptionHtml } from "@/lib/description-html";
 import { AuthorAliasField } from "./AuthorAliasField";
 import { AgeGroupField } from "./AgeGroupField";
@@ -759,6 +760,26 @@ export function PrintSubmissionForm({
           />
         </div>
 
+        <PrintMockupPreviews
+          paperbackEnabled={paperbackEnabled}
+          hardcoverEnabled={hardcoverEnabled}
+          common={{
+            title,
+            author: `${authorFirstName} ${authorLastName}`.trim(),
+            description,
+            isbn: barcodeIsbn,
+            frontCoverImageUrl,
+            trimCode,
+            pages: Number(printPages) || 0,
+            paperCode: paperType,
+            finish: coverFinish,
+            linenColor,
+            foilColor,
+            foilTitle: foilStampTitleText,
+            foilAuthor: foilStampAuthorText,
+          }}
+        />
+
         <div className="specs-block" style={{ marginTop: 22 }}>
           <h3 className="specs-title" style={{ marginBottom: 6 }}>Publication Format</h3>
           <p className="specs-text">Choose Paperback, Hardcover, or both as separate printable editions of this title.</p>
@@ -825,7 +846,7 @@ export function PrintSubmissionForm({
         <label className="field-label" htmlFor="p-desc">Book Description</label>
         <RichTextEditor key={descriptionEditorKey} id="p-desc" value={descriptionHtml} onChange={setDescriptionHtml} placeholder="A short back-cover description of the book…" maxWords={200} />
         <div style={{ marginTop: 14 }}>
-          <AiDeclarationField id="p-ai-declaration" value={aiDeclaration} onChange={setAiDeclaration} legacyNote={isLegacyAiText(initial?.aiDeclaration) && !aiChoiceOf(aiDeclaration)} />
+          <AiDeclarationField id="p-ai-declaration" shared={!!aiShared} value={aiDeclaration} onChange={setAiDeclaration} legacyNote={isLegacyAiText(initial?.aiDeclaration) && !aiChoiceOf(aiDeclaration)} />
         </div>
       </Card>
 

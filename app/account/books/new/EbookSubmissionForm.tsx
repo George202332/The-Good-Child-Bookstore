@@ -161,7 +161,7 @@ export function EbookSubmissionForm({
   const [publicationDate, setPublicationDate] = useState(initial?.publicationDate ?? "");
   const [originalPublicationDate, setOriginalPublicationDate] = useState(initial?.originalPublicationDate ?? "");
   const [isbn, setIsbn] = useState(initial?.isbn ?? "");
-  // The identifier is an SN number the site generates, unless the author has their own ISBN
+  // The identifier is an SN the site generates, unless the author has their own ISBN
   // for the eBook (which then replaces it). The audiobook shares whichever it is.
   const [hasOwnIsbn, setHasOwnIsbn] = useState(!!initial?.isbn && isRealIsbn(initial.isbn));
   const [generatedSn, setGeneratedSn] = useState<string | null>(initial?.isbn && !isRealIsbn(initial.isbn) ? initial.isbn : null);
@@ -289,7 +289,7 @@ export function EbookSubmissionForm({
 
   const checklist: ChecklistItem[] = [
     { label: "Manuscript or audiobook file uploaded", ok: !!manuscriptFileId || !!audiobookFileId, section: "files" },
-    { label: "Book identifier (your ISBN, or an SN number we generate)", ok: hasOwnIsbn ? !!isbn.trim() : true, section: "info" },
+    { label: "Book identifier (your ISBN, or an SN we generate)", ok: hasOwnIsbn ? !!isbn.trim() : true, section: "info" },
     { label: "Cover image uploaded", ok: !!coverImageUrl, section: "files" },
     { label: "Book title", ok: !!title.trim(), section: "info" },
     { label: "Author name", ok: !!authorFirstName.trim() && !!authorLastName.trim(), section: "info" },
@@ -541,11 +541,11 @@ export function EbookSubmissionForm({
         </div>
         <div>
           <div>
-            <label className="field-label">SN Number / ISBN</label>
+            <label className="field-label">SN / ISBN</label>
             <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 400 }}>
                 <input type="radio" name="isbn-mode" checked={!hasOwnIsbn} onChange={() => setHasOwnIsbn(false)} />
-                Auto-generate an SN number for me
+                Auto-generate an SN for me
               </label>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 400 }}>
                 <input type="radio" name="isbn-mode" checked={hasOwnIsbn} onChange={() => setHasOwnIsbn(true)} />
@@ -555,13 +555,13 @@ export function EbookSubmissionForm({
             {hasOwnIsbn ? (
               <>
                 <input className="field" id="f-isbn" type="text" placeholder="978-1-59299-541-7" value={isbn} onChange={(e) => setIsbn(e.target.value)} />
-                <div className="field-hint">Enter your existing ISBN for this eBook. It replaces the SN number, and the audiobook uses it too.</div>
+                <div className="field-hint">Enter your existing ISBN for this eBook. It replaces the SN, and the audiobook uses it too.</div>
               </>
             ) : generatedSn ? (
               <>
                 <input className="field" type="text" value={generatedSn} readOnly disabled style={{ fontFamily: "monospace", letterSpacing: 1 }} />
                 <div className="field-hint" style={{ margin: 0 }}>
-                  Your SN number — a 13-digit, all-numeric reference starting with 5, distinct from a real ISBN, and
+                  Your SN — a 13-digit, all-numeric reference starting with 5, distinct from a real ISBN, and
                   checked against every other book on the platform so it&apos;s guaranteed unique. Shared by the eBook and audiobook.
                 </div>
               </>
@@ -581,7 +581,7 @@ export function EbookSubmissionForm({
                   {generatingSn ? "Generating…" : "Generate SN"}
                 </button>
                 <div className="field-hint" style={{ margin: "6px 0 0" }}>
-                  Optional: preview your SN number now. If you skip this, one is generated for you when you submit.
+                  Optional: preview your SN now. If you skip this, one is generated for you when you submit.
                   The eBook and audiobook share it.
                 </div>
               </>
@@ -663,7 +663,7 @@ export function EbookSubmissionForm({
           <KeywordsField keywords={keywords} onChange={setKeywords} descriptionHtml={descriptionHtml} title={title} />
         </div>
         <div style={{ marginTop: 18 }}>
-          <AiDeclarationField id="f-ai-declaration" value={aiDeclaration} onChange={setAiDeclaration} legacyNote={isLegacyAiText(initial?.aiDeclaration) && !aiChoiceOf(aiDeclaration)} />
+          <AiDeclarationField id="f-ai-declaration" shared={!!aiShared} value={aiDeclaration} onChange={setAiDeclaration} legacyNote={isLegacyAiText(initial?.aiDeclaration) && !aiChoiceOf(aiDeclaration)} />
         </div>
       </Card>
 

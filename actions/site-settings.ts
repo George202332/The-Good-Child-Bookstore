@@ -107,27 +107,22 @@ export async function testPaystackConnection(): Promise<{ ok: boolean; message: 
   if (session?.user?.role !== "ADMIN") return { ok: false, message: "Only Admins can do this." };
 
   const { paystackKeyMode, PAYSTACK_CURRENCY } = await import("@/lib/payments/paystack");
-  const settings = await getSiteSettings();
-  const storedSecret = settings.apiKeys.paystackSecretKey?.trim();
-  const envSecret = process.env.PAYSTACK_SECRET_KEY?.trim();
-  const secretKey = storedSecret || envSecret;
-  const publicKey = settings.apiKeys.paystackPublicKey?.trim() || process.env.PAYSTACK_PUBLIC_KEY?.trim();
+  const { getPaystackCredentials, getPaymentModes } = await import("@/lib/api-keys");
+  // The keys for the ACTIVE mode only (see lib/payment-mode.ts): a test key is never used in live mode or the reverse.
+  const { secretKey, publicKey, mode } = await getPaystackCredentials();
+  const modeInfo = (await getPaymentModes()).paystack;
 
   if (!secretKey) {
+    const up = mode === "live" ? "LIVE" : "TEST";
     return {
       ok: false,
-      message: "No Paystack secret key found - not in Site Settings, and not in the PAYSTACK_SECRET_KEY environment variable either. Enter one above and save first.",
+      message: `Paystack is in ${mode} mode (set by ${modeInfo.source}), but no ${mode} secret key was found. Add PAYSTACK_${up}_SECRET_KEY (and PAYSTACK_${up}_PUBLIC_KEY) in Vercel, or enter a ${mode} key above and save.`,
     };
   }
 
   const notes: string[] = [];
-  const source = storedSecret ? "Site Settings" : "the PAYSTACK_SECRET_KEY environment variable";
   const secretMode = paystackKeyMode(secretKey);
-  notes.push(`Secret key comes from ${source} (${secretMode} key).`);
-  // Site Settings wins over the Vercel variable. A forgotten old key saved here silently overrides the live one in Vercel.
-  if (storedSecret && envSecret && storedSecret !== envSecret) {
-    notes.push("WARNING: the key saved in Site Settings is DIFFERENT from the PAYSTACK_SECRET_KEY set in Vercel, and Site Settings takes priority. Clear the Site Settings key if you want the Vercel one used.");
-  }
+  notes.push(`Paystack is in ${mode} mode (set by ${modeInfo.source}); using the ${secretMode} secret key.`);
   if (publicKey) {
     const publicMode = paystackKeyMode(publicKey);
     if (publicMode !== "unknown" && secretMode !== "unknown" && publicMode !== secretMode) {

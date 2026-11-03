@@ -112,7 +112,7 @@ export default async function BookManagementPage({
           <table style={{ width: "100%", tableLayout: "auto", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={TH}>SN Number<ColHelp text="The reference number of the eBook and Audiobook (the site-generated SN number, or the author's own ISBN if they entered one). A dash means the book has no eBook or Audiobook." /></th>
+                <th style={TH}>SN<ColHelp text="The reference number of the eBook and Audiobook (the site-generated SN, or the author's own ISBN if they entered one). A dash means the book has no eBook or Audiobook." /></th>
                 <th style={TH}>ISBN<ColHelp text="The ISBN of the print edition. A dash means the book has no print edition; 'ISBN pending' on the Print tab means it has not been entered yet." /></th>
                 <th style={TH}>Title<ColHelp text="The book's title." /></th>
                 <th style={TH}>Author<ColHelp text="The author's display name on this book." /></th>

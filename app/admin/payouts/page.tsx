@@ -6,6 +6,8 @@ import { QueuePayoutsButton } from "./QueuePayoutsButton";
 import { getPayoutLedger } from "@/actions/payout-ledger";
 import type { Role } from "@/lib/roles";
 import { PayoutStatCards, PayoutExportLinks } from "@/components/admin-views/PayoutLedgerSummary";
+import { loadMinimumPayout } from "@/lib/payout-minimum";
+import { MinimumPayoutSetting } from "./MinimumPayoutSetting";
 
 /**
  * The admin payout ledger — every payout ever queued, whatever its
@@ -31,6 +33,7 @@ export default async function PayoutsPage() {
   if (role === "INVESTOR") redirect("/investor/payouts");
   if (role !== "ADMIN" && role !== "ACCOUNTANT") redirect("/admin");
 
+  const minimumPayout = await loadMinimumPayout();
   const ledger = await getPayoutLedger();
   const ledgerError = "error" in ledger ? ledger.error : null;
   const rows = ledgerError ? [] : (ledger as Exclude<typeof ledger, { error: string }>);
@@ -51,6 +54,8 @@ export default async function PayoutsPage() {
         </div>
       </div>
 
+      <MinimumPayoutSetting initial={minimumPayout} canEdit={role === "ADMIN"} />
+
       <PayoutStatCards rows={rows} />
 
       {ledgerError && (
@@ -59,7 +64,7 @@ export default async function PayoutsPage() {
         </div>
       )}
 
-      <PayoutsTable rows={rows} canModerate={role === "ADMIN"} />
+      <PayoutsTable rows={rows} canModerate={role === "ADMIN"} minimumPayout={minimumPayout} />
     </AdminShell>
   );
 }

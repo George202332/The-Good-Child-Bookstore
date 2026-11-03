@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CATS, bookSlug, type Book } from "@/lib/data/catalog";
@@ -35,6 +35,41 @@ function formatFileSize(fileSizeKB: number | undefined, pages: number): string {
   return `${Math.round(kb)} KB`;
 }
 
+/**
+ * Scroll arrows for a horizontal strip, shown only when the strip does not fit and only on the side that can still
+ * scroll. Re-checked live: when the window is resized, when the content changes size (a long value, another format)
+ * and while scrolling.
+ */
+function useScrollArrows(trackId: string, watch: unknown) {
+  const [arrows, setArrows] = useState({ left: false, right: false });
+  const measure = useCallback(() => {
+    const el = document.getElementById(trackId);
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const next = max > 1 ? { left: el.scrollLeft > 1, right: el.scrollLeft < max - 1 } : { left: false, right: false };
+    setArrows((prev) => (prev.left === next.left && prev.right === next.right ? prev : next));
+  }, [trackId]);
+  useEffect(() => {
+    const el = document.getElementById(trackId);
+    if (!el) return;
+    el.addEventListener("scroll", measure, { passive: true });
+    window.addEventListener("resize", measure);
+    let ro: ResizeObserver | undefined;
+    if (typeof ResizeObserver !== "undefined") {
+      // The first callback fires straight after observe(), which does the initial measurement.
+      ro = new ResizeObserver(measure);
+      ro.observe(el);
+      Array.from(el.children).forEach((c) => ro?.observe(c));
+    }
+    return () => {
+      el.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+      ro?.disconnect();
+    };
+  }, [trackId, measure, watch]);
+  return arrows;
+}
+
 type FormatKey = "ebook" | "print" | "paperback" | "audiobook";
 const FORMAT_LABELS: Record<FormatKey, string> = {
   ebook: "eBook",
@@ -55,12 +90,13 @@ const FORMAT_LABELS: Record<FormatKey, string> = {
  * reviews come from LiveReviewSection, which is actually wired to a
  * working "Write a review" button and persists to the database.
  */
-export function BookDetailClient({ book, isRealBook, allBooks, restricted = false }: { book: Book; isRealBook: boolean; allBooks: Book[]; restricted?: boolean }) {
+export function BookDetailClient({ book, isRealBook, allBooks, restricted = false, printMockups = {} }: { book: Book; isRealBook: boolean; allBooks: Book[]; restricted?: boolean; printMockups?: { paperback?: string; hardcover?: string } }) {
   const b = book;
   const [chosenFormat, setFormat] = useState<FormatKey | null>(null);
   const { addItem } = useCart();
   const router = useRouter();
   const { has, toggle } = useWishlist();
+  const detailsArrows = useScrollArrows(`details-track-${b?.id}`, `${chosenFormat}|${b?.pubDate}|${b?.publisher}|${b?.series}`);
 
   if (!b) {
     return (
@@ -131,6 +167,13 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
 
   const initials = b.author.split(" ").map((w) => w[0]).join("").slice(0, 2);
   const fmtLabel = FORMAT_LABELS[effectiveFormat];
+  const selectedPrice = b.formats[effectiveFormat];
+  // A mockup shows only after the visitor has chosen Paperback or Hardcover themselves, and only that format's own picture.
+  const mockupSrc = chosenFormat === "paperback" && effectiveFormat === "paperback"
+    ? printMockups.paperback
+    : chosenFormat === "print" && effectiveFormat === "print"
+      ? printMockups.hardcover
+      : undefined;
   const stats = isRealBook
     ? { counts: [0, 0, 0, 0, 0], total: b.reviews, avg: b.rating, pct: [0, 0, 0, 0, 0] }
     : reviewStats(b, []);
@@ -190,6 +233,14 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
       <div className="az-grid">
         <div className="az-left">
           <div className="detail-cover-wrap">
+            {mockupSrc ? (
+              // A 3D mockup of the printed book, only while the Paperback or Hardcover card is chosen. The matching format's
+              // picture only: Paperback never shows the hardcover's, and the other formats show the normal cover.
+              <div className="detail-cover detail-cover-mockup">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img key={mockupSrc} src={mockupSrc} alt={`${b.title} ${fmtLabel.toLowerCase()} edition, shown as printed copies`} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+              </div>
+            ) : (
             <div className="detail-cover">
               {b.coverImage && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -200,6 +251,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                 />
               )}
             </div>
+            )}
           </div>
           <div className="az-sample-btns">
             {!audiobookOnly && <ReadSampleViewer manuscriptUrl={b.manuscriptUrl} title={b.title} />}
@@ -244,6 +296,13 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
           {identifierText && <div className="detail-isbn">{identifierText}</div>}
           <div className="detail-tags">
             <span className="age-pill">Ages {b.age} years</span>
+            {/* Genre, Category and (only when the book has one) Subcategory, as plain text that wraps. The Subcategory
+                lives only on this line; the details strip keeps its compact Category card. */}
+            {[b.genre, b.series, b.subcategory].filter((x): x is string => !!x && !!x.trim()).length > 0 && (
+              <span className="detail-taxonomy">
+                {[b.genre, b.series, b.subcategory].filter((x): x is string => !!x && !!x.trim()).join(" · ")}
+              </span>
+            )}
           </div>
 
           {b.descriptionHtml ? (
@@ -272,9 +331,11 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
 
           <div className="az-details-card">
             <div className="carousel-outer">
-              <button type="button" className="carousel-arrow carousel-left" aria-label="Scroll details left" onClick={() => scrollTrack(`details-track-${b.id}`, -1)}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 18l-6-6 6-6" /></svg>
-              </button>
+              {detailsArrows.left && (
+                <button type="button" className="carousel-arrow carousel-left" aria-label="Scroll details left" onClick={() => scrollTrack(`details-track-${b.id}`, -1)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M15 18l-6-6 6-6" /></svg>
+                </button>
+              )}
               <div className="az-details-row" id={`details-track-${b.id}`}>
                 {!audiobookOnly && (!isRealBook || shownPages > 0) && (
                   <div className="az-detail-item">
@@ -312,9 +373,11 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
                   </>
                 )}
               </div>
-              <button type="button" className="carousel-arrow carousel-right" aria-label="Scroll details right" onClick={() => scrollTrack(`details-track-${b.id}`, 1)}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 18l6-6-6-6" /></svg>
-              </button>
+              {detailsArrows.right && (
+                <button type="button" className="carousel-arrow carousel-right" aria-label="Scroll details right" onClick={() => scrollTrack(`details-track-${b.id}`, 1)}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path d="M9 18l6-6-6-6" /></svg>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -329,7 +392,12 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
             ] as { key: FormatKey; id: "ebook" | "audiobook" | "paperback" | "hardcover"; name: string; price: number; sub: string; on: boolean }[])
               .filter((f) => f.on)
               .map((f) => (
-                <button key={f.key} type="button" className={`buybox-tile ${format === f.key ? "active" : ""}`} onClick={() => setFormat(f.key)}>
+                <button key={f.key} type="button" className={`buybox-tile ${format === f.key ? "active" : ""}`} aria-pressed={format === f.key} onClick={() => setFormat(f.key)}>
+                  {format === f.key && (
+                    <span className="bt-tick" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                    </span>
+                  )}
                   <div className="bt-name">{f.name}</div>
                   <div className="bt-price">${f.price.toFixed(2)}</div>
                   <div className={`bt-sub ${f.sub.startsWith("Fulfilled") ? "bt-fulfilled" : ""}`}>{f.sub}</div>
@@ -340,7 +408,10 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
           {restricted && (
             <div className="buybox-note" role="alert" style={{ marginBottom: 10, fontWeight: 600 }}>{restrictionMessage}</div>
           )}
-          <button className="btn btn-primary btn-block btn-compact" disabled={restricted} title={restricted ? restrictionMessage : undefined} onClick={() => addItem(cartBookId, cartFormat, 1)}>Add to Cart</button>
+          <div className="buybox-selected" aria-live="polite">
+            Selected: <strong>{fmtLabel}</strong> <span>${selectedPrice.toFixed(2)}</span>
+          </div>
+          <button className="btn btn-primary btn-block btn-compact" disabled={restricted} title={restricted ? restrictionMessage : undefined} onClick={() => addItem(cartBookId, cartFormat, 1)}>Add {fmtLabel} to Cart</button>
           <button
             className="btn btn-ghost btn-block btn-compact"
             style={{ marginTop: 8 }}
@@ -348,7 +419,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
             title={restricted ? restrictionMessage : undefined}
             onClick={() => router.push(`/checkout?directBookId=${cartBookId}&directFormat=${cartFormat}`)}
           >
-            Buy Direct
+            Buy {fmtLabel} Direct
           </button>
           {effectiveFormat === "print" || effectiveFormat === "paperback" ? (
             <div className="buybox-note">

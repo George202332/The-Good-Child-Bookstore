@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { authAdmin } from "@/lib/auth-admin";
 import { InvestorShell } from "@/components/InvestorShell";
+import { getMinPayoutAmount } from "@/lib/payout-threshold";
 import { PayoutsTable } from "@/app/admin/payouts/PayoutsTable";
 import { getPayoutLedger } from "@/actions/payout-ledger";
 import { PayoutStatCards, PayoutExportLinks } from "@/components/admin-views/PayoutLedgerSummary";
@@ -45,7 +46,7 @@ export default async function InvestorPayoutsPage() {
         </div>
       )}
 
-      <PayoutsTable rows={rows} canModerate={false} />
+      <PayoutsTable rows={rows} canModerate={false} minimumPayout={getMinPayoutAmount()} />
     </InvestorShell>
   );
 }

@@ -3,6 +3,7 @@ import { authAdmin } from "@/lib/auth-admin";
 import { SessionInactivityTimer } from "@/components/SessionInactivityTimer";
 import { BackNavigationGuard } from "@/components/BackNavigationGuard";
 import { AccountFontScope } from "@/components/AccountFontScope";
+import { PaymentModeNotice } from "@/components/PaymentModeNotice";
 
 /** Loads the admin-only dark theme (see admin.css) — scoped to /admin via
  * Next.js's layout-based CSS loading, so it never affects any other route.
@@ -24,6 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <>
       <SessionInactivityTimer isAdmin sessionStartedAt={session?.signedInAt} />
       <BackNavigationGuard isAdmin />
+      {session?.user?.role === "ADMIN" && <PaymentModeNotice />}
       <AccountFontScope userId={session?.user?.id}>{children}</AccountFontScope>
     </>
   );

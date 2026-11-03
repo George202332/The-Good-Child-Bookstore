@@ -74,7 +74,7 @@
  * PayoutRequest itself is untouched in the database.
  */
 
-import { MIN_PAYOUT_AMOUNT } from "./payout-threshold";
+import { getMinPayoutAmount } from "./payout-threshold";
 
 export interface LedgerRowLike {
   id: string;
@@ -194,7 +194,7 @@ export function payableNowAmount(
   if (r.status === "SCHEDULED") {
     const author = r.bookSalesEarnings;
     const affiliate = r.referralEarnings + r.commissionEarnings;
-    return money((cents(author) >= cents(MIN_PAYOUT_AMOUNT) ? author : 0) + (cents(affiliate) >= cents(MIN_PAYOUT_AMOUNT) ? affiliate : 0));
+    return money((cents(author) >= cents(getMinPayoutAmount()) ? author : 0) + (cents(affiliate) >= cents(getMinPayoutAmount()) ? affiliate : 0));
   }
   if (r.status === "REQUESTED" || r.status === "APPROVED") return outstandingAmount(r);
   return 0;

@@ -5,13 +5,13 @@ import { formatTabsOf, groupIdentifierColumns, missingFormatsOf, type FormatView
 
 const base = { isbn: null, hasEbook: false, hasAudiobook: false, hasPrint: false };
 
-test("eBook and audiobook share one SN number", () => {
+test("eBook and audiobook share one SN", () => {
   const src = { ...base, isbn: "SN-000123", hasEbook: true, hasAudiobook: true };
-  assert.deepEqual(identifierFor(src, "ebook"), { label: "SN number", value: "SN-000123" });
-  assert.deepEqual(identifierFor(src, "audiobook"), { label: "SN number", value: "SN-000123" });
+  assert.deepEqual(identifierFor(src, "ebook"), { label: "SN", value: "SN-000123" });
+  assert.deepEqual(identifierFor(src, "audiobook"), { label: "SN", value: "SN-000123" });
 });
 
-test("an author's own ISBN replaces the SN number and is labelled ISBN", () => {
+test("an author's own ISBN replaces the SN and is labelled ISBN", () => {
   const src = { ...base, isbn: "9780306406157", hasEbook: true };
   assert.deepEqual(identifierFor(src, "ebook"), { label: "ISBN", value: "9780306406157" });
 });

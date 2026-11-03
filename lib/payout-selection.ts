@@ -1,5 +1,6 @@
 import { actionableIds, payableNowAmount, type LedgerRowLike } from "@/lib/payout-ledger-dedupe";
 import { isLedgerRowPayable } from "@/lib/payout-status";
+import { formatMinimumPayout, isBelowMinimumPayout } from "@/lib/payout-threshold";
 
 /**
  * Pure selection logic behind the checkboxes on the admin Payout
@@ -24,12 +25,18 @@ type SelectableRow = Pick<
 
 /** Whether "Mark as paid" would act on this row. */
 export function isRowPayable(r: SelectableRow): boolean {
-  return !r.paid && isLedgerRowPayable(r.status) && actionableIds(r).length > 0;
+  return !r.paid && isLedgerRowPayable(r.status) && actionableIds(r).length > 0 && !isRowBelowMinimum(r);
+}
+
+/** A queued or ready payout whose amount is under the Minimum Payout. The server refuses these too. */
+export function isRowBelowMinimum(r: SelectableRow): boolean {
+  return !r.paid && isLedgerRowPayable(r.status) && actionableIds(r).length > 0 && isBelowMinimumPayout(payableNowAmount(r));
 }
 
 /** Short bucket used to summarise skipped rows ("2 Rolled, 1 Live"). */
 export function skipCategory(r: SelectableRow): string | null {
   if (isRowPayable(r)) return null;
+  if (isRowBelowMinimum(r)) return "Below minimum";
   if (r.paid || r.status === "PAID") return "Paid";
   switch (r.status) {
     case "LIVE":
@@ -51,10 +58,12 @@ export function skipReason(r: SelectableRow): string | null {
       return null;
     case "Paid":
       return "Already paid";
+    case "Below minimum":
+      return `Below The Minimum Payout Of ${formatMinimumPayout()}`;
     case "Live":
       return "Live: the current cycle is still open, so this is not payable yet";
     case "Rolled":
-      return "Rolled: under the $30 minimum, so it rolls into the next cycle and cannot be paid";
+      return `Rolled: under the ${formatMinimumPayout()} minimum, so it rolls into the next cycle and cannot be paid`;
     case "Rejected":
       return "Rejected: this payout was declined";
     default:

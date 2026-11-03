@@ -1,4 +1,4 @@
-import { MIN_PAYOUT_AMOUNT } from "./payout-threshold";
+import { MIN_PAYOUT_AMOUNT, getMinPayoutAmount } from "./payout-threshold";
 import { releaseDateFor } from "./wallet";
 
 /**
@@ -30,6 +30,9 @@ export const PAID_LABEL = "Paid";
 export const REJECTED_LABEL = "Rejected";
 
 export const ROLLED_HELP = `Under $${MIN_PAYOUT_AMOUNT}, so this balance rolls into next month's payout cycle`;
+/** The same text for the live Minimum Payout setting. */
+export const rolledHelp = () => `Under ${fmtMin()}, so this balance rolls into next month's payout cycle`;
+const fmtMin = () => { const n = getMinPayoutAmount(); return Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`; };
 export const LIVE_HELP = "The current cycle's accumulating total, including any amount rolled over from earlier months. It keeps growing as sales land.";
 export const PENDING_HELP = `The cycle has closed and the balance is at least $${MIN_PAYOUT_AMOUNT}. It is released and waiting to be paid, due by the 15th.`;
 
@@ -94,7 +97,7 @@ function cents(n: number): number {
 
 /** True when `amount` is a real, nonzero balance still under the minimum. */
 export function isUnderMinimum(amount: number): boolean {
-  return cents(amount) > 0 && cents(amount) < cents(MIN_PAYOUT_AMOUNT);
+  return cents(amount) > 0 && cents(amount) < cents(getMinPayoutAmount());
 }
 
 /** The precise "Rolled" rule — see the module comment. */
@@ -171,7 +174,11 @@ export const PAYOUT_STATUS_FILTER_OPTIONS: { value: PayoutStatusKey; label: stri
   { value: "rejected", label: REJECTED_LABEL },
 ];
 
-/** The ColHelp text for the admin Status column. */
+/** The ColHelp text for the admin Status column, for the live Minimum Payout. */
+export const statusColumnHelp = () =>
+  STATUS_COLUMN_HELP.split(`$${MIN_PAYOUT_AMOUNT}`).join(fmtMin());
+
+/** The ColHelp text for the admin Status column (default $30 wording; use statusColumnHelp() for the live setting). */
 export const STATUS_COLUMN_HELP =
   `Rolled means a closed balance is still under the $${MIN_PAYOUT_AMOUNT} minimum, so it is carried into the next cycle. ` +
   `Live means the current cycle is still accumulating; its total always includes anything rolled in and keeps growing as sales land. ` +
@@ -250,7 +257,7 @@ export function resolveMonthlyRollover(months: MonthlyAmounts[], now: Date): Map
       if (cents(amount) <= 0) continue;
       running += amount;
       waiting.push(m.monthKey);
-      if (cents(running) >= cents(MIN_PAYOUT_AMOUNT)) {
+      if (cents(running) >= cents(getMinPayoutAmount())) {
         for (const key of waiting) releasedWith.set(key, [...(releasedWith.get(key) ?? []), m.monthKey]);
         waiting = [];
         running = 0;

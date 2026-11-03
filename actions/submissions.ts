@@ -17,6 +17,8 @@ import { printPriceProblem } from "@/lib/print-price-server";
 import { cleanIsbn, isbn13Of, isbnProblem } from "@/lib/identifiers";
 import type { SavedPreflight } from "@/lib/print-preflight-result";
 import { isAiDeclaration, isLegacyAiText } from "@/lib/ai-declaration";
+import { after } from "next/server";
+import { ensurePrintMockups } from "@/lib/mockup/store";
 import { sanitizeDescriptionHtml, descriptionToPlainText } from "@/lib/description-html";
 import { capitalizeName } from "@/lib/person-name";
 import { titleKey } from "@/lib/book-groups";
@@ -458,16 +460,16 @@ async function alignTrimSizeWithPdf(input: SubmitBookInput): Promise<{ ok: true 
 }
 
 /** An ISBN the author typed for their eBook: must look like one, and must not belong to
- * another book. (An empty value is fine - an SN number is generated instead.) */
+ * another book. (An empty value is fine - an SN is generated instead.) */
 async function ownIsbnProblem(isbn: string | undefined, exceptBookId?: string): Promise<string | null> {
   const typed = isbn?.trim();
   if (!typed) return null;
   const cleaned = cleanIsbn(typed);
   if (!cleaned && !/^5\d{12}$/.test(typed)) {
-    return "That ISBN doesn't look right. Enter a 10- or 13-digit ISBN, or choose \"Auto-generate an SN number for me\".";
+    return "That ISBN doesn't look right. Enter a 10- or 13-digit ISBN, or choose \"Auto-generate an SN for me\".";
   }
   const clash = await prisma.book.findFirst({ where: { isbn: { in: [typed, cleaned].filter(Boolean) }, ...(exceptBookId ? { id: { not: exceptBookId } } : {}) }, select: { id: true } });
-  return clash ? "Another book already uses that ISBN / SN number. Enter a different one, or choose \"Auto-generate an SN number for me\"." : null;
+  return clash ? "Another book already uses that ISBN / SN. Enter a different one, or choose \"Auto-generate an SN for me\"." : null;
 }
 
 /** The browser may suggest print ISBNs (the author's own), but never the saved print
@@ -590,7 +592,7 @@ async function submitBookInner(input: SubmitBookInput): Promise<{ ok: boolean; e
       subtitle: input.subtitle?.trim() || null,
       slug,
       description: input.description.trim(),
-      // The identifier belongs to the format: eBook + Audiobook share one SN number (or the
+      // The identifier belongs to the format: eBook + Audiobook share one SN (or the
       // author's own ISBN); a print edition carries its single ISBN in printIsbn instead, so no
       // made-up ISBN is ever stored for print.
       isbn: input.formats.print ? null : input.isbn?.trim() || (prep.hasEbook || prep.hasAudiobook ? await generateUniqueSerialNumber() : null),
@@ -1076,7 +1078,8 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);
     revalidatePath("/account/books");
-    return { ok: true };
+    after(() => ensurePrintMockups(bookId));
+  return { ok: true };
   }
 
   const { input, bookFiles } = book.pendingRevisionData as unknown as { input: SubmitBookInput; bookFiles: { kind: string; url: string }[] };
@@ -1144,6 +1147,7 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
 
   revalidatePath("/admin/books");
   revalidatePath(`/admin/books/${bookId}/review`);
+  after(() => ensurePrintMockups(bookId));
   return { ok: true };
 }
 
@@ -1451,6 +1455,12 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
     const session = await auth();
     const profile = session?.user?.id ? await prisma.authorProfile.findUnique({ where: { userId: session.user.id } }) : null;
     if (profile) await syncAiDeclaration(profile.id, bookId, input.title, (input.metadata?.aiDeclaration ?? "").trim());
+    // A live print book whose cover, page count or print settings changed gets just the affected mockup made again
+    // (unchanged ones are kept), after the reply.
+    if (input.formats.print) {
+      const live = await prisma.book.findUnique({ where: { id: bookId }, select: { status: true } });
+      if (live?.status === "PUBLISHED") after(() => ensurePrintMockups(bookId));
+    }
   }
   return res;
 }

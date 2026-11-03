@@ -1153,6 +1153,8 @@
   .detail-cover-wrap{position:relative;width:100%;}
   .detail-cover{border-radius:0;aspect-ratio:2/3;position:relative;overflow:hidden;}
   .detail-cover .motif{width:44%;height:44%;}
+  /* The 3D print mockup is a landscape picture, so its frame is landscape too (the normal cover is portrait). */
+  .detail-cover.detail-cover-mockup{aspect-ratio:4/3;background:#f3f3f6;border-radius:12px;}
   .az-sample-btns{display:flex;flex-direction:column;gap:8px;margin-top:18px;}
   .az-author-card{
     margin-top:auto;border:1px solid var(--line);border-radius:14px;padding:16px 20px;height:var(--az-card-h);flex-shrink:0;
@@ -1244,7 +1246,18 @@
     display:flex;flex-direction:column;justify-content:center;gap:6px;
   }
   .buybox-tile:hover{border-color:var(--ink-faint);}
-  .buybox-tile.active{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink);}
+  /* Selected format: strong accent border, filled background and a tick in the corner. The others are muted. */
+  .buybox-tiles .buybox-tile{position:relative;opacity:.78;}
+  .buybox-tiles .buybox-tile:hover{opacity:1;}
+  .buybox-tile.active,.buybox-tiles .buybox-tile.active{opacity:1;border-color:var(--lavender-deep);background:var(--lavender);box-shadow:0 0 0 2px var(--lavender-deep);}
+  .buybox-tile.active .bt-name,.buybox-tile.active .bt-price{color:#1F1630;}
+  .buybox-tile.active .bt-sub{color:#3A2C62;}
+  .buybox-tile .bt-tick{position:absolute;top:-1px;right:-1px;width:24px;height:24px;border-radius:0 8px 0 10px;background:var(--lavender-deep);color:#1F1630;display:flex;align-items:center;justify-content:center;}
+  .buybox-tile .bt-tick svg{width:15px;height:15px;}
+  .buybox-selected{font-size:13.5px;margin:0 0 8px;color:var(--ink-soft);}
+  .buybox-selected strong{color:var(--ink);}
+  .buybox-selected span{font-weight:700;color:var(--ink);margin-left:4px;}
+  .detail-taxonomy{font-size:13px;color:var(--ink-soft);line-height:1.5;overflow-wrap:anywhere;min-width:0;align-self:center;}
   /* Name + price now fill the whole card, sized up, since the secondary
      "12 MB · instant download"-style line was dropped — that detail is
      already shown elsewhere on the page. */

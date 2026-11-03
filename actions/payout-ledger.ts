@@ -6,7 +6,8 @@ import type { Role } from "@/lib/roles";
 import { payoutMethodLabel, formatAccountDetails } from "@/lib/payout-method-label";
 import { fetchEarningsBreakdown, linesForView, sumLines } from "@/lib/earnings-lines";
 import { computeWallet, releaseDateFor, summarizePayouts } from "@/lib/wallet";
-import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
+import { getMinPayoutAmount } from "@/lib/payout-threshold";
+import { loadMinimumPayout } from "@/lib/payout-minimum";
 import { extractBankDetails, EMPTY_BANK_DETAILS, type PayoutBankDetails } from "@/lib/recipient-bank-details";
 import { consolidateLedgerRows } from "@/lib/payout-ledger-dedupe";
 import { reportSystemError } from "@/lib/site-health/alert";
@@ -496,8 +497,8 @@ async function getPendingUnqueuedRows(): Promise<PayoutLedgerRow[]> {
     const affiliate = affiliateAvailable.get(userId);
     const referralEarnings = affiliate?.referral ?? 0;
     const commissionEarnings = affiliate?.commission ?? 0;
-    const authorEligible = bookSalesEarnings >= MIN_PAYOUT_AMOUNT;
-    const affiliateEligible = (affiliate?.total ?? 0) >= MIN_PAYOUT_AMOUNT;
+    const authorEligible = bookSalesEarnings >= getMinPayoutAmount();
+    const affiliateEligible = (affiliate?.total ?? 0) >= getMinPayoutAmount();
     const fields = await recipientFieldsFor(userId, info.name);
     rows.push({
       id: `pending-${userId}`,
@@ -539,6 +540,7 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Not authorized." };
   }
+  await loadMinimumPayout();
 
   // Recipient is fetched as a SEPARATE query rather than via `include`
   // deliberately: `include` on a required relation makes Prisma throw

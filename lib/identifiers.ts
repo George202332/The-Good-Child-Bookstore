@@ -1,7 +1,7 @@
 /**
  * Format identifiers. The identifier belongs to the format, not the book:
  *
- *   eBook + Audiobook share ONE identifier, the "SN number" - an internal reference the
+ *   eBook + Audiobook share ONE identifier, the "SN" - an internal reference the
  *   site generates (13 digits starting with 5). An author who has their own ISBN for the
  *   eBook can enter it, and it replaces the generated SN (the audiobook inherits it).
  *   Print (Paperback / Hardcover) shows an ISBN, one per format, never shared.
@@ -65,7 +65,7 @@ export function displayIdentifier(value: string | null | undefined): string {
 export type IdentifierFormat = "ebook" | "audiobook" | "paperback" | "hardcover";
 
 export interface IdentifierSource {
-  /** Book.isbn: the SN number (or the author's own ISBN) for eBook/Audiobook rows. */
+  /** Book.isbn: the SN (or the author's own ISBN) for eBook/Audiobook rows. */
   isbn: string | null | undefined;
   hasEbook: boolean;
   hasAudiobook: boolean;
@@ -77,8 +77,8 @@ export interface IdentifierSource {
 }
 
 export interface FormatIdentifier {
-  /** "SN number" or "ISBN" */
-  label: "SN number" | "ISBN";
+  /** "SN" or "ISBN" */
+  label: "SN" | "ISBN";
   /** null = not available yet (print: pending) */
   value: string | null;
 }
@@ -107,20 +107,20 @@ export function printFieldsOf(meta: unknown): Pick<IdentifierSource, "printIsbn"
 /**
  * The identifier to show for one format.
  *  - eBook / Audiobook: Book.isbn. Labelled "ISBN" when it is a real ISBN the author
- *    entered, otherwise "SN number".
+ *    entered, otherwise "SN".
  *  - Paperback / Hardcover: ONE ISBN for the whole print edition (the same value on both
  *    tabs), or null, which the product page shows as "ISBN pending".
  */
 export function identifierFor(src: IdentifierSource, format: IdentifierFormat): FormatIdentifier {
   if (format === "ebook" || format === "audiobook") {
     const v = (src.isbn ?? "").trim();
-    if (!v || (!src.hasEbook && !src.hasAudiobook)) return { label: "SN number", value: null };
-    return { label: isRealIsbn(v) ? "ISBN" : "SN number", value: v };
+    if (!v || (!src.hasEbook && !src.hasAudiobook)) return { label: "SN", value: null };
+    return { label: isRealIsbn(v) ? "ISBN" : "SN", value: v };
   }
   return { label: "ISBN", value: src.hasPrint ? printIsbnOf(src) : null };
 }
 
-/** The "SN number" column of the admin table: eBook/Audiobook identifier, or null. */
+/** The "SN" column of the admin table: eBook/Audiobook identifier, or null. */
 export function snColumn(src: IdentifierSource): string | null {
   return identifierFor(src, src.hasEbook ? "ebook" : "audiobook").value;
 }

@@ -1,7 +1,7 @@
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
 import { payableNowAmount } from "@/lib/payout-ledger-dedupe";
 import { isLedgerRowPayable } from "@/lib/payout-status";
-import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
+import { getMinPayoutAmount } from "@/lib/payout-threshold";
 
 /**
  * THE one definition of the payout export (CSV, Excel and PDF all call
@@ -55,7 +55,7 @@ export interface PayoutExportRow {
 export function isPayoutDueForExport(r: PayoutLedgerRow): boolean {
   if (r.paid) return false;
   if (!(isLedgerRowPayable(r.status) || r.status === "APPROVED")) return false;
-  return Math.round(payableNowAmount(r) * 100) >= Math.round(MIN_PAYOUT_AMOUNT * 100);
+  return Math.round(payableNowAmount(r) * 100) >= Math.round(getMinPayoutAmount() * 100);
 }
 
 export function buildPayoutExportRows(rows: PayoutLedgerRow[]): PayoutExportRow[] {

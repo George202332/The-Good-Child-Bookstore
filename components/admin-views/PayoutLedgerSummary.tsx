@@ -1,6 +1,7 @@
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
 import { computePayoutTotals } from "@/lib/payout-ledger-totals";
 import { ROLLED_LABEL } from "@/lib/payout-status";
+import { formatMinimumPayout } from "@/lib/payout-threshold";
 
 /**
  * The Payout Requests stat cards and the three read-only export buttons, split out of
@@ -36,7 +37,7 @@ export function PayoutStatCards({ rows }: { rows: PayoutLedgerRow[] }) {
       <div className="stat-card stat-card-due">
         <div className="stat-label">{ROLLED_LABEL}</div>
         <div className="stat-value">${totals.categoryA.toFixed(2)}</div>
-        <div className="stat-sub">Under $30 — rolling over ({totals.categoryACount})</div>
+        <div className="stat-sub">Under {formatMinimumPayout()} — rolling over ({totals.categoryACount})</div>
       </div>
       <div className="stat-card stat-card-total">
         <div className="stat-label">Scheduled</div>

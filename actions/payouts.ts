@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { computeWalletForUserId } from "@/lib/compute-wallet-for-user";
-import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
+import { isBelowMinimumPayout } from "@/lib/payout-threshold";
+import { loadMinimumPayout } from "@/lib/payout-minimum";
 import { reportSystemError } from "@/lib/site-health/alert";
 import { createPayoutOnce } from "@/lib/payout-guard";
 
@@ -37,6 +38,7 @@ export async function queueDuePayouts(): Promise<{ ok: boolean; queued?: number;
   }
 
   try {
+    await loadMinimumPayout();
     let queued = 0;
 
     // One loop body for both wallets, so the "never a second request for
@@ -54,7 +56,7 @@ export async function queueDuePayouts(): Promise<{ ok: boolean; queued?: number;
       if (alreadyQueued) return;
 
       const wallet = await computeWalletForUserId(userId, view);
-      if (wallet.available < MIN_PAYOUT_AMOUNT) return;
+      if (isBelowMinimumPayout(wallet.available)) return;
       const recipient = await prisma.wiseRecipient.findFirst({ where: { userId }, orderBy: { isDefault: "desc" } });
       if (!recipient) return;
       const outcome = await createPayoutOnce({ userId, recipientId: recipient.id, amount: wallet.available, earningsType, now });

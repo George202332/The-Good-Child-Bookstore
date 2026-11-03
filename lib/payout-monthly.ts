@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { loadMinimumPayout } from "@/lib/payout-minimum";
 import { fetchEarningsBreakdown } from "@/lib/earnings-lines";
 import { resolveMonthlyRollover, rolloverIntoMonth, computeLiveTotal, type LiveTotal, type MonthlyAmounts } from "@/lib/payout-status";
 import { computeWallet, summarizePayouts } from "@/lib/wallet";
@@ -87,6 +88,7 @@ function currentMonthRange(now: Date): { start: Date; end: Date } {
 }
 
 export async function computeMonthlyPayoutRows(userId: string): Promise<MonthlyPayoutRow[]> {
+  await loadMinimumPayout();
   // Same shared fetch used by actions/wallet.ts, lib/compute-wallet-for-user.ts,
   // and actions/payout-ledger.ts — see lib/earnings-lines.ts.
   const breakdown = await fetchEarningsBreakdown(userId);
@@ -184,6 +186,7 @@ export interface PayoutStatCards {
 }
 
 export async function computePayoutStatCards(userId: string): Promise<PayoutStatCards> {
+  await loadMinimumPayout();
   const breakdown = await fetchEarningsBreakdown(userId);
   const { organic, referral, commission } = breakdown;
   const all = [...organic, ...referral, ...commission];

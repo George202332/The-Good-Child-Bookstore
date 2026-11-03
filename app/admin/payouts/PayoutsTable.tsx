@@ -8,7 +8,9 @@ import { Modal } from "@/components/Modal";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import type { PayoutLedgerRow } from "@/actions/payout-ledger";
 import { approvePayoutRequest, bulkMarkPayoutsPaid } from "@/actions/admin";
-import { ledgerStatusLabel, ledgerStatusKey, ledgerStatusHelp, ledgerStatusPillStyle, PAYOUT_STATUS_FILTER_OPTIONS, STATUS_COLUMN_HELP, type PayoutStatusKey } from "@/lib/payout-status";
+import { DEFAULT_MIN_PAYOUT_AMOUNT, setMinPayoutAmount, formatMinimumPayout } from "@/lib/payout-threshold";
+import { isRowBelowMinimum } from "@/lib/payout-selection";
+import { ledgerStatusLabel, ledgerStatusKey, ledgerStatusHelp, ledgerStatusPillStyle, PAYOUT_STATUS_FILTER_OPTIONS, statusColumnHelp, type PayoutStatusKey } from "@/lib/payout-status";
 import { actionableIds, ledgerPeriodLabel, payableNowAmount, isSyntheticLedgerRow } from "@/lib/payout-ledger-dedupe";
 import { isRowPayable, skipReason, pruneSelection, toggleRow, toggleAll, summarizeSelection, describeSkipped } from "@/lib/payout-selection";
 
@@ -122,7 +124,9 @@ function detailSections(d: PayoutLedgerRow): { title: string; items: { label: st
  * clicking a row opens a popup with those plus every other detail for
  * that account.
  */
-export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; canModerate: boolean }) {
+export function PayoutsTable({ rows, canModerate, minimumPayout = DEFAULT_MIN_PAYOUT_AMOUNT }: { rows: PayoutLedgerRow[]; canModerate: boolean; minimumPayout?: number }) {
+  // The table decides what is payable in the browser too (the server re-checks everything), so give it the live Minimum Payout.
+  setMinPayoutAmount(minimumPayout);
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [affiliateFilter, setAffiliateFilter] = useState<"ALL" | "AFFILIATE" | "BOOK_SALES">("ALL");
@@ -422,9 +426,9 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                 <th style={TH_STYLE}>Referral<ColHelp text="A cut of company revenue from authors this person personally referred onto the platform." /></th>
                 <th style={TH_STYLE}>Commission<ColHelp text="Commission from copies sold through this person's own affiliate promotional links." /></th>
                 <th style={TH_STYLE}>Total<ColHelp text="Royalties plus referral plus commission — the full amount of this payout." /></th>
-                <th style={TH_STYLE}>Status<ColHelp text={STATUS_COLUMN_HELP} /></th>
+                <th style={TH_STYLE}>Status<ColHelp text={statusColumnHelp()} /></th>
                 {canModerate && (
-                  <th style={TH_STYLE}>Action<ColHelp text="Paid marks this payout as paid once you have sent the money. It is available only for Pending payouts (closed, $30 or more, whether or not a request has been queued yet). A Pending payout with no request yet has its request created once, already paid. Rolled, Live, Paid and Rejected rows show a dash. Everything it pays is re-checked on the server, so clicking twice never pays twice." /></th>
+                  <th style={TH_STYLE}>Action<ColHelp text="Paid marks this payout as paid once you have sent the money. It is available only for Pending payouts (closed, at least the Minimum Payout, whether or not a request has been queued yet). A Pending payout with no request yet has its request created once, already paid. Rolled, Live, Paid and Rejected rows show a dash. Everything it pays is re-checked on the server, so clicking twice never pays twice." /></th>
                 )}
                 <th style={TH_STYLE}>Report<ColHelp text="Download this payout's month as a full PDF statement — the same report available to that account holder on their own Payouts page." /></th>
               </tr>
@@ -480,7 +484,12 @@ export function PayoutsTable({ rows, canModerate }: { rows: PayoutLedgerRow[]; c
                     </td>
                     {canModerate && (
                       <td style={TD_NOWRAP} onClick={(e) => e.stopPropagation()}>
-                        {isBulkPayable(p) ? (
+                        {isRowBelowMinimum(p) ? (
+                          <>
+                            <button type="button" className="btn btn-ghost btn-small" disabled title={`Below The Minimum Payout Of ${formatMinimumPayout(minimumPayout)}`}>Paid</button>
+                            <div style={{ fontSize: 11, color: "var(--coral-deep)", maxWidth: 220 }}>Below The Minimum Payout Of {formatMinimumPayout(minimumPayout)}</div>
+                          </>
+                        ) : isBulkPayable(p) ? (
                           <button
                             type="button"
                             className="btn btn-primary btn-small"

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { ApiKeys } from "@/lib/site-settings";
 import { resolveLuluEnvironment, normaliseEnabledLevels, type LuluEnvironment, type LuluShippingLevel } from "@/lib/lulu-order";
+import { pickPaypalKeys, pickPaystackKeys, resolvePaypalMode, resolvePaystackMode, type PaypalMode, type PaystackMode } from "@/lib/payment-env";
 
 /**
  * Resolves live credentials, preferring what's saved in Site Settings
@@ -49,26 +50,28 @@ export async function getLuluCredentials(): Promise<{ clientKey: string | undefi
 
 export async function getPaystackCredentials(): Promise<{ secretKey: string | undefined; publicKey: string | undefined; mode: "test" | "live" }> {
   const stored = await getStoredApiKeys();
-  return {
-    secretKey: stored?.paystackSecretKey?.trim() || process.env.PAYSTACK_SECRET_KEY,
-    publicKey: stored?.paystackPublicKey?.trim() || process.env.PAYSTACK_PUBLIC_KEY,
-    mode: stored?.paymentMode ?? "test",
-  };
+  const { mode } = resolvePaystackMode(process.env, stored?.paymentMode);
+  const keys = pickPaystackKeys(mode, process.env, { secretKey: stored?.paystackSecretKey, publicKey: stored?.paystackPublicKey });
+  return { secretKey: keys.secretKey, publicKey: keys.publicKey, mode };
 }
 
-
-/** The id PayPal gives a webhook when you add it in the PayPal dashboard. Only ever read
- * from the PAYPAL_WEBHOOK_ID environment variable (Vercel), never stored in the database. */
-export function getPaypalWebhookId(): string | undefined {
-  return process.env.PAYPAL_WEBHOOK_ID?.trim() || undefined;
-}
-
-export async function getPaypalCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined; environment: "sandbox" | "live" }> {
+/** Which mode each provider is in and where that choice came from (never any key). Used for the admin-only notice. */
+export async function getPaymentModes(): Promise<{ paystack: { mode: PaystackMode; source: string }; paypal: { mode: PaypalMode; source: string } }> {
   const stored = await getStoredApiKeys();
-  const envName = (stored?.paypalEnvironment ?? process.env.PAYPAL_ENV ?? "sandbox").toLowerCase();
   return {
-    clientId: stored?.paypalClientId?.trim() || process.env.PAYPAL_CLIENT_ID,
-    clientSecret: stored?.paypalClientSecret?.trim() || process.env.PAYPAL_CLIENT_SECRET,
-    environment: envName === "live" ? "live" : "sandbox",
+    paystack: resolvePaystackMode(process.env, stored?.paymentMode),
+    paypal: resolvePaypalMode(process.env, stored?.paypalEnvironment),
   };
+}
+
+/** The id PayPal gives a webhook when you add it in the PayPal dashboard - one per mode
+ * (PAYPAL_SANDBOX_WEBHOOK_ID / PAYPAL_LIVE_WEBHOOK_ID). Only ever read from environment variables, never stored in the database. */
+export async function getPaypalWebhookId(): Promise<string | undefined> {
+  return (await getPaypalCredentials()).webhookId;
+}
+
+export async function getPaypalCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined; environment: "sandbox" | "live"; webhookId: string | undefined }> {
+  const stored = await getStoredApiKeys();
+  const { mode } = resolvePaypalMode(process.env, stored?.paypalEnvironment);
+  return pickPaypalKeys(mode, process.env, { clientId: stored?.paypalClientId, clientSecret: stored?.paypalClientSecret, environment: stored?.paypalEnvironment });
 }

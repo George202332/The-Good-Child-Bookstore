@@ -265,7 +265,6 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
     "Refugee Stories",
     "Gender Equality",
     "Different Family Structures",
-    "LGBTQ+ Families",
     "Language and Identity",
     "Indigenous Voices",
     "Mixed Heritage",

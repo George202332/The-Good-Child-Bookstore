@@ -7,8 +7,8 @@ import { hasAffiliateCapability } from "@/lib/affiliate-capability";
 import { computeMonthlyPayoutRows, computePayoutStatCards } from "@/lib/payout-monthly";
 import { getMyWallet } from "@/actions/wallet";
 import { ColHelp } from "@/components/ColHelp";
-import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
-import { authorStatusLabel, authorStatusHelp, authorStatusPillStyle, STATUS_COLUMN_HELP, LIVE_LABEL, ROLLED_LABEL, PENDING_LABEL } from "@/lib/payout-status";
+import { formatMinimumPayout, getMinPayoutAmount } from "@/lib/payout-threshold";
+import { authorStatusLabel, authorStatusHelp, authorStatusPillStyle, statusColumnHelp, LIVE_LABEL, ROLLED_LABEL, PENDING_LABEL } from "@/lib/payout-status";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
@@ -106,20 +106,20 @@ export default async function PayoutSettingsPage() {
           <div className="stat-sub">{LIVE_LABEL}, still growing</div>
         </div>
         <div className="stat-card stat-card-due">
-          <div className="stat-label">{statCards.pendingStatus === "Paid" ? "Paid This Month" : statCards.pendingPayout < MIN_PAYOUT_AMOUNT ? ROLLED_LABEL : PENDING_LABEL}</div>
+          <div className="stat-label">{statCards.pendingStatus === "Paid" ? "Paid This Month" : statCards.pendingPayout < getMinPayoutAmount() ? ROLLED_LABEL : PENDING_LABEL}</div>
           <div className="stat-value">${statCards.pendingPayout.toFixed(2)}</div>
           <div className="stat-sub">
             {statCards.pendingStatus === "Paid"
               ? "Paid by the 15th"
-              : statCards.pendingPayout < MIN_PAYOUT_AMOUNT
-                ? `Under $${MIN_PAYOUT_AMOUNT}, rolls into the next cycle`
+              : statCards.pendingPayout < getMinPayoutAmount()
+                ? `Under ${formatMinimumPayout()}, rolls into the next cycle`
                 : "Confirmed — released by the 15th"}
           </div>
         </div>
       </div>
 
       <h3 style={{ fontSize: 16, margin: "0 0 14px" }}>Your Payout Schedule</h3>
-      <AutoPayoutInfo available={available} onHold={onHold} rolledOver={rolledOver} hasRecipient={true} />
+      <AutoPayoutInfo available={available} onHold={onHold} rolledOver={rolledOver} hasRecipient={true} minimumLabel={formatMinimumPayout()} />
 
       <h3 style={{ fontSize: 16, margin: "28px 0 14px" }}>Monthly Payout History</h3>
       <div className="map-card" style={{ padding: 20 }}>
@@ -143,8 +143,8 @@ export default async function PayoutSettingsPage() {
                 <th style={TABLE_HEAD_STYLE}>Royalties<ColHelp text="Your share of the sales of your own books this month." /></th>
                 <th style={TABLE_HEAD_STYLE}>Referral<ColHelp text="A percentage of company revenue from authors you personally referred onto the platform, earned this month." /></th>
                 <th style={TABLE_HEAD_STYLE}>Promotion<ColHelp text="Commission earned this month from copies sold through your own affiliate promotional links." /></th>
-                <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text="Once this month's earnings are confirmed and the total due has reached the $30 minimum, they're released by the 15th of the following month." /></th>
-                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text={STATUS_COLUMN_HELP} /></th>
+                <th style={TABLE_HEAD_STYLE}>Payout Date<ColHelp text={`Once this month's earnings are confirmed and the total due has reached the ${formatMinimumPayout()} minimum, they're released by the 15th of the following month.`} /></th>
+                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text={statusColumnHelp()} /></th>
                 <th style={TABLE_HEAD_STYLE}>Amount<ColHelp text="Your total earnings for the month: royalties plus referral and promotion commissions combined. On the Live row this also includes any balance rolled over from earlier months, which keep their own Rolled rows below." /></th>
                 <th style={TABLE_HEAD_STYLE}>Report<ColHelp text="Download this month's full payout statement as a PDF, itemized the same way as your account's statements are always formatted." /></th>
               </tr>

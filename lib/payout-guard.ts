@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { isBelowMinimumPayout } from "@/lib/payout-threshold";
 
 /**
  * The ONE place a PayoutRequest is ever created (actions/payouts.ts
@@ -22,7 +23,7 @@ import { prisma } from "@/lib/prisma";
 
 export type CreatePayoutOutcome =
   | { created: true; id: string }
-  | { created: false; reason: "exists" | "conflict" };
+  | { created: false; reason: "exists" | "conflict" | "below-minimum" };
 
 export async function createPayoutOnce(args: {
   userId: string;
@@ -39,6 +40,8 @@ export async function createPayoutOnce(args: {
   ignoreRejected?: boolean;
   now?: Date;
 }): Promise<CreatePayoutOutcome> {
+  // Last line of defence: no payout row below the Minimum Payout is ever created, whoever calls this.
+  if (isBelowMinimumPayout(args.amount)) return { created: false, reason: "below-minimum" };
   const now = args.now ?? new Date();
   const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);

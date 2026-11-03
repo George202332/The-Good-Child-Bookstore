@@ -27,6 +27,17 @@ async function main() {
   say(fix ? "MODE: report and apply clear-cut repairs (--fix)" : "MODE: report only (add --fix to apply the clear-cut repairs)");
   let decisions = 0;
 
+  // 0. Books or saved drafts that still use the removed "LGBTQ+ Families" subcategory (Round 58). Report only.
+  head("Books or drafts using the removed LGBTQ+ Families subcategory");
+  const lgbtq = await prisma.$queryRawUnsafe<{ id: string; title: string; status: string; where: string }[]>(`
+    SELECT "id", "title", "status"::text AS status, 'subcategory' AS "where" FROM "Book" WHERE "subcategory" ILIKE '%LGBTQ%'
+    UNION ALL
+    SELECT "id", "title", "status"::text, 'draft or pending revision' FROM "Book"
+      WHERE "pendingRevisionData"::text ILIKE '%LGBTQ%' OR "submissionMetadata"::text ILIKE '%LGBTQ%'
+  `);
+  if (lgbtq.length === 0) say("None found.");
+  for (const r of lgbtq) { say(`  ${r.id}  "${r.title}"  (${r.status}; ${r.where})`); decisions++; }
+
   // 1. Notifications that point at a record that no longer exists.
   head("Notifications pointing at deleted records");
   const dangling = await prisma.$queryRawUnsafe<{ id: string }[]>(`

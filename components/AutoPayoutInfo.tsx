@@ -20,6 +20,7 @@ export function AutoPayoutInfo({
   available,
   hasRecipient,
   rolledOver = 0,
+  minimumLabel = "$30",
 }: {
   /** The current cycle's accumulating amount. */
   onHold: number;
@@ -29,6 +30,8 @@ export function AutoPayoutInfo({
   /** The part of `available` that is Rolled (under $30). It is folded
    * into the live figure and so is not counted again as available. */
   rolledOver?: number;
+  /** The current Minimum Payout, e.g. "$30". */
+  minimumLabel?: string;
 }) {
   const liveTotal = onHold + rolledOver;
   const pendingAvailable = Math.max(0, available - rolledOver);
@@ -36,9 +39,10 @@ export function AutoPayoutInfo({
     <div className="form-section" style={{ background: "var(--cream)" }}>
       <h3 style={{ fontSize: 15, marginBottom: 8 }}>How Payouts Work Now</h3>
       <p style={{ fontSize: 13.5, color: "var(--ink-soft)", marginBottom: 14 }}>
-        Nothing to request — everything you earn is reviewed once it&apos;s confirmed and, once it clears the $30
+        Nothing to request — everything you earn is reviewed once it&apos;s confirmed and, once it clears the {minimumLabel}
         minimum, is released by the 15th. An admin reviews and sends the payment from there.
       </p>
+      <p style={{ fontSize: 13.5, fontWeight: 600, marginBottom: 14 }}>Payout Is Released When Your Balance Reaches {minimumLabel}</p>
 
       {!hasRecipient ? (
         <p style={{ fontSize: 13.5, color: "var(--coral-deep)" }}>

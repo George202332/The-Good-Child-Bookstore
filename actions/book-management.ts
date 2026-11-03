@@ -42,7 +42,7 @@ export async function getBookStats(): Promise<BookStats> {
 
 export interface BookManagementRow {
   id: string;
-  /** "SN number" column (eBook / Audiobook); null = show a dash. */
+  /** "SN" column (eBook / Audiobook); null = show a dash. */
   snNumber: string | null;
   /** "ISBN" column (print); null = show a dash. */
   isbn: string | null;

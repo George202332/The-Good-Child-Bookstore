@@ -5,6 +5,7 @@ import { getRealPublishedBookBySlug, getRealPublishedBooks } from "@/lib/data/re
 import { getVisitorCountries } from "@/lib/visitor-country";
 import { isRestrictedForCountries } from "@/lib/book-visibility";
 import { BookDetailClient } from "../book/[id]/BookDetailClient";
+import { getPrintMockupUrls } from "@/lib/mockup/store";
 
 export const dynamic = "force-dynamic";
 
@@ -65,12 +66,17 @@ export default async function BookBySlugPage({ params }: { params: Promise<{ slu
   const [resolved, realBooks] = await Promise.all([resolveBookBySlug(slug), getRealPublishedBooks(visitorCountries)]);
   if (!resolved) notFound();
   const restricted = isRestrictedForCountries(resolved.book.restrictedCountries, visitorCountries);
+  // The saved 3D mockups of the print formats (made when the book was published), looked up by the record that sells each.
+  const printMockups = resolved.isRealBook
+    ? await getPrintMockupUrls({ paperback: resolved.book.formatBookIds?.paperback ?? resolved.book.id, hardcover: resolved.book.formatBookIds?.hardcover ?? resolved.book.id })
+    : {};
   return (
     <BookDetailClient
       book={resolved.book}
       isRealBook={resolved.isRealBook}
       allBooks={[...realBooks, ...BOOKS]}
       restricted={restricted}
+      printMockups={printMockups}
     />
   );
 }

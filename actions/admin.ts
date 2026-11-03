@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { ensurePrintMockups } from "@/lib/mockup/store";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
@@ -13,7 +15,8 @@ import { bookAuthorDisplayName } from "@/lib/book-author-name";
 import { reportSystemError } from "@/lib/site-health/alert";
 import { computeWalletForUserId } from "@/lib/compute-wallet-for-user";
 import { createPayoutOnce } from "@/lib/payout-guard";
-import { MIN_PAYOUT_AMOUNT } from "@/lib/payout-threshold";
+import { formatMinimumPayout, getMinPayoutAmount, isBelowMinimumPayout } from "@/lib/payout-threshold";
+import { loadMinimumPayout } from "@/lib/payout-minimum";
 
 /** True for the "Not authorized."/"Only Admins can..." errors
  * requireModerationRole()/requireAdminRole() throw deliberately — those
@@ -76,6 +79,8 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);
     revalidatePath("/account/authors");
+    // The print mockups are made once, when the book goes live (after the reply, so approving stays quick).
+    after(() => ensurePrintMockups(bookId));
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
@@ -289,9 +294,13 @@ export async function saveReviewChecklist(bookId: string, checklist: Record<stri
 export async function approvePayoutRequest(payoutId: string | string[]): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireAdminRole();
+    await loadMinimumPayout();
     const ids = [...new Set(Array.isArray(payoutId) ? payoutId : [payoutId])];
 
-    const { payable, blocked } = await splitOutPaidTwins(ids);
+    // The Minimum Payout is enforced HERE, on the server, for every release - the disabled button in the table is only a convenience.
+    const { allowed, below } = await splitOutBelowMinimum(ids);
+    if (allowed.length === 0 && below.length > 0) return { ok: false, error: belowMinimumMessage() };
+    const { payable, blocked } = await splitOutPaidTwins(allowed);
     const resolvedAt = new Date();
     const claim = await prisma.payoutRequest.updateMany({
       where: { id: { in: payable }, status: { in: ["REQUESTED", "APPROVED"] } },
@@ -315,6 +324,19 @@ export async function approvePayoutRequest(payoutId: string | string[]): Promise
     if (!isAuthorizationError(e)) await reportSystemError("PAYOUT", e, { action: "approvePayoutRequest", payoutId });
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
   }
+}
+
+/** The note shown (and returned by the server) when a release is below the Minimum Payout. */
+function belowMinimumMessage(): string {
+  return `Below The Minimum Payout Of ${formatMinimumPayout()}. The balance is not lost: it carries over and adds up until it reaches the minimum. If this request should not wait, reject it and its money rolls back into the balance.`;
+}
+
+/** Splits payout ids into those at or above the current Minimum Payout and those below it (compared in cents). */
+async function splitOutBelowMinimum(ids: string[]): Promise<{ allowed: string[]; below: string[] }> {
+  const rows = await prisma.payoutRequest.findMany({ where: { id: { in: ids } }, select: { id: true, amount: true } });
+  const below = rows.filter((r) => isBelowMinimumPayout(Number(r.amount))).map((r) => r.id);
+  const belowSet = new Set(below);
+  return { allowed: ids.filter((id) => !belowSet.has(id)), below };
 }
 
 /**
@@ -404,6 +426,7 @@ async function payScheduledBalance(syntheticId: string): Promise<{ ok: boolean; 
   const match = syntheticId.match(/^pending-(.+)$/);
   if (!match) return { ok: false, error: "Not a payable balance." };
   const userId = match[1];
+  await loadMinimumPayout();
 
   const recipient = await prisma.wiseRecipient.findFirst({ where: { userId }, orderBy: { isDefault: "desc" } });
   if (!recipient) return { ok: false, error: "This recipient has no payout destination on file." };
@@ -417,7 +440,7 @@ async function payScheduledBalance(syntheticId: string): Promise<{ ok: boolean; 
     { view: "affiliate" as const, earningsType: "AFFILIATE" as const },
   ]) {
     const wallet = await computeWalletForUserId(userId, view);
-    if (wallet.available < MIN_PAYOUT_AMOUNT) continue;
+    if (isBelowMinimumPayout(wallet.available)) continue;
 
     // One payout per wallet per cycle, enforced inside a single
     // serializable transaction (lib/payout-guard.ts) — paying the same
@@ -443,7 +466,7 @@ async function payScheduledBalance(syntheticId: string): Promise<{ ok: boolean; 
 
   if (paidTotal <= 0) {
     if (alreadyPaidThisCycle) return { ok: false, error: "This balance already has a payout for this cycle — it was NOT paid again. Refresh to see its current status." };
-    return { ok: false, error: "This balance is still under the $30 minimum — it isn't actually due yet." };
+    return { ok: false, error: `Below The Minimum Payout Of ${formatMinimumPayout(getMinPayoutAmount())}. It carries over and adds up until it reaches the minimum.` };
   }
   return { ok: true, amount: paidTotal };
 }
@@ -469,6 +492,7 @@ async function payScheduledBalance(syntheticId: string): Promise<{ ok: boolean; 
 export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: boolean; updated?: number; error?: string }> {
   try {
     await requireAdminRole();
+    await loadMinimumPayout();
     if (!Array.isArray(payoutIds) || payoutIds.length === 0) {
       return { ok: false, error: "No payouts were selected." };
     }
@@ -478,12 +502,15 @@ export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: bo
     const realIds = uniqueIds.filter((id) => !scheduledIds.includes(id));
 
     let updated = 0;
+    let belowCount = 0;
 
     if (realIds.length > 0) {
       // Idempotent: only REQUESTED payouts are claimed (an already-PAID
       // component of a merged row is silently left alone), and an exact
       // twin of an already-PAID payout is never paid again.
-      const { payable } = await splitOutPaidTwins(realIds);
+      const { allowed, below } = await splitOutBelowMinimum(realIds);
+      belowCount = below.length;
+      const { payable } = await splitOutPaidTwins(allowed);
       const resolvedAt = new Date();
       const claim = await prisma.payoutRequest.updateMany({
         where: { id: { in: payable }, status: { in: ["REQUESTED", "APPROVED"] } },
@@ -507,6 +534,7 @@ export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: bo
     }
 
     if (updated > 0) revalidatePath("/admin/payouts");
+    if (updated === 0 && belowCount > 0) return { ok: false, error: belowMinimumMessage() };
     return { ok: true, updated };
   } catch (e) {
     if (!isAuthorizationError(e)) await reportSystemError("PAYOUT", e, { action: "bulkMarkPayoutsPaid", payoutIds });

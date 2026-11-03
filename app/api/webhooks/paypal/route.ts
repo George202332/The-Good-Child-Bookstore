@@ -17,7 +17,7 @@ import { prisma } from "@/lib/prisma";
  */
 export async function POST(request: Request) {
   const rawBody = await request.text();
-  const webhookId = getPaypalWebhookId();
+  const webhookId = await getPaypalWebhookId();
   if (!webhookId) return NextResponse.json({ error: "PayPal webhook is not set up" }, { status: 503 });
 
   let event: PaypalEvent;

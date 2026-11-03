@@ -124,7 +124,7 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
       <h3 style={{ fontSize: 15, margin: "24px 0 10px" }}>Payment Gateways</h3>
 
       <h4 style={{ fontSize: 13.5, margin: "16px 0 8px" }}>Paystack (Checkout — Card Payments)</h4>
-      <label className="field-label" htmlFor="api-mode">Key mode</label>
+      <label className="field-label" htmlFor="api-mode">Paystack mode</label>
       <select
         className="field"
         id="api-mode"
@@ -135,8 +135,10 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
         <option value="live">Live — the keys below are real keys, real charges</option>
       </select>
       <p className="field-hint" style={{ margin: "-8px 0 12px" }}>
-        Just a label for which kind of key you&apos;ve pasted below — Paystack test and live keys already look
-        different (sk_test_ vs sk_live_), there&apos;s only one pair to manage now.
+        This one setting switches Paystack between test and live. The site then uses the matching keys: add
+        PAYSTACK_TEST_SECRET_KEY, PAYSTACK_TEST_PUBLIC_KEY, PAYSTACK_LIVE_SECRET_KEY and PAYSTACK_LIVE_PUBLIC_KEY in
+        Vercel and both sets can sit side by side. If PAYSTACK_MODE is set in Vercel it decides instead of this
+        dropdown. Keys typed below are only used when they match the mode (a test key is never used in live mode).
       </p>
       <div className="form-grid-2">
         <SecretField id="api-paystack-secret" label="Secret Key" isSet={apiKeysSet.paystackSecretKey} value={settings.apiKeys.paystackSecretKey ?? ""} onChange={(v) => update({ paystackSecretKey: v })} />
@@ -173,6 +175,11 @@ export function ApiManagementForm({ initial, apiKeysSet }: { initial: SiteSettin
         <option value="sandbox">Sandbox — test payments, no real money</option>
         <option value="live">Live — real payments, real money</option>
       </select>
+      <p className="field-hint" style={{ margin: "-8px 0 12px" }}>
+        This one setting switches PayPal between sandbox and live (and between the sandbox and live PayPal addresses). In Vercel add
+        PAYPAL_SANDBOX_CLIENT_ID, PAYPAL_SANDBOX_CLIENT_SECRET, PAYPAL_SANDBOX_WEBHOOK_ID, PAYPAL_LIVE_CLIENT_ID, PAYPAL_LIVE_CLIENT_SECRET and
+        PAYPAL_LIVE_WEBHOOK_ID so both sets sit side by side. If PAYPAL_MODE is set in Vercel it decides instead of this dropdown.
+      </p>
       <div className="form-grid-2">
         <SecretField id="api-paypal-id" label="Client ID" type="text" isSet={apiKeysSet.paypalClientId} value={settings.apiKeys.paypalClientId ?? ""} onChange={(v) => update({ paypalClientId: v })} />
         <SecretField id="api-paypal-secret" label="Client Secret" isSet={apiKeysSet.paypalClientSecret} value={settings.apiKeys.paypalClientSecret ?? ""} onChange={(v) => update({ paypalClientSecret: v })} />

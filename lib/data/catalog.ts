@@ -159,10 +159,10 @@ export interface Book {
    * record sells each format, so the price tab a customer picks adds exactly that format
    * to the cart. Absent = every format is sold by this book's own id. */
   formatBookIds?: Partial<Record<"ebook" | "audiobook" | "paperback" | "hardcover", string>>;
-  /** The identifier of each format: eBook and Audiobook share one (the SN number, or the
+  /** The identifier of each format: eBook and Audiobook share one (the SN, or the
    * author's own ISBN); Paperback and Hardcover each have their own ISBN, or none yet
    * (value null = "ISBN pending"). */
-  identifiers?: Partial<Record<"ebook" | "audiobook" | "paperback" | "hardcover", { label: "SN number" | "ISBN"; value: string | null }>>;
+  identifiers?: Partial<Record<"ebook" | "audiobook" | "paperback" | "hardcover", { label: "SN" | "ISBN"; value: string | null }>>;
   /** Page count and trim size of the printed edition, when it differs from the eBook's. */
   printPages?: number;
   printDimensions?: string;
