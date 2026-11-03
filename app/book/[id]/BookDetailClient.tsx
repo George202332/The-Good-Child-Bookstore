@@ -238,7 +238,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
               // picture only: Paperback never shows the hardcover's, and the other formats show the normal cover.
               <div className="detail-cover detail-cover-mockup">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img key={mockupSrc} src={mockupSrc} alt={`${b.title} ${fmtLabel.toLowerCase()} edition, shown as printed copies`} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                <img key={mockupSrc} src={mockupSrc} alt={`${b.title} ${fmtLabel.toLowerCase()} edition, shown as printed copies`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               </div>
             ) : (
             <div className="detail-cover">
@@ -296,13 +296,11 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
           {identifierText && <div className="detail-isbn">{identifierText}</div>}
           <div className="detail-tags">
             <span className="age-pill">Ages {b.age} years</span>
-            {/* Genre, Category and (only when the book has one) Subcategory, as plain text that wraps. The Subcategory
-                lives only on this line; the details strip keeps its compact Category card. */}
-            {[b.genre, b.series, b.subcategory].filter((x): x is string => !!x && !!x.trim()).length > 0 && (
-              <span className="detail-taxonomy">
-                {[b.genre, b.series, b.subcategory].filter((x): x is string => !!x && !!x.trim()).join(" · ")}
-              </span>
-            )}
+            {/* Genre, Category and (only when the book has one) Subcategory: each its own coloured tab, like the age pill.
+                The Subcategory lives only on this line; the details strip keeps its compact Category card. */}
+            {b.genre?.trim() && <span className="age-pill tag-genre">{b.genre.trim()}</span>}
+            {b.series?.trim() && <span className="age-pill tag-category">{b.series.trim()}</span>}
+            {b.subcategory?.trim() && <span className="age-pill tag-subcategory">{b.subcategory.trim()}</span>}
           </div>
 
           {b.descriptionHtml ? (
@@ -393,11 +391,6 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
               .filter((f) => f.on)
               .map((f) => (
                 <button key={f.key} type="button" className={`buybox-tile ${format === f.key ? "active" : ""}`} aria-pressed={format === f.key} onClick={() => setFormat(f.key)}>
-                  {format === f.key && (
-                    <span className="bt-tick" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-                    </span>
-                  )}
                   <div className="bt-name">{f.name}</div>
                   <div className="bt-price">${f.price.toFixed(2)}</div>
                   <div className={`bt-sub ${f.sub.startsWith("Fulfilled") ? "bt-fulfilled" : ""}`}>{f.sub}</div>

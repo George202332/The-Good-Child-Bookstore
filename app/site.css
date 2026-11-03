@@ -1153,8 +1153,8 @@
   .detail-cover-wrap{position:relative;width:100%;}
   .detail-cover{border-radius:0;aspect-ratio:2/3;position:relative;overflow:hidden;}
   .detail-cover .motif{width:44%;height:44%;}
-  /* The 3D print mockup is a landscape picture, so its frame is landscape too (the normal cover is portrait). */
-  .detail-cover.detail-cover-mockup{aspect-ratio:4/3;background:#f3f3f6;border-radius:12px;}
+  /* The 3D print mockup is a 2:3 picture, the same shape as the cover frame, so it fills the frame without changing its size. */
+  .detail-cover.detail-cover-mockup{background:#f3f3f6;}
   .az-sample-btns{display:flex;flex-direction:column;gap:8px;margin-top:18px;}
   .az-author-card{
     margin-top:auto;border:1px solid var(--line);border-radius:14px;padding:16px 20px;height:var(--az-card-h);flex-shrink:0;
@@ -1189,6 +1189,11 @@
   .az-rating-row .rev-count{color:var(--coral-deep);font-weight:600;}
   .detail-isbn{font-size:12.5px;color:var(--ink-faint);font-family:'Courier New',monospace;letter-spacing:0.3px;margin-bottom:18px;}
   .detail-tags{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap;}
+  /* Each tab on the info line has its own colour; long names wrap inside the tab. */
+  .detail-tags .age-pill{white-space:normal;overflow-wrap:anywhere;max-width:100%;line-height:1.35;}
+  .detail-tags .tag-genre{background:#D6EBDD;color:#1F5B3A;}
+  .detail-tags .tag-category{background:#FBE3C8;color:#8A4A12;}
+  .detail-tags .tag-subcategory{background:#D4E6F7;color:#1D4F7C;}
 
   .az-desc{padding-top:9px;}
   .az-desc p{font-size:14.5px;line-height:1.7;color:var(--ink);margin-bottom:14px;max-width:640px;}
@@ -1241,19 +1246,18 @@
      cramped in a 2-column grid — one tile per row below 400px. */
   @media (max-width:400px){ .buybox-tiles{grid-template-columns:1fr;} }
   .buybox-tile{
-    border:2px solid var(--line-strong);border-radius:10px;padding:12px;text-align:left;height:94px;box-sizing:border-box;
+    border:2px solid var(--line-strong);border-radius:8px;padding:10px;text-align:left;height:75px;box-sizing:border-box;
     transition:border-color .15s ease, box-shadow .15s ease;background:var(--paper);
-    display:flex;flex-direction:column;justify-content:center;gap:6px;
+    display:flex;flex-direction:column;justify-content:center;gap:4px;
   }
   .buybox-tile:hover{border-color:var(--ink-faint);}
-  /* Selected format: strong accent border, filled background and a tick in the corner. The others are muted. */
+  /* Selected format: green border and green fill, no tick. Nothing inside the card changes size when it is chosen (the border is
+     always 2px, the ring is a shadow that takes no room). The others are muted. */
   .buybox-tiles .buybox-tile{position:relative;opacity:.78;}
   .buybox-tiles .buybox-tile:hover{opacity:1;}
-  .buybox-tile.active,.buybox-tiles .buybox-tile.active{opacity:1;border-color:var(--lavender-deep);background:var(--lavender);box-shadow:0 0 0 2px var(--lavender-deep);}
-  .buybox-tile.active .bt-name,.buybox-tile.active .bt-price{color:#1F1630;}
-  .buybox-tile.active .bt-sub{color:#3A2C62;}
-  .buybox-tile .bt-tick{position:absolute;top:-1px;right:-1px;width:24px;height:24px;border-radius:0 8px 0 10px;background:var(--lavender-deep);color:#1F1630;display:flex;align-items:center;justify-content:center;}
-  .buybox-tile .bt-tick svg{width:15px;height:15px;}
+  .buybox-tile.active,.buybox-tiles .buybox-tile.active{opacity:1;border-color:#1E8F5A;background:#D3F0E0;box-shadow:0 0 0 2px #1E8F5A;}
+  .buybox-tile.active .bt-name,.buybox-tile.active .bt-price{color:#0B3320;}
+  .buybox-tile.active .bt-sub{color:#14502F;}
   .buybox-selected{font-size:13.5px;margin:0 0 8px;color:var(--ink-soft);}
   .buybox-selected strong{color:var(--ink);}
   .buybox-selected span{font-weight:700;color:var(--ink);margin-left:4px;}
@@ -1261,9 +1265,9 @@
   /* Name + price now fill the whole card, sized up, since the secondary
      "12 MB · instant download"-style line was dropped — that detail is
      already shown elsewhere on the page. */
-  .buybox-tile .bt-name{font-size:15px;font-weight:700;display:flex;align-items:center;gap:5px;color:var(--ink-soft);}
-  .buybox-tile .bt-price{font-size:20px;font-weight:700;color:var(--ink);}
-  .buybox-tile .bt-sub{font-size:10.5px;color:var(--ink-faint);margin-top:2px;}
+  .buybox-tile .bt-name{font-size:12px;font-weight:700;display:flex;align-items:center;gap:5px;color:var(--ink-soft);}
+  .buybox-tile .bt-price{font-size:16px;font-weight:700;color:var(--ink);}
+  .buybox-tile .bt-sub{font-size:10px;color:var(--ink-faint);margin-top:1px;}
   .buybox-tile .bt-fulfilled{margin-top:auto;padding-top:4px;}
 
   .buybox-price-row{display:flex;align-items:baseline;gap:8px;margin-bottom:2px;flex-wrap:wrap;}
@@ -2312,6 +2316,8 @@
     scroll-snap-type:y mandatory;
   }
   .sample-viewer-viewport::-webkit-scrollbar{display:none;}
+  /* The Read Sample card is only as wide as the page it shows. */
+  .sample-modal{width:auto!important;max-width:min(94vw,600px)!important;padding:14px!important;overflow-y:hidden!important;}
   .sample-viewer-page{
     scroll-snap-align:start;scroll-snap-stop:always;
     display:flex;flex-direction:column;align-items:center;justify-content:center;

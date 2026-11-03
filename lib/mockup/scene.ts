@@ -178,10 +178,12 @@ ${opts.defs ?? ""}
 /** The standard scene: a standing copy facing the viewer, a second standing behind it showing its back cover, two lying flat in front. */
 export function standardScene(front: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift">, back: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift">, flat: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift">): Placement[] {
   const w = front.dims.w, t = front.dims.t;
+  // Packed close together so the whole scene fills the picture. The standing front copy is turned well toward the left so its
+  // spine (on the left) is plainly visible; the second copy stands behind it showing its back cover.
   return [
-    { ...back, lying: false, yaw: 180 - 12, x: -w * 0.4, z: -w * 0.7 },
-    { ...front, lying: false, yaw: 22, x: w * 0.5, z: 0 },
-    { ...flat, lying: true, yaw: 9, x: -w * 0.28, z: w * 0.95 + t },
-    { ...flat, lying: true, yaw: -7, x: w * 0.12, z: w * 1.05, lift: flat.dims.t },
+    { ...back, lying: false, yaw: 180 + 12, x: w * 0.42, z: -w * 0.5 },
+    { ...front, lying: false, yaw: 38, x: -w * 0.34, z: -w * 0.05 },
+    { ...flat, lying: true, yaw: 8, x: -w * 0.3, z: w * 0.72 + t },
+    { ...flat, lying: true, yaw: -6, x: w * 0.1, z: w * 0.78, lift: flat.dims.t },
   ];
 }

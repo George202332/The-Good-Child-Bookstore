@@ -46,7 +46,7 @@ function Card({ format, label, common, enabled }: { format: "paperback" | "hardc
           <p className="preview-card-help">{label} is switched off for this book.</p>
         ) : image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt={`${label} mockup`} style={{ width: "100%", height: "auto", opacity: busy ? 0.55 : 1 }} />
+          <img src={image} alt={`${label} mockup`} style={{ width: "100%", maxWidth: 360, height: "auto", opacity: busy ? 0.55 : 1 }} />
         ) : (
           <p className="preview-card-help">{busy ? "Making the preview…" : "The preview appears here."}</p>
         )}

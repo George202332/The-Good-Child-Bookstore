@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import type { ApiKeys } from "@/lib/site-settings";
 import { resolveLuluEnvironment, normaliseEnabledLevels, type LuluEnvironment, type LuluShippingLevel } from "@/lib/lulu-order";
-import { pickPaypalKeys, pickPaystackKeys, resolvePaypalMode, resolvePaystackMode, type PaypalMode, type PaystackMode } from "@/lib/payment-env";
+import { pickPaypalKeys, resolvePaypalMode, resolvePaystack, type PaypalMode, type PaystackMode } from "@/lib/payment-env";
 
 /**
  * Resolves live credentials, preferring what's saved in Site Settings
@@ -50,8 +50,7 @@ export async function getLuluCredentials(): Promise<{ clientKey: string | undefi
 
 export async function getPaystackCredentials(): Promise<{ secretKey: string | undefined; publicKey: string | undefined; mode: "test" | "live" }> {
   const stored = await getStoredApiKeys();
-  const { mode } = resolvePaystackMode(process.env, stored?.paymentMode);
-  const keys = pickPaystackKeys(mode, process.env, { secretKey: stored?.paystackSecretKey, publicKey: stored?.paystackPublicKey });
+  const { mode, keys } = resolvePaystack(process.env, stored?.paymentMode, { secretKey: stored?.paystackSecretKey, publicKey: stored?.paystackPublicKey });
   return { secretKey: keys.secretKey, publicKey: keys.publicKey, mode };
 }
 
@@ -59,7 +58,7 @@ export async function getPaystackCredentials(): Promise<{ secretKey: string | un
 export async function getPaymentModes(): Promise<{ paystack: { mode: PaystackMode; source: string }; paypal: { mode: PaypalMode; source: string } }> {
   const stored = await getStoredApiKeys();
   return {
-    paystack: resolvePaystackMode(process.env, stored?.paymentMode),
+    paystack: (({ mode, source }) => ({ mode, source }))(resolvePaystack(process.env, stored?.paymentMode, { secretKey: stored?.paystackSecretKey, publicKey: stored?.paystackPublicKey })),
     paypal: resolvePaypalMode(process.env, stored?.paypalEnvironment),
   };
 }

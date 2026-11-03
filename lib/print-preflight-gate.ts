@@ -55,6 +55,9 @@ export function decidePreflightGate(opts: {
     opts.saved.coverKey === opts.keys.coverKey &&
     opts.saved.packageIds === opts.keys.packageIds;
   if (sameFiles && opts.saved!.status === "PASSED") return { ok: true, save: opts.saved! };
+  // A passed result stays valid for the same interior file and cover, whatever print setting was edited since.
+  const sameUploads = opts.saved && opts.saved.interiorFileId === opts.keys.interiorFileId && opts.saved.coverKey === opts.keys.coverKey;
+  if (sameUploads && opts.saved!.status === "PASSED") return { ok: true, save: opts.saved! };
 
   const save = opts.latest ? toSaved(opts.latest, opts.latest.status as PreflightStatus) : null;
   if (opts.requirePass) return { ok: false, error: PREFLIGHT_NEEDED_MESSAGE, save };

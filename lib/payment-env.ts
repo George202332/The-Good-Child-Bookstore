@@ -81,6 +81,26 @@ export function pickPaystackKeys(mode: PaystackMode, env: Env, stored: { secretK
   return { mode, secretKey, publicKey };
 }
 
+/**
+ * The Paystack mode and keys to use. PAYSTACK_MODE (Vercel) is strict: the keys of that mode or nothing.
+ * When the mode only comes from Admin -> API Management (or the default) and no key of that mode exists,
+ * but a key of the other kind does, the key decides the mode, so the Paystack button never disappears just
+ * because a saved label disagrees with the saved key. The admin notice shows when this happens.
+ */
+export function resolvePaystack(
+  env: Env,
+  adminMode: string | null | undefined,
+  stored: { secretKey?: string; publicKey?: string },
+): { mode: PaystackMode; source: ModeChoice<PaystackMode>["source"] | "key"; keys: PaystackKeys } {
+  const choice = resolvePaystackMode(env, adminMode);
+  const keys = pickPaystackKeys(choice.mode, env, stored);
+  if (keys.secretKey || choice.source === "environment") return { mode: choice.mode, source: choice.source, keys };
+  const other: PaystackMode = choice.mode === "live" ? "test" : "live";
+  const otherKeys = pickPaystackKeys(other, env, stored);
+  if (otherKeys.secretKey) return { mode: other, source: "key", keys: otherKeys };
+  return { mode: choice.mode, source: choice.source, keys };
+}
+
 export interface PaypalKeys { environment: PaypalMode; clientId: string | undefined; clientSecret: string | undefined; webhookId: string | undefined }
 
 /** The PayPal credentials for the active mode. The old single variables only count when they were meant for this mode. */

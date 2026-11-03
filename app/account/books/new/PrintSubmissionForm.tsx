@@ -331,6 +331,9 @@ export function PrintSubmissionForm({
     [trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor],
   );
   const currentKeys = `${printReadyPdfFileId ?? ""}|${coverKey}|${packageKey(packages.map((p) => p.packageId))}`;
+  // A passed result belongs to the two files. It is kept for as long as the interior file and the cover are the
+  // same ones, whatever else is edited, and is only checked again when a new interior or a new cover is uploaded.
+  const savedPassedForFiles = !!initial?.preflight && initial.preflight.status === "PASSED" && (initial.printReadyPdfFileId ?? "") === (printReadyPdfFileId ?? "") && initial.preflight.coverKey === coverKey;
   const checkedKeys = useRef<string>("");
   const autoRetries = useRef(0);
   const [retryTick, setRetryTick] = useState(0);
@@ -357,13 +360,13 @@ export function PrintSubmissionForm({
   useEffect(() => {
     if (!printReadyPdfFileId || checkedKeys.current === currentKeys) return;
     // An edit that has not touched the files keeps the result already saved on the book.
-    if (editing && initial?.preflight && `${initial.printReadyPdfFileId ?? ""}|${initial.preflight.coverKey}|${initial.preflight.packageIds}` === currentKeys) {
+    if (editing && initial?.preflight && (savedPassedForFiles || `${initial.printReadyPdfFileId ?? ""}|${initial.preflight.coverKey}|${initial.preflight.packageIds}` === currentKeys)) {
       checkedKeys.current = currentKeys;
       return;
     }
     const t = setTimeout(() => { void runPreflight(); }, 700);
     return () => clearTimeout(t);
-  }, [currentKeys, printReadyPdfFileId, runPreflight, editing, initial, retryTick]);
+  }, [currentKeys, printReadyPdfFileId, runPreflight, editing, initial, retryTick, savedPassedForFiles]);
 
   // While Lulu is working, ask for progress every few seconds (each ask is quick).
   useEffect(() => {
@@ -377,7 +380,7 @@ export function PrintSubmissionForm({
   }, [preflight]);
 
   // The saved result of an unchanged edit counts as passed; otherwise the live check decides.
-  const unchangedSaved = editing && !!initial?.preflight && `${initial.printReadyPdfFileId ?? ""}|${initial.preflight.coverKey}|${initial.preflight.packageIds}` === currentKeys && initial.preflight.status === "PASSED";
+  const unchangedSaved = editing && !!initial?.preflight && initial.preflight.status === "PASSED" && (savedPassedForFiles || `${initial.printReadyPdfFileId ?? ""}|${initial.preflight.coverKey}|${initial.preflight.packageIds}` === currentKeys);
   const preflightPassed = preflight?.status === "PASSED" || (!preflight && unchangedSaved);
   const hasPrintFiles = !!printReadyPdfFileId && (!!frontCoverImageUrl || (backCoverMode === "custom" && !!customBackCoverPdfFileId));
 
@@ -394,10 +397,16 @@ export function PrintSubmissionForm({
   );
 
   // Reads the uploaded interior again whenever the file, the selected size or a print setting changes.
+  const specSkippedOnOpen = useRef(false);
   useEffect(() => {
     let cancelled = false;
     const t = setTimeout(async () => {
       if (!printReadyPdfFileId) { setSpecReport(null); return; }
+      // Opening a book whose files already passed and are unchanged shows the saved result instead of checking again.
+      if (!specSkippedOnOpen.current) {
+        specSkippedOnOpen.current = true;
+        if (editing && savedPassedForFiles) return;
+      }
       setSpecBusy(true);
       const r = await analyzePrintInterior({ fileId: printReadyPdfFileId, chosenTrimCode: trimCode, ...specSettings }).catch(() => null);
       if (cancelled) return;
@@ -409,7 +418,7 @@ export function PrintSubmissionForm({
       }
     }, 500);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [printReadyPdfFileId, trimCode, specSettings]);
+  }, [printReadyPdfFileId, trimCode, specSettings, editing, savedPassedForFiles]);
 
   const embedFonts = useCallback(async () => {
     if (!printReadyPdfFileId) return;

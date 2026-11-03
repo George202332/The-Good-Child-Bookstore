@@ -16,8 +16,11 @@ import { loadFont, type TextFont } from "@/lib/mockup/text-paths";
  */
 
 const PX = 100; // texture pixels per inch
-const OUT_W = 2000;
-const OUT_H = 1500;
+/** Spines thinner than this (texture pixels, about a third of an inch) carry no text. */
+const SPINE_TEXT_MIN_T = 32;
+// Portrait, 2:3 - exactly the shape of the cover frame on the product page, so the picture drops into it unchanged.
+const OUT_W = 1200;
+const OUT_H = 1800;
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -161,13 +164,27 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
   const sid = nextId("round");
   defs.push(`<linearGradient id="${sid}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="${hardcover ? 0.34 : 0.2}"/><stop offset="0.25" stop-color="#fff" stop-opacity="0.1"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.04"/><stop offset="1" stop-color="#000" stop-opacity="${hardcover ? 0.34 : 0.2}"/></linearGradient>`);
   const spineInk = hardcover ? (foil ?? ink) : ink;
-  if (T >= 22) {
-    const size = Math.min(26, T * 0.52);
-    let label = (hardcover ? spec.foilTitle || spec.title : spec.title);
-    while (label.length > 3 && bold.width(label, size) > H - 90) label = label.slice(0, -2);
-    if (label !== (hardcover ? spec.foilTitle || spec.title : spec.title)) label = label.trimEnd() + "…";
-    // Rotate 90 degrees clockwise so it reads top to bottom, centred on the spine.
-    spineSvg += `<g transform="translate(${T / 2 + size * 0.35} 45) rotate(90)"><path d="${bold.path(label, size, 0, 0)}" fill="${spineInk}"/></g>`;
+  // A thin spine carries no text at all. Otherwise the author's name sits at the top and the title below it, both reading
+  // top to bottom (front cover facing right, spine on the left).
+  if (T >= SPINE_TEXT_MIN_T) {
+    const size = Math.min(28, T * 0.5);
+    const titleText = hardcover ? spec.foilTitle || spec.title : spec.title;
+    const authorText = hardcover ? spec.foilAuthor || spec.author : spec.author;
+    const room = H - 100;
+    const fit = (text: string, sz: number, max: number) => {
+      let t = text.trim();
+      if (bold.width(t, sz) <= max) return t;
+      while (t.length > 3 && bold.width(t + "…", sz) > max) t = t.slice(0, -1).trimEnd();
+      return t + "…";
+    };
+    const authorSize = size * 0.8;
+    const author = authorText ? fit(authorText, authorSize, room * 0.34) : "";
+    const gap = author ? 36 : 0;
+    const authorLen = author ? bold.width(author, authorSize) : 0;
+    const title = fit(titleText, size, room - authorLen - gap);
+    const cx = T / 2;
+    if (author) spineSvg += `<g transform="translate(${cx + authorSize * 0.35} 50) rotate(90)"><path d="${bold.path(author, authorSize, 0, 0)}" fill="${spineInk}"/></g>`;
+    spineSvg += `<g transform="translate(${cx + size * 0.35} ${50 + authorLen + gap}) rotate(90)"><path d="${bold.path(title, size, 0, 0)}" fill="${spineInk}"/></g>`;
   }
   spineSvg += `<rect width="${T}" height="${H}" fill="url(#${sid})"/>`;
 
@@ -222,7 +239,7 @@ export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | n
   const built = await buildTextures(spec, dims, front, avg, bold, regular);
   const base = { dims, tex: built.tex };
   const placements = standardScene(base, base, base);
-  const svg = composeScene(placements, { width: OUT_W, height: OUT_H, margin: 0.07, defs: built.defs.join("\n") });
+  const svg = composeScene(placements, { width: OUT_W, height: OUT_H, margin: 0.04, defs: built.defs.join("\n") });
   return sharp(Buffer.from(svg), { density: 72 }).png().toBuffer();
 }
 

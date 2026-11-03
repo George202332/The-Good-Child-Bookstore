@@ -255,6 +255,20 @@ function PdfManuscriptView({ buffer, title, maxPages, spread, isAdminTheme, scal
   const [error, setError] = useState<string | null>(null);
   const pdfDocRef = useRef<import("pdfjs-dist").PDFDocumentProxy | null>(null);
   const step = spread ? 2 : 1;
+  // Sample mode: the height of one drawn page, so the viewport hugs it exactly.
+  const firstSampleCanvas = useRef<HTMLCanvasElement | null>(null);
+  const [pageH, setPageH] = useState<number | null>(null);
+  useEffect(() => {
+    if (!sampleMode || loading) return;
+    const el = firstSampleCanvas.current;
+    if (!el) return;
+    const measure = () => { const h = Math.round(el.getBoundingClientRect().height); if (h > 40) setPageH(h); };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => { ro.disconnect(); window.removeEventListener("resize", measure); };
+  }, [sampleMode, loading, numPages]);
 
   useEffect(() => {
     let cancelled = false;
@@ -353,35 +367,23 @@ function PdfManuscriptView({ buffer, title, maxPages, spread, isAdminTheme, scal
       {loading && <p style={{ fontSize: 13, color: isAdminTheme ? "var(--admin-text-faint)" : "var(--ink-faint)" }}>Loading manuscript…</p>}
       {error && <p style={{ fontSize: 13, color: "var(--coral-deep)" }}>{error}</p>}
       {!loading && !error && sampleMode && (
-        <div>
-          {/* Fixed-height viewport: scroll-snap (see .sample-viewer-viewport
-              in site.css) locks the scroll position to exactly one page at a
-              time, and each page slot below is sized to that same height, so
-              only one full page is ever visible — never a partial peek of
-              the next one. The scrollbar is hidden but scrolling itself
-              (wheel, trackpad, touch, keyboard) works completely normally. */}
-          <div
-            className="sample-viewer-viewport no-scrollbar"
-            style={{
-              height: "calc(70 * var(--vh, 1vh))", overflowY: "auto",
-              background: "#171320", borderRadius: 10,
-              maxWidth: 440, margin: "0 auto",
-            }}
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            {Array.from({ length: numPages ?? 0 }, (_, i) => i + 1).map((p) => (
-              <div key={p} className="sample-viewer-page" style={{ height: "calc(70 * var(--vh, 1vh))", width: "100%", padding: "10px 0", boxSizing: "border-box" }}>
-                <canvas
-                  ref={(el) => { sampleCanvasRefs.current[p - 1] = el; }}
-                  aria-label={`${title} — page ${p}`}
-                  style={{ maxWidth: "100%", maxHeight: "100%", width: "auto", height: "auto", display: "block" }}
-                />
-              </div>
-            ))}
-          </div>
-          <p style={{ fontSize: 12, color: "var(--ink-faint)", margin: "10px 0 0", textAlign: "center" }}>
-            Showing the first {numPages} page{numPages === 1 ? "" : "s"} of this book — scroll for the next page.
-          </p>
+        // The sample is just the pages: no dark frame, no padding and no caption. The viewport is exactly one page tall
+        // (measured from the first page once it has drawn), scroll-snap locks each page into place, and the scroll bar is
+        // hidden while wheel, trackpad, touch and keyboard scrolling work normally.
+        <div
+          className="sample-viewer-viewport no-scrollbar"
+          style={{ height: pageH ?? "calc(70 * var(--vh, 1vh))", overflowY: "auto", margin: "0 auto", width: "fit-content", maxWidth: "100%" }}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {Array.from({ length: numPages ?? 0 }, (_, i) => i + 1).map((p) => (
+            <div key={p} className="sample-viewer-page" style={{ height: pageH ?? "calc(70 * var(--vh, 1vh))", width: "100%" }}>
+              <canvas
+                ref={(el) => { sampleCanvasRefs.current[p - 1] = el; if (p === 1) firstSampleCanvas.current = el; }}
+                aria-label={`${title} — page ${p}`}
+                style={{ maxWidth: "min(92vw, 560px)", maxHeight: "calc(70 * var(--vh, 1vh))", width: "auto", height: "auto", display: "block" }}
+              />
+            </div>
+          ))}
         </div>
       )}
       {!loading && !error && !sampleMode && (
