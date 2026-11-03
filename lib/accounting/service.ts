@@ -7,6 +7,7 @@ import { computeOwed, totalOwed, type OwedRow, type OwedTotals, type PayoutRow }
 import { loadAccountingSource, luluTotalsFor, type AccountingSource, type LuluLedgerRow } from "@/lib/accounting/data";
 import { monthBounds, monthKeyOf, monthLabel, monthRange, nextMonthKey, previousMonthKey, shortMonthLabel } from "@/lib/accounting/period";
 import type { LuluTotals } from "@/lib/lulu-report";
+import { isPaymentTestMode, type TestArchive, type TestAudit } from "@/lib/accounting/test-data";
 
 /**
  * Builds what the Accounting page, the exports and the PDF report show. Server only.
@@ -55,6 +56,8 @@ export interface MonthSnapshot {
   luluOrders: number;
   companyBooksPublished: number;
   testOrders: number;
+  /** True when these figures are test (sandbox) data: the payment mode was test when they were made, or test orders are in them. */
+  testData?: boolean;
   /** The last 12 months up to this one (oldest first), for the report's bar chart. Dollars. */
   trend?: { label: string; revenue: number; costs: number; profit: number }[];
 }
@@ -89,11 +92,33 @@ export interface MonthSummary {
   figures: MonthCents;
 }
 
+export interface ReportListItem {
+  id: string;
+  monthKey: string;
+  label: string;
+  version: number;
+  kind: string;
+  sentAt: string;
+  sentTo: number;
+  testData: boolean;
+  fileName: string;
+}
+
 export interface AccountingView {
   selection: string; // "lifetime" or "YYYY-MM"
   selectionLabel: string;
   includeTest: boolean;
   testOrders: number;
+  /** The payment mode setting: true while Paystack or PayPal is in test (sandbox) mode. */
+  testMode: boolean;
+  gatewayModes: { paystack: "test" | "live"; paypal: "test" | "live" };
+  /** Whether what is on screen is test data: the payment mode is test, or test orders are inside the selected period's figures. */
+  isTestData: boolean;
+  archive: TestArchive | null;
+  /** Admin only (null for an investor): the check of what the figures are made from. */
+  audit: TestAudit | null;
+  /** The saved reports that were emailed, newest first (details only; the file itself can only be downloaded by an admin). */
+  reports: ReportListItem[];
   liveOrders: number;
   months: MonthSummary[];
   years: number[];
@@ -180,10 +205,13 @@ export async function buildSnapshot(src: AccountingSource, key: string, includeT
     const f = computeMonth(k, sl.sales, sl.orders, sl.expenses);
     return { label: shortMonthLabel(k), revenue: dollars(f.totalRevenue), costs: dollars(f.georgeRoyalty + f.enteredExpenses + f.authorTax), profit: dollars(f.profit) };
   });
+  const testOrderCount = new Set(src.orders.filter((o) => inMonth(o.createdAt, key) && o.isTest).map((o) => o.orderId)).size;
+  const mode = await isPaymentTestMode();
   return {
     version: 1,
     takenAt: iso(new Date()),
     includeTest,
+    testData: mode.test || (includeTest && testOrderCount > 0),
     figures,
     expenses,
     payouts,
@@ -193,9 +221,53 @@ export async function buildSnapshot(src: AccountingSource, key: string, includeT
     lulu: luluTotalsFor(luluRows),
     luluOrders: luluRows.length,
     companyBooksPublished: src.companyBooksPublished,
-    testOrders: new Set(src.orders.filter((o) => inMonth(o.createdAt, key) && o.isTest).map((o) => o.orderId)).size,
+    testOrders: testOrderCount,
     trend,
   };
+}
+
+/**
+ * The same snapshot, for a whole calendar year (a "year report"). A closed month counts with the figures it was locked with; every
+ * other month is worked out live. The year report is only final when all twelve months (or every month so far, for the current year) are closed.
+ */
+export async function buildYearSnapshot(src: AccountingSource, year: number, includeTest: boolean, now: Date = new Date()): Promise<{ snapshot: MonthSnapshot; allClosed: boolean; months: string[] }> {
+  const lastKey = `${year}-12` < monthKeyOf(now) ? `${year}-12` : monthKeyOf(now);
+  const keys = monthRange(`${year}-01`, lastKey < `${year}-01` ? `${year}-01` : lastKey);
+  const states = await loadMonthStates();
+  const per = keys.map((k) => {
+    const st = states.get(k);
+    if (st?.snapshot) return { key: k, closed: true, snap: st.snapshot, figures: st.snapshot.figures };
+    const sl = sliceMonth(src, k, includeTest);
+    return { key: k, closed: false, snap: null, figures: computeMonth(k, sl.sales, sl.orders, sl.expenses) };
+  });
+  const figures = sumMonths(per.map((m) => m.figures));
+  const start = monthBounds(keys[0]).start;
+  const end = monthBounds(keys[keys.length - 1]).end;
+  const minimum = await loadMinimumPayout();
+  const payoutRows = src.payouts.filter((p) => p.status === "PAID" && p.resolvedAt && p.resolvedAt >= start && p.resolvedAt < end);
+  const payouts = payoutRows.map(toPayoutDisplay).sort((a, b) => (a.date < b.date ? 1 : -1));
+  const owedRows = computeOwed(src.earnings, src.payouts, end > now ? now : end, minimum);
+  const luluRows = src.lulu.filter((r) => r.createdAt >= start && r.createdAt < end && (includeTest || !r.isTest));
+  const mode = await isPaymentTestMode();
+  const testOrderCount = new Set(src.orders.filter((o) => o.createdAt >= start && o.createdAt < end && o.isTest).map((o) => o.orderId)).size;
+  const snapshot: MonthSnapshot = {
+    version: 1,
+    takenAt: iso(now),
+    includeTest,
+    testData: mode.test || (includeTest && testOrderCount > 0) || per.some((m) => m.snap?.testData),
+    figures,
+    expenses: src.expenses.filter((e) => e.monthKey >= keys[0] && e.monthKey <= keys[keys.length - 1]).sort((a, b) => (a.date < b.date ? -1 : 1)),
+    payouts,
+    payoutsPaidTotal: dollars(payoutRows.reduce((s, p) => s + cents(p.amount), 0)),
+    owed: totalOwed(owedRows),
+    owedRows: owedRows.slice(0, 200),
+    lulu: luluTotalsFor(luluRows),
+    luluOrders: luluRows.length,
+    companyBooksPublished: src.companyBooksPublished,
+    testOrders: testOrderCount,
+    trend: per.map((m) => ({ label: shortMonthLabel(m.key), revenue: dollars(m.figures.totalRevenue), costs: dollars(m.figures.georgeRoyalty + m.figures.enteredExpenses + m.figures.authorTax), profit: dollars(m.figures.profit) })),
+  };
+  return { snapshot, allClosed: per.every((m) => m.closed), months: keys };
 }
 
 export function isSnapshot(v: unknown): v is MonthSnapshot {
@@ -222,8 +294,8 @@ export function activeMonthKeys(src: AccountingSource, closed: Iterable<string>,
 
 const FIGURE_KEYS_TO_COMPARE: (keyof MonthCents)[] = ["totalRevenue", "profit", "salesRevenue", "acctGross", "enteredExpenses", "customersPaid"];
 
-export async function buildAccountingView(selection: string, includeTest: boolean, now: Date = new Date()): Promise<AccountingView> {
-  const [src, states, minimum] = await Promise.all([loadAccountingSource(), loadMonthStates(), loadMinimumPayout()]);
+export async function buildAccountingView(selection: string, includeTest: boolean, now: Date = new Date(), opts: { admin?: boolean } = {}): Promise<AccountingView> {
+  const [src, states, minimum, mode] = await Promise.all([loadAccountingSource(), loadMonthStates(), loadMinimumPayout(), isPaymentTestMode()]);
   const keys = activeMonthKeys(src, states.keys(), now);
   const currentMonthKey = monthKeyOf(now);
 
@@ -285,6 +357,18 @@ export async function buildAccountingView(selection: string, includeTest: boolea
     take: 200,
   });
 
+  const reportRows = await prisma.accountingReport.findMany({
+    select: { id: true, monthKey: true, version: true, kind: true, sentAt: true, sentTo: true, testData: true, fileName: true },
+    orderBy: { sentAt: "desc" },
+    take: 200,
+  });
+  const selectionTestOrders = locked && stEntry?.snapshot
+    ? (stEntry.snapshot.includeTest || stEntry.snapshot.testData ? stEntry.snapshot.testOrders : 0)
+    : includeTest
+      ? new Set(src.orders.filter((o) => o.isTest && (isLifetime || inMonth(o.createdAt, sel))).map((o) => o.orderId)).size
+      : 0;
+  const closedWithTest = [...states.entries()].filter(([, v]) => v.snapshot && (v.snapshot.testData || (v.snapshot.includeTest && v.snapshot.testOrders > 0))).map(([k]) => k).sort();
+
   const chartEnd = isLifetime ? keys.length - 1 : keys.indexOf(sel);
   const chartMonths = summaries.slice(Math.max(0, chartEnd - 11), chartEnd + 1);
 
@@ -292,6 +376,12 @@ export async function buildAccountingView(selection: string, includeTest: boolea
     selection: sel,
     selectionLabel: isLifetime ? "Lifetime" : monthLabel(sel),
     includeTest,
+    testMode: mode.test,
+    gatewayModes: { paystack: mode.paystack, paypal: mode.paypal },
+    isTestData: mode.test || selectionTestOrders > 0 || !!(locked && stEntry?.snapshot?.testData),
+    archive: src.archive,
+    audit: opts.admin ? { ...src.audit, closedMonthsWithTest: closedWithTest, allTest: src.audit.liveOrderCount === 0 } : null,
+    reports: reportRows.map((r) => ({ id: r.id, monthKey: r.monthKey, label: monthLabel(r.monthKey), version: r.version, kind: r.kind, sentAt: iso(r.sentAt), sentTo: r.sentTo, testData: r.testData, fileName: r.fileName })),
     testOrders: new Set(src.orders.filter((o) => o.isTest).map((o) => o.orderId)).size,
     liveOrders: new Set(src.orders.filter((o) => !o.isTest).map((o) => o.orderId)).size,
     months: summaries,

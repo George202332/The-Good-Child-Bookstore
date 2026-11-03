@@ -14,6 +14,8 @@ export interface ExportTable {
   aligns: ("left" | "right")[];
   rows: string[][];
   filename: string;
+  /** Test (sandbox) data: marked in the title, the file name, a first CSV line and a watermark on the PDF. */
+  testData?: boolean;
 }
 
 const m2 = (n: number | null) => (n == null ? "" : n.toFixed(2));
@@ -23,6 +25,12 @@ export const EXPORT_TABLES = ["expenses", "payouts", "owed", "lulu", "monthly", 
 export type ExportTableName = (typeof EXPORT_TABLES)[number];
 
 export function buildExportTable(name: ExportTableName, view: AccountingView, drill?: Drill | null): ExportTable | null {
+  const t = buildPlainTable(name, view, drill);
+  if (!t || !view.isTestData) return t;
+  return { ...t, title: `${t.title} (TEST DATA)`, subtitle: `TEST DATA, not real money  |  ${t.subtitle}`, filename: `${t.filename}-test-data`, testData: true };
+}
+
+function buildPlainTable(name: ExportTableName, view: AccountingView, drill?: Drill | null): ExportTable | null {
   const period = view.selectionLabel;
   const slug = view.selection;
   switch (name) {
@@ -101,5 +109,6 @@ export function toCsv(t: ExportTable): string {
     if (/^[=+@]/.test(s) || (/^-/.test(s) && !/^-\d+(\.\d+)?$/.test(s))) s = `'${s}`;
     return `"${s.replace(/"/g, '""')}"`;
   };
-  return [t.headers, ...t.rows].map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
+  const lines = t.testData ? [["TEST DATA: these figures are test (sandbox) data, not real money."]] : [];
+  return [...lines, t.headers, ...t.rows].map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { accountingViewer } from "@/lib/accounting/guard";
+import { accountingAdmin } from "@/lib/accounting/guard";
 import { buildAccountingView, buildDrill } from "@/lib/accounting/service";
 import { buildExportTable, toCsv, EXPORT_TABLES, type ExportTableName } from "@/lib/accounting/exports";
 import { buildTablePdf } from "@/lib/accounting/table-pdf";
@@ -8,9 +8,9 @@ import type { Metric } from "@/lib/accounting/calc";
 
 export const dynamic = "force-dynamic";
 
-/** Downloads an Accounting list or ledger as CSV or PDF. Admin and Investor only (read-only). */
+/** Downloads an Accounting list or ledger as CSV or PDF. Admin only: investors can view the tab but cannot download. */
 export async function GET(req: NextRequest) {
-  if (!(await accountingViewer())) return NextResponse.json({ error: "Not allowed." }, { status: 403 });
+  if (!(await accountingAdmin())) return NextResponse.json({ error: "Only an Admin can download." }, { status: 403 });
   const sp = req.nextUrl.searchParams;
   const table = sp.get("table") as ExportTableName | null;
   if (!table || !EXPORT_TABLES.includes(table)) return NextResponse.json({ error: "Unknown table." }, { status: 400 });
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const selectionRaw = sp.get("selection") ?? "lifetime";
   const selection = selectionRaw === "lifetime" || isMonthKey(selectionRaw) ? selectionRaw : "lifetime";
   const includeTest = sp.get("includeTest") !== "0";
-  const view = await buildAccountingView(selection, includeTest);
+  const view = await buildAccountingView(selection, includeTest, new Date(), { admin: true });
   const drill = table === "drill" ? await buildDrill(selection, (sp.get("metric") ?? "") as Metric, includeTest) : null;
   const t = buildExportTable(table, view, drill);
   if (!t) return NextResponse.json({ error: "Nothing to export." }, { status: 400 });

@@ -27,9 +27,9 @@ function Card({ format, label, common, enabled }: { format: "paperback" | "hardc
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, enabled, format]);
 
-  async function download() {
+  async function download(background: "transparent" | "light") {
     setDownloading(true);
-    const r = await downloadPrintMockup({ ...common, format }).catch(() => null);
+    const r = await downloadPrintMockup({ ...common, format }, background).catch(() => null);
     setDownloading(false);
     if (!r?.ok || !r.png) { setError(r?.error ?? "The download could not be made."); return; }
     const a = document.createElement("a");
@@ -52,9 +52,14 @@ function Card({ format, label, common, enabled }: { format: "paperback" | "hardc
         )}
       </div>
       {error && <p className="preview-card-help" role="alert">{error}</p>}
-      <button type="button" className="btn btn-small btn-ghost" disabled={!enabled || downloading || !image} onClick={download}>
-        {downloading ? "Preparing…" : `Download ${label} Mockup`}
-      </button>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="btn btn-small btn-ghost" disabled={!enabled || downloading || !image} onClick={() => download("transparent")}>
+          {downloading ? "Preparing…" : "Download PNG (transparent)"}
+        </button>
+        <button type="button" className="btn btn-small btn-ghost" disabled={!enabled || downloading || !image} onClick={() => download("light")}>
+          {downloading ? "Preparing…" : "Download PNG (light background)"}
+        </button>
+      </div>
     </div>
   );
 }

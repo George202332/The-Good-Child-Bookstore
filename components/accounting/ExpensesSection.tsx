@@ -46,10 +46,12 @@ export function ExpensesSection({ expenses, readOnly, locked, selection, include
     <div className="map-card" style={{ padding: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
         <h3 style={{ fontSize: 15 }}>Expenses</h3>
-        <div style={{ display: "flex", gap: 8 }}>
-          <a className="btn btn-ghost btn-small" href={`/api/accounting/export?table=expenses&${q}&format=csv`}>CSV</a>
-          <a className="btn btn-ghost btn-small" href={`/api/accounting/export?table=expenses&${q}&format=pdf`}>PDF</a>
-        </div>
+        {!readOnly && (
+          <div style={{ display: "flex", gap: 8 }}>
+            <a className="btn btn-ghost btn-small" href={`/api/accounting/export?table=expenses&${q}&format=csv`}>CSV</a>
+            <a className="btn btn-ghost btn-small" href={`/api/accounting/export?table=expenses&${q}&format=pdf`}>PDF</a>
+          </div>
+        )}
       </div>
       {readOnly && <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 6 }}>View only. Only an Admin can add, change or delete expenses.</p>}
       {!readOnly && locked && <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 6 }}>This month is closed, so its expenses are locked. Reopen the month to change them.</p>}

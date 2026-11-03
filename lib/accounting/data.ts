@@ -3,6 +3,7 @@ import { payoutMethodLabel } from "@/lib/payout-method-label";
 import { COMPANY_ACCOUNT_NUMBER, type ExpenseRow, type OrderRow, type SaleRow } from "@/lib/accounting/calc";
 import { monthKeyOf, previousMonthKey } from "@/lib/accounting/period";
 import type { EarningRow, PayoutRow } from "@/lib/accounting/payouts";
+import { getTestArchive, type TestArchive, type TestAudit } from "@/lib/accounting/test-data";
 import { summarizeTotals, type LuluOrderInput, type LuluTotals } from "@/lib/lulu-report";
 
 /**
@@ -44,6 +45,9 @@ export interface AccountingSource {
   expenses: ExpenseRow[];
   companyBooksPublished: number;
   companyAccountFound: boolean;
+  /** The archive marker when the admin has archived test figures, and the check of what the figures are made from. */
+  archive: TestArchive | null;
+  audit: TestAudit;
 }
 
 export async function loadAccountingSource(): Promise<AccountingSource> {
@@ -52,6 +56,8 @@ export async function loadAccountingSource(): Promise<AccountingSource> {
     select: { id: true, authorProfile: { select: { id: true } }, affiliateProfile: { select: { id: true } } },
   });
 
+  const archive = await getTestArchive();
+  const cutoff = archive ? new Date(archive.archivedAt) : null;
   const [lines, paidOrders, logs, payoutRows, expenseRows, booksCount] = await Promise.all([
     prisma.saleLine.findMany({
       where: { order: { status: "PAID" } },
@@ -95,10 +101,14 @@ export async function loadAccountingSource(): Promise<AccountingSource> {
     if (payload && typeof payload === "object" && payload.siteGatewayMode === "test") sandboxOrders.add(l.orderId);
   }
   const isTest = (orderId: string, flagged: boolean) => flagged || sandboxOrders.has(orderId);
+  // Archived test orders (test money, placed before the archive moment) are left out of every Accounting figure.
+  const archivedOrderIds = new Set<string>();
+  if (cutoff) for (const o of paidOrders) if (isTest(o.id, o.isTestData) && o.createdAt <= cutoff) archivedOrderIds.add(o.id);
 
   const sales: SaleRow[] = [];
   const earnings: EarningRow[] = [];
   for (const l of lines) {
+    if (archivedOrderIds.has(l.orderId)) continue;
     const orderRef = l.orderId.slice(0, 8).toUpperCase();
     const authorUser = l.book.author.user;
     const promoter = l.affiliateLink?.affiliate ?? null;
@@ -131,6 +141,7 @@ export async function loadAccountingSource(): Promise<AccountingSource> {
   const orders: OrderRow[] = [];
   const lulu: LuluLedgerRow[] = [];
   for (const o of paidOrders) {
+    if (archivedOrderIds.has(o.id)) continue;
     const orderRef = o.id.slice(0, 8).toUpperCase();
     const test = isTest(o.id, o.isTestData);
     orders.push({ orderId: o.id, orderRef, createdAt: o.createdAt, totalAmount: num(o.totalAmount), shipping: num(o.shippingAmount), fulfillment: num(o.fulfillmentAmount), isTest: test });
@@ -180,7 +191,8 @@ export async function loadAccountingSource(): Promise<AccountingSource> {
     coversMonth: previousMonthKey(monthKeyOf(p.requestedAt)),
   }));
 
-  const expenses: ExpenseRow[] = expenseRows.map((e) => ({
+  const expenseRowsShown = archive?.includeExpenses && cutoff ? expenseRows.filter((e) => e.enteredAt > cutoff) : expenseRows;
+  const expenses: ExpenseRow[] = expenseRowsShown.map((e) => ({
     id: e.id,
     date: e.expenseDate.toISOString().slice(0, 10),
     monthKey: e.monthKey,
@@ -195,9 +207,28 @@ export async function loadAccountingSource(): Promise<AccountingSource> {
     updatedAt: e.updatedAt ? e.updatedAt.toISOString() : null,
   }));
 
+  const everyTest = paidOrders.filter((o) => isTest(o.id, o.isTestData));
+  const live = paidOrders.filter((o) => !isTest(o.id, o.isTestData)).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const closedWithTest: string[] = [];
+  const audit: TestAudit = {
+    paidOrders: paidOrders.length,
+    testOrders: everyTest.length,
+    flaggedOnOrder: everyTest.filter((o) => o.isTestData).length,
+    testByGatewayOnly: everyTest.filter((o) => !o.isTestData).length,
+    liveOrders: live.slice(0, 25).map((o) => ({ ref: o.id.slice(0, 8).toUpperCase(), date: o.createdAt.toISOString(), total: num(o.totalAmount) })),
+    liveOrderCount: live.length,
+    archivedTestOrders: archivedOrderIds.size,
+    expenses: expenseRows.length,
+    payoutRequests: payoutRows.length,
+    closedMonthsWithTest: closedWithTest,
+    allTest: live.length === 0,
+  };
+
   return {
     sales,
     orders,
+    archive,
+    audit,
     // The company's own account is the company itself, so it is never "owed" a payout.
     earnings: earnings.filter((e) => e.userId !== companyUserId),
     payouts: payouts.filter((p) => p.userId !== companyUserId),

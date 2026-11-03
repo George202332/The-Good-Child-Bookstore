@@ -181,6 +181,8 @@ export interface Book {
   sizeMB: string;
   rating: string;
   reviews: number;
+  /** Real submitted books only: how many real star ratings the book has (the demo catalog has none, so it is never ranked on its made-up numbers). */
+  ratingCount?: number;
   pages: number;
   /** Real submitted books only — from the submission form's Language
    * field (see actions/submissions.ts); the static demo catalog has no

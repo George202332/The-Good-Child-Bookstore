@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CATS, bookSlug, type Book } from "@/lib/data/catalog";
-import { getRotatingBatch } from "@/lib/rotating-batch";
+import { pickFeaturedBooks } from "@/lib/featured-books";
 import { reviewStats, reviewsForBook } from "@/lib/data/reviews";
 import { BookCard } from "@/components/BookCard";
 import { AffiliateClickTracker } from "@/components/AffiliateClickTracker";
@@ -17,6 +17,7 @@ import { useCart } from "@/hooks/useCart";
 import { useWishlist } from "@/hooks/useWishlist";
 import { categorySlug, isCategory } from "@/lib/taxonomy";
 import { restrictionMessage } from "@/lib/book-country-restriction";
+import { isAiDeclaration } from "@/lib/ai-declaration";
 
 /** Genre shelf name for a shelf id; "" for the "unknown" shelf. */
 function catName(id: string): string {
@@ -109,15 +110,9 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
     );
   }
 
-  // "Featured books" — a placeholder for now, per explicit instruction:
-  // the 6 most recently published books (real + demo catalog combined),
-  // rotating in the same way the homepage's "New Arrivals" does as the
-  // catalog grows, rather than a fixed static list. This is meant to be
-  // swapped for a highest-rated ranking once the premium system exists.
-  const featuredPool = allBooks
-    .filter((x) => x.id !== b.id)
-    .sort((x, y) => (x.pubDate < y.pubDate ? 1 : -1));
-  const featuredBooks = getRotatingBatch(featuredPool, 6, 20 * 60 * 1000);
+  // "Featured books": every published book until real ratings exist, then same-category books ranked by a weighted score
+  // (see lib/featured-books.ts). Always six when the shop has that many.
+  const featuredBooks = pickFeaturedBooks(b, allBooks).books;
 
   // "People who read this book also searched for" — genuine matches
   // only (same category or genre), real + demo combined, capped at a
@@ -238,7 +233,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
               // picture only: Paperback never shows the hardcover's, and the other formats show the normal cover.
               <div key={mockupSrc} className="detail-cover detail-cover-mockup cover-fade">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img key={mockupSrc} src={mockupSrc} alt={`${b.title} ${fmtLabel.toLowerCase()} edition, shown as printed copies`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                <img key={mockupSrc} src={mockupSrc} alt={`${b.title} ${fmtLabel.toLowerCase()} edition, shown as printed copies`} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
               </div>
             ) : (
             <div key="cover" className="detail-cover cover-fade">
@@ -321,10 +316,9 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
              the bottom of this column again — seeing this paragraph
              land *after* the card in the previous round is what pushed
              everything out of alignment. */}
-          {b.aiDeclaration?.trim() && (
-            <p className="az-ai-declaration">
-              <strong>AI use declaration:</strong> {b.aiDeclaration.trim()}
-            </p>
+          {isAiDeclaration(b.aiDeclaration) && (
+            // Only one of the two agreed statements is ever shown, as one plain line, and only when the book has one stored.
+            <p className="az-ai-declaration">{(b.aiDeclaration ?? "").trim()}</p>
           )}
 
           <div className="az-details-card">

@@ -8,7 +8,7 @@ import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import { usd, shortDate } from "@/lib/accounting/format";
 
 /** The list of transactions behind a clicked total. Read-only; loads from the server (which re-checks the role). */
-export function DrillModal({ selection, metric, includeTest, onClose }: { selection: string; metric: string; includeTest: boolean; onClose: () => void }) {
+export function DrillModal({ selection, metric, includeTest, canDownload, onClose }: { selection: string; metric: string; includeTest: boolean; canDownload: boolean; onClose: () => void }) {
   const [drill, setDrill] = useState<Drill | null | undefined>(undefined);
   useEffect(() => {
     let live = true;
@@ -28,8 +28,8 @@ export function DrillModal({ selection, metric, includeTest, onClose }: { select
               <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 4 }}>{drill.explain}</p>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <a className="btn btn-ghost btn-small" href={`/api/accounting/export?${q}&format=csv`}>CSV</a>
-              <a className="btn btn-ghost btn-small" href={`/api/accounting/export?${q}&format=pdf`}>PDF</a>
+              {canDownload && <a className="btn btn-ghost btn-small" href={`/api/accounting/export?${q}&format=csv`}>CSV</a>}
+              {canDownload && <a className="btn btn-ghost btn-small" href={`/api/accounting/export?${q}&format=pdf`}>PDF</a>}
               <button type="button" className="btn btn-primary btn-small" onClick={onClose}>Close</button>
             </div>
           </div>
@@ -50,7 +50,7 @@ export function DrillModal({ selection, metric, includeTest, onClose }: { select
               </tbody>
             </table>
           </div>
-          {drill.rows.length >= 2000 && <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 8 }}>Showing the latest 2,000 rows. Export for the full list.</p>}
+          {drill.rows.length >= 2000 && <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 8 }}>Showing the latest 2,000 rows. Admins can export the full list.</p>}
         </>
       )}
     </Modal>

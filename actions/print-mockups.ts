@@ -2,7 +2,7 @@
 
 import { authEither as auth } from "@/lib/auth-either";
 import { makeMockupPng } from "@/lib/mockup/store";
-import { mockupWebp } from "@/lib/mockup/render";
+import { mockupWebp, onLightBackground } from "@/lib/mockup/render";
 import { WrapError } from "@/lib/mockup/wrap";
 import type { MockupSpec } from "@/lib/mockup/spec";
 
@@ -69,14 +69,15 @@ export async function previewPrintMockup(input: PreviewInput): Promise<{ ok: boo
   }
 }
 
-/** The high-quality picture (PNG, 1200 x 1800) for promotion. */
-export async function downloadPrintMockup(input: PreviewInput): Promise<{ ok: boolean; png?: string; fileName?: string; error?: string }> {
+/** The high-quality picture (PNG, 1600 x 2400) for promotion: transparent, or on a plain light background. */
+export async function downloadPrintMockup(input: PreviewInput, background: "transparent" | "light" = "transparent"): Promise<{ ok: boolean; png?: string; fileName?: string; error?: string }> {
   if (!(await allowed())) return { ok: false, error: "Sign in as an author to download." };
   try {
     const spec = toSpec(input);
-    const png = await makeMockupPng(spec, input.frontCoverImageUrl);
+    let png = await makeMockupPng(spec, input.frontCoverImageUrl);
+    if (background === "light") png = await onLightBackground(png);
     const slug = spec.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "book";
-    return { ok: true, png: png.toString("base64"), fileName: `${slug}-${spec.format}-mockup.png` };
+    return { ok: true, png: png.toString("base64"), fileName: `${slug}-${spec.format}-mockup${background === "light" ? "-light" : "-transparent"}.png` };
   } catch (e) {
     console.error("[mockup] download failed:", e instanceof Error ? e.message : e);
     return { ok: false, error: e instanceof WrapError ? e.message : "The picture could not be made just now." };

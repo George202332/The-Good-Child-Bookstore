@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { closeMonth, reopenMonth, resendReport } from "@/actions/accounting";
+import { archiveTestData, closeMonth, reopenMonth, restoreTestData, resendReport } from "@/actions/accounting";
 import type { AccountingView } from "@/lib/accounting/service";
 import type { Metric } from "@/lib/accounting/calc";
 import { FORMULA_STEPS } from "@/lib/accounting/calc";
@@ -28,7 +28,8 @@ function Card({ title, children, actions }: { title: string; children: React.Rea
   );
 }
 
-function ExportLinks({ table, selection, includeTest }: { table: string; selection: string; includeTest: boolean }) {
+function ExportLinks({ table, selection, includeTest, show }: { table: string; selection: string; includeTest: boolean; show: boolean }) {
+  if (!show) return null; // only an Admin can download; an investor can only view
   const q = `table=${table}&selection=${encodeURIComponent(selection)}&includeTest=${includeTest ? 1 : 0}`;
   return (
     <div style={{ display: "flex", gap: 8 }}>
@@ -49,8 +50,18 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
   const isMonth = view.selection !== "lifetime";
   const isClosed = view.state?.status === "CLOSED";
   const selYear = isMonth ? Number(view.selection.slice(0, 4)) : null;
+  const isClosedLocked = view.locked;
+  const reportYear = selYear ?? Number(view.currentMonthKey.slice(0, 4));
+  const dlQ = `includeTest=${view.includeTest ? 1 : 0}`;
 
-  const go = (selection: string, test = view.includeTest) => router.push(`${base}?month=${selection}${test ? "" : "&test=0"}`);
+  const go = (selection: string, test = view.includeTest) => router.push(`${base}?month=${selection}&test=${test ? 1 : 0}`);
+
+  // Figures and charts follow new orders and expenses: the page quietly reloads its numbers every minute while it is on screen.
+  useEffect(() => {
+    if (isClosedLocked || drill !== null) return;
+    const t = setInterval(() => { if (document.visibilityState === "visible") router.refresh(); }, 60_000);
+    return () => clearInterval(t);
+  }, [router, isClosedLocked, drill]);
   const monthsOfYear = useMemo(() => view.months.filter((m) => selYear !== null && m.monthKey.startsWith(String(selYear))), [view.months, selYear]);
 
   const click = (metric: Metric) => setDrill(metric);
@@ -140,10 +151,15 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
           <input type="checkbox" checked={view.includeTest} disabled={isMonth && isClosed} onChange={(e) => go(view.selection, e.target.checked)} /> Include test orders
         </label>
         <span style={{ flex: 1 }} />
+        {!readOnly && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            {isMonth && <a className="btn btn-primary btn-small" href={`/api/accounting/report?month=${view.selection}&${dlQ}`} title={isClosed ? "The locked report for this month" : "Made now from the current figures, marked Draft, Month Not Closed"}>Download Report: {monthLabel(view.selection)}{isClosed ? "" : " (draft)"}</a>}
+            <a className="btn btn-ghost btn-small" href={`/api/accounting/report?year=${reportYear}&${dlQ}`} title="Made now from the current figures for the whole year">Download Report: {reportYear}</a>
+          </div>
+        )}
         {isMonth && (
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: isClosed ? "#1d4d36" : "#4d3e12", color: isClosed ? "#9be7c0" : "#f5d98a" }}>{isClosed ? "Closed (locked)" : "Open"}</span>
-            {isClosed && <a className="btn btn-ghost btn-small" href={`/api/accounting/report?month=${view.selection}`}>Download PDF report</a>}
             {!readOnly && !isClosed && <button type="button" className="btn btn-primary btn-small" disabled={pending} onClick={doClose}>{pending ? "Working…" : "Close Month"}</button>}
             {!readOnly && isClosed && <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={() => setReopening((v) => !v)}>Reopen month</button>}
             {!readOnly && isClosed && <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={doResend}>Re-send report{(view.state?.reportVersion ?? 1) > 1 ? " (corrected)" : ""}</button>}
@@ -163,11 +179,24 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
       )}
       {note && <div role="status" style={{ padding: "10px 14px", borderRadius: 8, fontSize: 13.5, background: note.ok ? "rgba(79,208,143,0.15)" : "rgba(255,123,123,0.15)", border: `1px solid ${note.ok ? "var(--admin-success)" : "var(--admin-danger)"}` }}>{note.text}</div>}
 
-      {view.testOrders > 0 && (
-        <div style={{ padding: "10px 14px", borderRadius: 8, fontSize: 13, background: "rgba(240,192,77,0.14)", border: "1px solid var(--admin-warning)" }}>
-          <strong>Test data.</strong> {view.testOrders} order(s) were paid with sandbox (test) money and {view.liveOrders} with real money.{" "}
-          {view.includeTest ? "They are included in these figures, so the figures are test data, not real money. Untick Include test orders to hide them." : "They are hidden from these figures."}
+      {view.isTestData && (
+        <div role="status" style={{ padding: "10px 14px", borderRadius: 8, fontSize: 13, background: "rgba(214,40,40,0.12)", border: "2px solid #c82828" }}>
+          <strong style={{ color: "#c82828", letterSpacing: 0.5 }}>TEST DATA.</strong>{" "}
+          {view.testMode
+            ? `Paystack is in ${view.gatewayModes.paystack} mode and PayPal is in ${view.gatewayModes.paypal} mode, so everything on this tab is test (sandbox) data, not real money. Every report downloaded from here carries a Test Data watermark.`
+            : "The figures below include orders paid with test (sandbox) money, so they are not real money. Every report made from them carries a Test Data watermark."}
+          {" "}{view.testOrders} test order{view.testOrders === 1 ? "" : "s"} and {view.liveOrders} real-money order{view.liveOrders === 1 ? "" : "s"} are in the shop&apos;s records.
           {isMonth && isClosed ? " A closed month keeps the setting it was closed with." : ""}
+        </div>
+      )}
+      {!view.isTestData && view.testOrders > 0 && (
+        <div style={{ padding: "10px 14px", borderRadius: 8, fontSize: 13, background: "rgba(240,192,77,0.14)", border: "1px solid var(--admin-warning)" }}>
+          {view.testOrders} test order{view.testOrders === 1 ? " is" : "s are"} hidden from these figures (they are live-mode figures). Tick Include test orders to see them.
+        </div>
+      )}
+      {view.archive && (
+        <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
+          Test figures archived {shortDateTime(view.archive.archivedAt)} by {view.archive.byName}: {view.archive.orders} test order(s){view.archive.includeExpenses ? ` and ${view.archive.expenses} expense(s)` : ""} are left out of these figures. Nothing was deleted.
         </div>
       )}
       {isClosed && view.state && (
@@ -252,7 +281,7 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
 
       <ExpensesSection expenses={view.expenses} readOnly={readOnly} locked={isClosed} selection={view.selection} includeTest={view.includeTest} />
 
-      <Card title="Payouts made" actions={<ExportLinks table="payouts" selection={view.selection} includeTest={view.includeTest} />}>
+      <Card title="Payouts made" actions={<ExportLinks table="payouts" selection={view.selection} includeTest={view.includeTest} show={!readOnly} />}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={TH_STYLE}>Date</th><th style={TH_STYLE}>Recipient</th><th style={TH_STYLE}>Type</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Amount</th><th style={TH_STYLE}>Method</th><th style={TH_STYLE}>Reference</th><th style={TH_STYLE}>Earnings covered</th></tr></thead>
@@ -276,7 +305,7 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
         <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>Payouts are sent by hand outside the site, so the reference is the payout request number, not a bank reference.</p>
       </Card>
 
-      <Card title="Still owed to authors and affiliates" actions={<ExportLinks table="owed" selection={view.selection} includeTest={view.includeTest} />}>
+      <Card title="Still owed to authors and affiliates" actions={<ExportLinks table="owed" selection={view.selection} includeTest={view.includeTest} show={!readOnly} />}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={TH_STYLE}>Recipient</th><th style={TH_STYLE}>Type</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Earned</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Paid</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Held back</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Queued</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Available</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Owed</th></tr></thead>
@@ -300,7 +329,7 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
         <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>As at the end of the period. Earnings are released on the 1st of the month after they were earned; balances below the minimum payout roll to the next month. The company&apos;s own author account is not listed (it is the company).</p>
       </Card>
 
-      <Card title="Lulu ledger" actions={<ExportLinks table="lulu" selection={view.selection} includeTest={view.includeTest} />}>
+      <Card title="Lulu ledger" actions={<ExportLinks table="lulu" selection={view.selection} includeTest={view.includeTest} show={!readOnly} />}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={TH_STYLE}>Order</th><th style={TH_STYLE}>Date</th><th style={TH_STYLE}>Book</th><th style={TH_STYLE}>Format</th><th style={TH_STYLE}>Customer ref</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Printing</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Shipping</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Fulfillment</th><th style={TH_STYLE}>Lulu order no.</th><th style={TH_STYLE}>Lulu status</th></tr></thead>
@@ -345,7 +374,7 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
         <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 6 }}>Use these monthly totals to match Lulu&apos;s invoices. A difference of $0.00 means customers paid exactly what Lulu charges; the amounts are Lulu&apos;s own once an order has been checked with Lulu, otherwise the quote saved when the order was placed.</p>
       </Card>
 
-      <Card title="Month by month" actions={<ExportLinks table="monthly" selection={view.selection} includeTest={view.includeTest} />}>
+      <Card title="Month by month" actions={<ExportLinks table="monthly" selection={view.selection} includeTest={view.includeTest} show={!readOnly} />}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={TH_STYLE}>Month</th><th style={TH_STYLE}>Status</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Total revenue</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Royalty 10%</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Expenses</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Author tax 5%</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Profit</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Income tax 30%</th><th style={{ ...TH_STYLE, textAlign: "right" }}>Retained</th></tr></thead>
@@ -368,7 +397,7 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
         </div>
       </Card>
 
-      <Card title="Change log" actions={<ExportLinks table="changelog" selection={view.selection} includeTest={view.includeTest} />}>
+      <Card title="Change log" actions={<ExportLinks table="changelog" selection={view.selection} includeTest={view.includeTest} show={!readOnly} />}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={TH_STYLE}>When</th><th style={TH_STYLE}>Month</th><th style={TH_STYLE}>Who</th><th style={TH_STYLE}>What</th></tr></thead>
@@ -387,7 +416,10 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
         </div>
       </Card>
 
-      {drill && <DrillModal selection={view.selection} metric={drill} includeTest={view.includeTest} onClose={() => setDrill(null)} />}
+            <ReportsCard view={view} readOnly={readOnly} />
+      {!readOnly && <TestDataPanel view={view} />}
+
+      {drill && <DrillModal selection={view.selection} metric={drill} includeTest={view.includeTest} canDownload={!readOnly} onClose={() => setDrill(null)} />}
     </div>
   );
 }
@@ -416,5 +448,93 @@ function MoneyRow({ label, amount, strong }: { label: string; amount: React.Reac
       <td style={{ ...TD_STYLE, fontWeight: strong ? 700 : 400 }}>{label}</td>
       <td style={{ ...TD_STYLE, textAlign: "right" }}>{amount}</td>
     </tr>
+  );
+}
+
+function ReportsCard({ view, readOnly }: { view: AccountingView; readOnly: boolean }) {
+  return (
+    <Card title="Reports">
+      <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginBottom: 8 }}>Every report emailed to the investors at month close (or re-sent) is kept here.{readOnly ? " Only an Admin can download them." : ""}</p>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><th style={TH_STYLE}>Month</th><th style={TH_STYLE}>Date sent</th><th style={TH_STYLE}>Version</th><th style={TH_STYLE}>Emailed to</th><th style={TH_STYLE}>Data</th>{!readOnly && <th style={TH_STYLE}>Download</th>}</tr></thead>
+          <tbody>
+            {view.reports.length === 0 && <tr><td style={TD_STYLE} colSpan={readOnly ? 5 : 6}>No report has been made yet. One is made and emailed each time a month is closed.</td></tr>}
+            {view.reports.map((r) => (
+              <tr key={r.id}>
+                <td style={TD_STYLE}>{r.label}</td>
+                <td style={TD_STYLE}>{shortDateTime(r.sentAt)}</td>
+                <td style={TD_STYLE}>{r.version > 1 ? `${r.version} (corrected)` : r.version}</td>
+                <td style={TD_STYLE}>{r.sentTo > 0 ? `${r.sentTo} investor${r.sentTo === 1 ? "" : "s"}` : "Not emailed"}</td>
+                <td style={TD_STYLE}>{r.testData ? <strong style={{ color: "#c82828" }}>Test Data</strong> : "Live"}</td>
+                {!readOnly && <td style={TD_STYLE}><a className="btn btn-ghost btn-small" href={`/api/accounting/report?id=${encodeURIComponent(r.id)}`}>Download PDF</a></td>}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+}
+
+/** Admin only: what the figures are made from, and the confirmed action that archives test figures. */
+function TestDataPanel({ view }: { view: AccountingView }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [phrase, setPhrase] = useState("");
+  const [alsoExpenses, setAlsoExpenses] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const a = view.audit;
+  if (!a) return null;
+  const run = (fn: () => Promise<{ ok: boolean; message?: string; error?: string }>) =>
+    start(async () => {
+      const res = await fn();
+      setMsg({ ok: res.ok, text: res.ok ? res.message ?? "Done." : res.error ?? "Could not do that." });
+      if (res.ok) { setOpen(false); setPhrase(""); }
+      router.refresh();
+    });
+  return (
+    <Card title="Test data">
+      <div style={{ fontSize: 13, display: "grid", gap: 6 }}>
+        <div>
+          Payment mode: Paystack <strong>{view.gatewayModes.paystack}</strong>, PayPal <strong>{view.gatewayModes.paypal}</strong>. This tab is labelled <strong>{view.testMode ? "Test Data" : "live"}</strong> from this setting.
+        </div>
+        <div>
+          Of the {a.paidOrders} paid order(s) feeding this tab, <strong>{a.testOrders}</strong> are test data ({a.flaggedOnOrder} flagged on the order, {a.testByGatewayOnly} identified from a payment made in test mode)
+          and <strong style={{ color: a.liveOrderCount > 0 ? "var(--admin-danger)" : undefined }}>{a.liveOrderCount}</strong> are not.
+          {a.allTest ? " All the order data feeding this tab is test data." : " These real-money orders are NOT test data:"}
+        </div>
+        {a.liveOrders.length > 0 && (
+          <ul style={{ margin: "0 0 0 18px" }}>
+            {a.liveOrders.map((o) => <li key={o.ref}>#{o.ref}, {shortDate(o.date)}, {usd(o.total)}</li>)}
+            {a.liveOrderCount > a.liveOrders.length && <li>and {a.liveOrderCount - a.liveOrders.length} more</li>}
+          </ul>
+        )}
+        <div style={{ color: "var(--ink-soft)" }}>
+          Also feeding the tab: {a.expenses} expense(s) entered by an admin and {a.payoutRequests} payout request(s). These are not marked test or live by the shop, so check them yourself before going live.
+          {a.closedMonthsWithTest.length > 0 ? ` Closed months built with test data: ${a.closedMonthsWithTest.join(", ")} (their locked reports carry the Test Data label).` : ""}
+          {a.archivedTestOrders > 0 ? ` ${a.archivedTestOrders} test order(s) are currently archived (left out).` : ""}
+        </div>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+        <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={() => setOpen((v) => !v)}>Archive test figures…</button>
+        {view.archive && <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={() => { if (window.confirm("Bring the archived test data back into the Accounting figures?")) run(() => restoreTestData()); }}>Restore archived test data</button>}
+      </div>
+      {open && (
+        <div style={{ marginTop: 10, padding: 12, border: "1px solid var(--admin-warning)", borderRadius: 8, fontSize: 13 }}>
+          <p>This leaves every test (sandbox) order placed so far out of the Accounting figures, so they start clean for going live. <strong>Nothing is deleted</strong>: orders and payments stay in the shop, and you can restore them here. Closed months keep their locked figures and reports. The action is recorded in the change log.</p>
+          <label style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 8 }}><input type="checkbox" checked={alsoExpenses} onChange={(e) => setAlsoExpenses(e.target.checked)} /> Also leave out the {a.expenses} expense(s) entered so far (use this only if they were test entries)</label>
+          <label style={{ display: "block", marginTop: 8 }}>Type <strong>ARCHIVE TEST DATA</strong> to confirm<br />
+            <input value={phrase} onChange={(e) => setPhrase(e.target.value)} style={{ width: 260 }} autoComplete="off" />
+          </label>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <button type="button" className="btn btn-primary btn-small" disabled={pending || phrase.trim() !== "ARCHIVE TEST DATA"} onClick={() => run(() => archiveTestData(phrase, alsoExpenses))}>{pending ? "Working…" : "Archive test figures"}</button>
+            <button type="button" className="btn btn-ghost btn-small" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {msg && <div role="status" style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, fontSize: 13, background: msg.ok ? "rgba(79,208,143,0.15)" : "rgba(255,123,123,0.15)" }}>{msg.text}</div>}
+    </Card>
   );
 }

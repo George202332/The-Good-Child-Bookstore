@@ -292,6 +292,36 @@ describe("the monthly PDF", () => {
     assert.equal(new TextDecoder().decode(bytes.slice(0, 5)), "%PDF-");
     assert.ok(bytes.length > 5000);
   });
+  const snap = () => {
+    const figures = computeMonth("2026-10", [sale()], [order()], []);
+    return {
+      version: 1 as const, takenAt: "", includeTest: true, figures, expenses: [], payouts: [], payoutsPaidTotal: 0,
+      owed: { owed: 0, queued: 0, onHold: 0, available: 0, belowMinimum: 0, people: 0 }, owedRows: [],
+      lulu: { orders: 0, paidBooks: 0, paidProduction: 0, paidShipping: 0, paidFulfillment: 0, luluProduction: 0, luluShipping: 0, luluFulfillment: 0, luluTotal: 0, productionDifference: 0, shippingDifference: 0, fulfillmentDifference: 0, totalDifference: 0, grandDifference: 0 },
+      luluOrders: 0, companyBooksPublished: 1, testOrders: 0, trend: [{ label: "Oct 26", revenue: 10, costs: 4, profit: 6 }],
+    };
+  };
+  test("a draft with test data is a real PDF, and the Test Data watermark and Draft marking make it bigger than a plain one", async () => {
+    const plain = await buildMonthlyReportPdf({ monthKey: "2026-10", version: 1, closedAt: new Date().toISOString(), closedBy: "T", snapshot: snap() });
+    const draftTest = await buildMonthlyReportPdf({ monthKey: "2026-10", version: 0, closedAt: null, closedBy: null, draft: true, testData: true, snapshot: snap() });
+    assert.equal(new TextDecoder().decode(draftTest.slice(0, 5)), "%PDF-");
+    assert.ok(draftTest.length > plain.length, "extra drawing operations were added");
+  });
+  test("a year report builds", async () => {
+    const bytes = await buildMonthlyReportPdf({ monthKey: "2026-01", version: 1, closedAt: null, closedBy: null, draft: true, draftLabel: "Draft, Not All Months Closed", period: { kind: "year", label: "2026" }, snapshot: snap() });
+    assert.equal(new TextDecoder().decode(bytes.slice(0, 5)), "%PDF-");
+  });
+  test("the report source carries the labels", () => {
+    const r = readFileSync(new URL("../lib/accounting/report-pdf.ts", import.meta.url), "utf8");
+    assert.match(r, /Draft, Month Not Closed/);
+    assert.match(r, /"TEST DATA"/);
+    const route = readFileSync(new URL("../app/api/accounting/report/route.ts", import.meta.url), "utf8");
+    assert.match(route, /draft: true/);
+  });
+  test("a test-data table export is labelled in the title, file name, CSV and PDF", () => {
+    const t: ExportTable = { title: "X (TEST DATA)", subtitle: "s", headers: ["a"], aligns: ["left"], rows: [["1"]], filename: "f-test-data", testData: true };
+    assert.match(toCsv(t), /^"TEST DATA: these figures are test/);
+  });
 });
 
 describe("investors are view-only, enforced on the server", () => {
@@ -317,10 +347,27 @@ describe("investors are view-only, enforced on the server", () => {
     assert.match(g, /role !== "ADMIN" && role !== "INVESTOR"/);
     assert.match(g, /a\.role === "ADMIN"/);
   });
-  test("every route behind the Accounting tab is guarded by the viewer check", () => {
-    for (const f of ["../app/api/accounting/export/route.ts", "../app/api/accounting/receipt/[id]/route.ts", "../app/api/accounting/report/route.ts"]) {
-      assert.match(readFileSync(new URL(f, import.meta.url), "utf8"), /await accountingViewer\(\)/, f);
+  test("every download (exports and reports) is Admin only; the receipt viewer stays view-only", () => {
+    for (const f of ["../app/api/accounting/export/route.ts", "../app/api/accounting/report/route.ts"]) {
+      const src = readFileSync(new URL(f, import.meta.url), "utf8");
+      assert.match(src, /await accountingAdmin\(\)/, f);
+      assert.doesNotMatch(src, /accountingViewer/, f);
     }
+    assert.match(readFileSync(new URL("../app/api/accounting/receipt/[id]/route.ts", import.meta.url), "utf8"), /await accountingViewer\(\)/);
+  });
+  test("the archive and restore actions are Admin only and need the typed phrase", () => {
+    for (const name of ["archiveTestData", "restoreTestData"]) {
+      const i = actions.indexOf(`export async function ${name}(`);
+      assert.ok(i >= 0, name);
+      assert.match(actions.slice(i, i + 300), /await accountingAdmin\(\)/, name);
+    }
+    assert.match(actions, /confirmText\.trim\(\) !== ARCHIVE_PHRASE/);
+  });
+  test("an investor sees no download buttons on the Accounting tab", () => {
+    const c = readFileSync(new URL("../components/accounting/AccountingClient.tsx", import.meta.url), "utf8");
+    assert.match(c, /show=\{!readOnly\}/);
+    assert.match(c, /\{!readOnly && \(\s*<div[^>]*>\s*\{isMonth && <a className="btn btn-primary btn-small" href=\{`\/api\/accounting\/report/);
+    assert.match(c, /canDownload=\{!readOnly\}/);
   });
   test("the Lulu refresh and webhook actions stay Admin only; reading is open to the viewer check", () => {
     const l = readFileSync(new URL("../actions/admin-lulu.ts", import.meta.url), "utf8");
@@ -331,7 +378,7 @@ describe("investors are view-only, enforced on the server", () => {
   test("an investor no longer reaches financial data elsewhere", () => {
     assert.equal(canViewFinancials("INVESTOR"), false);
     assert.equal(canViewFinancials("ADMIN"), true);
-    assert.deepEqual(PERMISSIONS.INVESTOR.sort(), ["accounting:view", "lulu:view", "reports:download"]);
+    assert.deepEqual(PERMISSIONS.INVESTOR.sort(), ["accounting:view", "lulu:view"]);
     assert.doesNotMatch(readFileSync(new URL("../actions/payout-ledger.ts", import.meta.url), "utf8"), /role !== "INVESTOR"|"INVESTOR"\)\) \{/);
   });
   test("the reminder job refuses to run without the secret and compares it safely", () => {

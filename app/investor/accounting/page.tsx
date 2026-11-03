@@ -3,6 +3,7 @@ import { authAdmin } from "@/lib/auth-admin";
 import { InvestorShell } from "@/components/InvestorShell";
 import { buildAccountingView } from "@/lib/accounting/service";
 import { isMonthKey, monthKeyOf } from "@/lib/accounting/period";
+import { isPaymentTestMode } from "@/lib/accounting/test-data";
 import { AccountingClient } from "@/components/accounting/AccountingClient";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,10 @@ export default async function InvestorAccountingPage({ searchParams }: { searchP
 
   const sp = (await searchParams) ?? {};
   const selection = sp.month === "lifetime" || isMonthKey(sp.month) ? sp.month : monthKeyOf(new Date());
-  const view = await buildAccountingView(selection, sp.test !== "0");
+  // While the shop is in test mode the tab shows the test data (labelled). Once it is live, test orders are hidden unless asked for (?test=1).
+  const testMode = (await isPaymentTestMode()).test;
+  const includeTest = sp.test === "1" ? true : sp.test === "0" ? false : testMode;
+  const view = await buildAccountingView(selection, includeTest, new Date(), { admin: false });
 
   return (
     <InvestorShell activeKey="accounting" displayName={session.user.name ?? ""}>

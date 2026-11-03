@@ -1,6 +1,6 @@
 import { ean13Bars, isbnDigits13 } from "@/lib/mockup/barcode";
 import { composeScene, shadowLayerSvg, standardScene, type BookDims, type TextureSet } from "@/lib/mockup/scene";
-import type { WrapCrops } from "@/lib/mockup/wrap";
+import { WrapError, type WrapCrops } from "@/lib/mockup/wrap";
 import { planSpineText } from "@/lib/spine-text";
 import { bookDimensions, LINEN_COLORS, type MockupSpec } from "@/lib/mockup/spec";
 import { loadFont, type TextFont } from "@/lib/mockup/text-paths";
@@ -107,9 +107,9 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
   const ink = inkFor(spineRgb);
   const foil = hardcover ? foilPaint(spec.foilColor, defs) : null;
   const gloss = spec.finish === "G";
-  // The artwork that is sent to Lulu (the author's own wrap or the site's), used for every printed cover. A hardcover covered in
-  // linen cloth is not printed: it is cloth with foil lettering, drawn below.
-  const useWrap = !!wrap && !(hardcover && linen);
+  // The artwork that is sent to Lulu (the author's own wrap or the site's), used for every cover, Hardcover included. On a Hardcover
+  // the artwork covers the whole front board; the cloth colour only shows on the spine joints, the board edges and the page-block ends.
+  const useWrap = !!wrap;
   const jpegImage = (buf: Buffer, w: number, h: number) => {
     const b64 = buf.toString("base64");
     return `<image x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" xlink:href="data:image/jpeg;base64,${b64}" href="data:image/jpeg;base64,${b64}"/>`;
@@ -124,29 +124,7 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
   // ---- front ----
   let frontSvg = "";
   const hinge = `<rect x="${PX * 0.2}" width="3" height="${H}" fill="#000" opacity="0.18"/><rect x="${PX * 0.2 + 3}" width="2" height="${H}" fill="#fff" opacity="0.12"/>`;
-  if (hardcover && linen) {
-    frontSvg = `<rect width="${W}" height="${H}" fill="${clothHex}"/>${clothOverlay(W, H)}`;
-    if (foil) {
-      const titleLines = bold.wrap(spec.foilTitle || spec.title, 44, W - 110, 4);
-      let y = H * 0.3;
-      for (const line of titleLines) {
-        const x = (W - bold.width(line, 44)) / 2;
-        frontSvg += `<path d="${bold.path(line, 44, x + 1.2, y + 1.2)}" fill="#000" opacity="0.35"/><path d="${bold.path(line, 44, x, y)}" fill="${foil}"/>`;
-        y += 58;
-      }
-      const author = spec.foilAuthor || spec.author;
-      if (author) {
-        const a = bold.wrap(author, 28, W - 120, 2);
-        let ay = H * 0.82;
-        for (const line of a) {
-          const x = (W - bold.width(line, 28)) / 2;
-          frontSvg += `<path d="${bold.path(line, 28, x + 1, ay + 1)}" fill="#000" opacity="0.35"/><path d="${bold.path(line, 28, x, ay)}" fill="${foil}"/>`;
-          ay += 36;
-        }
-      }
-    }
-    frontSvg += hinge;
-  } else if (useWrap && wrap) {
+  if (useWrap && wrap) {
     frontSvg = `${jpegImage(wrap.front, W, H)}${hinge}`;
   } else if (front) {
     const b64 = front.toString("base64");
@@ -156,6 +134,26 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
     const lines = bold.wrap(spec.title, 40, W - 90, 4);
     let y = H * 0.35;
     for (const l of lines) { frontSvg += `<path d="${bold.path(l, 40, (W - bold.width(l, 40)) / 2, y)}" fill="${ink}"/>`; y += 52; }
+  }
+  if (hardcover && foil && (front || wrap)) {
+    // Foil lettering is stamped on top of the artwork, as it is on the real book.
+    const titleLines = bold.wrap(spec.foilTitle || spec.title, 44, W - 110, 4);
+    let y = H * 0.3;
+    for (const line of titleLines) {
+      const x = (W - bold.width(line, 44)) / 2;
+      frontSvg += `<path d="${bold.path(line, 44, x + 1.2, y + 1.2)}" fill="#000" opacity="0.35"/><path d="${bold.path(line, 44, x, y)}" fill="${foil}"/>`;
+      y += 58;
+    }
+    const foilAuthor = spec.foilAuthor || spec.author;
+    if (foilAuthor) {
+      const a = bold.wrap(foilAuthor, 28, W - 120, 2);
+      let ay = H * 0.82;
+      for (const line of a) {
+        const x = (W - bold.width(line, 28)) / 2;
+        frontSvg += `<path d="${bold.path(line, 28, x + 1, ay + 1)}" fill="#000" opacity="0.35"/><path d="${bold.path(line, 28, x, ay)}" fill="${foil}"/>`;
+        ay += 36;
+      }
+    }
   }
   if (gloss) {
     const gid = nextId("gloss");
@@ -189,7 +187,11 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
 
   // ---- spine (text runs top to bottom) ----
   let spineSvg = useWrap && wrap ? jpegImage(wrap.spine, T, H) : `<rect width="${T}" height="${H}" fill="${spineBg}"/>`;
-  if (hardcover && linen) spineSvg += clothOverlay(T, H);
+  if (hardcover) {
+    // Cloth shows along the two joints of the spine only; the real spine artwork stays between them.
+    const joint = Math.max(4, Math.round(T * 0.07));
+    for (const x of [0, T - joint]) spineSvg += `<rect x="${x}" width="${joint}" height="${H}" fill="${clothHex}"/><rect x="${x}" width="${joint}" height="${H}" fill="url(#${clothId})"/>`;
+  }
   const sid = nextId("round");
   defs.push(`<linearGradient id="${sid}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="${hardcover ? 0.34 : 0.2}"/><stop offset="0.25" stop-color="#fff" stop-opacity="0.1"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.04"/><stop offset="1" stop-color="#000" stop-opacity="${hardcover ? 0.34 : 0.2}"/></linearGradient>`);
   const spineInk = hardcover ? (foil ?? ink) : ink;
@@ -241,7 +243,7 @@ function hexToRgb(h: string): Rgb {
 }
 
 /** Makes the picture. `frontImage` is the author's front cover (any picture format); null draws a plain placeholder. */
-export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | null, wrap: WrapCrops | null = null): Promise<Buffer> {
+export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | null, wrap: WrapCrops | null = null, opts: { backdrop?: boolean } = {}): Promise<Buffer> {
   const sharp = (await import("sharp")).default;
   const dims = bookDimensions(spec);
   const [bold, regular] = await Promise.all([loadFont("Arimo_700Bold.ttf"), loadFont("Arimo_400Regular.ttf")]);
@@ -250,19 +252,29 @@ export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | n
   let avg: Rgb = { r: 120, g: 110, b: 150 };
   if (frontImage) {
     const W = Math.round(dims.w * PX), H = Math.round(dims.h * PX);
-    // Fit the artwork to the cover's shape, then keep it as a modest JPEG so the scene stays light.
-    front = await sharp(frontImage).rotate().resize({ width: W * 2, height: H * 2, fit: "cover", position: "centre" }).jpeg({ quality: 88 }).toBuffer();
-    const px = await sharp(frontImage).resize(1, 1).removeAlpha().raw().toBuffer();
-    avg = { r: px[0] ?? 120, g: px[1] ?? 110, b: px[2] ?? 150 };
+    try {
+      // Fit the artwork to the cover's shape, then keep it as a modest JPEG so the scene stays light.
+      front = await sharp(frontImage).rotate().resize({ width: W * 2, height: H * 2, fit: "cover", position: "centre" }).jpeg({ quality: 88 }).toBuffer();
+      const px = await sharp(frontImage).resize(1, 1).removeAlpha().raw().toBuffer();
+      avg = { r: px[0] ?? 120, g: px[1] ?? 110, b: px[2] ?? 150 };
+    } catch {
+      throw new WrapError("The front cover image could not be read as a picture. Please upload it again as a JPG or PNG.");
+    }
   }
 
   const built = await buildTextures(spec, dims, front, avg, bold, regular, wrap);
   const base = { dims, tex: built.tex };
   const placements = standardScene(base, base);
-  const sceneOpts = { width: OUT_W, height: OUT_H, margin: 0.04 };
+  const sceneOpts = { width: OUT_W, height: OUT_H, margin: 0.04, backdrop: opts.backdrop === true };
   const shadowPng = await sharp(Buffer.from(shadowLayerSvg(placements, sceneOpts, 4)), { density: 72 }).png().toBuffer();
   const svg = composeScene(placements, { ...sceneOpts, defs: built.defs.join("\n"), shadowLayer: `data:image/png;base64,${shadowPng.toString("base64")}` });
   return sharp(Buffer.from(svg), { density: 72 }).png().toBuffer();
+}
+
+/** The same picture on a plain light background (for promotions). The soft shadow stays. */
+export async function onLightBackground(png: Buffer): Promise<Buffer> {
+  const sharp = (await import("sharp")).default;
+  return sharp(png).flatten({ background: "#f4f4f6" }).png().toBuffer();
 }
 
 /** A smaller WebP for the product page and the saved copy. */

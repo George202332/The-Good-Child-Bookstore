@@ -1276,3 +1276,22 @@ model AccountingReceipt {
   originalName String
   createdAt    DateTime @default(now())
 }
+
+/// A monthly accounting report that was emailed to the investors (at month close, or re-sent), saved so the admin can download it again later.
+model AccountingReport {
+  id        String   @id @default(cuid())
+  monthKey  String
+  /// The report version of the month when it was made (2 or more = a corrected report).
+  version   Int
+  /// "CLOSE" or "RESEND".
+  kind      String
+  sentAt    DateTime @default(now())
+  /// How many investors it was emailed to (0 = it was made but there was nobody to send it to).
+  sentTo    Int      @default(0)
+  /// True when the figures were test (sandbox) data; the PDF carries a Test Data watermark.
+  testData  Boolean  @default(false)
+  fileName  String
+  data      Bytes
+
+  @@index([monthKey, sentAt])
+}

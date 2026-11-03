@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { accountingAdmin, accountingViewer } from "@/lib/accounting/guard";
+import { loadAccountingSource } from "@/lib/accounting/data";
+import { ARCHIVE_PHRASE, clearTestArchive, getTestArchive, saveTestArchive } from "@/lib/accounting/test-data";
+import { monthKeyOf } from "@/lib/accounting/period";
 import { buildAccountingView, buildDrill, type AccountingView, type Drill } from "@/lib/accounting/service";
 import { closeMonthNow, reopenMonthNow, resendReportNow, writeChangeLog, type CloseResult } from "@/lib/accounting/close";
 import { receiptProblem, sniffReceiptType, validateExpense } from "@/lib/accounting/expense-input";
@@ -29,8 +32,9 @@ function refresh() {
 }
 
 export async function getAccountingView(selection: string, includeTest: boolean): Promise<AccountingView | null> {
-  if (!(await accountingViewer())) return null;
-  return buildAccountingView(selection === "lifetime" || isMonthKey(selection) ? selection : "lifetime", includeTest);
+  const who = await accountingViewer();
+  if (!who) return null;
+  return buildAccountingView(selection === "lifetime" || isMonthKey(selection) ? selection : "lifetime", includeTest, new Date(), { admin: who.role === "ADMIN" });
 }
 
 export async function getAccountingDrill(selection: string, metric: string, includeTest: boolean): Promise<Drill | null> {
@@ -153,4 +157,36 @@ export async function resendReport(monthKey: string): Promise<CloseResult> {
   const res = await resendReportNow(actor, monthKey);
   refresh();
   return res;
+}
+
+/**
+ * Archives the test figures: every test (sandbox) order placed up to now is left out of the Accounting figures from now on. Nothing is
+ * deleted (orders, payments and receipts elsewhere on the site are untouched), and "Restore" brings the figures back. The admin must type
+ * the confirmation phrase, and a closed month keeps the figures it was locked with.
+ */
+export async function archiveTestData(confirmText: string, alsoExpenses: boolean): Promise<ActionResult> {
+  const actor = await accountingAdmin();
+  if (!actor) return { ok: false, error: NOT_ADMIN };
+  if (confirmText.trim() !== ARCHIVE_PHRASE) return { ok: false, error: `Type ${ARCHIVE_PHRASE} exactly to confirm.` };
+  const now = new Date();
+  const src = await loadAccountingSource();
+  const orders = new Set(src.orders.filter((o) => o.isTest && o.createdAt <= now).map((o) => o.orderId)).size;
+  const expenses = alsoExpenses ? src.expenses.length : 0;
+  const before = await getTestArchive();
+  await saveTestArchive({ archivedAt: now.toISOString(), byName: actor.name, orders: orders + (before?.orders ?? 0), expenses: expenses + (before?.includeExpenses ? before.expenses : 0), includeExpenses: alsoExpenses || !!before?.includeExpenses });
+  await writeChangeLog(monthKeyOf(now), actor, "TEST_DATA_ARCHIVED", `Test data archived: ${orders} test order(s)${alsoExpenses ? ` and ${expenses} expense(s)` : ""} are now left out of the Accounting figures. Nothing was deleted.`, { orders, expenses, alsoExpenses });
+  refresh();
+  return { ok: true, message: `Archived ${orders} test order${orders === 1 ? "" : "s"}${alsoExpenses ? ` and ${expenses} expense${expenses === 1 ? "" : "s"}` : ""}. The figures now start clean. Nothing was deleted.` };
+}
+
+/** Brings archived test figures back into the Accounting tab. */
+export async function restoreTestData(): Promise<ActionResult> {
+  const actor = await accountingAdmin();
+  if (!actor) return { ok: false, error: NOT_ADMIN };
+  const before = await getTestArchive();
+  if (!before) return { ok: false, error: "There is no archive to restore." };
+  await clearTestArchive();
+  await writeChangeLog(monthKeyOf(new Date()), actor, "TEST_DATA_RESTORED", "Archived test data was restored into the Accounting figures.", { archivedAt: before.archivedAt });
+  refresh();
+  return { ok: true, message: "The archived test data is back in the Accounting figures." };
 }

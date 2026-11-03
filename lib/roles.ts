@@ -77,10 +77,10 @@ export const PERMISSIONS: Record<Role, string[]> = {
     "transactions:view",
     "payouts:view",
   ],
+  // View only: an investor cannot download reports or exports (only an Admin can).
   INVESTOR: [
     "accounting:view",
     "lulu:view",
-    "reports:download",
   ],
   AUTHOR: [
     "books:upload",

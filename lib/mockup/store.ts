@@ -3,7 +3,6 @@ import { bookAuthorDisplayName } from "@/lib/book-author-name";
 import { descriptionToPlainText } from "@/lib/description-html";
 import { mockupHash, type MockupSpec } from "@/lib/mockup/spec";
 import { mockupWebp, renderPrintMockup } from "@/lib/mockup/render";
-import { LINEN_COLORS } from "@/lib/mockup/spec";
 import { customWrapCrops, generatedWrapCrops, WrapError, type WrapCrops } from "@/lib/mockup/wrap";
 
 /**
@@ -76,24 +75,26 @@ export async function loadFileBuffer(fileId: string | null | undefined): Promise
  * Makes the picture of one print format, from the same artwork that is sent to Lulu (see lib/mockup/wrap.ts). Throws a
  * WrapError, with the reason in plain words, when the author's own wrap cover cannot be used.
  */
-export async function makeMockupPng(spec: MockupSpec, coverUrl: string | null | undefined): Promise<Buffer> {
+export async function makeMockupPng(spec: MockupSpec, coverUrl: string | null | undefined, opts: { backdrop?: boolean } = {}): Promise<Buffer> {
   const front = await loadCoverBuffer(coverUrl);
   let wrap: WrapCrops | null = null;
-  const cloth = spec.format === "hardcover" && !!LINEN_COLORS[spec.linenColor];
-  if (!cloth) {
-    if (spec.wrapFileId) {
-      const pdf = await loadFileBuffer(spec.wrapFileId);
-      if (!pdf) throw new WrapError("Your uploaded wrap cover file could not be found.");
-      wrap = await customWrapCrops(new Uint8Array(pdf), spec.trimCode);
-    } else if (front) {
-      try {
-        wrap = await generatedWrapCrops({ frontImage: front, title: spec.title, author: spec.author, trimCode: spec.trimCode, paperCode: spec.paperCode, pages: spec.pages });
-      } catch {
-        wrap = null; // the front artwork alone still makes a correct picture
-      }
+  // Paperback and Hardcover are made the same way: from the same wrap artwork that is sent to Lulu. (Before, a Hardcover with a
+  // cloth colour skipped the artwork entirely and showed a plain coloured book.)
+  if (spec.wrapFileId) {
+    const pdf = await loadFileBuffer(spec.wrapFileId);
+    if (!pdf) throw new WrapError("Your uploaded wrap cover file could not be found. Please upload it again on the Print tab.");
+    wrap = await customWrapCrops(new Uint8Array(pdf), spec.trimCode);
+  } else {
+    if (!front) throw new WrapError(`The front cover image for the ${spec.format === "hardcover" ? "Hardcover" : "Paperback"} could not be found. Please upload your front cover again, then save.`);
+    try {
+      wrap = await generatedWrapCrops({ frontImage: front, title: spec.title, author: spec.author, trimCode: spec.trimCode, paperCode: spec.paperCode, pages: spec.pages });
+    } catch (e) {
+      // The front artwork alone still makes a correct picture, but a front image that cannot be read at all is reported.
+      if (e instanceof WrapError && /image|picture/i.test(e.message)) throw e;
+      wrap = null;
     }
   }
-  return renderPrintMockup(spec, front, wrap);
+  return renderPrintMockup(spec, front, wrap, opts);
 }
 
 interface BookForMockup {

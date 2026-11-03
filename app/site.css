@@ -1153,8 +1153,8 @@
   .detail-cover-wrap{position:relative;width:100%;}
   .detail-cover{border-radius:0;aspect-ratio:2/3;position:relative;overflow:hidden;}
   .detail-cover .motif{width:44%;height:44%;}
-  /* The 3D print mockup is a 2:3 picture, the same shape as the cover frame, so it fills the frame without changing its size. */
-  .detail-cover.detail-cover-mockup{background:#f3f3f6;}
+  /* The 3D print mockup is a transparent 2:3 picture, the same shape as the cover frame, so it sits on the page background like the eBook cover. */
+  .detail-cover.detail-cover-mockup{background:transparent;}
   /* A short fade whenever the picture in the cover frame changes (cover, Paperback mockup, Hardcover mockup). */
   .cover-fade{animation:coverFadeIn .35s ease both;}
   @keyframes coverFadeIn{from{opacity:0;}to{opacity:1;}}

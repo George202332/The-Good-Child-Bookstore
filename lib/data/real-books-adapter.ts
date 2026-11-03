@@ -1,3 +1,4 @@
+import { firstAiDeclaration } from "@/lib/ai-declaration";
 import { prisma } from "@/lib/prisma";
 import { capitalizeName } from "@/lib/person-name";
 import { hashStr } from "@/lib/hash";
@@ -177,6 +178,7 @@ function toCatalogBook(row: RealBookRow): Book {
     sizeMB: (2 + (seed % 8)).toFixed(1),
     rating: avgRating.toFixed(1),
     reviews: row.reviews.length,
+    ratingCount: row.ratings.length,
     // Real page count when the manuscript's was auto-detected (or the
     // author entered one) at submission — the seed-based placeholder
     // only covers older books submitted before this was captured.
@@ -283,6 +285,9 @@ function toGroupedCatalogBook(rows: RealBookRow[]): Book {
     format: labels || main.format,
     rating: (ratingCount > 0 ? ratingSum / ratingCount : 0).toFixed(1),
     reviews: reviewCount,
+    ratingCount,
+    // One declaration per book, whichever edition holds it.
+    aiDeclaration: firstAiDeclaration(...rows.map((r) => toCatalogBook(r).aiDeclaration)) || undefined,
     // Page count / size / file size describe the digital edition when there is one.
     ...(rows.some((r) => r.hasEbook) ? {} : { pages: printPages ?? main.pages, dimensions: printDimensions ?? main.dimensions }),
   };

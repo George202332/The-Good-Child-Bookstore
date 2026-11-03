@@ -1,4 +1,4 @@
-import type { PDFPage } from "pdf-lib";
+import { degrees, rgb, type PDFPage } from "pdf-lib";
 import { drawTable, newDoc, PLUM, SOFT, RULE, WHITE, safe } from "@/lib/accounting/pdf-draw";
 import type { ExportTable } from "@/lib/accounting/exports";
 
@@ -30,6 +30,11 @@ export async function buildTablePdf(t: ExportTable): Promise<Uint8Array> {
     p.drawLine({ start: { x: M, y: 28 }, end: { x: W - M, y: 28 }, thickness: 0.5, color: RULE });
     const n = `Page ${i + 1} of ${pages.length}`;
     p.drawText(n, { x: W - M - fonts.regular.widthOfTextAtSize(n, 7), y: 16, size: 7, font: fonts.regular, color: SOFT });
+    if (t.testData) {
+      const word = "TEST DATA", size = 110, ang = 30, r = (ang * Math.PI) / 180;
+      const w = fonts.bold.widthOfTextAtSize(word, size);
+      p.drawText(word, { x: W / 2 - (w / 2) * Math.cos(r) + size * 0.35 * Math.sin(r), y: H / 2 - (w / 2) * Math.sin(r) - size * 0.35 * Math.cos(r), size, font: fonts.bold, color: rgb(0.78, 0.12, 0.12), opacity: 0.16, rotate: degrees(ang) });
+    }
   });
   return doc.save();
 }

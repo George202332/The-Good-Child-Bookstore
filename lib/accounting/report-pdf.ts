@@ -1,4 +1,4 @@
-import type { PDFPage } from "pdf-lib";
+import { degrees, rgb, type PDFPage } from "pdf-lib";
 import { barChartScene, pieChartScene, PALETTE } from "@/lib/accounting/charts";
 import { FORMULA_STEPS, dollars } from "@/lib/accounting/calc";
 import type { MonthSnapshot } from "@/lib/accounting/service";
@@ -16,9 +16,17 @@ export interface ReportInput {
   snapshot: MonthSnapshot;
   /** 1 for the first report of the month; higher once the month was reopened and closed again. */
   version: number;
-  closedAt: string;
-  closedBy: string;
+  closedAt: string | null;
+  closedBy: string | null;
   generatedAt?: Date;
+  /** A report made on the spot from the current figures. It is marked "Draft, Month Not Closed" until the month is closed. */
+  draft?: boolean;
+  /** Test (sandbox) data: a "TEST DATA" watermark is drawn across every page and the label is printed on the cover and footer. */
+  testData?: boolean;
+  /** For a year report: the year, and the wording used instead of "month". */
+  period?: { kind: "month" | "year"; label: string };
+  /** The wording of the draft marking (default "Draft, Month Not Closed"). */
+  draftLabel?: string;
 }
 
 const usd = (cents: number): string => {
@@ -34,7 +42,11 @@ const M = 40;
 export async function buildMonthlyReportPdf(input: ReportInput): Promise<Uint8Array> {
   const { doc, fonts } = await newDoc();
   const f = input.snapshot.figures;
-  const label = monthLabel(input.monthKey);
+  const isYear = input.period?.kind === "year";
+  const label = input.period?.label ?? monthLabel(input.monthKey);
+  const draft = !!input.draft;
+  const draftLabel = input.draftLabel ?? "Draft, Month Not Closed";
+  const testData = input.testData ?? !!input.snapshot.testData;
   const corrected = input.version > 1;
   const generated = (input.generatedAt ?? new Date()).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "Africa/Nairobi" });
   const contentW = A4.w - M * 2;
@@ -44,7 +56,7 @@ export async function buildMonthlyReportPdf(input: ReportInput): Promise<Uint8Ar
 
   const footer = (p: PDFPage, n: number) => {
     p.drawLine({ start: { x: M, y: 34 }, end: { x: A4.w - M, y: 34 }, thickness: 0.5, color: RULE });
-    p.drawText(safe(`The Good Child Bookstore LTD  |  ${label} accounting report${corrected ? " (CORRECTED)" : ""}  |  Generated ${generated}`), { x: M, y: 22, size: 7, font: fonts.regular, color: SOFT });
+    p.drawText(safe(`The Good Child Bookstore LTD  |  ${label} accounting report${corrected ? " (CORRECTED)" : ""}${draft ? `  |  ${draftLabel.toUpperCase()}` : ""}${testData ? "  |  TEST DATA" : ""}  |  Generated ${generated}`), { x: M, y: 22, size: 7, font: fonts.regular, color: SOFT });
     const t = `Page ${n}`;
     p.drawText(t, { x: A4.w - M - fonts.regular.widthOfTextAtSize(t, 7), y: 22, size: 7, font: fonts.regular, color: SOFT });
   };
@@ -52,7 +64,7 @@ export async function buildMonthlyReportPdf(input: ReportInput): Promise<Uint8Ar
     page = doc.addPage([A4.w, A4.h]);
     pages.push(page);
     page.drawRectangle({ x: 0, y: A4.h - 34, width: A4.w, height: 34, color: PLUM });
-    page.drawText(safe(`${label} accounting report${corrected ? " - CORRECTED" : ""}`), { x: M, y: A4.h - 22, size: 10, font: fonts.bold, color: WHITE });
+    page.drawText(safe(`${label} accounting report${corrected ? " - CORRECTED" : ""}${draft ? ` - ${draftLabel.toUpperCase()}` : ""}${testData ? " - TEST DATA" : ""}`), { x: M, y: A4.h - 22, size: 10, font: fonts.bold, color: WHITE });
     return A4.h - 56;
   };
   const text = (s: string, x: number, y: number, o: { size?: number; bold?: boolean; color?: typeof INK; right?: boolean } = {}) => {
@@ -72,15 +84,30 @@ export async function buildMonthlyReportPdf(input: ReportInput): Promise<Uint8Ar
   // ---------- Page 1: cover ----------
   page.drawRectangle({ x: 0, y: A4.h - 110, width: A4.w, height: 110, color: PLUM });
   text("The Good Child Bookstore LTD", M, A4.h - 42, { size: 11, bold: true, color: WHITE });
-  text("Monthly Accounting Report", M, A4.h - 72, { size: 24, bold: true, color: WHITE });
+  text(isYear ? "Annual Accounting Report" : "Monthly Accounting Report", M, A4.h - 72, { size: 24, bold: true, color: WHITE });
   text(label, M, A4.h - 94, { size: 14, color: WHITE });
   if (corrected) {
     page.drawRectangle({ x: A4.w - M - 120, y: A4.h - 80, width: 120, height: 24, color: WHITE });
     text("CORRECTED REPORT", A4.w - M - 60 - fonts.bold.widthOfTextAtSize("CORRECTED REPORT", 10) / 2, A4.h - 72, { size: 10, bold: true, color: PLUM });
   }
   let y = A4.h - 134;
-  text(`Month closed ${new Date(input.closedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "Africa/Nairobi" })} by ${input.closedBy}. Report version ${input.version}. All amounts in US dollars.`, M, y, { size: 8.5, color: SOFT });
-  y -= 12;
+  if (testData) {
+    page.drawRectangle({ x: A4.w - M - 120, y: A4.h - 44, width: 120, height: 24, color: WHITE });
+    text("TEST DATA", A4.w - M - 60 - fonts.bold.widthOfTextAtSize("TEST DATA", 12) / 2, A4.h - 36, { size: 12, bold: true, color: rgb(0.78, 0.12, 0.12) });
+  }
+  if (draft) {
+    page.drawRectangle({ x: M, y: y - 8, width: contentW, height: 24, color: rgb(1, 0.95, 0.8), borderColor: rgb(0.8, 0.55, 0.05), borderWidth: 1 });
+    text(`${draftLabel.toUpperCase()}. Made on ${generated} from the current figures; they can still change.`, M + 8, y, { size: 9.5, bold: true, color: rgb(0.45, 0.28, 0) });
+    y -= 26;
+  } else if (input.closedAt) {
+    text(`${isYear ? "Closed months locked" : "Month closed"} ${new Date(input.closedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "Africa/Nairobi" })} by ${input.closedBy ?? "Admin"}. Report version ${input.version}. All amounts in US dollars.`, M, y, { size: 8.5, color: SOFT });
+    y -= 12;
+  }
+  if (draft) { text("All amounts in US dollars.", M, y, { size: 8.5, color: SOFT }); y -= 12; }
+  if (testData) {
+    text("TEST DATA: Paystack and PayPal are in test (sandbox) mode, so these figures are not real money.", M, y, { size: 8.5, bold: true, color: rgb(0.78, 0.12, 0.12) });
+    y -= 12;
+  }
   if (input.snapshot.testOrders > 0) {
     text(input.snapshot.includeTest
       ? `Note: these figures include ${input.snapshot.testOrders} order(s) paid with test (sandbox) money, so they are test data and not real money.`
@@ -258,6 +285,17 @@ export async function buildMonthlyReportPdf(input: ReportInput): Promise<Uint8Ar
     ],
     bottom: 56, boldLast: true,
   });
-  pages.forEach((p, i) => footer(p, i + 1));
+  pages.forEach((p, i) => {
+    footer(p, i + 1);
+    if (testData) {
+      // A big diagonal watermark, drawn last so it sits over everything but stays light enough to read through.
+      const word = "TEST DATA";
+      const size = 96;
+      const w = fonts.bold.widthOfTextAtSize(word, size);
+      const ang = 45;
+      const r = (ang * Math.PI) / 180;
+      p.drawText(word, { x: A4.w / 2 - (w / 2) * Math.cos(r) + (size * 0.35) * Math.sin(r), y: A4.h / 2 - (w / 2) * Math.sin(r) - (size * 0.35) * Math.cos(r), size, font: fonts.bold, color: rgb(0.78, 0.12, 0.12), opacity: 0.16, rotate: degrees(ang) });
+    }
+  });
   return doc.save();
 }

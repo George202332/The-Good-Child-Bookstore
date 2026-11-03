@@ -57,15 +57,26 @@ export async function sendMonthlyReport(monthKey: string, actor: { id: string; n
   if (!row || row.status !== "CLOSED" || !isSnapshot(row.snapshot)) return { sent: 0, note: "The month is not closed, so no report was sent." };
   const snap: MonthSnapshot = row.snapshot;
   const investors = await prisma.user.findMany({ where: { role: "INVESTOR", suspended: false }, select: { email: true, name: true } });
-  if (investors.length === 0) {
-    await log(monthKey, actor, "REPORT_NOT_SENT", "No investor accounts exist yet, so the report was not emailed to anyone.");
-    return { sent: 0, note: "There are no investor accounts yet, so the report was not emailed to anyone. Add an investor in User Profiles, then press Re-send report." };
-  }
   const corrected = row.reportVersion > 1;
   const label = monthLabel(monthKey);
-  const pdf = await buildMonthlyReportPdf({ monthKey, snapshot: snap, version: row.reportVersion, closedAt: (row.closedAt ?? new Date()).toISOString(), closedBy: row.closedByName ?? "Admin" });
+  const testData = snap.testData ?? (snap.includeTest && snap.testOrders > 0);
+  const pdf = await buildMonthlyReportPdf({ monthKey, snapshot: snap, version: row.reportVersion, closedAt: (row.closedAt ?? new Date()).toISOString(), closedBy: row.closedByName ?? "Admin", testData });
+  const fileName = `gcb-accounting-${monthKey}${corrected ? "-corrected" : ""}${testData ? "-test-data" : ""}.pdf`;
+  /** Every report that is made is kept in the Reports list on the Accounting tab, so it can be downloaded again later. */
+  const keepCopy = async (sentTo: number) => {
+    try {
+      await prisma.accountingReport.create({ data: { monthKey, version: row.reportVersion, kind: mode === "close" ? "CLOSE" : "RESEND", sentTo, testData, fileName, data: new Uint8Array(pdf) } });
+    } catch (e) {
+      console.error("[accounting] could not save the report copy:", e instanceof Error ? e.message : e);
+    }
+  };
+  if (investors.length === 0) {
+    await keepCopy(0);
+    await log(monthKey, actor, "REPORT_NOT_SENT", "No investor accounts exist yet, so the report was not emailed to anyone (a copy was saved in Reports).");
+    return { sent: 0, note: "There are no investor accounts yet, so the report was not emailed to anyone. A copy is saved in the Reports list. Add an investor in User Profiles, then press Re-send report." };
+  }
   const f = snap.figures;
-  const subject = `${corrected ? "[CORRECTED] " : ""}The Good Child Bookstore: ${label} accounting report`;
+  const subject = `${testData ? "[TEST DATA] " : ""}${corrected ? "[CORRECTED] " : ""}The Good Child Bookstore: ${label} accounting report`;
   const lastChange = corrected
     ? await prisma.accountingChangeLog.findFirst({ where: { monthKey, action: "RECLOSED" }, orderBy: { createdAt: "desc" } })
     : null;
@@ -79,16 +90,18 @@ export async function sendMonthlyReport(monthKey: string, actor: { id: string; n
       <tr><td>Retained after tax</td><td align="right"><strong>${usd(dollars(f.retained))}</strong></td></tr>
     </table>
     ${changes.length ? `<p>What changed from the earlier report:</p><ul>${changes.map((c) => `<li>${escapeHtml(c.name)}: ${usd(c.before)} to ${usd(c.after)}</li>`).join("")}</ul>` : ""}
+    ${testData ? `<p><strong>TEST DATA:</strong> these figures come from test (sandbox) payments, not real money.</p>` : ""}
     ${snap.testOrders > 0 ? `<p><em>These figures include ${snap.testOrders} order(s) paid with test (sandbox) money.</em></p>` : ""}
     <p>The full report, with charts, the breakdown of all money received and the payouts summary, is attached as a PDF.</p>`;
   let sent = 0;
   let failed = 0;
   let firstError = "";
   for (const inv of investors) {
-    const res = await sendEmail(inv.email, subject, html, { filename: `gcb-accounting-${monthKey}${corrected ? "-corrected" : ""}.pdf`, content: pdf });
+    const res = await sendEmail(inv.email, subject, html, { filename: fileName, content: pdf });
     if (res.ok) sent++;
     else { failed++; firstError ||= res.error ?? "Email failed."; }
   }
+  await keepCopy(sent);
   await prisma.accountingMonth.update({ where: { monthKey }, data: { lastReportSentAt: sent > 0 ? new Date() : row.lastReportSentAt, lastReportRecipients: sent } });
   await log(monthKey, actor, mode === "close" ? "REPORT_SENT" : "REPORT_RESENT", `${corrected ? "Corrected report" : "Report"} emailed to ${sent} investor${sent === 1 ? "" : "s"}${failed ? ` (${failed} failed)` : ""}.`, { sent, failed });
   return { sent, note: failed ? `${failed} email(s) could not be sent: ${firstError}` : undefined };

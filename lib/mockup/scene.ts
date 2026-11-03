@@ -27,6 +27,8 @@ export interface Placement {
   z: number;
   /** Height of the underside above the floor (a book lying on another book). */
   lift?: number;
+  /** Drawing order, lowest first. When given it decides which book is in front, instead of the guess from the depth of its centre. */
+  order?: number;
 }
 
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -100,6 +102,8 @@ function toScreen(p: V3): { x: number; y: number; z: number } {
   return { x: c[0], y: -c[1], z: c[2] };
 }
 
+const byDrawingOrder = (a: Prepared, b: Prepared) => (a.placement.order ?? 0) - (b.placement.order ?? 0) || a.centerDepth - b.centerDepth;
+
 function hull(points: { x: number; y: number }[]): { x: number; y: number }[] {
   const pts = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
   if (pts.length < 3) return pts;
@@ -113,7 +117,7 @@ function hull(points: { x: number; y: number }[]): { x: number; y: number }[] {
 
 const f2 = (n: number) => (Math.round(n * 100) / 100).toString();
 
-export interface SceneOptions { width: number; height: number; margin?: number; defs?: string; /** A pre-blurred shadow picture (data address) from shadowLayerSvg, instead of drawing the shadows here. */ shadowLayer?: string }
+export interface SceneOptions { width: number; height: number; margin?: number; defs?: string; /** Paint a pale studio backdrop (default). False leaves the picture transparent so it sits on the page's own background. */ backdrop?: boolean; /** A pre-blurred shadow picture (data address) from shadowLayerSvg, instead of drawing the shadows here. */ shadowLayer?: string }
 
 /** Which faces of each book can be seen, for tests: by face key. */
 export function visibleFaceKeys(p: Placement): (keyof TextureSet)[] {
@@ -153,7 +157,7 @@ const pts = (a: { x: number; y: number }[], k = 1) => a.map((p) => `${f2(p.x / k
  * shadow does not need the detail, so this is blurred small and then stretched under the finished scene.
  */
 export function shadowLayerSvg(placements: Placement[], opts: SceneOptions, k = 4): string {
-  const items = placements.map(prepare).sort((a, b) => a.centerDepth - b.centerDepth);
+  const items = placements.map(prepare).sort(byDrawingOrder);
   const px = makeFit(items, opts);
   const w = Math.round(opts.width / k), h = Math.round(opts.height / k);
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs>
@@ -167,7 +171,7 @@ export function shadowLayerSvg(placements: Placement[], opts: SceneOptions, k = 
 }
 
 export function composeScene(placements: Placement[], opts: SceneOptions): string {
-  const items = placements.map(prepare).sort((a, b) => a.centerDepth - b.centerDepth);
+  const items = placements.map(prepare).sort(byDrawingOrder);
   const px = makeFit(items, opts);
 
   const out: string[] = [];
@@ -178,7 +182,7 @@ export function composeScene(placements: Placement[], opts: SceneOptions): strin
 <filter id="contactShadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${f2(opts.width * 0.0035)}"/></filter>
 ${opts.defs ?? ""}
 </defs>`);
-  out.push(`<rect width="${opts.width}" height="${opts.height}" fill="url(#bg)"/>`);
+  if (opts.backdrop) out.push(`<rect width="${opts.width}" height="${opts.height}" fill="url(#bg)"/>`);
 
   // Shadows first, so every book sits on top of all of them: the small pre-blurred layer when given, otherwise drawn here.
   if (opts.shadowLayer) {
@@ -208,12 +212,19 @@ ${opts.defs ?? ""}
   return out.join("\n");
 }
 
-/** The standard scene: one copy standing with its front cover facing the viewer (turned just enough to show its thickness and spine), two lying flat in front. */
-export function standardScene(standing: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift">, flat: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift">): Placement[] {
-  const w = standing.dims.w, t = standing.dims.t;
-  return [
-    { ...standing, lying: false, yaw: 24, x: w * 0.08, z: -w * 0.1 },
-    { ...flat, lying: true, yaw: 7, x: -w * 0.34, z: w * 0.74 + t },
-    { ...flat, lying: true, yaw: -5, x: w * 0.3, z: w * 0.7, lift: flat.dims.t },
+/**
+ * The standard scene: three copies lying flat in a loose pile (front cover up, their page edges showing), and one copy standing
+ * on top of the pile, turned a little so its front cover, its spine and the top of its pages can all be seen.
+ */
+export function standardScene(standing: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift" | "order">, flat: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift" | "order">): Placement[] {
+  const w = standing.dims.w, h = flat.dims.h, ft = flat.dims.t;
+  const pile = [
+    { yaw: 5, x: 0, z: 0 },
+    { yaw: -3, x: w * 0.025, z: -h * 0.012 },
+    { yaw: 4, x: -w * 0.02, z: h * 0.01 },
   ];
+  const out: Placement[] = pile.map((p, i) => ({ ...flat, lying: true, yaw: p.yaw, x: p.x, z: p.z, lift: ft * i, order: i }));
+  // The standing copy rests on the top of the pile, towards the back so the artwork of the top copy shows in front of it.
+  out.push({ ...standing, lying: false, yaw: 24, x: 0, z: -h * 0.17, lift: ft * 3, order: 3 });
+  return out;
 }

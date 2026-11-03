@@ -36,7 +36,7 @@ test("print check: a new interior file or a new cover needs a new check", () => 
 });
 
 import { planSpineText, SPINE_TEXT_MIN_IN } from "../lib/spine-text";
-import { standardScene } from "../lib/mockup/scene";
+import { standardScene, visibleFaceKeys } from "../lib/mockup/scene";
 import { generatedWrapCrops } from "../lib/mockup/wrap";
 import sharp from "sharp";
 
@@ -62,15 +62,18 @@ test("spine writing: a long title is shortened to fit, never overflows", () => {
   for (const l of plan!.lines) assert.ok(l.start + width(l.text, l.size) <= 300);
 });
 
-test("mockup scene: one standing copy and two lying flat, no second standing copy", () => {
+test("mockup scene: one standing copy resting on a pile of three flat copies", () => {
   const dims = { w: 5.5, h: 8.5, t: 0.4 };
   const tex = { w: 10, h: 10, svg: "" };
   const t = { front: tex, back: tex, spine: tex, foreEdge: tex, top: tex, bottom: tex };
   const placements = standardScene({ dims, tex: t }, { dims, tex: t });
-  assert.equal(placements.length, 3);
-  assert.equal(placements.filter((p) => p.lying).length, 2);
-  assert.equal(placements.filter((p) => !p.lying).length, 1);
-  assert.ok(Math.abs(placements.find((p) => !p.lying)!.yaw) < 45, "the standing copy faces the viewer");
+  assert.equal(placements.length, 4);
+  assert.equal(placements.filter((p) => p.lying).length, 3);
+  const standing = placements.filter((p) => !p.lying);
+  assert.equal(standing.length, 1);
+  assert.ok(Math.abs(standing[0].yaw) < 45, "the standing copy faces the viewer");
+  assert.ok(Math.abs((standing[0].lift ?? 0) - 3 * dims.t) < 1e-9, "it rests on top of the pile");
+  assert.ok(visibleFaceKeys(standing[0]).includes("spine") && visibleFaceKeys(standing[0]).includes("front") && visibleFaceKeys(standing[0]).includes("top"));
 });
 
 test("generated wrap: front is the trim shape and the spine carries the shared writing", async () => {
