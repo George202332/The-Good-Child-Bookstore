@@ -73,6 +73,7 @@ test("mockup scene: one standing copy resting on a pile of three flat copies", (
   assert.equal(standing.length, 1);
   assert.ok(Math.abs(standing[0].yaw) < 45, "the standing copy faces the viewer");
   assert.ok(Math.abs((standing[0].lift ?? 0) - 3 * dims.t) < 1e-9, "it rests on top of the pile");
+  assert.ok((standing[0].tilt ?? 0) > 5, "it leans back");
   assert.ok(visibleFaceKeys(standing[0]).includes("spine") && visibleFaceKeys(standing[0]).includes("front") && visibleFaceKeys(standing[0]).includes("top"));
 });
 

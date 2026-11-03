@@ -29,6 +29,8 @@ export interface Placement {
   lift?: number;
   /** Drawing order, lowest first. When given it decides which book is in front, instead of the guess from the depth of its centre. */
   order?: number;
+  /** An upright book leaning back (top away from the viewer), in degrees. */
+  tilt?: number;
 }
 
 const rad = (d: number) => (d * Math.PI) / 180;
@@ -61,7 +63,7 @@ export function bookFaces(d: BookDims): FaceDef[] {
   ];
 }
 
-const CAMERA_PITCH = 20;
+const CAMERA_PITCH = 28;
 const LIGHT: V3 = norm([-0.45, 0.85, 0.55]);
 
 interface Prepared {
@@ -72,10 +74,10 @@ interface Prepared {
   centerDepth: number;
 }
 
-function prepare(p: Placement): Prepared {
+function prepare(p: Placement, mirror = false): Prepared {
   const { w: W, h: H, t: T } = p.dims;
   const lift = p.lift ?? 0;
-  const world = (q: V3): V3 => {
+  const flat = (q: V3): V3 => {
     if (p.lying) {
       // Centre the book on its own middle, lay it down (front cover up), turn it, then put it on the floor.
       const c = sub(q, [W / 2, H / 2, 0]);
@@ -84,11 +86,14 @@ function prepare(p: Placement): Prepared {
       return [turned[0] + p.x, turned[1] + T / 2 + lift, turned[2] + p.z];
     }
     const c = sub(q, [W / 2, 0, 0]);
-    const turned = rotY(c, p.yaw);
+    const turned = rotY(rotX(c, -(p.tilt ?? 0)), p.yaw);
     return [turned[0] + p.x, turned[1] + lift, turned[2] + p.z];
   };
+  // A mirrored copy is the reflection in the floor: the same book upside down below it.
+  const world = (q: V3): V3 => { const w = flat(q); return mirror ? [w[0], -w[1], w[2]] : w; };
   // A direction (a face's outward normal) turns with the book but is not moved.
-  const dir = (n: V3): V3 => (p.lying ? rotY(rotX(n, -90), p.yaw) : rotY(n, p.yaw));
+  const dir0 = (n: V3): V3 => (p.lying ? rotY(rotX(n, -90), p.yaw) : rotY(rotX(n, -(p.tilt ?? 0)), p.yaw));
+  const dir = (n: V3): V3 => { const d = dir0(n); return mirror ? [d[0], -d[1], d[2]] : d; };
   const faces = bookFaces(p.dims).map((def) => ({ def, o: world(def.o), u: world(def.u), v: world(def.v), n: dir(def.normal) }));
   const corners: V3[] = [];
   for (const x of [0, W]) for (const y of [0, H]) for (const z of [-T / 2, T / 2]) corners.push(world([x, y, z]));
@@ -117,7 +122,7 @@ function hull(points: { x: number; y: number }[]): { x: number; y: number }[] {
 
 const f2 = (n: number) => (Math.round(n * 100) / 100).toString();
 
-export interface SceneOptions { width: number; height: number; margin?: number; defs?: string; /** Paint a pale studio backdrop (default). False leaves the picture transparent so it sits on the page's own background. */ backdrop?: boolean; /** A pre-blurred shadow picture (data address) from shadowLayerSvg, instead of drawing the shadows here. */ shadowLayer?: string }
+export interface SceneOptions { width: number; height: number; margin?: number; /** Share of the height kept free at the bottom for the reflection (0 to 0.3). */ reserveBottom?: number; /** Draw the soft reflection of the books in the floor. */ reflection?: boolean; defs?: string; /** Paint a pale studio backdrop (default). False leaves the picture transparent so it sits on the page's own background. */ backdrop?: boolean; /** A pre-blurred shadow picture (data address) from shadowLayerSvg, instead of drawing the shadows here. */ shadowLayer?: string }
 
 /** Which faces of each book can be seen, for tests: by face key. */
 export function visibleFaceKeys(p: Placement): (keyof TextureSet)[] {
@@ -129,10 +134,11 @@ function makeFit(items: Prepared[], opts: SceneOptions) {
   const minX = Math.min(...all.map((p) => p.x)), maxX = Math.max(...all.map((p) => p.x));
   const minY = Math.min(...all.map((p) => p.y)), maxY = Math.max(...all.map((p) => p.y));
   const margin = opts.margin ?? 0.1;
-  const availW = opts.width * (1 - 2 * margin), availH = opts.height * (1 - 2 * margin);
+  const usableH = opts.height * (1 - (opts.reserveBottom ?? 0));
+  const availW = opts.width * (1 - 2 * margin), availH = usableH * (1 - 2 * margin);
   const scale = Math.min(availW / (maxX - minX), availH / (maxY - minY));
   const offX = (opts.width - (maxX - minX) * scale) / 2 - minX * scale;
-  const offY = (opts.height - (maxY - minY) * scale) / 2 - minY * scale + opts.height * 0.02;
+  const offY = (usableH - (maxY - minY) * scale) / 2 - minY * scale + usableH * 0.02;
   return (p: V3) => { const s = toScreen(p); return { x: s.x * scale + offX, y: s.y * scale + offY }; };
 }
 
@@ -142,7 +148,7 @@ function shadowShapes(items: Prepared[], px: (p: V3) => { x: number; y: number }
   for (const it of items) {
     const T = it.placement.dims.t;
     const lift = it.placement.lift ?? 0;
-    const cast = hull(it.corners.map((c) => px([c[0] + (c[1] - 0) * 0.55, 0, c[2] - (c[1] - 0) * 0.35])));
+    const cast = hull(it.corners.map((c) => px([c[0] + (c[1] - 0) * 0.32, 0, c[2] - (c[1] - 0) * 0.2])));
     const footPts = it.corners.filter((c) => c[1] <= lift + 0.01 + (it.placement.lying ? T : 0)).map((c) => px([c[0], 0, c[2]]));
     const foot = hull(footPts.length >= 3 ? footPts : cast);
     out.push({ cast, foot });
@@ -157,21 +163,21 @@ const pts = (a: { x: number; y: number }[], k = 1) => a.map((p) => `${f2(p.x / k
  * shadow does not need the detail, so this is blurred small and then stretched under the finished scene.
  */
 export function shadowLayerSvg(placements: Placement[], opts: SceneOptions, k = 4): string {
-  const items = placements.map(prepare).sort(byDrawingOrder);
+  const items = placements.map((p) => prepare(p)).sort(byDrawingOrder);
   const px = makeFit(items, opts);
   const w = Math.round(opts.width / k), h = Math.round(opts.height / k);
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs>
 <filter id="s1" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${f2((opts.width * 0.011) / k)}"/></filter>
 <filter id="s2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${f2((opts.width * 0.0035) / k)}"/></filter></defs>`;
   for (const sh of shadowShapes(items, px)) {
-    if (sh.cast.length >= 3) svg += `<polygon points="${pts(sh.cast, k)}" fill="#1b1b28" opacity="0.2" filter="url(#s1)"/>`;
+    if (sh.cast.length >= 3) svg += `<polygon points="${pts(sh.cast, k)}" fill="#1b1b28" opacity="0.15" filter="url(#s1)"/>`;
     if (sh.foot.length >= 3) svg += `<polygon points="${pts(sh.foot, k)}" fill="#000" opacity="0.38" filter="url(#s2)"/>`;
   }
   return `${svg}</svg>`;
 }
 
 export function composeScene(placements: Placement[], opts: SceneOptions): string {
-  const items = placements.map(prepare).sort(byDrawingOrder);
+  const items = placements.map((p) => prepare(p)).sort(byDrawingOrder);
   const px = makeFit(items, opts);
 
   const out: string[] = [];
@@ -194,7 +200,7 @@ ${opts.defs ?? ""}
     }
   }
 
-  for (const it of items) {
+  const drawItem = (it: Prepared) => {
     const visible = it.faces
       .map((f) => ({ f, camN: rotX(f.n, CAMERA_PITCH) }))
       .filter((x) => x.camN[2] > 0.001);
@@ -207,24 +213,54 @@ ${opts.defs ?? ""}
       const dark = Math.min(0.3, Math.max(0, 0.3 - 0.38 * light));
       out.push(`<g transform="matrix(${m.join(" ")})"><svg x="0" y="0" width="${tex.w}" height="${tex.h}" viewBox="0 0 ${tex.w} ${tex.h}" overflow="hidden">${tex.svg}<rect width="${tex.w}" height="${tex.h}" fill="#0a0a1e" opacity="${f2(dark)}"/></svg></g>`);
     }
+  };
+
+  if (opts.reflection) {
+    // The reflection: every book again, upside down in the floor, fading out with distance.
+    const mirrored = placements.map((p) => prepare(p, true)).sort(byDrawingOrder).reverse();
+    const floorY = Math.max(...items.flatMap((it) => it.corners.filter((c) => c[1] <= (it.placement.lift ?? 0) + 0.01 + (it.placement.lying ? it.placement.dims.t : 0)).map((c) => px([c[0], 0, c[2]]).y)));
+    const fade = opts.height * (opts.reserveBottom ?? 0.12) * 1.1;
+    out.push(`<defs><linearGradient id="reflFade" gradientUnits="userSpaceOnUse" x1="0" y1="${f2(floorY)}" x2="0" y2="${f2(floorY + fade)}"><stop offset="0" stop-color="#fff" stop-opacity="0.34"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="reflMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${opts.width}" height="${opts.height}"><rect x="0" y="${f2(floorY - fade * 0.2)}" width="${opts.width}" height="${f2(fade * 1.4)}" fill="url(#reflFade)"/></mask></defs>`);
+    out.push('<g mask="url(#reflMask)">');
+    for (const it of mirrored) drawItem(it);
+    out.push("</g>");
   }
+  for (const it of items) drawItem(it);
   out.push("</svg>");
   return out.join("\n");
 }
 
+/** The numbers behind the standard scene (angles in degrees, offsets in book widths/heights). Exported so they can be tuned in one place. */
+export const SCENE_LAYOUT = {
+  /** Turn of the standing copy (spine to the left, front towards the right). */
+  standYaw: 27,
+  /** Lean of the standing copy: its top tips away from the viewer. */
+  standTilt: 10,
+  /** Turn of the pile of flat copies, and the small extra turn of each copy up the pile. */
+  stackYaw: -128,
+  stackJitter: [0, -3, 4],
+  /** Each copy up the pile is shifted this far (in inches) towards the front-left of the one below it. */
+  stepX: -0.35,
+  stepZ: 0.3,
+  /** Where the standing copy rests on the top copy, in book heights from the pile's centre (negative = towards the back/left). */
+  standX: -0.2,
+  standZ: -0.03,
+};
+
 /**
- * The standard scene: three copies lying flat in a loose pile (front cover up, their page edges showing), and one copy standing
- * on top of the pile, turned a little so its front cover, its spine and the top of its pages can all be seen.
+ * The standard scene: three copies lying flat in a loose pile (covers up, page edges showing), each nudged towards the front-left of
+ * the one below it and turned a few degrees, and one copy standing on top of the pile, leaning back, turned so its front cover, its
+ * spine and the top of its pages can all be seen.
  */
 export function standardScene(standing: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift" | "order">, flat: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift" | "order">): Placement[] {
+  const L = SCENE_LAYOUT;
   const w = standing.dims.w, h = flat.dims.h, ft = flat.dims.t;
-  const pile = [
-    { yaw: 5, x: 0, z: 0 },
-    { yaw: -3, x: w * 0.025, z: -h * 0.012 },
-    { yaw: 4, x: -w * 0.02, z: h * 0.01 },
-  ];
-  const out: Placement[] = pile.map((p, i) => ({ ...flat, lying: true, yaw: p.yaw, x: p.x, z: p.z, lift: ft * i, order: i }));
-  // The standing copy rests on the top of the pile, towards the back so the artwork of the top copy shows in front of it.
-  out.push({ ...standing, lying: false, yaw: 24, x: 0, z: -h * 0.17, lift: ft * 3, order: 3 });
+  // The offsets are given in the pile's own directions, then turned with the pile.
+  const out: Placement[] = [0, 1, 2].map((i) => {
+    const local: V3 = [L.stepX * (2 - i), 0, L.stepZ * (2 - i)];
+    const turned = rotY(local, 0);
+    return { ...flat, lying: true, yaw: L.stackYaw + L.stackJitter[i], x: turned[0], z: turned[2], lift: ft * i, order: i };
+  });
+  out.push({ ...standing, lying: false, yaw: L.standYaw, tilt: L.standTilt, x: w * L.standX, z: h * L.standZ, lift: ft * 3, order: 3 });
   return out;
 }

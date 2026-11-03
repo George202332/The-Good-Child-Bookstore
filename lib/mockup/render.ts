@@ -265,7 +265,7 @@ export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | n
   const built = await buildTextures(spec, dims, front, avg, bold, regular, wrap);
   const base = { dims, tex: built.tex };
   const placements = standardScene(base, base);
-  const sceneOpts = { width: OUT_W, height: OUT_H, margin: 0.04, backdrop: opts.backdrop === true };
+  const sceneOpts = { width: OUT_W, height: OUT_H, margin: 0.025, backdrop: opts.backdrop === true, reflection: true, reserveBottom: 0.12 };
   const shadowPng = await sharp(Buffer.from(shadowLayerSvg(placements, sceneOpts, 4)), { density: 72 }).png().toBuffer();
   const svg = composeScene(placements, { ...sceneOpts, defs: built.defs.join("\n"), shadowLayer: `data:image/png;base64,${shadowPng.toString("base64")}` });
   return sharp(Buffer.from(svg), { density: 72 }).png().toBuffer();
