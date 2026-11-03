@@ -5,11 +5,11 @@ import { buildInvestorOverviewCsv } from "@/lib/csv/investor-overview";
 
 /** Downloads the Investor overview's growth + retention tables as a
  * CSV (Amendment 12's "simple export option") — gated the same way
- * every page under app/investor/** is: INVESTOR or ADMIN only. */
+ * every page under app/investor/** is. Investors no longer see the overview, so this is Admin only. */
 export async function GET() {
   const session = await authAdmin();
   const role = session?.user?.role;
-  if (!session?.user || (role !== "INVESTOR" && role !== "ADMIN")) {
+  if (!session?.user || role !== "ADMIN") {
     return NextResponse.json({ error: "Not authorized." }, { status: 403 });
   }
 

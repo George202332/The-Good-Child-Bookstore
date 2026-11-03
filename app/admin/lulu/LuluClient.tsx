@@ -27,7 +27,7 @@ function Line({ label, value, bold }: { label: string; value: string; bold?: boo
   );
 }
 
-export function LuluClient({ report, range, from, to }: { report: LuluReport; range: string; from: string; to: string }) {
+export function LuluClient({ report, range, from, to, readOnly = false, basePath = "/admin/lulu" }: { report: LuluReport; range: string; from: string; to: string; readOnly?: boolean; basePath?: string }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [customFrom, setCustomFrom] = useState(from);
@@ -40,7 +40,7 @@ export function LuluClient({ report, range, from, to }: { report: LuluReport; ra
   const go = (r: string, f = "", tt = "") => {
     const q = new URLSearchParams({ range: r });
     if (r === "custom") { q.set("from", f); q.set("to", tt); }
-    router.push(`/admin/lulu?${q.toString()}`);
+    router.push(`${basePath}?${q.toString()}`);
   };
 
   const refresh = () =>
@@ -72,8 +72,8 @@ export function LuluClient({ report, range, from, to }: { report: LuluReport; ra
         <label style={{ fontSize: 12 }}>To<br /><input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} /></label>
         <button type="button" className="btn btn-ghost btn-small" disabled={!customFrom || !customTo} onClick={() => go("custom", customFrom, customTo)}>Apply</button>
         <span style={{ flex: 1 }} />
-        <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={connect} title="Asks Lulu to tell this site the moment a print job changes, so rejections reach authors straight away">Connect Lulu Notifications</button>
-        <button type="button" className="btn btn-primary btn-small" disabled={pending} onClick={refresh}>{pending ? "Checking…" : "Refresh from Lulu"}</button>
+        {!readOnly && <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={connect} title="Asks Lulu to tell this site the moment a print job changes, so rejections reach authors straight away">Connect Lulu Notifications</button>}
+        {!readOnly && <button type="button" className="btn btn-primary btn-small" disabled={pending} onClick={refresh}>{pending ? "Checking…" : "Refresh from Lulu"}</button>}
       </div>
       <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>
         Showing {report.rangeLabel}: {t.orders} printed order(s). {report.lastSyncedAt ? `Lulu last checked ${new Date(report.lastSyncedAt).toLocaleString()}.` : "Lulu has not been checked yet, so amounts below are the prices quoted when each order was placed."}

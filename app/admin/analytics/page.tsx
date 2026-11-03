@@ -14,7 +14,7 @@ export default async function AnalyticsPage() {
   const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
-  if (role === "INVESTOR") redirect("/investor/sales-analytics");
+  if (role === "INVESTOR") redirect("/investor/accounting");
   if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");
 
   const data = await getAnalyticsSummary();

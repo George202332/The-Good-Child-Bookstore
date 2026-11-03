@@ -18,7 +18,7 @@ export default async function AdminDashboardPage() {
   // Investor (Amendment 12) has its own dashboard at /investor, never
   // this shared admin one — bounce it there instead of /account (which
   // would just dead-end, since this role has no reader/author profile).
-  if (role === "INVESTOR") redirect("/investor");
+  if (role === "INVESTOR") redirect("/investor/accounting");
   if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");
 
   const data = await loadDashboardData(role);

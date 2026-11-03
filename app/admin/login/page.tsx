@@ -38,7 +38,7 @@ export default function AdminLoginPage() {
     }
     // Investor (Amendment 12) lands on its own read-only area, never
     // the shared admin backend — every other backend role is unchanged.
-    window.location.href = result.role === "INVESTOR" ? "/investor" : "/admin";
+    window.location.href = result.role === "INVESTOR" ? "/investor/accounting" : "/admin";
   }
 
   return (

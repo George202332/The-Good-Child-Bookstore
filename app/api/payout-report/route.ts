@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const requestedUserId = req.nextUrl.searchParams.get("userId");
   if (requestedUserId && requestedUserId !== session.user.id) {
     const role = adminSession?.user?.role;
-    if (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "INVESTOR") {
+    if (role !== "ADMIN" && role !== "ACCOUNTANT") {
       return NextResponse.json({ error: "Not authorized to view another account's payout report." }, { status: 403 });
     }
     targetUserId = requestedUserId;

@@ -40,7 +40,7 @@ export interface AnalyticsSummary {
 async function requireBackendAccess() {
   const session = await auth();
   const role = session?.user?.role;
-  if (!role || !BACKEND_ROLES.includes(role)) throw new Error("Not authorized.");
+  if (!role || !BACKEND_ROLES.includes(role) || role === "INVESTOR") throw new Error("Not authorized.");
   return role;
 }
 

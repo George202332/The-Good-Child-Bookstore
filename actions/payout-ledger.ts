@@ -64,8 +64,8 @@ async function referralAndCommissionFor(userId: string, monthKey: string): Promi
 async function requireAdminOrAccountant() {
   const session = await authAdmin();
   const role = session?.user?.role as Role | undefined;
-  if (!session?.user || (role !== "ADMIN" && role !== "ACCOUNTANT" && role !== "INVESTOR")) {
-    throw new Error("Only Admin, Accountant, or Investor can view the payout ledger.");
+  if (!session?.user || (role !== "ADMIN" && role !== "ACCOUNTANT")) {
+    throw new Error("Only Admin or Accountant can view the payout ledger.");
   }
   return role!;
 }

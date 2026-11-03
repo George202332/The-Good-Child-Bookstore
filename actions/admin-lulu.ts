@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
+import { accountingViewer } from "@/lib/accounting/guard";
 import { fetchLuluPrintJob, registerLuluWebhookUrl } from "@/lib/payments/lulu";
 import { applyLuluJob } from "@/lib/lulu-sync";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
@@ -10,7 +11,7 @@ import {
   BUCKET_LABEL, type LuluOrderInput, type LuluTotals, type LuluPerformance, type StatusBucket,
 } from "@/lib/lulu-report";
 
-/** Everything on Admin > Lulu. Admin only: every function here checks the role on the server. */
+/** Everything on Admin > Lulu. Reading the report is open to Admin and Investor (view only); everything that changes or contacts Lulu is Admin only. Every function checks the role on the server. */
 
 export interface LuluOrderRow {
   orderId: string;
@@ -63,7 +64,8 @@ async function isAdmin(): Promise<boolean> {
 }
 
 export async function getLuluReport(preset?: string, from?: string, to?: string): Promise<LuluReport | null> {
-  if (!(await isAdmin())) return null;
+  // Reading is open to Admin and Investor (read-only); refreshing from Lulu and connecting notifications below stay Admin only.
+  if (!(await accountingViewer())) return null;
   const range = resolveRange(preset, from, to);
 
   const orders = await prisma.order.findMany({

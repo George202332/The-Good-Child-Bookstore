@@ -120,7 +120,7 @@ export async function uploadImage(
 export async function deleteUploadedImage(imageId: string): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   const role = session?.user?.role;
-  if (!role || !BACKEND_ROLES.includes(role)) return { ok: false, error: "Not authorized." };
+  if (!role || !BACKEND_ROLES.includes(role) || role === "INVESTOR") return { ok: false, error: "Not authorized." };
   await prisma.uploadedImage.delete({ where: { id: imageId } });
   return { ok: true };
 }

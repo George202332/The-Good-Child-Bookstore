@@ -47,6 +47,7 @@ function navItemsForRole(role: Role) {
       { key: "users", label: "User Profiles", href: "/admin/users" },
       { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },
       { key: "transactions", label: "Transactions", href: "/admin/transactions" },
+      { key: "accounting", label: "Accounting", href: "/admin/accounting" },
       { key: "lulu", label: "Lulu Publishing", href: "/admin/lulu" },
       { key: "messages", label: "Messages", href: "/admin/messages" },
       { key: "settings", label: "Settings", href: "/admin/settings" },

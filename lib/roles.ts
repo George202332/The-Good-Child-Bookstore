@@ -78,11 +78,8 @@ export const PERMISSIONS: Record<Role, string[]> = {
     "payouts:view",
   ],
   INVESTOR: [
-    "finance:view",
-    "analytics:view",
-    "transactions:view",
-    "payouts:view",
-    "growthMetrics:view",
+    "accounting:view",
+    "lulu:view",
     "reports:download",
   ],
   AUTHOR: [
@@ -118,7 +115,9 @@ export function hasPermission(role: Role, permission: string): boolean {
  * same as Accountant, just confined to its own area (app/investor/**)
  * instead of the shared admin pages. */
 export function canViewFinancials(role: Role): boolean {
-  return role === "ADMIN" || role === "AUTHOR" || role === "ACCOUNTANT" || role === "INVESTOR";
+  // INVESTOR is deliberately NOT here any more: an investor now sees only the Accounting tab and the Lulu Publishing tab
+  // (both read-only, see lib/accounting/guard.ts and actions/admin-lulu.ts), and nothing else in the back end.
+  return role === "ADMIN" || role === "AUTHOR" || role === "ACCOUNTANT";
 }
 
 /** ACCOUNTANT can view the financial admin pages (Transactions, Analytics,

@@ -1206,3 +1206,73 @@ model SaleLineRoyaltyLog {
   @@index([saleLineId])
   @@index([createdAt])
 }
+
+// ---------- Accounting (Admin > Accounting, Investor > Accounting) ----------
+
+/// An expense entered by an admin in Admin > Accounting. The month it counts in is the month of expenseDate.
+/// Names are copied in (no relation to User) so the record of who entered it survives a deleted account.
+model AccountingExpense {
+  id             String    @id @default(cuid())
+  expenseDate    DateTime  @db.Date
+  /// "YYYY-MM" of expenseDate, kept so a month can be read with one indexed lookup.
+  monthKey       String
+  category       String
+  description    String
+  amount         Decimal   @db.Decimal(12, 2)
+  /// The receipt or invoice: the id of an AccountingReceipt row (kept apart from UploadedFile, which can be fetched by anyone
+  /// who has the link). Null when none was attached.
+  receiptFileId  String?
+  receiptName    String?
+  enteredById    String
+  enteredByName  String
+  enteredAt      DateTime  @default(now())
+  updatedById    String?
+  updatedByName  String?
+  updatedAt      DateTime?
+
+  @@index([monthKey])
+}
+
+/// One row per accounting month that has ever been closed or reminded about. A month with no row is Open.
+/// While Closed, "snapshot" holds the locked figures that the page and the PDF report show.
+model AccountingMonth {
+  monthKey            String    @id
+  /// "OPEN" or "CLOSED".
+  status              String    @default("OPEN")
+  closedAt            DateTime?
+  closedByName        String?
+  snapshot            Json?
+  /// 0 = a report has never been sent; goes up by one each time the month is closed again after a reopen.
+  reportVersion       Int       @default(0)
+  lastReportSentAt    DateTime?
+  lastReportRecipients Int?
+  reopenedAt          DateTime?
+  reopenedByName      String?
+  reopenReason        String?
+  /// When the end-of-month "please close this month" reminder was sent to the admins (so it is sent once).
+  reminderSentAt      DateTime?
+  updatedAt           DateTime  @updatedAt
+}
+
+/// The change log: every expense added/edited/deleted, every close, reopen and report send, with who and when.
+model AccountingChangeLog {
+  id         String   @id @default(cuid())
+  monthKey   String
+  action     String
+  actorId    String
+  actorName  String
+  summary    String
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([monthKey, createdAt])
+}
+
+/// A receipt or invoice attached to an expense. Only signed-in Admin and Investor accounts can fetch it (api/accounting/receipt).
+model AccountingReceipt {
+  id           String   @id @default(cuid())
+  data         Bytes
+  mimeType     String
+  originalName String
+  createdAt    DateTime @default(now())
+}

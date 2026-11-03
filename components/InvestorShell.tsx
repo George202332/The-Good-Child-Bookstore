@@ -2,12 +2,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { SignOutButton } from "./SignOutButton";
 
+// An investor sees exactly two tabs, both read-only: Accounting and Lulu Publishing. (The pages that used to be here
+// still exist for an Admin who wants to preview them, but they send an investor straight to Accounting.)
 const NAV_ITEMS = [
-  { key: "dashboard", label: "Dashboard", href: "/investor" },
-  { key: "analytics", label: "Sales Analytics", href: "/investor/sales-analytics" },
-  { key: "payouts", label: "Payout Requests", href: "/investor/payouts" },
-  { key: "transactions", label: "Transactions", href: "/investor/transactions" },
-  { key: "overview", label: "Growth Overview", href: "/investor/overview" },
+  { key: "accounting", label: "Accounting", href: "/investor/accounting" },
+  { key: "lulu", label: "Lulu Publishing", href: "/investor/lulu" },
 ];
 
 /**

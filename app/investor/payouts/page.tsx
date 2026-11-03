@@ -17,7 +17,9 @@ export default async function InvestorPayoutsPage() {
   const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   const role = session.user.role;
-  if (role !== "INVESTOR" && role !== "ADMIN") redirect("/admin");
+  // Investors now see only Accounting and Lulu Publishing; an Admin may still preview this page.
+  if (role === "INVESTOR") redirect("/investor/accounting");
+  if (role !== "ADMIN") redirect("/admin");
 
   const ledger = await getPayoutLedger();
   const ledgerError = "error" in ledger ? ledger.error : null;
