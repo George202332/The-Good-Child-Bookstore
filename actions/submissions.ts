@@ -1078,7 +1078,7 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
     revalidatePath("/admin/books");
     revalidatePath(`/admin/books/${bookId}/review`);
     revalidatePath("/account/books");
-    after(() => ensurePrintMockups(bookId));
+    after(() => ensurePrintMockups(bookId, { retryFailed: true }));
   return { ok: true };
   }
 
@@ -1147,7 +1147,7 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
 
   revalidatePath("/admin/books");
   revalidatePath(`/admin/books/${bookId}/review`);
-  after(() => ensurePrintMockups(bookId));
+  after(() => ensurePrintMockups(bookId, { retryFailed: true }));
   return { ok: true };
 }
 
@@ -1459,7 +1459,7 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
     // (unchanged ones are kept), after the reply.
     if (input.formats.print) {
       const live = await prisma.book.findUnique({ where: { id: bookId }, select: { status: true } });
-      if (live?.status === "PUBLISHED") after(() => ensurePrintMockups(bookId));
+      if (live?.status === "PUBLISHED") after(() => ensurePrintMockups(bookId, { retryFailed: true }));
     }
   }
   return res;

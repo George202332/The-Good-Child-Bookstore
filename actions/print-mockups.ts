@@ -1,8 +1,9 @@
 "use server";
 
 import { authEither as auth } from "@/lib/auth-either";
-import { loadCoverBuffer } from "@/lib/mockup/store";
-import { mockupWebp, renderPrintMockup } from "@/lib/mockup/render";
+import { makeMockupPng } from "@/lib/mockup/store";
+import { mockupWebp } from "@/lib/mockup/render";
+import { WrapError } from "@/lib/mockup/wrap";
 import type { MockupSpec } from "@/lib/mockup/spec";
 
 /**
@@ -25,6 +26,8 @@ export interface PreviewInput {
   foilColor: string;
   foilTitle?: string;
   foilAuthor?: string;
+  /** The author's own full-wrap cover PDF (stored file id), when the Print tab is using it. */
+  customCoverFileId?: string;
 }
 
 function toSpec(i: PreviewInput): MockupSpec {
@@ -43,6 +46,7 @@ function toSpec(i: PreviewInput): MockupSpec {
     foilColor: i.format === "hardcover" ? clip(i.foilColor, 1) || "X" : "X",
     foilTitle: i.format === "hardcover" ? clip(i.foilTitle, 60) : "",
     foilAuthor: i.format === "hardcover" ? clip(i.foilAuthor, 40) : "",
+    wrapFileId: /^[A-Za-z0-9_-]{1,64}$/.test(i.customCoverFileId ?? "") ? (i.customCoverFileId as string) : null,
   };
 }
 
@@ -56,25 +60,25 @@ async function allowed(): Promise<boolean> {
 export async function previewPrintMockup(input: PreviewInput): Promise<{ ok: boolean; image?: string; error?: string }> {
   if (!(await allowed())) return { ok: false, error: "Sign in as an author to see the preview." };
   try {
-    const png = await renderPrintMockup(toSpec(input), await loadCoverBuffer(input.frontCoverImageUrl));
+    const png = await makeMockupPng(toSpec(input), input.frontCoverImageUrl);
     const webp = await mockupWebp(png);
     return { ok: true, image: `data:image/webp;base64,${webp.toString("base64")}` };
   } catch (e) {
     console.error("[mockup] preview failed:", e instanceof Error ? e.message : e);
-    return { ok: false, error: "The preview could not be made just now." };
+    return { ok: false, error: e instanceof WrapError ? e.message : "The preview could not be made just now." };
   }
 }
 
-/** The high-quality picture (PNG, 2000 x 1500) for promotion. */
+/** The high-quality picture (PNG, 1200 x 1800) for promotion. */
 export async function downloadPrintMockup(input: PreviewInput): Promise<{ ok: boolean; png?: string; fileName?: string; error?: string }> {
   if (!(await allowed())) return { ok: false, error: "Sign in as an author to download." };
   try {
     const spec = toSpec(input);
-    const png = await renderPrintMockup(spec, await loadCoverBuffer(input.frontCoverImageUrl));
+    const png = await makeMockupPng(spec, input.frontCoverImageUrl);
     const slug = spec.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "book";
     return { ok: true, png: png.toString("base64"), fileName: `${slug}-${spec.format}-mockup.png` };
   } catch (e) {
     console.error("[mockup] download failed:", e instanceof Error ? e.message : e);
-    return { ok: false, error: "The picture could not be made just now." };
+    return { ok: false, error: e instanceof WrapError ? e.message : "The picture could not be made just now." };
   }
 }

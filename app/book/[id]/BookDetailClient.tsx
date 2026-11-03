@@ -236,12 +236,12 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
             {mockupSrc ? (
               // A 3D mockup of the printed book, only while the Paperback or Hardcover card is chosen. The matching format's
               // picture only: Paperback never shows the hardcover's, and the other formats show the normal cover.
-              <div className="detail-cover detail-cover-mockup">
+              <div key={mockupSrc} className="detail-cover detail-cover-mockup cover-fade">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img key={mockupSrc} src={mockupSrc} alt={`${b.title} ${fmtLabel.toLowerCase()} edition, shown as printed copies`} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               </div>
             ) : (
-            <div className="detail-cover">
+            <div key="cover" className="detail-cover cover-fade">
               {b.coverImage && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

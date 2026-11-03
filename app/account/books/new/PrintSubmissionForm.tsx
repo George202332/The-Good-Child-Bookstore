@@ -778,6 +778,7 @@ export function PrintSubmissionForm({
             description,
             isbn: barcodeIsbn,
             frontCoverImageUrl,
+            customCoverFileId: backCoverMode === "custom" ? customBackCoverPdfFileId || undefined : undefined,
             trimCode,
             pages: Number(printPages) || 0,
             paperCode: paperType,

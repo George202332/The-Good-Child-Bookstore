@@ -6,11 +6,16 @@ const nextConfig: NextConfig = {
    * this, Next.js can fail to correctly bundle its native binary for
    * Vercel's serverless functions, which fails silently at runtime in
    * production even though everything works fine in local dev. */
-  serverExternalPackages: ["sharp"],
+  serverExternalPackages: ["sharp", "@napi-rs/canvas"],
   /* The open-licence fonts embedded into print PDFs (lib/pdf-fonts) are read from disk at run time, so
    * they must be shipped with every server function that can make or fix a print PDF. */
   outputFileTracingIncludes: {
     "/*": ["./lib/pdf-fonts/*.ttf"],
+    /* Drawing an author's own wrap-cover PDF for the 3D mockups needs the canvas engine (and its Linux binary) on the pages and
+     * actions that make mockups. It is large, so it is only shipped where it is used. */
+    "/[slug]": ["./node_modules/@napi-rs/canvas/**/*", "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*"],
+    "/account/books/**": ["./node_modules/@napi-rs/canvas/**/*", "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*"],
+    "/admin/**": ["./node_modules/@napi-rs/canvas/**/*", "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*"],
   },
   experimental: {
     /* The actual root cause of "no image upload works at all": Next.js

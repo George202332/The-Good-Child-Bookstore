@@ -113,17 +113,14 @@ function hull(points: { x: number; y: number }[]): { x: number; y: number }[] {
 
 const f2 = (n: number) => (Math.round(n * 100) / 100).toString();
 
-export interface SceneOptions { width: number; height: number; margin?: number; defs?: string }
+export interface SceneOptions { width: number; height: number; margin?: number; defs?: string; /** A pre-blurred shadow picture (data address) from shadowLayerSvg, instead of drawing the shadows here. */ shadowLayer?: string }
 
 /** Which faces of each book can be seen, for tests: by face key. */
 export function visibleFaceKeys(p: Placement): (keyof TextureSet)[] {
   return prepare(p).faces.filter((f) => rotX(f.n, CAMERA_PITCH)[2] > 0.001).map((f) => f.def.key);
 }
 
-export function composeScene(placements: Placement[], opts: SceneOptions): string {
-  const items = placements.map(prepare).sort((a, b) => a.centerDepth - b.centerDepth);
-
-  // Fit everything inside the canvas.
+function makeFit(items: Prepared[], opts: SceneOptions) {
   const all = items.flatMap((it) => it.corners.map(toScreen));
   const minX = Math.min(...all.map((p) => p.x)), maxX = Math.max(...all.map((p) => p.x));
   const minY = Math.min(...all.map((p) => p.y)), maxY = Math.max(...all.map((p) => p.y));
@@ -132,7 +129,46 @@ export function composeScene(placements: Placement[], opts: SceneOptions): strin
   const scale = Math.min(availW / (maxX - minX), availH / (maxY - minY));
   const offX = (opts.width - (maxX - minX) * scale) / 2 - minX * scale;
   const offY = (opts.height - (maxY - minY) * scale) / 2 - minY * scale + opts.height * 0.02;
-  const px = (p: V3) => { const s = toScreen(p); return { x: s.x * scale + offX, y: s.y * scale + offY }; };
+  return (p: V3) => { const s = toScreen(p); return { x: s.x * scale + offX, y: s.y * scale + offY }; };
+}
+
+/** The two soft shapes under each book, in canvas pixels: the long cast shadow and the dark contact line. */
+function shadowShapes(items: Prepared[], px: (p: V3) => { x: number; y: number }) {
+  const out: { cast: { x: number; y: number }[]; foot: { x: number; y: number }[] }[] = [];
+  for (const it of items) {
+    const T = it.placement.dims.t;
+    const lift = it.placement.lift ?? 0;
+    const cast = hull(it.corners.map((c) => px([c[0] + (c[1] - 0) * 0.55, 0, c[2] - (c[1] - 0) * 0.35])));
+    const footPts = it.corners.filter((c) => c[1] <= lift + 0.01 + (it.placement.lying ? T : 0)).map((c) => px([c[0], 0, c[2]]));
+    const foot = hull(footPts.length >= 3 ? footPts : cast);
+    out.push({ cast, foot });
+  }
+  return out;
+}
+
+const pts = (a: { x: number; y: number }[], k = 1) => a.map((p) => `${f2(p.x / k)},${f2(p.y / k)}`).join(" ");
+
+/**
+ * The shadows alone, drawn small (1/k of the final size). Blurring is by far the slowest part of making the picture, and a soft
+ * shadow does not need the detail, so this is blurred small and then stretched under the finished scene.
+ */
+export function shadowLayerSvg(placements: Placement[], opts: SceneOptions, k = 4): string {
+  const items = placements.map(prepare).sort((a, b) => a.centerDepth - b.centerDepth);
+  const px = makeFit(items, opts);
+  const w = Math.round(opts.width / k), h = Math.round(opts.height / k);
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><defs>
+<filter id="s1" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${f2((opts.width * 0.011) / k)}"/></filter>
+<filter id="s2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${f2((opts.width * 0.0035) / k)}"/></filter></defs>`;
+  for (const sh of shadowShapes(items, px)) {
+    if (sh.cast.length >= 3) svg += `<polygon points="${pts(sh.cast, k)}" fill="#1b1b28" opacity="0.2" filter="url(#s1)"/>`;
+    if (sh.foot.length >= 3) svg += `<polygon points="${pts(sh.foot, k)}" fill="#000" opacity="0.38" filter="url(#s2)"/>`;
+  }
+  return `${svg}</svg>`;
+}
+
+export function composeScene(placements: Placement[], opts: SceneOptions): string {
+  const items = placements.map(prepare).sort((a, b) => a.centerDepth - b.centerDepth);
+  const px = makeFit(items, opts);
 
   const out: string[] = [];
   out.push(`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${opts.width}" height="${opts.height}" viewBox="0 0 ${opts.width} ${opts.height}">`);
@@ -144,17 +180,14 @@ ${opts.defs ?? ""}
 </defs>`);
   out.push(`<rect width="${opts.width}" height="${opts.height}" fill="url(#bg)"/>`);
 
-  // Shadows first, so every book sits on top of all of them.
-  for (const it of items) {
-    const { w: W, h: H, t: T } = it.placement.dims;
-    const lift = it.placement.lift ?? 0;
-    const cast = it.corners.map((c) => px([c[0] + (c[1] - 0) * 0.55, 0, c[2] - (c[1] - 0) * 0.35]));
-    const foot = it.corners.filter((c) => c[1] <= lift + 0.01 + (it.placement.lying ? T : 0)).map((c) => px([c[0], 0, c[2]]));
-    void W; void H;
-    const castHull = hull(cast);
-    if (castHull.length >= 3) out.push(`<polygon points="${castHull.map((p) => `${f2(p.x)},${f2(p.y)}`).join(" ")}" fill="#1b1b28" opacity="0.2" filter="url(#softShadow)"/>`);
-    const footHull = hull(foot.length >= 3 ? foot : cast);
-    if (footHull.length >= 3) out.push(`<polygon points="${footHull.map((p) => `${f2(p.x)},${f2(p.y)}`).join(" ")}" fill="#000" opacity="0.38" filter="url(#contactShadow)"/>`);
+  // Shadows first, so every book sits on top of all of them: the small pre-blurred layer when given, otherwise drawn here.
+  if (opts.shadowLayer) {
+    out.push(`<image x="0" y="0" width="${opts.width}" height="${opts.height}" preserveAspectRatio="none" xlink:href="${opts.shadowLayer}" href="${opts.shadowLayer}"/>`);
+  } else {
+    for (const sh of shadowShapes(items, px)) {
+      if (sh.cast.length >= 3) out.push(`<polygon points="${pts(sh.cast)}" fill="#1b1b28" opacity="0.2" filter="url(#softShadow)"/>`);
+      if (sh.foot.length >= 3) out.push(`<polygon points="${pts(sh.foot)}" fill="#000" opacity="0.38" filter="url(#contactShadow)"/>`);
+    }
   }
 
   for (const it of items) {
@@ -175,15 +208,12 @@ ${opts.defs ?? ""}
   return out.join("\n");
 }
 
-/** The standard scene: a standing copy facing the viewer, a second standing behind it showing its back cover, two lying flat in front. */
-export function standardScene(front: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift">, back: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift">, flat: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift">): Placement[] {
-  const w = front.dims.w, t = front.dims.t;
-  // Packed close together so the whole scene fills the picture. The standing front copy is turned well toward the left so its
-  // spine (on the left) is plainly visible; the second copy stands behind it showing its back cover.
+/** The standard scene: one copy standing with its front cover facing the viewer (turned just enough to show its thickness and spine), two lying flat in front. */
+export function standardScene(standing: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift">, flat: Omit<Placement, "x" | "z" | "yaw" | "lying" | "lift">): Placement[] {
+  const w = standing.dims.w, t = standing.dims.t;
   return [
-    { ...back, lying: false, yaw: 180 + 12, x: w * 0.42, z: -w * 0.5 },
-    { ...front, lying: false, yaw: 38, x: -w * 0.34, z: -w * 0.05 },
-    { ...flat, lying: true, yaw: 8, x: -w * 0.3, z: w * 0.72 + t },
-    { ...flat, lying: true, yaw: -6, x: w * 0.1, z: w * 0.78, lift: flat.dims.t },
+    { ...standing, lying: false, yaw: 24, x: w * 0.08, z: -w * 0.1 },
+    { ...flat, lying: true, yaw: 7, x: -w * 0.34, z: w * 0.74 + t },
+    { ...flat, lying: true, yaw: -5, x: w * 0.3, z: w * 0.7, lift: flat.dims.t },
   ];
 }

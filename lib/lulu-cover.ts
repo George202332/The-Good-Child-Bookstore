@@ -13,6 +13,8 @@
  * PDF drawing itself runs on the server only.
  */
 
+import { planSpineText } from "@/lib/spine-text";
+
 export interface CoverLayout {
   /** Page size in PDF points. */
   width: number;
@@ -100,29 +102,34 @@ export async function buildCoverWrapPdf(opts: {
   const h = img.height * scale;
   page.drawImage(img, { x: regionX + (regionW - w) / 2, y: (regionH - h) / 2, width: w, height: h });
 
-  // Spine title, only when the spine is wide enough to read.
-  if (L.spine >= 22) {
+  // Spine writing: the shared plan (lib/spine-text.ts). Nothing on a thin spine; otherwise the author's name at the top and
+  // the title below it, reading top to bottom. The same plan draws the on-screen preview and the 3D mockups.
+  {
     // A real font file is embedded (Arimo Bold, open licence), never one of the 14 built-in names the
-    // PDF would only refer to: Lulu rejects covers whose fonts are not stored in the file.
-    const font = await doc.embedFont(await readBundledFont("Arimo_700Bold.ttf"), { subset: true });
-    const lum = (0.299 * back.r + 0.587 * back.g + 0.114 * back.b) / 255;
-    const ink = lum > 0.55 ? rgb(0.08, 0.08, 0.1) : rgb(1, 1, 1);
-    const text = (opts.author ? `${opts.title}  —  ${opts.author}` : opts.title).replace(/[^\x20-\x7E]/g, "");
-    const size = Math.min(14, L.spine * 0.5);
-    const maxLen = L.trimH * 0.85;
-    let t = text;
-    while (t.length > 3 && font.widthOfTextAtSize(t, size) > maxLen) t = t.slice(0, -2);
-    if (t !== text) t = `${t.trimEnd()}...`;
-    const tw = font.widthOfTextAtSize(t, size);
-    // Rotated 90° clockwise, reading top to bottom, centred on the spine.
-    page.drawText(t, {
-      x: L.spineX + L.spine / 2 + size * 0.35,
-      y: L.height / 2 + tw / 2,
-      size,
-      font,
-      color: ink,
-      rotate: degrees(-90),
+    // PDF would only refer to: Lulu rejects covers whose fonts are not stored in the file. The whole font is stored (not a
+    // subset): pdf-lib's subsetting drops letters from this font, which left gaps in the spine writing.
+    const font = await doc.embedFont(await readBundledFont("Arimo_700Bold.ttf"), { subset: false });
+    const plan = planSpineText({
+      spine: L.spine, length: L.trimH, unitsPerInch: 72,
+      title: opts.title, author: opts.author,
+      width: (text, size) => font.widthOfTextAtSize(text, size),
     });
+    if (plan) {
+      const lum = (0.299 * back.r + 0.587 * back.g + 0.114 * back.b) / 255;
+      const ink = lum > 0.55 ? rgb(0.08, 0.08, 0.1) : rgb(1, 1, 1);
+      const trimTop = L.height - L.margin;
+      for (const line of plan.lines) {
+        // Rotated 90 degrees clockwise, reading top to bottom, centred across the spine.
+        page.drawText(line.text, {
+          x: L.spineX + L.spine / 2 + line.size * 0.35,
+          y: trimTop - line.start,
+          size: line.size,
+          font,
+          color: ink,
+          rotate: degrees(-90),
+        });
+      }
+    }
   }
 
   const bytes = await doc.save();

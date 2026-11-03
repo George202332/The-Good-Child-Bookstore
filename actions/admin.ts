@@ -80,7 +80,7 @@ export async function approveBook(bookId: string): Promise<{ ok: boolean; error?
     revalidatePath(`/admin/books/${bookId}/review`);
     revalidatePath("/account/authors");
     // The print mockups are made once, when the book goes live (after the reply, so approving stays quick).
-    after(() => ensurePrintMockups(bookId));
+    after(() => ensurePrintMockups(bookId, { retryFailed: true }));
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };

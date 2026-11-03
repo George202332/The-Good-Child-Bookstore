@@ -5,7 +5,8 @@ import { getRealPublishedBookBySlug, getRealPublishedBooks } from "@/lib/data/re
 import { getVisitorCountries } from "@/lib/visitor-country";
 import { isRestrictedForCountries } from "@/lib/book-visibility";
 import { BookDetailClient } from "../book/[id]/BookDetailClient";
-import { getPrintMockupUrls } from "@/lib/mockup/store";
+import { after } from "next/server";
+import { ensurePrintMockups, getPrintMockupUrls, shouldMakeMockupsNow } from "@/lib/mockup/store";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,16 @@ export default async function BookBySlugPage({ params }: { params: Promise<{ slu
   const printMockups = resolved.isRealBook
     ? await getPrintMockupUrls({ paperback: resolved.book.formatBookIds?.paperback ?? resolved.book.id, hardcover: resolved.book.formatBookIds?.hardcover ?? resolved.book.id })
     : {};
+  // A print format without a saved picture yet (a book published before mockups existed) gets one made now, in the background;
+  // the visitor sees the normal cover until it is ready. Tried at most every ten minutes per book.
+  if (resolved.isRealBook) {
+    const wanted: [string | undefined, "paperback" | "hardcover"][] = [
+      [resolved.book.formatBookIds?.paperback ?? resolved.book.id, "paperback"],
+      [resolved.book.formatBookIds?.hardcover ?? resolved.book.id, "hardcover"],
+    ];
+    const missing = new Set(wanted.filter(([id, f]) => id && !printMockups[f] && resolved.book.formatAvailable?.[f]).map(([id]) => id as string));
+    for (const id of missing) if (shouldMakeMockupsNow(id)) after(() => ensurePrintMockups(id));
+  }
   return (
     <BookDetailClient
       book={resolved.book}

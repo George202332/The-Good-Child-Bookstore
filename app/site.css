@@ -1155,6 +1155,10 @@
   .detail-cover .motif{width:44%;height:44%;}
   /* The 3D print mockup is a 2:3 picture, the same shape as the cover frame, so it fills the frame without changing its size. */
   .detail-cover.detail-cover-mockup{background:#f3f3f6;}
+  /* A short fade whenever the picture in the cover frame changes (cover, Paperback mockup, Hardcover mockup). */
+  .cover-fade{animation:coverFadeIn .35s ease both;}
+  @keyframes coverFadeIn{from{opacity:0;}to{opacity:1;}}
+  @media (prefers-reduced-motion:reduce){ .cover-fade{animation:none;} }
   .az-sample-btns{display:flex;flex-direction:column;gap:8px;margin-top:18px;}
   .az-author-card{
     margin-top:auto;border:1px solid var(--line);border-radius:14px;padding:16px 20px;height:var(--az-card-h);flex-shrink:0;

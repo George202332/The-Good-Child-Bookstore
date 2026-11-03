@@ -1,5 +1,7 @@
 import { ean13Bars, isbnDigits13 } from "@/lib/mockup/barcode";
-import { composeScene, standardScene, type BookDims, type TextureSet } from "@/lib/mockup/scene";
+import { composeScene, shadowLayerSvg, standardScene, type BookDims, type TextureSet } from "@/lib/mockup/scene";
+import type { WrapCrops } from "@/lib/mockup/wrap";
+import { planSpineText } from "@/lib/spine-text";
 import { bookDimensions, LINEN_COLORS, type MockupSpec } from "@/lib/mockup/spec";
 import { loadFont, type TextFont } from "@/lib/mockup/text-paths";
 
@@ -16,11 +18,10 @@ import { loadFont, type TextFont } from "@/lib/mockup/text-paths";
  */
 
 const PX = 100; // texture pixels per inch
-/** Spines thinner than this (texture pixels, about a third of an inch) carry no text. */
-const SPINE_TEXT_MIN_T = 32;
+
 // Portrait, 2:3 - exactly the shape of the cover frame on the product page, so the picture drops into it unchanged.
-const OUT_W = 1200;
-const OUT_H = 1800;
+const OUT_W = 1600;
+const OUT_H = 2400;
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -59,6 +60,22 @@ function pagesEdge(w: number, h: number, vertical: boolean): string {
 
 interface Built { tex: TextureSet; defs: string[] }
 
+let clothTileCache: Promise<string> | null = null;
+/** A 256 x 256 tile of fine vertical-grain noise (semi-transparent black), as a PNG data address. */
+function clothTile(): Promise<string> {
+  clothTileCache ??= (async () => {
+    const sharp = (await import("sharp")).default;
+    const w = 256, h = 170;
+    const raw = Buffer.alloc(w * h * 4);
+    let seed = 12345;
+    const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    for (let i = 0; i < w * h; i++) { raw[i * 4 + 3] = Math.round(rnd() * 46); }
+    const png = await sharp(raw, { raw: { width: w, height: h, channels: 4 } }).resize(256, 256, { kernel: "cubic" }).blur(0.5).png().toBuffer();
+    return `data:image/png;base64,${png.toString("base64")}`;
+  })();
+  return clothTileCache;
+}
+
 function barcodeSvg(isbn: string | null, x: number, y: number, w: number, h: number, font: TextFont): string {
   const d13 = isbnDigits13(isbn);
   let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#ffffff"/>`;
@@ -78,7 +95,7 @@ function barcodeSvg(isbn: string | null, x: number, y: number, w: number, h: num
   return s;
 }
 
-async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | null, avg: Rgb, bold: TextFont, regular: TextFont): Promise<Built> {
+async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | null, avg: Rgb, bold: TextFont, regular: TextFont, wrap: WrapCrops | null): Promise<Built> {
   const defs: string[] = [];
   const hardcover = spec.format === "hardcover";
   const W = Math.round(dims.w * PX), H = Math.round(dims.h * PX), T = Math.max(8, Math.round(dims.t * PX));
@@ -90,19 +107,25 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
   const ink = inkFor(spineRgb);
   const foil = hardcover ? foilPaint(spec.foilColor, defs) : null;
   const gloss = spec.finish === "G";
-
-  const clothFilter = () => {
-    const id = nextId("linen");
-    defs.push(`<filter id="${id}" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85 0.28" numOctaves="2" seed="7" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.55 -0.12"/></filter>`);
-    return id;
+  // The artwork that is sent to Lulu (the author's own wrap or the site's), used for every printed cover. A hardcover covered in
+  // linen cloth is not printed: it is cloth with foil lettering, drawn below.
+  const useWrap = !!wrap && !(hardcover && linen);
+  const jpegImage = (buf: Buffer, w: number, h: number) => {
+    const b64 = buf.toString("base64");
+    return `<image x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="xMidYMid slice" xlink:href="data:image/jpeg;base64,${b64}" href="data:image/jpeg;base64,${b64}"/>`;
   };
+
+  // Linen texture: one small pre-made noise tile used as a pattern (a live noise filter on every large panel is far slower).
+  const tile = hardcover ? await clothTile() : "";
+  const clothId = nextId("linen");
+  if (hardcover) defs.push(`<pattern id="${clothId}" width="256" height="256" patternUnits="userSpaceOnUse"><image width="256" height="256" xlink:href="${tile}" href="${tile}"/></pattern>`);
+  const clothOverlay = (w: number, h: number) => `<rect width="${w}" height="${h}" fill="url(#${clothId})"/>`;
 
   // ---- front ----
   let frontSvg = "";
   const hinge = `<rect x="${PX * 0.2}" width="3" height="${H}" fill="#000" opacity="0.18"/><rect x="${PX * 0.2 + 3}" width="2" height="${H}" fill="#fff" opacity="0.12"/>`;
   if (hardcover && linen) {
-    const f = clothFilter();
-    frontSvg = `<rect width="${W}" height="${H}" fill="${clothHex}"/><rect width="${W}" height="${H}" filter="url(#${f})"/>`;
+    frontSvg = `<rect width="${W}" height="${H}" fill="${clothHex}"/>${clothOverlay(W, H)}`;
     if (foil) {
       const titleLines = bold.wrap(spec.foilTitle || spec.title, 44, W - 110, 4);
       let y = H * 0.3;
@@ -123,6 +146,8 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
       }
     }
     frontSvg += hinge;
+  } else if (useWrap && wrap) {
+    frontSvg = `${jpegImage(wrap.front, W, H)}${hinge}`;
   } else if (front) {
     const b64 = front.toString("base64");
     frontSvg = `<image x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="xMidYMid slice" xlink:href="data:image/jpeg;base64,${b64}" href="data:image/jpeg;base64,${b64}"/>${hinge}`;
@@ -143,14 +168,18 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
   const backBg = hardcover ? clothHex : spineBg;
   const backInk = inkFor(hardcover ? cloth : spineRgb);
   let backSvg = `<rect width="${W}" height="${H}" fill="${backBg}"/>`;
-  if (hardcover) backSvg += `<rect width="${W}" height="${H}" filter="url(#${clothFilter()})"/>`;
-  let by = 120;
-  const titleLines = bold.wrap(spec.title, 30, W - 110, 3);
-  for (const l of titleLines) { backSvg += `<path d="${bold.path(l, 30, 55, by)}" fill="${backInk}"/>`; by += 38; }
-  by += 14;
-  const descLines = regular.wrap(spec.description || "", 15, W - 110, 9);
-  for (const l of descLines) { backSvg += `<path d="${regular.path(l, 15, 55, by)}" fill="${backInk}" opacity="0.92"/>`; by += 23; }
-  backSvg += barcodeSvg(spec.isbn, W - 235, H - 150, 190, 110, regular);
+  if (hardcover) backSvg += clothOverlay(W, H);
+  if (useWrap && wrap) {
+    backSvg = jpegImage(wrap.back, W, H);
+  } else {
+    let by = 120;
+    const titleLines = bold.wrap(spec.title, 30, W - 110, 3);
+    for (const l of titleLines) { backSvg += `<path d="${bold.path(l, 30, 55, by)}" fill="${backInk}"/>`; by += 38; }
+    by += 14;
+    const descLines = regular.wrap(spec.description || "", 15, W - 110, 9);
+    for (const l of descLines) { backSvg += `<path d="${regular.path(l, 15, 55, by)}" fill="${backInk}" opacity="0.92"/>`; by += 23; }
+    backSvg += barcodeSvg(spec.isbn, W - 235, H - 150, 190, 110, regular);
+  }
   if (hardcover) backSvg += `<rect x="1.5" y="1.5" width="${W - 3}" height="${H - 3}" fill="none" stroke="#000" stroke-opacity="0.22" stroke-width="3"/>`;
   if (gloss && !hardcover) {
     const gid = nextId("gloss");
@@ -159,32 +188,23 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
   }
 
   // ---- spine (text runs top to bottom) ----
-  let spineSvg = `<rect width="${T}" height="${H}" fill="${spineBg}"/>`;
-  if (hardcover && linen) spineSvg += `<rect width="${T}" height="${H}" filter="url(#${clothFilter()})"/>`;
+  let spineSvg = useWrap && wrap ? jpegImage(wrap.spine, T, H) : `<rect width="${T}" height="${H}" fill="${spineBg}"/>`;
+  if (hardcover && linen) spineSvg += clothOverlay(T, H);
   const sid = nextId("round");
   defs.push(`<linearGradient id="${sid}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity="${hardcover ? 0.34 : 0.2}"/><stop offset="0.25" stop-color="#fff" stop-opacity="0.1"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.04"/><stop offset="1" stop-color="#000" stop-opacity="${hardcover ? 0.34 : 0.2}"/></linearGradient>`);
   const spineInk = hardcover ? (foil ?? ink) : ink;
-  // A thin spine carries no text at all. Otherwise the author's name sits at the top and the title below it, both reading
-  // top to bottom (front cover facing right, spine on the left).
-  if (T >= SPINE_TEXT_MIN_T) {
-    const size = Math.min(28, T * 0.5);
-    const titleText = hardcover ? spec.foilTitle || spec.title : spec.title;
-    const authorText = hardcover ? spec.foilAuthor || spec.author : spec.author;
-    const room = H - 100;
-    const fit = (text: string, sz: number, max: number) => {
-      let t = text.trim();
-      if (bold.width(t, sz) <= max) return t;
-      while (t.length > 3 && bold.width(t + "…", sz) > max) t = t.slice(0, -1).trimEnd();
-      return t + "…";
-    };
-    const authorSize = size * 0.8;
-    const author = authorText ? fit(authorText, authorSize, room * 0.34) : "";
-    const gap = author ? 36 : 0;
-    const authorLen = author ? bold.width(author, authorSize) : 0;
-    const title = fit(titleText, size, room - authorLen - gap);
-    const cx = T / 2;
-    if (author) spineSvg += `<g transform="translate(${cx + authorSize * 0.35} 50) rotate(90)"><path d="${bold.path(author, authorSize, 0, 0)}" fill="${spineInk}"/></g>`;
-    spineSvg += `<g transform="translate(${cx + size * 0.35} ${50 + authorLen + gap}) rotate(90)"><path d="${bold.path(title, size, 0, 0)}" fill="${spineInk}"/></g>`;
+  // Printed covers already carry their own spine writing. A cloth hardcover (or a cover without any artwork) is lettered here
+  // with the same plan as the print cover: nothing on a thin spine, otherwise the author at the top and the title below.
+  if (!useWrap) {
+    const plan = planSpineText({
+      spine: T, length: H, unitsPerInch: PX,
+      title: hardcover ? spec.foilTitle || spec.title : spec.title,
+      author: hardcover ? spec.foilAuthor || spec.author : spec.author,
+      width: (text, size) => bold.width(text, size),
+    });
+    for (const line of plan?.lines ?? []) {
+      spineSvg += `<g transform="translate(${T / 2 + line.size * 0.35} ${line.start}) rotate(90)"><path d="${bold.path(line.text, line.size, 0, 0)}" fill="${spineInk}"/></g>`;
+    }
   }
   spineSvg += `<rect width="${T}" height="${H}" fill="url(#${sid})"/>`;
 
@@ -221,7 +241,7 @@ function hexToRgb(h: string): Rgb {
 }
 
 /** Makes the picture. `frontImage` is the author's front cover (any picture format); null draws a plain placeholder. */
-export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | null): Promise<Buffer> {
+export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | null, wrap: WrapCrops | null = null): Promise<Buffer> {
   const sharp = (await import("sharp")).default;
   const dims = bookDimensions(spec);
   const [bold, regular] = await Promise.all([loadFont("Arimo_700Bold.ttf"), loadFont("Arimo_400Regular.ttf")]);
@@ -236,10 +256,12 @@ export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | n
     avg = { r: px[0] ?? 120, g: px[1] ?? 110, b: px[2] ?? 150 };
   }
 
-  const built = await buildTextures(spec, dims, front, avg, bold, regular);
+  const built = await buildTextures(spec, dims, front, avg, bold, regular, wrap);
   const base = { dims, tex: built.tex };
-  const placements = standardScene(base, base, base);
-  const svg = composeScene(placements, { width: OUT_W, height: OUT_H, margin: 0.04, defs: built.defs.join("\n") });
+  const placements = standardScene(base, base);
+  const sceneOpts = { width: OUT_W, height: OUT_H, margin: 0.04 };
+  const shadowPng = await sharp(Buffer.from(shadowLayerSvg(placements, sceneOpts, 4)), { density: 72 }).png().toBuffer();
+  const svg = composeScene(placements, { ...sceneOpts, defs: built.defs.join("\n"), shadowLayer: `data:image/png;base64,${shadowPng.toString("base64")}` });
   return sharp(Buffer.from(svg), { density: 72 }).png().toBuffer();
 }
 

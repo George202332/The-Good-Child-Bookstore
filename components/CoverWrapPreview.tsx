@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { buildEan13Layout } from "@/lib/ean13-barcode";
+import { planSpineText } from "@/lib/spine-text";
 import {
   PALETTES, MOTIFS, hashStr, deriveBackCoverPalette, extractDominantColor,
   motifSvgInner, fitDescriptionText, computeCoverGeometry,
@@ -26,6 +27,8 @@ import {
  */
 export function CoverWrapPreview({
   title,
+  authorFirstName,
+  authorLastName,
   description,
   isbn,
   trimCode,
@@ -165,7 +168,17 @@ export function CoverWrapPreview({
 
   // ---- Spine ----
   const spineColor = back.spine;
-  const showSpineText = spineW > 14;
+  const spinePlan = useCustom ? null : planSpineText({
+    spine: spineW, length: trimH, unitsPerInch: U, title, author: `${authorFirstName ?? ""} ${authorLastName ?? ""}`,
+    // Approximate width of bold sans-serif text; the print file measures with the real font.
+    width: (text, size) => text.length * size * 0.6,
+  });
+  const spineTextColor = (() => {
+    const m = /^#?([0-9a-f]{6})$/i.exec(spineColor);
+    if (!m) return "#fff";
+    const n = parseInt(m[1], 16);
+    return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.55 ? "#17171c" : "#fff";
+  })();
 
   // ---- Front cover: the real image if uploaded, else a plain gradient + motif. Nothing is written over it. ----
   const gradId = `bp-front-gradient-${seed}`;
@@ -241,15 +254,17 @@ export function CoverWrapPreview({
           {/* Spine */}
           {!useCustom && <g>
             <rect x={spineX} y={bleed} width={spineW} height={trimH} fill={spineColor} />
-            {showSpineText && (
+            {spinePlan && spinePlan.lines.map((line, i) => (
+              // Same plan as the print cover and the 3D mockups: author at the top, title below, nothing on a thin spine.
               <text
-                x={spineX + spineW / 2} y={bleed + trimH / 2}
-                fontFamily="Georgia, serif" fontWeight={700} fontSize={13} fill="#fff" textAnchor="middle"
-                transform={`rotate(90 ${spineX + spineW / 2} ${bleed + trimH / 2})`}
+                key={i}
+                x={spineX + spineW / 2 + line.size * 0.35} y={bleed + line.start}
+                fontFamily="Arial, Helvetica, sans-serif" fontWeight={700} fontSize={line.size} fill={spineTextColor}
+                transform={`rotate(90 ${spineX + spineW / 2 + line.size * 0.35} ${bleed + line.start})`}
               >
-                {(title || "").slice(0, 40)}
+                {line.text}
               </text>
-            )}
+            ))}
           </g>}
 
           {/* Front cover */}
