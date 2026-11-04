@@ -226,9 +226,15 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
     return pages + inset + boards;
   };
 
+  // Rounded cover corners (a little rounder on a paperback than on a hardcover board).
+  const radius = hardcover ? 3 : 5;
+  const rounded = (svg: string): string => {
+    const id = nextId("rc");
+    return `<defs><clipPath id="${id}"><rect width="${W}" height="${H}" rx="${radius}" ry="${radius}"/></clipPath></defs><g clip-path="url(#${id})">${svg}</g>`;
+  };
   const tex: TextureSet = {
-    front: { w: W, h: H, svg: frontSvg },
-    back: { w: W, h: H, svg: backSvg },
+    front: { w: W, h: H, svg: rounded(frontSvg) },
+    back: { w: W, h: H, svg: rounded(backSvg) },
     spine: { w: T, h: H, svg: spineSvg },
     foreEdge: { w: T, h: H, svg: edge(T, H, true) },
     top: { w: W, h: T, svg: edge(W, T, false) },

@@ -64,6 +64,11 @@ export function bookFaces(d: BookDims): FaceDef[] {
 }
 
 const CAMERA_PITCH = 28;
+const CAMERA_DISTANCE = 70;
+/** How far the spine bulges outwards in the middle, as a share of the book's thickness (a rounded spine, not a flat one). */
+const SPINE_BULGE = 0.16;
+/** Patches each face is cut into, so the perspective and the curved spine follow the surface: [across, down]. */
+const GRID: Record<keyof TextureSet, [number, number]> = { front: [4, 5], back: [4, 5], spine: [6, 4], foreEdge: [2, 3], top: [4, 2], bottom: [4, 2] };
 const LIGHT: V3 = norm([-0.45, 0.85, 0.55]);
 
 interface Prepared {
@@ -104,7 +109,9 @@ function prepare(p: Placement, mirror = false): Prepared {
 /** Screen position (before fitting) of a world point: look down at CAMERA_PITCH degrees. */
 function toScreen(p: V3): { x: number; y: number; z: number } {
   const c = rotX(p, CAMERA_PITCH);
-  return { x: c[0], y: -c[1], z: c[2] };
+  // A real camera: things nearer the lens look a little bigger (the lens is CAMERA_DISTANCE inches from the middle of the scene).
+  const k = CAMERA_DISTANCE / (CAMERA_DISTANCE - c[2]);
+  return { x: c[0] * k, y: -c[1] * k, z: c[2] };
 }
 
 const byDrawingOrder = (a: Prepared, b: Prepared) => (a.placement.order ?? 0) - (b.placement.order ?? 0) || a.centerDepth - b.centerDepth;
@@ -200,18 +207,54 @@ ${opts.defs ?? ""}
     }
   }
 
-  const drawItem = (it: Prepared) => {
+  // Each texture is written once (in <defs>) and used by every patch of every face that carries it.
+  const texIds = new Map<object, string>();
+  const texDefs: string[] = [];
+  const texId = (tex: Tex): string => {
+    let id = texIds.get(tex);
+    if (!id) { id = `tx${texIds.size}`; texIds.set(tex, id); texDefs.push(`<g id="${id}">${tex.svg}</g>`); }
+    return id;
+  };
+  const EPS = 2; // patches overlap by under a pixel so no hairline shows between them
+
+  const drawItem = (it: Prepared, mirrored = false) => {
     const visible = it.faces
       .map((f) => ({ f, camN: rotX(f.n, CAMERA_PITCH) }))
       .filter((x) => x.camN[2] > 0.001);
-    // Within one box the visible faces never overlap, but keep a stable order.
     for (const { f } of visible) {
       const tex = it.placement.tex[f.def.key];
-      const o = px(f.o), u = px(f.u), v = px(f.v);
-      const m = [(u.x - o.x) / tex.w, (u.y - o.y) / tex.w, (v.x - o.x) / tex.h, (v.y - o.y) / tex.h, o.x, o.y].map((n) => Math.round(n * 10000) / 10000);
+      const id = texId(tex);
+      // The faint reflection needs fewer patches than the real books.
+      const [gs, gt] = GRID[f.def.key].map((n) => (mirrored ? Math.max(1, Math.ceil(n / 2)) : n)) as [number, number];
+      const bulge = f.def.key === "spine" ? SPINE_BULGE * it.placement.dims.t : 0;
+      // A point on the face: s across (0..1 from the face's o to its u), t down (0..1 from o to v), pushed out along the normal by the bulge.
+      const P = (sc: number, tc: number) => {
+        const q: V3 = [f.o[0] + (f.u[0] - f.o[0]) * sc + (f.v[0] - f.o[0]) * tc, f.o[1] + (f.u[1] - f.o[1]) * sc + (f.v[1] - f.o[1]) * tc, f.o[2] + (f.u[2] - f.o[2]) * sc + (f.v[2] - f.o[2]) * tc];
+        const k = bulge * (1 - (2 * sc - 1) ** 2);
+        return px([q[0] + f.n[0] * k, q[1] + f.n[1] * k, q[2] + f.n[2] * k]);
+      };
+      for (let i = 0; i < gs; i++) {
+        for (let j = 0; j < gt; j++) {
+          const s0 = i / gs, s1 = (i + 1) / gs, t0 = j / gt, t1 = (j + 1) / gt;
+          const O = P(s0, t0), U = P(s1, t0), V = P(s0, t1);
+          const dx = (s1 - s0) * tex.w, dy = (t1 - t0) * tex.h;
+          const a = (U.x - O.x) / dx, b = (U.y - O.y) / dx, c = (V.x - O.x) / dy, d = (V.y - O.y) / dy;
+          const e = O.x - a * s0 * tex.w - c * t0 * tex.h, g = O.y - b * s0 * tex.w - d * t0 * tex.h;
+          const x0 = s0 * tex.w - (i > 0 ? EPS : 0), y0 = t0 * tex.h - (j > 0 ? EPS : 0);
+          const x1 = s1 * tex.w + (i < gs - 1 ? EPS : 0), y1 = t1 * tex.h + (j < gt - 1 ? EPS : 0);
+          const m = [a, b, c, d, e, g].map((n) => Math.round(n * 10000) / 10000);
+          out.push(`<g transform="matrix(${m.join(" ")})"><svg x="${f2(x0)}" y="${f2(y0)}" width="${f2(x1 - x0)}" height="${f2(y1 - y0)}" viewBox="${f2(x0)} ${f2(y0)} ${f2(x1 - x0)} ${f2(y1 - y0)}" overflow="hidden"><use href="#${id}" xlink:href="#${id}"/></svg></g>`);
+        }
+      }
+      // Light and shade over the whole face: faces turned away from the light are darker.
       const light = Math.max(0, dot(f.n, LIGHT));
-      const dark = Math.min(0.3, Math.max(0, 0.3 - 0.38 * light));
-      out.push(`<g transform="matrix(${m.join(" ")})"><svg x="0" y="0" width="${tex.w}" height="${tex.h}" viewBox="0 0 ${tex.w} ${tex.h}" overflow="hidden">${tex.svg}<rect width="${tex.w}" height="${tex.h}" fill="#0a0a1e" opacity="${f2(dark)}"/></svg></g>`);
+      const dark = Math.min(0.3, Math.max(0, 0.3 - 0.38 * light)) + (mirrored ? 0.05 : 0);
+      const ring: { x: number; y: number }[] = [];
+      for (let i = 0; i <= gs; i++) ring.push(P(i / gs, 0));
+      for (let j = 1; j <= gt; j++) ring.push(P(1, j / gt));
+      for (let i = gs - 1; i >= 0; i--) ring.push(P(i / gs, 1));
+      for (let j = gt - 1; j >= 1; j--) ring.push(P(0, j / gt));
+      out.push(`<polygon points="${pts(ring)}" fill="#0a0a1e" opacity="${f2(dark)}"/>`);
     }
   };
 
@@ -222,10 +265,11 @@ ${opts.defs ?? ""}
     const fade = opts.height * (opts.reserveBottom ?? 0.12) * 1.1;
     out.push(`<defs><linearGradient id="reflFade" gradientUnits="userSpaceOnUse" x1="0" y1="${f2(floorY)}" x2="0" y2="${f2(floorY + fade)}"><stop offset="0" stop-color="#fff" stop-opacity="0.34"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="reflMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${opts.width}" height="${opts.height}"><rect x="0" y="${f2(floorY - fade * 0.2)}" width="${opts.width}" height="${f2(fade * 1.4)}" fill="url(#reflFade)"/></mask></defs>`);
     out.push('<g mask="url(#reflMask)">');
-    for (const it of mirrored) drawItem(it);
+    for (const it of mirrored) drawItem(it, true);
     out.push("</g>");
   }
   for (const it of items) drawItem(it);
+  out.splice(1, 0, `<defs>${texDefs.join("\n")}</defs>`);
   out.push("</svg>");
   return out.join("\n");
 }
