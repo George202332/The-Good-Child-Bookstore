@@ -1,0 +1,12 @@
+ROUND 72, STEP 3: ONE-TIME PRODUCTION TEST-DATA CLEANUP (approved)
+No database change (no migration). Nothing to delete from your folder.
+New files: scripts\cleanup-test-data.ps1, scripts\cleanup-test-data.ts
+
+Put them in the repo, staging only:
+  git checkout staging
+  git add .
+  git commit -m "Add one-time production test-data cleanup script"
+  git push origin staging
+
+Then, ONLY after you have made the Neon child branch of production named backup-before-cleanup:
+  powershell -ExecutionPolicy Bypass -File scripts\cleanup-test-data.ps1
