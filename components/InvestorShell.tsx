@@ -7,6 +7,7 @@ import { SignOutButton } from "./SignOutButton";
 const NAV_ITEMS = [
   { key: "accounting", label: "Accounting", href: "/investor/accounting" },
   { key: "lulu", label: "Lulu Publishing", href: "/investor/lulu" },
+  { key: "site-health", label: "Site Health", href: "/investor/site-health" },
 ];
 
 /**

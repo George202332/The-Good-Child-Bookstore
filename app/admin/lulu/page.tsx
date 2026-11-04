@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
-import { getLuluReport } from "@/actions/admin-lulu";
+import { getLuluReport, getStagingLuluState } from "@/actions/admin-lulu";
+import { StagingLuluSwitch } from "./StagingLuluSwitch";
 import { LuluClient } from "./LuluClient";
 
 /** Admin > Lulu. Admin only: the page redirects everyone else, and every action it calls
@@ -13,6 +14,7 @@ export default async function LuluPage({ searchParams }: { searchParams?: Promis
 
   const sp = (await searchParams) ?? {};
   const report = await getLuluReport(sp.range, sp.from, sp.to);
+  const stagingState = await getStagingLuluState();
   if (!report) redirect("/admin");
 
   return (
@@ -25,6 +27,7 @@ export default async function LuluPage({ searchParams }: { searchParams?: Promis
           </p>
         </div>
       </div>
+      {stagingState.staging && <StagingLuluSwitch on={stagingState.on} changedAt={stagingState.changedAt} changedBy={stagingState.changedBy} />}
       <LuluClient report={report} range={sp.range ?? "this-month"} from={sp.from ?? ""} to={sp.to ?? ""} />
     </AdminShell>
   );

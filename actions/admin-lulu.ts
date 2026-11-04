@@ -37,6 +37,8 @@ export interface LuluOrderRow {
   reason: string | null;
   /** When the author(s) were told about a rejection. */
   authorNotifiedAt: string | null;
+  /** Sent to Lulu from STAGING (reference "STAGING TEST, CANCEL"): must be cancelled by hand in the Lulu dashboard; not counted in any total. */
+  staging: boolean;
 }
 
 export interface LuluReport {
@@ -96,7 +98,8 @@ export async function getLuluReport(preset?: string, from?: string, to?: string)
       orderId: o.id, createdAt: o.createdAt, printJobStatus: o.printJobStatus, luluStatus: o.luluStatus, luluShippedAt: o.luluShippedAt,
       shippingPaid: Number(o.shippingAmount ?? 0), fulfillmentPaid: Number(o.fulfillmentAmount ?? 0), luluProduction, luluShipping, luluFulfillment, lines: lineInputs,
     };
-    inputs.push(input);
+    // Orders sent from staging are listed (and flagged) but never counted in the totals.
+    if (!o.stagingLuluOrder) inputs.push(input);
     if (o.luluSyncedAt && (!lastSynced || o.luluSyncedAt > lastSynced)) lastSynced = o.luluSyncedAt;
     const bucket = bucketFor(o.printJobStatus, o.luluStatus);
     rows.push({
@@ -111,8 +114,9 @@ export async function getLuluReport(preset?: string, from?: string, to?: string)
       bucket, bucketLabel: BUCKET_LABEL[bucket],
       production: luluProduction, shipping: luluShipping, paidShipping: Number(o.shippingAmount ?? 0), paidFulfillment: Number(o.fulfillmentAmount ?? 0), fulfillment: luluFulfillment,
       error: o.printJobError ?? null,
-      flagged: bucket === "REJECTED" || bucket === "FAILED" || bucket === "NOT_SENT",
-      problemLabel: problemLabelFor(bucket, o.luluStatus, o.luluRejectionReason),
+      flagged: o.stagingLuluOrder || bucket === "REJECTED" || bucket === "FAILED" || bucket === "NOT_SENT",
+      problemLabel: o.stagingLuluOrder ? "STAGING TEST - cancel at Lulu" : problemLabelFor(bucket, o.luluStatus, o.luluRejectionReason),
+      staging: o.stagingLuluOrder,
       reason: o.luluRejectionReason ?? (bucket === "FAILED" || bucket === "REJECTED" ? o.printJobError : null) ?? null,
       authorNotifiedAt: o.luluAuthorNotifiedAt ? o.luluAuthorNotifiedAt.toISOString() : null,
     });
@@ -160,4 +164,26 @@ export async function registerLuluWebhook(): Promise<{ ok: boolean; message: str
   const url = `${getPublicSiteUrl().replace(/\/$/, "")}/api/webhooks/lulu`;
   const res = await registerLuluWebhookUrl(url);
   return res.ok ? { ok: true, message: `Lulu will now notify ${url} when a print job changes.` } : { ok: false, message: res.error };
+}
+
+
+/** Admin only: the state of the "Allow real Lulu orders from staging" switch (meaningful on the staging site only). */
+export async function getStagingLuluState(): Promise<{ staging: boolean; on: boolean; changedAt?: string; changedBy?: string }> {
+  const { deploymentOf } = await import("@/lib/runtime-env");
+  const { getStagingLuluSwitch } = await import("@/lib/staging-lulu");
+  const sw = await getStagingLuluSwitch();
+  return { staging: deploymentOf() === "preview", ...sw };
+}
+
+/** Admin only, staging only: turns "Allow real Lulu orders from staging" on or off. OFF by default. */
+export async function setStagingLuluSwitchAction(on: boolean): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can do this." };
+  const { deploymentOf } = await import("@/lib/runtime-env");
+  if (deploymentOf() !== "preview") return { ok: false, error: "This switch only exists on the staging site." };
+  const { setStagingLuluSwitch } = await import("@/lib/staging-lulu");
+  const { logRecordChange } = await import("@/lib/records");
+  await setStagingLuluSwitch(on, session.user.name ?? "Admin");
+  await logRecordChange({ entityType: "LULU", entityId: "staging-switch", action: "STAGING_LULU_SWITCH", summary: `Allow real Lulu orders from staging: ${on ? "ON" : "OFF"}`, after: { on }, actorId: session.user.id, actorName: session.user.name ?? null });
+  return { ok: true };
 }

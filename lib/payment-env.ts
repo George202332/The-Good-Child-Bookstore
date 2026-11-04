@@ -1,129 +1,91 @@
 /**
- * One mode setting per payment provider, and the matching keys.
+ * The Vercel variable names the site reads. Test keys exist ONLY on Preview (staging); live keys ONLY on Production.
+ * Which set is used is decided only by the environment (VERCEL_ENV) - there is no switch anywhere.
  *
- * Paystack: PAYSTACK_MODE = "test" | "live"
- *   keys   : PAYSTACK_TEST_SECRET_KEY / PAYSTACK_TEST_PUBLIC_KEY and PAYSTACK_LIVE_SECRET_KEY / PAYSTACK_LIVE_PUBLIC_KEY
- *   webhook: Paystack signs every webhook with the SECRET key of the same mode, so the matching secret key is also
- *            the webhook secret (nothing extra to store).
- * PayPal : PAYPAL_MODE = "sandbox" | "live"
- *   keys   : PAYPAL_SANDBOX_CLIENT_ID / PAYPAL_SANDBOX_CLIENT_SECRET / PAYPAL_SANDBOX_WEBHOOK_ID and the PAYPAL_LIVE_ versions
- *   address: sandbox -> https://api-m.sandbox.paypal.com, live -> https://api-m.paypal.com
+ *   Paystack  Preview : PAYSTACK_TEST_PUBLIC_KEY, PAYSTACK_TEST_SECRET_KEY
+ *             Production : PAYSTACK_LIVE_PUBLIC_KEY, PAYSTACK_LIVE_SECRET_KEY
+ *             (Paystack signs its webhooks with the secret key of the same mode: no separate webhook secret.)
+ *   PayPal    Preview : PAYPAL_SANDBOX_CLIENT_ID, PAYPAL_SANDBOX_SECRET_KEY, PAYPAL_SANDBOX_WEBHOOK_ID
+ *             Production : PAYPAL_LIVE_CLIENT_ID, PAYPAL_LIVE_SECRET_KEY, PAYPAL_LIVE_WEBHOOK_ID
+ *   Lulu      both : LULU_CLIENT_KEY, LULU_CLIENT_SECRET (plain pair; the code makes the base64 form at request time)
+ *   Email     both : RESEND_API_KEY, FROM_EMAIL
  *
- * The older single-key variables (PAYSTACK_SECRET_KEY, PAYSTACK_PUBLIC_KEY, PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET,
- * PAYPAL_ENV, PAYPAL_WEBHOOK_ID) and keys typed into Admin -> API Management still work, but only when they belong to
- * the active mode. A test key is never used in live mode and a live key is never used in test mode.
- *
- * This file is pure (no database, no secrets printed) so it can be tested.
+ * Retired (no longer read): PAYSTACK_SECRET_KEY, PAYSTACK_PUBLIC_KEY, PAYPAL_WEBHOOK_ID, PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET,
+ * PAYPAL_MODE, PAYPAL_ENV, PAYSTACK_MODE, LULU_API_KEY, LULU_ENV.
+ * This file is pure (no database, no secret is ever printed) so it can be tested.
  */
 
-export type PaystackMode = "test" | "live";
-export type PaypalMode = "sandbox" | "live";
-
-export interface Env { [name: string]: string | undefined }
+import { expectedKeySet, paystackKeyKind, type Deployment, type Env, type KeySet } from "@/lib/runtime-env";
 
 const clean = (v: string | null | undefined): string | undefined => {
   const t = v?.trim();
   return t ? t : undefined;
 };
 
-/** Which kind of Paystack key this is, judged from its public prefix only. */
-export function paystackKeyKind(key: string | undefined): "test" | "live" | "unknown" {
-  if (!key) return "unknown";
-  if (/^(sk|pk)_live_/.test(key)) return "live";
-  if (/^(sk|pk)_test_/.test(key)) return "test";
-  return "unknown";
+export const PAYMENT_VARIABLES = {
+  paystack: {
+    test: ["PAYSTACK_TEST_PUBLIC_KEY", "PAYSTACK_TEST_SECRET_KEY"],
+    live: ["PAYSTACK_LIVE_PUBLIC_KEY", "PAYSTACK_LIVE_SECRET_KEY"],
+  },
+  paypal: {
+    test: ["PAYPAL_SANDBOX_CLIENT_ID", "PAYPAL_SANDBOX_SECRET_KEY", "PAYPAL_SANDBOX_WEBHOOK_ID"],
+    live: ["PAYPAL_LIVE_CLIENT_ID", "PAYPAL_LIVE_SECRET_KEY", "PAYPAL_LIVE_WEBHOOK_ID"],
+  },
+} as const;
+
+/** The variables of the OTHER key set that are present in this environment (names only). Should always be empty. */
+function wrongSet(provider: "paystack" | "paypal", set: KeySet, env: Env): string[] {
+  const other: KeySet = set === "live" ? "test" : "live";
+  return PAYMENT_VARIABLES[provider][other].filter((n) => !!clean(env[n]));
 }
 
-export function parsePaystackMode(v: string | null | undefined): PaystackMode | undefined {
-  const t = clean(v)?.toLowerCase();
-  if (t === "live" || t === "production") return "live";
-  if (t === "test" || t === "sandbox") return "test";
-  return undefined;
+export interface PaystackKeys { set: KeySet; secretKey: string | undefined; publicKey: string | undefined; hasKeys: boolean; kindMismatch: boolean; wrongSetNames: string[] }
+export function resolvePaystackKeys(env: Env, deployment: Deployment): PaystackKeys {
+  const set = expectedKeySet(deployment);
+  const up = set === "live" ? "LIVE" : "TEST";
+  const secretKey = clean(env[`PAYSTACK_${up}_SECRET_KEY`]);
+  const publicKey = clean(env[`PAYSTACK_${up}_PUBLIC_KEY`]);
+  const kindMismatch = (!!secretKey && paystackKeyKind(secretKey) !== set) || (!!publicKey && paystackKeyKind(publicKey) !== set);
+  return { set, secretKey, publicKey, hasKeys: !!secretKey && !!publicKey, kindMismatch, wrongSetNames: wrongSet("paystack", set, env) };
 }
 
-export function parsePaypalMode(v: string | null | undefined): PaypalMode | undefined {
-  const t = clean(v)?.toLowerCase();
-  if (t === "live" || t === "production") return "live";
-  if (t === "sandbox" || t === "test") return "sandbox";
-  return undefined;
-}
-
-export interface ModeChoice<M> { mode: M; source: "environment" | "admin settings" | "default" }
-
-/** PAYSTACK_MODE (Vercel) decides when it is set; otherwise the mode chosen in Admin -> API Management; otherwise test. */
-export function resolvePaystackMode(env: Env, adminMode?: string | null): ModeChoice<PaystackMode> {
-  const fromEnv = parsePaystackMode(env.PAYSTACK_MODE);
-  if (fromEnv) return { mode: fromEnv, source: "environment" };
-  const fromAdmin = parsePaystackMode(adminMode);
-  if (fromAdmin) return { mode: fromAdmin, source: "admin settings" };
-  return { mode: "test", source: "default" };
-}
-
-/** PAYPAL_MODE (Vercel) decides when it is set; then the admin choice; then the old PAYPAL_ENV; otherwise sandbox. */
-export function resolvePaypalMode(env: Env, adminMode?: string | null): ModeChoice<PaypalMode> {
-  const fromEnv = parsePaypalMode(env.PAYPAL_MODE);
-  if (fromEnv) return { mode: fromEnv, source: "environment" };
-  const fromAdmin = parsePaypalMode(adminMode);
-  if (fromAdmin) return { mode: fromAdmin, source: "admin settings" };
-  const legacy = parsePaypalMode(env.PAYPAL_ENV);
-  if (legacy) return { mode: legacy, source: "environment" };
-  return { mode: "sandbox", source: "default" };
-}
-
-export interface PaystackKeys { mode: PaystackMode; secretKey: string | undefined; publicKey: string | undefined }
-
-/** The Paystack keys for the active mode. Order: this mode's own variables, then keys saved in admin, then the old single variables. */
-export function pickPaystackKeys(mode: PaystackMode, env: Env, stored: { secretKey?: string; publicKey?: string }): PaystackKeys {
-  const up = mode === "live" ? "LIVE" : "TEST";
-  const fits = (k: string | undefined) => (k && paystackKeyKind(k) === mode ? k : undefined);
-  const secretKey = clean(env[`PAYSTACK_${up}_SECRET_KEY`]) ?? fits(clean(stored.secretKey)) ?? fits(clean(env.PAYSTACK_SECRET_KEY));
-  const publicKey = clean(env[`PAYSTACK_${up}_PUBLIC_KEY`]) ?? fits(clean(stored.publicKey)) ?? fits(clean(env.PAYSTACK_PUBLIC_KEY));
-  return { mode, secretKey, publicKey };
-}
-
-/**
- * The Paystack mode and keys to use. PAYSTACK_MODE (Vercel) is strict: the keys of that mode or nothing.
- * When the mode only comes from Admin -> API Management (or the default) and no key of that mode exists,
- * but a key of the other kind does, the key decides the mode, so the Paystack button never disappears just
- * because a saved label disagrees with the saved key. The admin notice shows when this happens.
- */
-export function resolvePaystack(
-  env: Env,
-  adminMode: string | null | undefined,
-  stored: { secretKey?: string; publicKey?: string },
-): { mode: PaystackMode; source: ModeChoice<PaystackMode>["source"] | "key"; keys: PaystackKeys } {
-  const choice = resolvePaystackMode(env, adminMode);
-  const keys = pickPaystackKeys(choice.mode, env, stored);
-  if (keys.secretKey || choice.source === "environment") return { mode: choice.mode, source: choice.source, keys };
-  const other: PaystackMode = choice.mode === "live" ? "test" : "live";
-  const otherKeys = pickPaystackKeys(other, env, stored);
-  if (otherKeys.secretKey) return { mode: other, source: "key", keys: otherKeys };
-  return { mode: choice.mode, source: choice.source, keys };
-}
-
-export interface PaypalKeys { environment: PaypalMode; clientId: string | undefined; clientSecret: string | undefined; webhookId: string | undefined }
-
-/** The PayPal credentials for the active mode. The old single variables only count when they were meant for this mode. */
-export function pickPaypalKeys(
-  mode: PaypalMode,
-  env: Env,
-  stored: { clientId?: string; clientSecret?: string; environment?: string | null },
-): PaypalKeys {
-  const up = mode === "live" ? "LIVE" : "SANDBOX";
-  const legacyMode = parsePaypalMode(env.PAYPAL_ENV) ?? "sandbox";
-  const storedMode = parsePaypalMode(stored.environment) ?? "sandbox";
-  const storedFits = storedMode === mode;
-  const legacyFits = legacyMode === mode;
+export interface PaypalKeys { set: KeySet; environment: "sandbox" | "live"; clientId: string | undefined; clientSecret: string | undefined; webhookId: string | undefined; hasKeys: boolean; wrongSetNames: string[] }
+export function resolvePaypalKeys(env: Env, deployment: Deployment): PaypalKeys {
+  const set = expectedKeySet(deployment);
+  const up = set === "live" ? "LIVE" : "SANDBOX";
+  const clientId = clean(env[`PAYPAL_${up}_CLIENT_ID`]);
+  const clientSecret = clean(env[`PAYPAL_${up}_SECRET_KEY`]);
   return {
-    environment: mode,
-    clientId: clean(env[`PAYPAL_${up}_CLIENT_ID`]) ?? (storedFits ? clean(stored.clientId) : undefined) ?? (legacyFits ? clean(env.PAYPAL_CLIENT_ID) : undefined),
-    clientSecret: clean(env[`PAYPAL_${up}_CLIENT_SECRET`]) ?? (storedFits ? clean(stored.clientSecret) : undefined) ?? (legacyFits ? clean(env.PAYPAL_CLIENT_SECRET) : undefined),
-    webhookId: clean(env[`PAYPAL_${up}_WEBHOOK_ID`]) ?? (legacyFits ? clean(env.PAYPAL_WEBHOOK_ID) : undefined),
+    set, environment: set === "live" ? "live" : "sandbox", clientId, clientSecret, webhookId: clean(env[`PAYPAL_${up}_WEBHOOK_ID`]),
+    hasKeys: !!clientId && !!clientSecret, wrongSetNames: wrongSet("paypal", set, env),
   };
 }
 
-/** Names of the variables to create (never values), for the admin help text and the report. */
-export const PAYMENT_ENV_NAMES = {
-  paystack: ["PAYSTACK_MODE", "PAYSTACK_TEST_SECRET_KEY", "PAYSTACK_TEST_PUBLIC_KEY", "PAYSTACK_LIVE_SECRET_KEY", "PAYSTACK_LIVE_PUBLIC_KEY"],
-  paypal: ["PAYPAL_MODE", "PAYPAL_SANDBOX_CLIENT_ID", "PAYPAL_SANDBOX_CLIENT_SECRET", "PAYPAL_SANDBOX_WEBHOOK_ID", "PAYPAL_LIVE_CLIENT_ID", "PAYPAL_LIVE_CLIENT_SECRET", "PAYPAL_LIVE_WEBHOOK_ID"],
-} as const;
+export interface LuluKeys { clientKey: string | undefined; clientSecret: string | undefined }
+export function resolveLuluKeys(env: Env): LuluKeys {
+  return { clientKey: clean(env.LULU_CLIENT_KEY), clientSecret: clean(env.LULU_CLIENT_SECRET) };
+}
+
+/** Older variable names the site no longer reads. Do NOT delete them in Vercel until the new code is tested on staging. */
+export const OLD_VARIABLE_NAMES = [
+  "PAYSTACK_SECRET_KEY", "PAYSTACK_PUBLIC_KEY", "PAYSTACK_MODE", "PAYPAL_WEBHOOK_ID", "PAYPAL_CLIENT_ID", "PAYPAL_CLIENT_SECRET",
+  "PAYPAL_MODE", "PAYPAL_ENV", "LULU_API_KEY", "LULU_ENV",
+] as const;
+
+export function findOldVariableNames(env: Env): string[] {
+  return OLD_VARIABLE_NAMES.filter((n) => clean(env[n]));
+}
+
+/** Every variable the site cares about, grouped, for the Site Health "present / missing" table (names only, never values). */
+export function variableGroups(deployment: Deployment): { group: string; names: string[] }[] {
+  const set = expectedKeySet(deployment);
+  return [
+    { group: `Paystack (${set} keys)`, names: [...PAYMENT_VARIABLES.paystack[set]] },
+    { group: `PayPal (${set === "live" ? "live" : "sandbox"} keys)`, names: [...PAYMENT_VARIABLES.paypal[set]] },
+    { group: "Lulu", names: ["LULU_CLIENT_KEY", "LULU_CLIENT_SECRET"] },
+    { group: "Email", names: ["RESEND_API_KEY", "FROM_EMAIL"] },
+    { group: "Database and sign-in", names: ["DATABASE_URL", "AUTH_SECRET"] },
+    { group: "Scheduled checks", names: ["CRON_SECRET"] },
+    { group: "Optional", names: ["PRODUCTION_DATABASE_ENDPOINT", "DATABASE_LABEL", "NEXT_PUBLIC_GA_MEASUREMENT_ID", "NEXT_PUBLIC_GTM_ID", "GOOGLE_SITE_VERIFICATION"] },
+  ];
+}

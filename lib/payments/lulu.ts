@@ -9,11 +9,11 @@
  * body) live in lib/lulu-order.ts so they can be tested without a network.
  *
  * What makes a print order reach Lulu (and what used to stop it):
- *  - Right Lulu system: orders go to Production or Sandbox according to the
- *    setting in Admin → API Management (see lib/api-keys.ts
- *    getLuluEnvironment). They used to go to the Sandbox whenever the
- *    LULU_ENV variable was not set, where they never appear in the real
- *    Lulu account.
+ *  - Right Lulu system: the account is live and Lulu has no sandbox, so every call goes to
+ *    api.lulu.com (lib/api-keys.ts getLuluEnvironment). Because of that, a REAL print order is
+ *    created only by the live site (VERCEL_ENV=production, lib/runtime-env.ts realPrintAllowed)
+ *    and only for an order paid with real money (lib/print-submission-guard.ts). Staging and test
+ *    payments never create one; quotes and file checks still work everywhere.
  *  - Valid request: the package code is sent without dots (max 27
  *    characters), file URLs are absolute, quantities match what was bought
  *    and the shipping address is complete (city, postal code, state, ISO
@@ -39,6 +39,8 @@
  */
 
 import { getLuluCredentials, getLuluEnvironment } from "@/lib/api-keys";
+import { deploymentOf, printBlockedMessage, realPrintAllowed, STAGING_EMAIL_ADDRESS, STAGING_LULU_REFERENCE } from "@/lib/runtime-env";
+import { getStagingLuluSwitch } from "@/lib/staging-lulu";
 import { luluFileUrl, PRINT_JOB_LINK_SECONDS } from "@/lib/signed-file-url";
 import {
   ALL_SHIPPING_LEVEL_IDS,
@@ -65,7 +67,7 @@ const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 async function getAccessToken(baseUrl: string): Promise<string> {
   const { clientKey, clientSecret } = await getLuluCredentials();
   if (!clientKey || !clientSecret) {
-    throw new Error("No Lulu credentials configured — set them in Admin → API Management → Print-on-Demand (Lulu).");
+    throw new Error("No Lulu credentials configured — set LULU_CLIENT_KEY and LULU_CLIENT_SECRET in Vercel.");
   }
   const cacheKey = `${baseUrl}|${clientKey}`;
   const cached = tokenCache.get(cacheKey);
@@ -79,7 +81,7 @@ async function getAccessToken(baseUrl: string): Promise<string> {
   });
   if (!res.ok) {
     throw new Error(
-      `Lulu authentication failed (${res.status}) against ${baseUrl}. Check that the Client Key/Secret match this Lulu system — Sandbox and Production use different keys.`
+      `Lulu authentication failed (${res.status}) against ${baseUrl}. Check LULU_CLIENT_KEY and LULU_CLIENT_SECRET in Vercel (Lulu has one live system and no sandbox).`
     );
   }
   const data = await res.json();
@@ -311,6 +313,12 @@ export async function submitLuluPrintJob(
   shippingLevel: LuluShippingLevel = "MAIL"
 ): Promise<{ ok: boolean; luluJobId?: string; error?: string }> {
   if (lines.length === 0) return { ok: true };
+  // Last line of defence: only the live site (Production), or staging with the admin switch ON, may create a real Lulu print job.
+  if (!realPrintAllowed(deploymentOf(), (await getStagingLuluSwitch()).on)) {
+    const message = printBlockedMessage(deploymentOf());
+    console.warn(`[lulu] ${message} (order ${ourOrderId})`);
+    return { ok: false, error: message };
+  }
   try {
     const baseUrl = luluBaseUrl(await getLuluEnvironment());
     const token = await getAccessToken(baseUrl);
@@ -345,6 +353,8 @@ export async function fetchLuluPrintJob(jobId: string): Promise<{ ok: true; json
 
 /** Tells Lulu to call `url` when a print job's status changes. */
 export async function registerLuluWebhookUrl(url: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  // The Lulu account is live and shared, so staging must never change which address Lulu calls.
+  if (deploymentOf() !== "production") return { ok: false, error: "Only the live site can register the Lulu webhook address (staging would change the live account)." };
   try {
     const baseUrl = luluBaseUrl(await getLuluEnvironment());
     const token = await getAccessToken(baseUrl);
@@ -447,6 +457,12 @@ export interface PrintJobOutcome {
   error?: string;
 }
 
+/** Permanent "what happened to this Lulu print order" line (system action: no person involved). Never throws. */
+async function logLulu(orderId: string, action: string, summary: string, after?: unknown): Promise<void> {
+  const { logRecordChange } = await import("@/lib/records");
+  await logRecordChange({ entityType: "LULU", entityId: orderId, action, summary, after, actorName: "system" });
+}
+
 async function markFailed(orderId: string, message: string): Promise<void> {
   const { prisma } = await import("@/lib/prisma");
   await prisma.order.update({
@@ -454,6 +470,7 @@ async function markFailed(orderId: string, message: string): Promise<void> {
     data: { printJobStatus: "FAILED", printJobId: null, printJobError: message.slice(0, 1900) },
   });
   console.error("Lulu print job not sent for order", orderId, message);
+  await logLulu(orderId, "PRINT_JOB_FAILED", `Print job not sent: ${message.slice(0, 200)}`, { printJobStatus: "FAILED" });
   // A file problem the author can fix (Lulu's own refusal, or a missing / unusable cover or interior):
   // record it as a rejection and tell the author once. Address, credential and service problems are not theirs.
   const failure = classifyFailure(message);
@@ -488,6 +505,22 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
     // Already sent: nothing more to decide.
     if (order.printJobStatus === "SUBMITTED" && !opts.resend) return { ok: true, state: "already" };
 
+    // Staging: a real print order is created only with the admin switch ON, and (below) only after a confirmed payment.
+    // Development never creates one. Checked from the running environment (VERCEL_ENV), not from missing keys.
+    const deployment = deploymentOf();
+    const stagingSwitchOn = deployment === "preview" ? (await getStagingLuluSwitch()).on : false;
+    if (!realPrintAllowed(deployment, stagingSwitchOn)) {
+      const message = printBlockedMessage(deployment);
+      await prisma.order.updateMany({
+        where: { id: orderId, OR: [{ printJobStatus: null }, { printJobStatus: "HELD_TEST" }, { printJobStatus: "FAILED" }] },
+        data: { printJobStatus: "HELD_TEST", printJobError: message },
+      });
+      console.warn(`[lulu] ${message} (order ${orderId})`);
+      await logLulu(orderId, "PRINT_JOB_HELD", message, { printJobStatus: "HELD_TEST", reason: "environment" });
+      return { ok: false, state: "held", error: message };
+    }
+    const fromStaging = deployment === "preview";
+
     // Safety check: a REAL Lulu print job (live account) is created only for an order whose payment was confirmed
     // by the gateway AND made with real money. A test payment is held, never sent (lib/print-submission-guard.ts).
     {
@@ -501,6 +534,7 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
         currentPaystackMode: (await getPaystackCredentials()).mode,
         currentPaypalMode: (await getPaypalCredentials()).environment === "live" ? "live" : "test",
         isTestData: order.isTestData,
+        stagingOverride: fromStaging,
       });
       if (!decision.allow) {
         await prisma.order.updateMany({
@@ -508,6 +542,7 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
           data: { printJobStatus: HELD_STATUS, printJobError: decision.message },
         });
         console.warn("Print job held (not sent to Lulu) for order", orderId, decision.code);
+        await logLulu(orderId, "PRINT_JOB_HELD", decision.message, { printJobStatus: HELD_STATUS, code: decision.code });
         return { ok: false, state: "held", error: decision.message };
       }
     }
@@ -625,7 +660,14 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
       const level = (ALL_SHIPPING_LEVEL_IDS as readonly string[]).includes(order.shippingLevel ?? "")
         ? (order.shippingLevel as LuluShippingLevel)
         : "MAIL";
-      const result = await submitLuluPrintJob(jobLines, address, order.id, "support@thegoodchildbookstore.com", level);
+      // From staging the order reference says STAGING TEST, CANCEL (so it can be found and cancelled in the Lulu dashboard) and
+      // Lulu's job emails go to the test inbox, never to the store's support address or a customer.
+      const result = await submitLuluPrintJob(
+        jobLines, address,
+        fromStaging ? `${STAGING_LULU_REFERENCE} - ${order.id}` : order.id,
+        fromStaging ? STAGING_EMAIL_ADDRESS : "support@thegoodchildbookstore.com",
+        level,
+      );
       if (!result.ok) {
         await markFailed(orderId, result.error ?? "Unknown error");
         return { ok: false, state: "failed", error: result.error };
@@ -633,8 +675,9 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
 
       await prisma.order.update({
         where: { id: orderId },
-        data: { printJobStatus: "SUBMITTED", printJobId: result.luluJobId ?? null, printJobError: null, luluAuthorNotifiedAt: null, luluRejectedAt: null, luluRejectionReason: null },
+        data: { printJobStatus: "SUBMITTED", printJobId: result.luluJobId ?? null, printJobError: null, luluAuthorNotifiedAt: null, luluRejectedAt: null, luluRejectionReason: null, ...(fromStaging ? { stagingLuluOrder: true } : {}) },
       });
+      await logLulu(orderId, "PRINT_JOB_SUBMITTED", fromStaging ? "STAGING print job sent to Lulu (reference STAGING TEST, CANCEL - cancel it in the Lulu dashboard)" : "Print job sent to Lulu", { printJobStatus: "SUBMITTED", printJobId: result.luluJobId ?? null });
       return { ok: true, state: "submitted" };
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unexpected error while preparing the print job.";

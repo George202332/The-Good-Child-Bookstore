@@ -1,76 +1,78 @@
 import { prisma } from "@/lib/prisma";
-import type { ApiKeys } from "@/lib/site-settings";
-import { resolveLuluEnvironment, normaliseEnabledLevels, type LuluEnvironment, type LuluShippingLevel } from "@/lib/lulu-order";
-import { pickPaypalKeys, resolvePaypalMode, resolvePaystack, type PaypalMode, type PaystackMode } from "@/lib/payment-env";
+import { normaliseEnabledLevels, type LuluEnvironment, type LuluShippingLevel } from "@/lib/lulu-order";
+import { resolveLuluKeys, resolvePaypalKeys, resolvePaystackKeys } from "@/lib/payment-env";
+import { deploymentOf, evaluatePaymentSafety, expectedKeySet, type Deployment, type KeySet, type PaymentSafety } from "@/lib/runtime-env";
 
 /**
- * Resolves live credentials, preferring what's saved in Site Settings
- * (backend-editable, see actions/site-settings.ts) over environment
- * variables — lets George manage these from the admin panel instead of
- * needing help editing Vercel's environment variables.
+ * Where every credential comes from: ONLY Vercel environment variables (names in lib/payment-env.ts). Nothing is read from, or
+ * stored in, the database. Which key set is used (test or live) is decided only by the environment (VERCEL_ENV): the live site
+ * reads the LIVE variables, staging reads the TEST/SANDBOX ones.
  *
- * Rebuilt per explicit instruction: PayPal removed. Paystack now uses a
- * single secret/public pair (not separate test/live pairs) — paymentMode
- * is just a label for which kind of key is currently entered. Lulu is
- * backend-manageable too. Payouts (author/affiliate) are executed
- * manually by an admin outside this system — see actions/admin.ts and
- * actions/payouts.ts — so there's no payout-gateway credential here.
+ * Safeguard: if the wrong key set is found for the environment (e.g. a TEST variable on Production, a LIVE one on staging, or
+ * a key of the wrong kind), that provider reports no key, so checkout offers no way to pay with it and shows the customer a
+ * friendly message; Site Health flags it and emails an alert. Webhook checks for a payment that ALREADY happened use the
+ * environment's own key as it is.
  */
 
-async function getStoredApiKeys(): Promise<ApiKeys | null> {
+export async function getPaymentSafety(): Promise<{ paystack: PaymentSafety; paypal: PaymentSafety; deployment: Deployment; set: KeySet }> {
+  const deployment = deploymentOf();
+  const ps = resolvePaystackKeys(process.env, deployment);
+  const pp = resolvePaypalKeys(process.env, deployment);
+  return {
+    deployment,
+    set: expectedKeySet(deployment),
+    paystack: evaluatePaymentSafety({ deployment, provider: "paystack", hasKeys: ps.hasKeys, wrongSetNames: ps.wrongSetNames, kindMismatch: ps.kindMismatch }),
+    paypal: evaluatePaymentSafety({ deployment, provider: "paypal", hasKeys: pp.hasKeys, wrongSetNames: pp.wrongSetNames, kindMismatch: false }),
+  };
+}
+
+/** Lulu has one live system and no sandbox. Real print orders are controlled elsewhere (see lib/payments/lulu.ts). */
+export async function getLuluEnvironment(): Promise<LuluEnvironment> {
+  return "production";
+}
+
+/** Shipping methods the store offers customers for printed copies (a plain, non-secret choice, edited in Site Management). */
+export async function getEnabledShippingLevels(): Promise<LuluShippingLevel[]> {
   try {
     const setting = await prisma.setting.findUnique({ where: { key: "site_settings" } });
-    return (setting?.value as { apiKeys?: ApiKeys } | undefined)?.apiKeys ?? null;
+    const raw = (setting?.value as { apiKeys?: { luluShippingLevels?: unknown } } | undefined)?.apiKeys?.luluShippingLevels;
+    return normaliseEnabledLevels(raw);
   } catch {
-    return null;
+    return normaliseEnabledLevels(undefined);
   }
 }
 
-/** Which Lulu system (sandbox or production) print orders go to — see
- * resolveLuluEnvironment in lib/lulu-order.ts for the precedence. */
-export async function getLuluEnvironment(): Promise<LuluEnvironment> {
-  const stored = await getStoredApiKeys();
-  return resolveLuluEnvironment({ stored: stored?.luluEnvironment, envVar: process.env.LULU_ENV, paymentMode: stored?.paymentMode });
-}
-
-/** Shipping methods the store offers customers for printed copies (set in
- * Admin → API Management). Defaults to all of them. */
-export async function getEnabledShippingLevels(): Promise<LuluShippingLevel[]> {
-  const stored = await getStoredApiKeys();
-  return normaliseEnabledLevels(stored?.luluShippingLevels);
-}
-
 export async function getLuluCredentials(): Promise<{ clientKey: string | undefined; clientSecret: string | undefined }> {
-  const stored = await getStoredApiKeys();
-  return {
-    clientKey: stored?.luluClientKey?.trim() || process.env.LULU_CLIENT_KEY || process.env.LULU_API_KEY,
-    clientSecret: stored?.luluClientSecret?.trim() || process.env.LULU_CLIENT_SECRET,
-  };
+  return resolveLuluKeys(process.env);
 }
 
-export async function getPaystackCredentials(): Promise<{ secretKey: string | undefined; publicKey: string | undefined; mode: "test" | "live" }> {
-  const stored = await getStoredApiKeys();
-  const { mode, keys } = resolvePaystack(process.env, stored?.paymentMode, { secretKey: stored?.paystackSecretKey, publicKey: stored?.paystackPublicKey });
-  return { secretKey: keys.secretKey, publicKey: keys.publicKey, mode };
+/** The Paystack keys, or no key when a safeguard has switched Paystack off. */
+export async function getPaystackCredentials(): Promise<{ secretKey: string | undefined; publicKey: string | undefined; mode: "test" | "live"; blocked?: string; customerMessage?: string }> {
+  const k = resolvePaystackKeys(process.env, deploymentOf());
+  const safety = (await getPaymentSafety()).paystack;
+  if (!safety.allowed) return { secretKey: undefined, publicKey: undefined, mode: k.set, blocked: safety.safeguard ? safety.reason : undefined, customerMessage: safety.customerMessage };
+  return { secretKey: k.secretKey, publicKey: k.publicKey, mode: k.set };
 }
 
-/** Which mode each provider is in and where that choice came from (never any key). Used for the admin-only notice. */
-export async function getPaymentModes(): Promise<{ paystack: { mode: PaystackMode; source: string }; paypal: { mode: PaypalMode; source: string } }> {
-  const stored = await getStoredApiKeys();
-  return {
-    paystack: (({ mode, source }) => ({ mode, source }))(resolvePaystack(process.env, stored?.paymentMode, { secretKey: stored?.paystackSecretKey, publicKey: stored?.paystackPublicKey })),
-    paypal: resolvePaypalMode(process.env, stored?.paypalEnvironment),
-  };
+/** The environment's own Paystack secret key, for confirming a payment or webhook that already happened. Server use only. */
+export function getPaystackSecretForVerification(): string | undefined {
+  return resolvePaystackKeys(process.env, deploymentOf()).secretKey;
 }
 
-/** The id PayPal gives a webhook when you add it in the PayPal dashboard - one per mode
- * (PAYPAL_SANDBOX_WEBHOOK_ID / PAYPAL_LIVE_WEBHOOK_ID). Only ever read from environment variables, never stored in the database. */
+export async function getPaypalCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined; environment: "sandbox" | "live"; webhookId: string | undefined; blocked?: string; customerMessage?: string }> {
+  const k = resolvePaypalKeys(process.env, deploymentOf());
+  const safety = (await getPaymentSafety()).paypal;
+  if (!safety.allowed) return { clientId: undefined, clientSecret: undefined, environment: k.environment, webhookId: k.webhookId, blocked: safety.safeguard ? safety.reason : undefined, customerMessage: safety.customerMessage };
+  return { clientId: k.clientId, clientSecret: k.clientSecret, environment: k.environment, webhookId: k.webhookId };
+}
+
+/** The environment's own PayPal webhook id (PAYPAL_SANDBOX_WEBHOOK_ID on staging, PAYPAL_LIVE_WEBHOOK_ID on Production). */
 export async function getPaypalWebhookId(): Promise<string | undefined> {
-  return (await getPaypalCredentials()).webhookId;
+  return resolvePaypalKeys(process.env, deploymentOf()).webhookId;
 }
 
-export async function getPaypalCredentials(): Promise<{ clientId: string | undefined; clientSecret: string | undefined; environment: "sandbox" | "live"; webhookId: string | undefined }> {
-  const stored = await getStoredApiKeys();
-  const { mode } = resolvePaypalMode(process.env, stored?.paypalEnvironment);
-  return pickPaypalKeys(mode, process.env, { clientId: stored?.paypalClientId, clientSecret: stored?.paypalClientSecret, environment: stored?.paypalEnvironment });
+/** Which mode each provider is in (never any key): decided by the environment only. */
+export async function getPaymentModes(): Promise<{ paystack: { mode: "test" | "live"; source: string }; paypal: { mode: "sandbox" | "live"; source: string } }> {
+  const set = expectedKeySet(deploymentOf());
+  return { paystack: { mode: set, source: "environment" }, paypal: { mode: set === "live" ? "live" : "sandbox", source: "environment" } };
 }

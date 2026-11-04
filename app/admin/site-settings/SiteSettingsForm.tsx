@@ -138,10 +138,10 @@ export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {
         </div>
       ))}
 
-      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>API Credentials Moved</h3>
+      <h3 style={{ fontSize: 15, margin: "20px 0 10px" }}>Keys</h3>
       <p className="field-hint" style={{ margin: "0 0 12px" }}>
-        All third-party API keys and credentials (Paystack, Lulu, Resend, Google Workspace) now live
-        in their own dedicated page — see <Link href="/admin/api-management">Admin → API Management</Link>.
+        No key or password is stored or editable here. All keys live only in Vercel environment variables. To see which services are
+        connected and which variable names are present, open <Link href="/admin/site-health">Admin → Site Health</Link>.
       </p>
 
       {error && <div className="field-hint" style={{ color: "var(--coral-deep)" }}>{error}</div>}

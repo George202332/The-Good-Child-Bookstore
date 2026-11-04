@@ -1,0 +1,14 @@
+ROUND 66 - environment-only keys, Site Health, staging protections
+
+DELETE these files from your project before adding the zip contents:
+  app/admin/api-management/page.tsx
+  app/admin/api-management/ShippingLevelsForm.tsx   (moved to app/admin/site-settings/)
+  lib/launch-state.ts
+
+SCHEMA CHANGE (staging first, then production before merging):
+  prisma/migrations/20261107090000_site_health_history  (adds Order.stagingLuluOrder, tables ServiceCheck and ServiceIncident)
+  Also pending if not yet applied: 20261105090000_accounting_reports, 20261106090000_records_never_deleted.
+  Command (staging, with the Preview DATABASE_URL):  npx prisma migrate deploy
+  Production: back up with a Neon branch first, then the same command with the production URL. Never migrate reset.
+
+No stored data is changed by this update. Stored keys: run  npx tsx scripts/scrub-stored-keys.ts  to REPORT only; --apply only after you approve.

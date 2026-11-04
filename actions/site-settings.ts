@@ -49,7 +49,8 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
           twitter: { ...DEFAULT_SITE_SETTINGS.socialLinks.twitter, ...(stored.socialLinks?.twitter ?? {}) },
           tiktok: { ...DEFAULT_SITE_SETTINGS.socialLinks.tiktok, ...(stored.socialLinks?.tiktok ?? {}) },
         },
-        apiKeys: { ...DEFAULT_SITE_SETTINGS.apiKeys, ...(stored.apiKeys ?? {}) },
+        // Only the plain shipping choice is read. Any old stored key fields are ignored (and removed by the cleanup migration).
+        apiKeys: { ...(stored.apiKeys?.luluShippingLevels ? { luluShippingLevels: stored.apiKeys.luluShippingLevels } : {}) },
         publishingFormatsEnabled: { ...DEFAULT_SITE_SETTINGS.publishingFormatsEnabled, ...(stored.publishingFormatsEnabled ?? {}) },
         // Payout-method toggles: only a literal true counts as ON.
         ...resolvePayoutMethodToggles(stored),
@@ -62,170 +63,30 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
 });
 
 /**
- * The version of settings safe to send to the admin's browser: identical
- * to getSiteSettings() except every API key value is stripped to an
- * empty string (only whether one is set is exposed, as a boolean) — the
- * actual secret is never sent to the client once saved. Only used for
- * populating the Site Settings form; getSiteSettings() (with real values)
- * is what the payment services actually call.
+ * The settings for the Site Management form. Keys are no longer stored in the database (they live only in Vercel), so
+ * nothing secret can ever be in here; only the plain shipping-method choice remains under apiKeys.
  */
 export async function getSiteSettingsForEditing(): Promise<{ settings: SiteSettings; apiKeysSet: Record<string, boolean> }> {
   const settings = await getSiteSettings();
-  const apiKeysSet: Record<string, boolean> = {
-    luluClientKey: !!settings.apiKeys.luluClientKey,
-    luluClientSecret: !!settings.apiKeys.luluClientSecret,
-    resendApiKey: !!settings.apiKeys.resendApiKey,
-    paystackSecretKey: !!settings.apiKeys.paystackSecretKey,
-    paystackPublicKey: !!settings.apiKeys.paystackPublicKey,
-    paypalClientId: !!settings.apiKeys.paypalClientId,
-    paypalClientSecret: !!settings.apiKeys.paypalClientSecret,
-  };
   return {
-    settings: {
-      ...settings,
-      apiKeys: {
-        paymentMode: settings.apiKeys.paymentMode,
-        luluClientKey: "",
-        luluClientSecret: "",
-        luluEnvironment: settings.apiKeys.luluEnvironment,
-        luluShippingLevels: normaliseEnabledLevels(settings.apiKeys.luluShippingLevels),
-        resendApiKey: "",
-        fromEmail: settings.apiKeys.fromEmail ?? "",
-        paystackSecretKey: "",
-        paystackPublicKey: "",
-        paypalClientId: "",
-        paypalClientSecret: "",
-        paypalEnvironment: settings.apiKeys.paypalEnvironment,
-      },
-    },
-    apiKeysSet,
+    settings: { ...settings, apiKeys: { luluShippingLevels: normaliseEnabledLevels(settings.apiKeys.luluShippingLevels) } },
+    apiKeysSet: {},
   };
 }
 
-export async function testPaystackConnection(): Promise<{ ok: boolean; message: string }> {
+/** Admin-only: which shipping methods customers may choose for printed copies (not a secret). */
+export async function saveShippingLevels(levels: string[]): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return { ok: false, message: "Only Admins can do this." };
-
-  const { paystackKeyMode, PAYSTACK_CURRENCY } = await import("@/lib/payments/paystack");
-  const { getPaystackCredentials, getPaymentModes } = await import("@/lib/api-keys");
-  // The keys for the ACTIVE mode only (see lib/payment-mode.ts): a test key is never used in live mode or the reverse.
-  const { secretKey, publicKey, mode } = await getPaystackCredentials();
-  const modeInfo = (await getPaymentModes()).paystack;
-
-  if (!secretKey) {
-    const up = mode === "live" ? "LIVE" : "TEST";
-    return {
-      ok: false,
-      message: `Paystack is in ${mode} mode (set by ${modeInfo.source}), but no ${mode} secret key was found. Add PAYSTACK_${up}_SECRET_KEY (and PAYSTACK_${up}_PUBLIC_KEY) in Vercel, or enter a ${mode} key above and save.`,
-    };
-  }
-
-  const notes: string[] = [];
-  const secretMode = paystackKeyMode(secretKey);
-  notes.push(`Paystack is in ${mode} mode (set by ${modeInfo.source}); using the ${secretMode} secret key.`);
-  if (publicKey) {
-    const publicMode = paystackKeyMode(publicKey);
-    if (publicMode !== "unknown" && secretMode !== "unknown" && publicMode !== secretMode) {
-      notes.push(`WARNING: the public key is a ${publicMode} key but the secret key is a ${secretMode} key - they must both be live or both be test, from the same Paystack account.`);
-    }
-  }
-
+  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can change this." };
   try {
-    const res = await fetch("https://api.paystack.co/transaction?perPage=1", {
-      headers: { Authorization: `Bearer ${secretKey}` },
-      cache: "no-store",
-    });
-    if (res.status === 401) {
-      return { ok: false, message: [...notes, "Paystack rejected this secret key as invalid (401 Unauthorized). Double-check it was copied correctly."].join(" ") };
-    }
-    if (!res.ok) {
-      return { ok: false, message: [...notes, `Paystack responded with an unexpected status (${res.status}). Check Paystack's own dashboard for account issues.`].join(" ") };
-    }
-
-    // The same request checkout makes, for $1.00 in USD. Paystack only creates an unpaid, harmless
-    // pending transaction; its answer tells us whether USD is switched on for this account.
-    const probe = await fetch("https://api.paystack.co/transaction/initialize", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${secretKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ email: "connection-test@thegoodchildbookstore.com", amount: 100, currency: PAYSTACK_CURRENCY }),
-      cache: "no-store",
-    });
-    if (probe.ok) {
-      return { ok: true, message: [...notes, `Paystack accepted the key AND accepted a ${PAYSTACK_CURRENCY} payment request, so ${PAYSTACK_CURRENCY} is enabled on this account.`].join(" ") };
-    }
-    let reason = `HTTP ${probe.status}`;
-    try {
-      const body = (await probe.json()) as { message?: string };
-      if (body?.message) reason = body.message;
-    } catch {
-      // keep the status text
-    }
-    return {
-      ok: false,
-      message: [
-        ...notes,
-        `The key works, but Paystack REFUSED a ${PAYSTACK_CURRENCY} payment request: "${reason}". This is the same error customers hit at checkout.`,
-        "If it mentions currency, ask Paystack to enable USD on your account (Paystack dashboard > Settings > Preferences, or contact Paystack support).",
-      ].join(" "),
-    };
+    const existing = await getSiteSettings();
+    const value = JSON.parse(JSON.stringify({ ...existing, apiKeys: { luluShippingLevels: normaliseEnabledLevels(levels) } }));
+    await prisma.setting.upsert({ where: { key: SITE_SETTINGS_KEY }, update: { value }, create: { key: SITE_SETTINGS_KEY, value } });
+    revalidatePath("/admin/site-settings");
+    return { ok: true };
   } catch (e) {
-    return { ok: false, message: e instanceof Error ? `Could not reach Paystack: ${e.message}` : "Could not reach Paystack." };
+    return { ok: false, error: e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save - please try again." };
   }
-}
-
-export async function testPaypalConnection(): Promise<{ ok: boolean; message: string }> {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN") return { ok: false, message: "Only Admins can do this." };
-  const { getPaypalCredentials } = await import("@/lib/api-keys");
-  const { testPaypalCredentials } = await import("@/lib/payments/paypal");
-  const { clientId, clientSecret, environment } = await getPaypalCredentials();
-  if (!clientId || !clientSecret) {
-    return { ok: false, message: "No PayPal Client ID and Secret found. Enter both above and save first." };
-  }
-  try {
-    await testPaypalCredentials();
-    return { ok: true, message: `Connected successfully to PayPal (${environment === "live" ? "live - real money" : "sandbox - test payments"}). PayPal accepted the Client ID and Secret.` };
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? `${e.message} Make sure the Sandbox/Live choice matches where the keys were created.` : "Could not reach PayPal." };
-  }
-}
-
-/**
- * Sends a real, live test email through the exact same sendEmail()
- * path the contact form, order receipts, and everything else use —
- * not a dry-run or a key format check. This is the definitive way to
- * diagnose "the contact form isn't reaching my inbox": whatever this
- * button reports is exactly what's actually happening on a real send,
- * with Resend's real, specific error surfaced directly rather than a
- * generic failure message.
- */
-export async function sendTestEmail(toAddress: string): Promise<{ ok: boolean; message: string }> {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN") return { ok: false, message: "Only Admins can do this." };
-
-  const to = toAddress.trim();
-  if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
-    return { ok: false, message: "Enter a valid email address to send the test to." };
-  }
-
-  const { sendEmail } = await import("@/lib/email");
-  const result = await sendEmail(
-    to,
-    "Test email from The Good Child Bookstore",
-    `<div style="font-family: Georgia, serif;"><p>This is a real test send — if you're reading this, delivery is working.</p><p>Sent ${new Date().toISOString()}.</p></div>`
-  );
-
-  if (!result.ok) {
-    const raw = result.error ?? "Send failed, but no specific error was returned.";
-    if (/own email address|testing emails|verify a domain/i.test(raw)) {
-      return {
-        ok: false,
-        message: `Resend blocked this: your account has no verified domain yet, so it only allows sending to the email address you signed up to Resend with — not to ${to}. Verify thegoodchildbookstore.com under Domains in your Resend dashboard to send to any address. (Resend's exact message: "${raw}")`,
-      };
-    }
-    return { ok: false, message: raw };
-  }
-  return { ok: true, message: `Sent successfully to ${to}. Check that inbox (and its spam folder) for it.` };
 }
 
 export async function updatePublishingFormats(formats: PublishingFormatsEnabled): Promise<{ ok: boolean; error?: string }> {
@@ -255,44 +116,11 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
     return { ok: false, error: "Only Admins can edit site settings." };
   }
 
-  const fromEmailInput = settings.apiKeys.fromEmail?.trim();
-  if (fromEmailInput) {
-    const domain = fromEmailInput.split("@")[1]?.toLowerCase();
-    const consumerDomains = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", "aol.com", "live.com", "msn.com"];
-    if (domain && consumerDomains.includes(domain)) {
-      return {
-        ok: false,
-        error: `"${fromEmailInput}" can't be used as the "From" email — Resend requires a domain you actually own and have verified in your Resend account (Domains tab), and nobody can verify ownership of ${domain}. Use an address on thegoodchildbookstore.com instead, once that domain is verified there.`,
-      };
-    }
-  }
-
   try {
-    // Any API key field left blank keeps whatever's already saved, rather
-    // than erasing a working credential just because the admin didn't
-    // retype it (the form never shows the real value back, on purpose).
+    // Keys are not stored here any more. Always keep the saved shipping-method choice (it has its own action) and
+    // never write any key field, even if an old copy of this form sends one.
     const existing = await getSiteSettings();
-
-    const apiKeys: ApiKeys = {
-      paymentMode: settings.apiKeys.paymentMode,
-      luluClientKey: settings.apiKeys.luluClientKey?.trim() || existing.apiKeys.luluClientKey,
-      luluClientSecret: settings.apiKeys.luluClientSecret?.trim() || existing.apiKeys.luluClientSecret,
-      luluEnvironment: settings.apiKeys.luluEnvironment === "production" || settings.apiKeys.luluEnvironment === "sandbox"
-        ? settings.apiKeys.luluEnvironment
-        : existing.apiKeys.luluEnvironment,
-      luluShippingLevels: settings.apiKeys.luluShippingLevels
-        ? normaliseEnabledLevels(settings.apiKeys.luluShippingLevels)
-        : existing.apiKeys.luluShippingLevels,
-      resendApiKey: settings.apiKeys.resendApiKey?.trim() || existing.apiKeys.resendApiKey,
-      fromEmail: settings.apiKeys.fromEmail?.trim() || existing.apiKeys.fromEmail,
-      paystackSecretKey: settings.apiKeys.paystackSecretKey?.trim() || existing.apiKeys.paystackSecretKey,
-      paystackPublicKey: settings.apiKeys.paystackPublicKey?.trim() || existing.apiKeys.paystackPublicKey,
-      paypalClientId: settings.apiKeys.paypalClientId?.trim() || existing.apiKeys.paypalClientId,
-      paypalClientSecret: settings.apiKeys.paypalClientSecret?.trim() || existing.apiKeys.paypalClientSecret,
-      paypalEnvironment: settings.apiKeys.paypalEnvironment === "live" || settings.apiKeys.paypalEnvironment === "sandbox"
-        ? settings.apiKeys.paypalEnvironment
-        : existing.apiKeys.paypalEnvironment,
-    };
+    const apiKeys: ApiKeys = { luluShippingLevels: existing.apiKeys.luluShippingLevels };
 
     // The payout-method toggles have their own action
     // (updatePayoutMethodToggles). Always keep the saved values here so a

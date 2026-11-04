@@ -801,6 +801,13 @@ model Order {
   luluRejectedAt        DateTime?
   luluAuthorNotifiedAt  DateTime?
 
+  /// Refunds are separate records linked to this order; the order itself is never deleted or rewritten.
+  refunds               Refund[]
+
+  /// True when this print order was sent to Lulu FROM STAGING (reference "STAGING TEST, CANCEL"). Flagged in Lulu Publishing and
+  /// Site Health, and left out of every Accounting figure. It must be cancelled by hand in the Lulu dashboard.
+  stagingLuluOrder      Boolean   @default(false)
+
   @@index([readerId])
   @@index([status])
 }
@@ -855,6 +862,11 @@ model PaymentLog {
   rawPayload Json
   verified   Boolean        @default(false)
   createdAt  DateTime       @default(now())
+  /// RECORDED (normal) | FAILED | DISPUTED | CHARGEBACK | RESOLVED. A failed or disputed payment keeps its row and
+  /// gets a status here; rows are never deleted (see RecordChangeLog for who changed it and when).
+  status          String    @default("RECORDED")
+  statusReason    String?
+  statusChangedAt DateTime?
 }
 
 // ---------- Affiliate system ----------
@@ -917,6 +929,9 @@ model PayoutRequest {
   failureReason  String?
   requestedAt    DateTime     @default(now())
   resolvedAt     DateTime?
+
+  /// A mistake in a payout is fixed with a reversing entry here, never by changing or deleting the payout.
+  adjustments    PayoutAdjustment[]
 
   @@index([userId])
   @@index([status])
@@ -1294,4 +1309,91 @@ model AccountingReport {
   data      Bytes
 
   @@index([monthKey, sentAt])
+}
+
+
+/// A refund is its own record linked to the original order. The order and its payment rows are never changed or deleted.
+model Refund {
+  id               String   @id @default(cuid())
+  orderId          String
+  order            Order    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  amount           Decimal  @db.Decimal(10, 2)
+  currency         String   @default("USD")
+  reason           String
+  /// Who processed it (a copy of the name is kept so the record stays readable even if the account changes).
+  processedById    String
+  processedByName  String
+  /// The gateway's own reference for the refund, if there is one.
+  gatewayReference String?
+  createdAt        DateTime @default(now())
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+/// A reversing (or correcting) entry for a payout. The original PayoutRequest is never edited or deleted.
+/// amount is positive; kind says whether it takes money off the payout (REVERSAL) or adds the missing part (CORRECTION).
+model PayoutAdjustment {
+  id               String   @id @default(cuid())
+  payoutRequestId  String
+  payoutRequest    PayoutRequest @relation(fields: [payoutRequestId], references: [id], onDelete: Restrict)
+  kind             String
+  amount           Decimal  @db.Decimal(10, 2)
+  currency         String
+  reason           String
+  createdById      String
+  createdByName    String
+  createdAt        DateTime @default(now())
+
+  @@index([payoutRequestId])
+}
+
+/// A permanent log of who changed a payment, order, refund, payout or Lulu record, and when. Written by the site, never deleted.
+/// actorId has no foreign key on purpose, so the log survives whatever happens to the account.
+model RecordChangeLog {
+  id         String   @id @default(cuid())
+  entityType String
+  entityId   String
+  action     String
+  summary    String
+  before     Json?
+  after      Json?
+  actorId    String?
+  actorName  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([createdAt])
+}
+
+
+/// One automatic check of one service (every 5 minutes): the full history shown on Site Health.
+model ServiceCheck {
+  id         String   @id @default(cuid())
+  service    String
+  ok         Boolean
+  responseMs Int?
+  /// Plain-words error for a failed check. Never contains a key.
+  error      String?
+  /// "production" | "preview" | "development" - which copy of the site ran the check.
+  deployment String
+  checkedAt  DateTime @default(now())
+
+  @@index([service, checkedAt])
+  @@index([checkedAt])
+}
+
+/// A period during which a service was failing: opened at the first failed check, closed at the first good one.
+model ServiceIncident {
+  id           String    @id @default(cuid())
+  service      String
+  startedAt    DateTime  @default(now())
+  resolvedAt   DateTime?
+  firstError   String?
+  lastError    String?
+  checksFailed Int       @default(1)
+  deployment   String
+
+  @@index([service, startedAt])
+  @@index([startedAt])
 }

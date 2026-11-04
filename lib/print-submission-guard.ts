@@ -32,11 +32,14 @@ export function printSubmissionDecision(opts: {
   currentPaystackMode: PaymentMode;
   currentPaypalMode: PaymentMode;
   isTestData: boolean;
+  /** Staging with the admin switch ON: test money is expected there, so only a confirmed payment is required. */
+  stagingOverride?: boolean;
 }): SubmissionDecision {
   if (opts.luluEnvironment !== "production") return { allow: true };
   if (!opts.gateway) {
     return { allow: false, code: "no-verified-payment", message: "Held: no confirmed payment is recorded for this order, so it was not sent to Lulu (live)." };
   }
+  if (opts.stagingOverride) return { allow: true };
   const mode = opts.paymentMode ?? (opts.gateway === "PAYSTACK" ? opts.currentPaystackMode : opts.currentPaypalMode);
   if (mode !== "live") {
     return { allow: false, code: "test-payment", message: `Held: this order was paid with ${opts.gateway === "PAYSTACK" ? "Paystack" : "PayPal"} test money, so it was not sent to Lulu (live). Nothing was printed or charged.` };

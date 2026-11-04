@@ -1,27 +1,40 @@
-import { getPaymentModes } from "@/lib/api-keys";
+import { getPaymentSafety } from "@/lib/api-keys";
+import { deploymentLabel, describeDatabase } from "@/lib/runtime-env";
 
-/** A small strip shown to the ADMIN only (never to editors, accountants or customers) so it is always clear which
- * payment mode is active. Shows names of modes only, never any key. */
+/** A small strip shown to the ADMIN only (never to editors, accountants or customers). It shows which copy of the site this is,
+ * which payment mode is active, which database the site is connected to (endpoint NAME only, never a password) and, in red at
+ * the top, any safeguard that has switched a payment method off. Never shows a key. */
 export async function PaymentModeNotice() {
-  let modes;
+  let safety;
   try {
-    modes = await getPaymentModes();
+    safety = await getPaymentSafety();
   } catch {
     return null;
   }
-  const live = modes.paystack.mode === "live" && modes.paypal.mode === "live";
-  const test = modes.paystack.mode === "test" && modes.paypal.mode === "sandbox";
-  const label = (name: string, on: boolean) => `${name}: ${on ? "LIVE" : "TEST"}`;
-  const text = `${label("Paystack", modes.paystack.mode === "live")} · ${label("PayPal", modes.paypal.mode === "live")}`;
-  const colour = live ? "#165236" : test ? "#8a5a00" : "#a1262a";
-  const heading = live ? "Live payments - real money" : test ? "Test mode - no real money" : "Mixed mode - check your payment settings";
+  const db = describeDatabase(process.env.DATABASE_URL, process.env.DATABASE_LABEL);
+  const set = safety.set;
+  const warnings = [safety.paystack, safety.paypal].filter((s) => s.safeguard && s.reason);
+  const colour = warnings.length ? "#a1262a" : set === "live" ? "#165236" : "#8a5a00";
+  const heading = set === "live" ? "Live payments - real money" : "Test mode - no real money";
+  const state = (s: { allowed: boolean; safeguard: boolean }) => (s.allowed ? set.toUpperCase() : s.safeguard ? "SWITCHED OFF" : "not set up");
   return (
-    <div
-      role="status"
-      style={{ position: "fixed", right: 12, bottom: 12, zIndex: 60, maxWidth: "calc(100vw - 24px)", background: "#fff", color: colour, border: `1.5px solid ${colour}`, borderRadius: 10, padding: "6px 12px", fontSize: 12, lineHeight: 1.35, boxShadow: "0 2px 10px rgba(0,0,0,.18)" }}
-    >
-      <strong>{heading}</strong>
-      <div>{text}</div>
-    </div>
+    <>
+      {warnings.length > 0 && (
+        <div role="alert" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 80, background: "#a1262a", color: "#fff", padding: "8px 14px", fontSize: 13, lineHeight: 1.4 }}>
+          <strong>Payment safeguard:</strong> {warnings.map((w) => w.reason).join(" ")}
+        </div>
+      )}
+      <div
+        role="status"
+        style={{ position: "fixed", right: 12, bottom: 12, zIndex: 60, maxWidth: "calc(100vw - 24px)", background: "#fff", color: colour, border: `1.5px solid ${colour}`, borderRadius: 10, padding: "6px 12px", fontSize: 12, lineHeight: 1.35, boxShadow: "0 2px 10px rgba(0,0,0,.18)" }}
+      >
+        <strong>{heading}</strong>
+        <div>Paystack: {state(safety.paystack)} · PayPal: {state(safety.paypal)}</div>
+        <div style={{ color: "#555", marginTop: 2 }}>
+          {deploymentLabel(safety.deployment)}
+          {db ? ` · Database: ${db.label ? `${db.label} - ` : ""}${db.endpoint}${db.database ? ` / ${db.database}` : ""}` : " · Database: not set"}
+        </div>
+      </div>
+    </>
   );
 }

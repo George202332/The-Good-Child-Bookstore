@@ -60,7 +60,7 @@ export async function loadAccountingSource(): Promise<AccountingSource> {
   const cutoff = archive ? new Date(archive.archivedAt) : null;
   const [lines, paidOrders, logs, payoutRows, expenseRows, booksCount] = await Promise.all([
     prisma.saleLine.findMany({
-      where: { order: { status: "PAID" } },
+      where: { order: { status: "PAID", stagingLuluOrder: false } },
       select: {
         id: true, orderId: true, format: true, grossAmount: true, companyShare: true, authorShare: true, affiliateShare: true,
         authorReferralShare: true, printingCost: true, createdAt: true,
@@ -72,7 +72,7 @@ export async function loadAccountingSource(): Promise<AccountingSource> {
       orderBy: { createdAt: "asc" },
     }),
     prisma.order.findMany({
-      where: { status: "PAID" },
+      where: { status: "PAID", stagingLuluOrder: false },
       select: {
         id: true, createdAt: true, totalAmount: true, shippingAmount: true, fulfillmentAmount: true, isTestData: true,
         printJobId: true, printJobStatus: true, luluStatus: true, luluShippedAt: true, luluShippingCost: true, luluFulfillmentCost: true,
@@ -81,7 +81,7 @@ export async function loadAccountingSource(): Promise<AccountingSource> {
       },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.paymentLog.findMany({ where: { order: { status: "PAID" } }, select: { orderId: true, rawPayload: true } }),
+    prisma.paymentLog.findMany({ where: { order: { status: "PAID", stagingLuluOrder: false } }, select: { orderId: true, rawPayload: true } }),
     prisma.payoutRequest.findMany({
       select: {
         id: true, userId: true, amount: true, status: true, earningsType: true, requestedAt: true, resolvedAt: true,

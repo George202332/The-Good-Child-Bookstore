@@ -21,9 +21,13 @@ export interface InitiateGatewayResult {
 }
 
 /** Which online payment methods are switched on. Yes/no only - no keys leave the server. */
-export async function getPaymentAvailability(): Promise<{ paystack: boolean; paypal: boolean }> {
-  const [{ secretKey }, paypal] = await Promise.all([getPaystackCredentials(), getPaypalCredentials()]);
-  return { paystack: !!secretKey, paypal: !!paypal.clientId && !!paypal.clientSecret };
+export async function getPaymentAvailability(): Promise<{ paystack: boolean; paypal: boolean; message?: string }> {
+  const [ps, paypal] = await Promise.all([getPaystackCredentials(), getPaypalCredentials()]);
+  const paystack = !!ps.secretKey;
+  const pp = !!paypal.clientId && !!paypal.clientSecret;
+  // When a safeguard switched a method off (wrong key set for this environment) the customer gets a friendly message, never the reason.
+  const message = !paystack && !pp && (ps.customerMessage || paypal.customerMessage) ? ps.customerMessage ?? paypal.customerMessage : undefined;
+  return { paystack, paypal: pp, message };
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

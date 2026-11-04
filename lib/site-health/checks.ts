@@ -218,7 +218,6 @@ const ADMIN_ROUTE_AUDIT: StaticRouteAudit[] = [
   { route: "/admin/seo-marketing/indexing", guarded: true },
   { route: "/admin/google-infrastructure", guarded: true },
   { route: "/admin/analytics", guarded: true },
-  { route: "/admin/api-management", guarded: true },
   { route: "/admin/site-settings", guarded: true },
   { route: "/admin/marketing", guarded: true },
   { route: "/admin/library", guarded: true },

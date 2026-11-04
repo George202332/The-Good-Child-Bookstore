@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { prisma } from "@/lib/prisma";
+import { deploymentOf, emailRouteFor } from "@/lib/runtime-env";
 import { wrapEmailHtml } from "@/lib/email/template";
 
 /**
@@ -11,20 +11,19 @@ import { wrapEmailHtml } from "@/lib/email/template";
  * always talked to Resend, just via a manual HTTP request before this
  * change instead of the official client library.
  *
- * Authentication: the RESEND_API_KEY environment variable is the
- * fallback credential source, read at send time. An admin can also
- * override it from Admin → API Management → Email without touching
- * environment variables or redeploying — the same pattern already
- * used for every other third-party credential in this app (Paystack,
- * Lulu). If neither the database override nor RESEND_API_KEY is
- * set, sends are skipped with a clear, loggable reason rather than
+ * Authentication: ONLY the RESEND_API_KEY Vercel variable, read at send
+ * time (nothing is stored in the admin or the database any more). If it is
+ * not set, sends are skipped with a clear, loggable reason rather than
  * throwing — a missing email configuration should never take down an
  * order confirmation or any other flow that calls this.
  *
+ * Staging safety: on the staging (Preview) site nothing is ever sent to a
+ * real recipient: every email goes only to otieno29@gmail.com with a
+ * [STAGING] subject prefix. Only the live site (Production) sends to real people.
+ *
  * From address: must be on a domain verified in the Resend dashboard
  * (Resend rejects sends from unverified domains), configured via the
- * FROM_EMAIL environment variable or the same Admin → API Management
- * override, defaulting to orders@thegoodchildbookstore.com.
+ * FROM_EMAIL Vercel variable, defaulting to orders@thegoodchildbookstore.com.
  *
  * Every caller of sendEmail() in this project:
  *   - actions/order-emails.ts   — order confirmation/receipt (with PDF attachment)
@@ -44,17 +43,11 @@ import { wrapEmailHtml } from "@/lib/email/template";
  * work required.
  */
 
-async function getEmailCredentials(): Promise<{ apiKey?: string; fromEmail: string }> {
-  try {
-    const setting = await prisma.setting.findUnique({ where: { key: "site_settings" } });
-    const apiKeys = (setting?.value as { apiKeys?: { resendApiKey?: string; fromEmail?: string } } | undefined)?.apiKeys;
-    return {
-      apiKey: apiKeys?.resendApiKey?.trim() || process.env.RESEND_API_KEY,
-      fromEmail: apiKeys?.fromEmail?.trim() || process.env.FROM_EMAIL || "orders@thegoodchildbookstore.com",
-    };
-  } catch {
-    return { apiKey: process.env.RESEND_API_KEY, fromEmail: process.env.FROM_EMAIL || "orders@thegoodchildbookstore.com" };
-  }
+function getEmailCredentials(): { apiKey?: string; fromEmail: string } {
+  return {
+    apiKey: process.env.RESEND_API_KEY?.trim() || undefined,
+    fromEmail: process.env.FROM_EMAIL?.trim() || "orders@thegoodchildbookstore.com",
+  };
 }
 
 export async function sendEmail(
@@ -65,10 +58,21 @@ export async function sendEmail(
   replyTo?: string,
   unsubscribeUrl?: string
 ): Promise<{ ok: boolean; error?: string }> {
-  const { apiKey, fromEmail } = await getEmailCredentials();
+  const { apiKey, fromEmail } = getEmailCredentials();
   if (!apiKey) {
-    console.log(`[email skipped — not configured] to=${to} subject="${subject}"`);
-    return { ok: false, error: "Email isn't configured yet — set RESEND_API_KEY or add it in Admin \u2192 API Management \u2192 Email." };
+    console.log(`[email skipped — not configured] subject="${subject}"`);
+    return { ok: false, error: "Email isn't configured yet — set RESEND_API_KEY in Vercel." };
+  }
+
+  // Staging (Preview) and development email NOBODY but the one test inbox, with a [STAGING] subject prefix. Only the live site
+  // (Production) sends to the real recipient.
+  const route = emailRouteFor(deploymentOf());
+  if (route.action === "sink") {
+    html = `<p style="background:#fff3cd;padding:8px;border-radius:6px;font-size:13px;">STAGING: this email was meant for <strong>${to.replace(/[<>&"]/g, "")}</strong> and was redirected to this test inbox.</p>${html}`;
+    console.log(`[email redirected on staging] original recipient replaced by the test inbox; subject="${subject}"`);
+    subject = `[STAGING] ${subject}`;
+    to = route.to;
+    replyTo = undefined;
   }
 
   try {

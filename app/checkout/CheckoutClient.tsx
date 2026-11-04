@@ -108,7 +108,7 @@ export function CheckoutClient({
     paymentMethod: "paystack",
   });
   // null = still checking which payment methods are switched on.
-  const [availability, setAvailability] = useState<{ paystack: boolean; paypal: boolean } | null>(null);
+  const [availability, setAvailability] = useState<{ paystack: boolean; paypal: boolean; message?: string } | null>(null);
   useEffect(() => {
     getPaymentAvailability().then(setAvailability).catch(() => setAvailability({ paystack: false, paypal: false }));
   }, []);
@@ -692,7 +692,7 @@ export function CheckoutClient({
           )}
           {availability && !availability.paystack && !paypalReady && (
             <div className="checkout-error" role="alert">
-              Online payments aren&apos;t available right now. Please try again later or contact support.
+              {availability.message ?? "Online payments aren't available right now. Please try again later or contact support."}
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 16 }}>

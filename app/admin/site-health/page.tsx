@@ -4,12 +4,13 @@ import { AdminShell } from "@/components/AdminShell";
 import { getSiteHealthSnapshot } from "@/lib/site-health/checks";
 import { HealthCategoryCard } from "./HealthCategoryCard";
 import { RefreshButton } from "./RefreshButton";
+import { SiteHealthServices } from "@/components/SiteHealthServices";
 
 /**
  * Site Health — a single-glance diagnostic overview across API/backend,
  * database, auth/security, payouts, file storage, and general frontend
  * health (see lib/site-health/checks.ts for what each category actually
- * checks and how). Admin-only, same pattern as API Management: nothing
+ * checks and how). Admin-only (the Investor has a view-only copy): nothing
  * here is reachable by Editor/Accountant/Chief_Editor.
  *
  * Deliberately NOT a cosmetic dashboard: every number on this page
@@ -19,7 +20,9 @@ import { RefreshButton } from "./RefreshButton";
  * Each category's card says, in its own words, which of those two
  * kinds of check it is.
  */
-export default async function SiteHealthPage() {
+export default async function SiteHealthPage({ searchParams }: { searchParams?: Promise<{ page?: string; service?: string }> }) {
+  const sp = (await searchParams) ?? {};
+  const page = Math.max(1, Number(sp.page) || 1);
   const session = await authAdmin();
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
@@ -58,6 +61,9 @@ export default async function SiteHealthPage() {
         15 minutes per distinct error) — see <code>lib/site-health/alert.ts</code>.
       </div>
 
+      <SiteHealthServices readOnly={false} basePath="/admin/site-health" page={page} service={sp.service} />
+
+      <h3 style={{ fontSize: 16, margin: "0 0 8px" }}>Site checks</h3>
       <div className="stat-grid" style={{ marginBottom: 0, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
         {snapshot.categories.map((category) => (
           <HealthCategoryCard key={category.key} category={category} />
