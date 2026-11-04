@@ -281,3 +281,35 @@ test("checkout error logs hide any address", () => {
   const src = readFileSync(join(root, "actions/orders.ts"), "utf8");
   assert.match(src, /\[address hidden\]/);
 });
+
+// ---- payment return address follows the environment (Round 68) -----------------------------------------------------------
+import { resolveSiteBase, returnAddressProblem } from "../lib/site-address";
+
+test("staging never uses the live address; the live site never uses a test address", () => {
+  const stg = resolveSiteBase({ deployment: "preview", env: {}, requestHost: "the-good-child-bookstore-git-staging-x.vercel.app" });
+  assert.equal(stg.url, "https://the-good-child-bookstore-git-staging-x.vercel.app");
+  assert.equal(returnAddressProblem("preview", stg.url), null);
+  // a live-address override on staging is ignored
+  const ign = resolveSiteBase({ deployment: "preview", env: { NEXT_PUBLIC_SITE_URL: "https://thegoodchildbookstore.com", VERCEL_BRANCH_URL: "gcb-git-staging.vercel.app" }, requestHost: null });
+  assert.equal(ign.url, "https://gcb-git-staging.vercel.app");
+  assert.equal(ign.ignoredOverride, "https://thegoodchildbookstore.com");
+  // a request that claims the live host is not trusted on staging
+  assert.equal(resolveSiteBase({ deployment: "preview", env: { VERCEL_URL: "gcb-abc.vercel.app" }, requestHost: "thegoodchildbookstore.com" }).url, "https://gcb-abc.vercel.app");
+  assert.equal(resolveSiteBase({ deployment: "preview", env: {}, requestHost: null }).url, "");
+  assert.match(returnAddressProblem("preview", "https://thegoodchildbookstore.com") ?? "", /staging site/);
+  assert.match(returnAddressProblem("preview", "https://www.thegoodchildbookstore.com/") ?? "", /staging site/);
+  assert.match(returnAddressProblem("preview", "") ?? "", /switched off/);
+  assert.equal(resolveSiteBase({ deployment: "production", env: {}, requestHost: "evil.example" }).url, "https://thegoodchildbookstore.com");
+  assert.equal(resolveSiteBase({ deployment: "production", env: { NEXT_PUBLIC_SITE_URL: "https://x.vercel.app" } }).url, "https://thegoodchildbookstore.com");
+  assert.match(returnAddressProblem("production", "https://x.vercel.app") ?? "", /live site/);
+  assert.equal(returnAddressProblem("production", "https://thegoodchildbookstore.com"), null);
+  assert.equal(resolveSiteBase({ deployment: "development", env: {} }).url, "http://localhost:3000");
+});
+
+test("payments use the guarded return address, and the confirmation page re-checks by itself", () => {
+  const p = readFileSync(join(root, "actions/payment-init.ts"), "utf8");
+  assert.match(p, /returnAddressProblem/);
+  assert.doesNotMatch(p, /getPublicSiteUrl/);
+  assert.match(readFileSync(join(root, "app/checkout/confirmation/page.tsx"), "utf8"), /AutoRefresh/);
+  assert.doesNotMatch(readFileSync(join(root, "lib/seo/site-url.ts"), "utf8"), /return "https:\/\/thegoodchildbookstore\.com";\n}/);
+});

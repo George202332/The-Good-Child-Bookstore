@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { getOrderSummary } from "@/lib/order-summary";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { EnterAccountButton } from "@/components/EnterAccountButton";
 import { confirmationUrl, orderAccessToken, receiptUrl, verifyOrderAccessToken } from "@/lib/order-access";
 import { getOrderAccessInfo } from "@/lib/order-access-info";
@@ -51,11 +52,12 @@ export default async function CheckoutConfirmationPage({
     const stillWaiting = order.status === "PENDING";
     return (
       <div className="wrap cart-wrap" style={{ maxWidth: 520, margin: "0 auto", textAlign: "center" }}>
-        <h2 style={{ marginBottom: 6 }}>{stillWaiting ? "We're Waiting for Your Payment to Be Confirmed" : "This Payment Was Not Completed"}</h2>
+        {stillWaiting && <AutoRefresh />}
+        <h2 style={{ marginBottom: 6 }}>{stillWaiting ? "Confirming Your Payment" : "This Payment Was Not Completed"}</h2>
         <p style={{ color: "var(--ink-soft)", marginBottom: 24 }}>
           Order #{order.id.slice(0, 8).toUpperCase()} —{" "}
           {stillWaiting
-            ? "your bank or card provider hasn't confirmed it yet. If you were charged, your order will appear in your Library the moment it is confirmed; you don't need to pay again. Please check again in a minute."
+            ? "we are waiting for your bank or card provider to confirm it. This page checks again by itself, so you can stay here. If you were charged, your order will appear the moment it is confirmed; you don't need to pay again."
             : "you have not been charged for this order. Your cart is still saved, so you can try again."}
         </p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

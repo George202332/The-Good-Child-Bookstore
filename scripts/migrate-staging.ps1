@@ -34,9 +34,21 @@ try {
       $values[$Matches[1]] = $Matches[2].Trim().Trim('"').Trim("'")
     }
   }
-  if (-not $values.ContainsKey("DATABASE_URL") -or [string]::IsNullOrWhiteSpace($values["DATABASE_URL"])) {
-    throw "There is no Preview DATABASE_URL in Vercel. Add it (Preview only) and run again."
+  $dbUrl = $values["DATABASE_URL"]
+  if ([string]::IsNullOrWhiteSpace($dbUrl)) {
+    Write-Host ""
+    Write-Host "Vercel did not hand over the staging database address (normal when the variable is marked Sensitive)."
+    Write-Host "In Neon, open the branch 'The Good Child Bookstore Staging' -> Connect, copy the connection string, and paste it below."
+    Write-Host "What you paste is hidden and is used for this one command only; it is never saved."
+    $secure = Read-Host "Paste the staging connection string, then press Enter" -AsSecureString
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try { $dbUrl = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) } finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    $dbUrl = $dbUrl.Trim().Trim('"').Trim("'")
+    if ($dbUrl -notmatch '^postgres(ql)?://') { throw "That does not look like a database address (it should start with postgresql://). Nothing was changed." }
   }
+  # Database updates must use the direct address, not the pooled one (the pooled one can stall migrations).
+  $dbUrl = $dbUrl -replace '-pooler\.', '.'
+  $values["DATABASE_URL"] = $dbUrl
 
   $uri = [System.Uri]$values["DATABASE_URL"]
   $endpoint = ($uri.Host.Split(".")[0]) -replace "-pooler$", ""

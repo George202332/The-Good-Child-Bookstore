@@ -4,7 +4,10 @@ import { initializePaystackTransaction } from "@/lib/payments/paystack";
 import { getPaystackCredentials, getPaypalCredentials } from "@/lib/api-keys";
 import { createPaypalOrder } from "@/lib/payments/paypal";
 import { prisma } from "@/lib/prisma";
-import { getPublicSiteUrl } from "@/lib/seo/site-url";
+import { headers } from "next/headers";
+import { resolveSiteBase, returnAddressProblem } from "@/lib/site-address";
+import { deploymentOf, CUSTOMER_PAYMENT_MESSAGE } from "@/lib/runtime-env";
+import { reportSystemError } from "@/lib/site-health/alert";
 
 /**
  * Payment start-up for checkout: Paystack (cards) and PayPal. Everything
@@ -30,6 +33,27 @@ export async function getPaymentAvailability(): Promise<{ paystack: boolean; pay
   return { paystack, paypal: pp, message };
 }
 
+/** The address Paystack / PayPal send the customer back to. Staging uses its own address; the guard refuses anything that would
+ * cross environments (reported to Site Health and by alert email). Never includes a key. */
+async function getPaymentReturnBase(): Promise<{ ok: true; base: string } | { ok: false; error: string }> {
+  const deployment = deploymentOf();
+  let host: string | null = null;
+  try {
+    const h = await headers();
+    host = h.get("x-forwarded-host") ?? h.get("host");
+  } catch {
+    host = null;
+  }
+  const site = resolveSiteBase({ deployment, requestHost: host });
+  const problem = returnAddressProblem(deployment, site.url);
+  if (problem) {
+    console.error(`[payments] ${problem}`);
+    await reportSystemError("CHECKOUT", new Error(problem), { step: "returnAddress", deployment }).catch(() => undefined);
+    return { ok: false, error: CUSTOMER_PAYMENT_MESSAGE };
+  }
+  return { ok: true, base: site.url };
+}
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /**
@@ -44,7 +68,9 @@ export async function initiateGatewayCheckout(
   _clientAmountUsd: number,
   email: string
 ): Promise<InitiateGatewayResult> {
-  const base = getPublicSiteUrl();
+  const baseResult = await getPaymentReturnBase();
+  if (!baseResult.ok) return { ok: false, configured: true, error: baseResult.error };
+  const base = baseResult.base;
 
   const { secretKey: paystackKey } = await getPaystackCredentials();
   if (!paystackKey) {
@@ -91,7 +117,9 @@ export async function initiatePayPalCheckout(orderId: string): Promise<{ ok: boo
   if (!(await isPaypalAvailable())) return { ok: false, error: "PayPal isn't available right now." };
   const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true, totalAmount: true } });
   if (!order || order.status !== "PENDING") return { ok: false, error: "This order can't be paid for." };
-  const base = getPublicSiteUrl();
+  const baseResult = await getPaymentReturnBase();
+  if (!baseResult.ok) return { ok: false, error: baseResult.error };
+  const base = baseResult.base;
   try {
     const { approvalUrl } = await createPaypalOrder(
       orderId,

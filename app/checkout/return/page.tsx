@@ -68,6 +68,8 @@ export default async function CheckoutReturnPage({
             redirect(reference.startsWith(`gcb-${orderId}-`) ? confirmationUrl(orderId) : `/checkout/confirmation?order=${encodeURIComponent(orderId)}`);
           }
           // Paystack says the payment definitely failed: record that (only a PENDING order moves).
+          // The customer closed or cancelled the payment page: straight back to checkout.
+          if (st === "abandoned") redirect("/checkout?payment_failed=1");
           if (st === "failed") {
             await prisma.order.updateMany({ where: { id: orderId, status: "PENDING" }, data: { status: "FAILED" } });
           }
@@ -93,6 +95,13 @@ export default async function CheckoutReturnPage({
     const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
     if (order?.status === "PAID") {
       redirect(await successUrl(orderId, params.reference ?? params.trxref));
+    }
+    // Returned before the confirmation arrived (and Paystack has not said the payment failed): show "Confirming your payment",
+    // which re-checks by itself, instead of sending the customer back to an empty checkout.
+    const pendingRef = params.reference ?? params.trxref;
+    if (order?.status === "PENDING" && pendingRef) {
+      // The reference is Paystack's own and was made for this very order (same rule as the "still processing" case above).
+      redirect(pendingRef.startsWith(`gcb-${orderId}-`) ? confirmationUrl(orderId) : `/checkout/confirmation?order=${encodeURIComponent(orderId)}`);
     }
   }
 

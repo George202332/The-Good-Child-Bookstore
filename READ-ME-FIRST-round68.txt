@@ -1,0 +1,2 @@
+ROUND 68 - staging payments return to the staging site (not production)
+Nothing to delete. No database change. Unzip over the project (the 'bookstore' folder), then follow the steps in the chat.

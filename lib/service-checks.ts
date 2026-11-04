@@ -229,6 +229,17 @@ async function migrationsCheck(now: string): Promise<ServiceResult> {
   return { ...base, ok: true, note: `All ${s.expectedCount} database updates the code needs are applied.` };
 }
 
+async function siteAddressCheck(now: string): Promise<ServiceResult> {
+  const { resolveSiteBase, returnAddressProblem } = await import("@/lib/site-address");
+  const d = deploymentOf();
+  const site = resolveSiteBase({ deployment: d });
+  const base = { key: "site_address" as const, label: "Payment return address", mode: "n/a" as const, keyPresent: !!site.url, checkedAt: now, variables: ["NEXT_PUBLIC_SITE_URL"] };
+  const problem = returnAddressProblem(d, site.url);
+  if (problem) return { ...base, ok: false, reason: problem };
+  if (site.ignoredOverride) return { ...base, ok: false, reason: `NEXT_PUBLIC_SITE_URL (${site.ignoredOverride}) is wrong for this environment and is being ignored. The site is using ${site.url} instead. In Vercel, untick ${d === "preview" ? "Preview" : "Production"} on that variable or set the right address.` };
+  return { ...base, ok: true, note: `Customers are sent back to ${site.url} (${site.source}).` };
+}
+
 async function vercelCheck(now: string): Promise<ServiceResult> {
   const d = deploymentOf();
   const base = { key: "vercel" as const, label: "Vercel (hosting)", mode: "n/a" as const, keyPresent: !!process.env.VERCEL_ENV, checkedAt: now, variables: ["VERCEL_ENV"] };
@@ -253,12 +264,12 @@ async function integrationsCheck(now: string): Promise<ServiceResult> {
 }
 
 const RUNNERS: Record<ServiceKey, (now: string) => Promise<ServiceResult>> = {
-  database: databaseCheck, migrations: migrationsCheck, vercel: vercelCheck, paystack: paystackCheck, paypal: paypalCheck,
+  database: databaseCheck, migrations: migrationsCheck, site_address: siteAddressCheck, vercel: vercelCheck, paystack: paystackCheck, paypal: paypalCheck,
   lulu_auth: luluAuthCheck, lulu_quote: luluQuoteCheck, lulu_files: luluFilesCheck, lulu_order: luluOrderCheck,
   email: emailCheck, storage: storageCheck, integrations: integrationsCheck,
 };
 
-export const SERVICE_ORDER: ServiceKey[] = ["database", "migrations", "vercel", "paystack", "paypal", "lulu_auth", "lulu_quote", "lulu_files", "lulu_order", "email", "storage", "integrations"];
+export const SERVICE_ORDER: ServiceKey[] = ["database", "migrations", "site_address", "vercel", "paystack", "paypal", "lulu_auth", "lulu_quote", "lulu_files", "lulu_order", "email", "storage", "integrations"];
 
 /** Runs one check; a failure is retried once after a short pause so a single hiccup does not raise an alert. */
 export async function runServiceCheck(key: ServiceKey, opts: { retry?: boolean } = {}): Promise<ServiceResult> {

@@ -10,7 +10,7 @@ import { ServiceStatusTable } from "@/components/ServiceStatusTable";
 import { RunChecksButton, AlertEmailForm } from "@/app/admin/site-health/ServiceChecksControls";
 
 const LABEL: Record<string, string> = {
-  database: "Database", migrations: "Database updates", vercel: "Vercel", paystack: "Paystack", paypal: "PayPal", lulu_auth: "Lulu sign-in", lulu_quote: "Lulu quote",
+  database: "Database", migrations: "Database updates", site_address: "Payment return address", vercel: "Vercel", paystack: "Paystack", paypal: "PayPal", lulu_auth: "Lulu sign-in", lulu_quote: "Lulu quote",
   lulu_files: "Lulu file fetch", lulu_order: "Lulu order creation", email: "Email (Resend)", storage: "File storage", integrations: "Other integrations",
 };
 // A file download, not a page (kept in a constant so the page-link lint rule does not mistake it for a page).
