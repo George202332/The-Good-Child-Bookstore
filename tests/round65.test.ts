@@ -397,3 +397,9 @@ test("the one-time cleanup is a single atomic statement that refuses staging and
   assert.doesNotMatch(sql + run, /DROP\s+(TABLE|TRIGGER)|TRUNCATE|migrate reset|db push/i);
   for (const kept of ['"User"', '"Book"', '"BookFile"']) assert.ok(!new RegExp(`DELETE FROM ${kept}`).test(sql), `${kept} is never deleted`);
 });
+
+test("the cleanup refuses to run if any payment was made with a live key", () => {
+  const run = readFileSync(join(root, "scripts/cleanup-test-data.ts"), "utf8");
+  assert.match(run, /tally\.live\.size > 0/);
+  assert.match(run, /LIVE \(real-money\) key/);
+});

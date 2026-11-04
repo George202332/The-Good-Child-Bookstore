@@ -1,0 +1,15 @@
+ROUND 74: CLEANUP SAFETY CHECK (refuses if any live-key payment exists; shows order/payment breakdown). Includes the round 73 fix ("Transaction not found")
+Cause: the script read ~45 counts inside a Prisma transaction that has a default 5-second limit; over the internet to Neon that is
+not enough, so Prisma closed it. Fix: the counts are now plain read-only queries, and the delete is ONE all-or-nothing database
+statement (one round trip, it cannot time out half-way).
+No database change. Nothing to delete from your folder. Nothing was changed by the failed run.
+
+Files: scripts\cleanup-test-data.ts, scripts\cleanup-sql.ts (new), scripts\cleanup-test-data.ps1, tests\round65.test.ts
+
+  git checkout staging
+  git add .
+  git commit -m "Fix cleanup script: single atomic statement"
+  git push origin staging
+
+Then run again (backup branch backup-before-cleanup must exist):
+  powershell -ExecutionPolicy Bypass -File scripts\cleanup-test-data.ps1

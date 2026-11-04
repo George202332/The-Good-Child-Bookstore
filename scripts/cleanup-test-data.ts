@@ -42,6 +42,25 @@ async function main() {
   console.log("Reading the current counts (read only)...\n");
 
   const e = await look();
+
+  // ---- safety check: is ANY payment a real-money (live key) payment? If so, refuse. ----
+  const logs = await prisma.paymentLog.findMany({ select: { orderId: true, verified: true, rawPayload: true } });
+  const mode = (l: { rawPayload: unknown }) => {
+    const m = (l.rawPayload as { siteGatewayMode?: unknown } | null)?.siteGatewayMode;
+    const d = (l.rawPayload as { data?: { domain?: unknown } } | null)?.data?.domain;
+    return m === "live" || d === "live" ? "live" : m === "test" || d === "test" ? "test" : "unknown";
+  };
+  const tally = { test: new Set<string>(), live: new Set<string>(), unknown: new Set<string>() };
+  for (const l of logs) tally[mode(l)].add(l.orderId);
+  const orderRows = await prisma.order.groupBy({ by: ["status"], _count: { _all: true } });
+  console.log("Safety check on the payments about to be deleted:");
+  console.log(`   Orders in total: ${orderRows.reduce((n, r) => n + r._count._all, 0)}  (${orderRows.map((r) => `${r.status}: ${r._count._all}`).join(", ")})`);
+  console.log(`   Payment records: ${logs.length}, covering ${new Set(logs.map((l) => l.orderId)).size} orders`);
+  console.log(`   Orders with a payment made in TEST mode: ${tally.test.size}   |   in LIVE mode: ${tally.live.size}   |   mode not recorded: ${tally.unknown.size}`);
+  if (tally.live.size > 0) {
+    throw new Error(`${tally.live.size} order(s) were paid through a LIVE (real-money) key. They must NOT be deleted. Send me this screen.`);
+  }
+  console.log("   No payment was made with a live key. Orders with no payment record were never paid.\n");
   console.log("WILL BE DELETED:");
   for (const t of CLEAR_ORDER) if (t in e.clear) console.log(`   ${t.padEnd(40)} ${String(e.clear[t]).padStart(7)}`);
   console.log(`   ${"Notifications from orders/sales/payouts".padEnd(40)} ${String(e.notices).padStart(7)}`);
