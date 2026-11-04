@@ -11,47 +11,13 @@ export interface PaymentBadgeUrls {
 }
 
 /**
- * API credentials manageable from the backend, per explicit request —
- * these were previously only settable via Vercel's environment variable
- * panel, which George can't easily edit himself. Values here take
- * priority over the equivalent environment variables (see
- * lib/api-keys.ts) — set here, or leave blank to keep using whatever's
- * configured in Vercel.
- *
- * Rebuilt per explicit instruction: PayPal removed entirely (checkout
- * only takes cards via Paystack now). Paystack collapsed from 4 fields
- * (separate test/live secret+public pairs) down to just one secret key
- * and one public key — paymentMode is now purely a label for which
- * mode the currently-entered pair actually is (Paystack test and live
- * keys are already distinguishable by their own sk_test_/sk_live_ and
- * pk_test_/pk_live_ prefixes), not a switch between two stored sets.
- * Lulu (print-on-demand) gets the same backend-manageable treatment.
- * Author/affiliate payouts are executed manually by an admin outside
- * this system (see actions/admin.ts and actions/payouts.ts), so there
- * are no payout-gateway credentials here any more.
+ * Keys are NO LONGER stored here. Paystack, PayPal, Lulu and email keys live only in Vercel environment variables
+ * (see lib/payment-env.ts). The only thing left in this group is a plain, non-secret choice: which shipping methods
+ * customers may pick for printed copies. The name "apiKeys" is kept so earlier choices carry over unchanged.
  */
 export interface ApiKeys {
-  luluClientKey?: string;
-  luluClientSecret?: string;
-  /** Which Lulu system print orders are sent to: "sandbox" (test jobs,
-   * never printed or charged) or "production" (real printing and charges).
-   * Unset = follow LULU_ENV, else the Paystack key mode. */
-  luluEnvironment?: "sandbox" | "production";
-  /** Shipping methods customers may pick for printed copies (Lulu
-   * shipping_level values). Unset/empty = all methods offered. */
+  /** Shipping methods customers may pick for printed copies (Lulu shipping_level values). Unset/empty = all methods offered. */
   luluShippingLevels?: string[];
-  resendApiKey?: string;
-  fromEmail?: string;
-  /** A label for which kind of Paystack key is currently entered below —
-   * not a switch between two stored sets, since there's only one pair now. */
-  paymentMode: "test" | "live";
-  paystackSecretKey?: string;
-  paystackPublicKey?: string;
-  /** PayPal REST app credentials (developer.paypal.com) for PayPal checkout. */
-  paypalClientId?: string;
-  paypalClientSecret?: string;
-  /** "sandbox" = test payments, "live" = real money. */
-  paypalEnvironment?: "sandbox" | "live";
 }
 
 export interface PublishingFormatsEnabled {
@@ -124,7 +90,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
     tiktok: { url: "#" },
   },
   publishingFormatsEnabled: { ebook: true, print: false, audiobook: true },
-  apiKeys: { paymentMode: "test" },
+  apiKeys: {},
   paypalPayoutsEnabled: false,
   mpesaPayoutsEnabled: false,
 };

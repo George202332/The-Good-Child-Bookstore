@@ -1,0 +1,10 @@
+Round 65 - how to use this zip
+1) Unzip it INTO your bookstore folder (the same way as the earlier rounds), replacing files when asked.
+2) DELETE these three old files from the bookstore folder (the new code no longer uses them):
+     app/admin/api-management/ApiManagementForm.tsx
+     app/admin/transactions/DeleteTransactionButton.tsx
+     app/admin/transactions/ResetOrdersButton.tsx
+3) The folder REPO-ROOT-FILES/.github/workflows/service-health.yml belongs at the TOP of the repository
+   (next to the bookstore folder, not inside it):  .github/workflows/service-health.yml
+   Then delete the REPO-ROOT-FILES folder from bookstore.
+4) Read docs/GO-LIVE-CHECKLIST.md before you change anything in Vercel.

@@ -4,6 +4,7 @@ import "./globals.css";
 import { SiteChrome } from "@/components/SiteChrome";
 import { getSiteSettings } from "@/actions/site-settings";
 import { Providers } from "@/components/Providers";
+import { StagingBanner } from "@/components/StagingBanner";
 
 const DEFAULT_FAVICON =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'%3E%3Ccircle cx='30' cy='30' r='28' fill='%23F7D8E2'/%3E%3Ccircle cx='22' cy='27' r='5' fill='%233F3350'/%3E%3Ccircle cx='38' cy='27' r='5' fill='%233F3350'/%3E%3Ccircle cx='22' cy='27' r='2' fill='%23fff'/%3E%3Ccircle cx='38' cy='27' r='2' fill='%23fff'/%3E%3Cpath d='M30 32 L26 40 L34 40 Z' fill='%23F4B942'/%3E%3C/svg%3E";
@@ -187,6 +188,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             />
           </noscript>
         )}
+        <StagingBanner />
         <Providers>
           <SiteChrome settings={settings}>{children}</SiteChrome>
         </Providers>

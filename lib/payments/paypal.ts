@@ -5,9 +5,8 @@ import { getPaypalCredentials } from "@/lib/api-keys";
  * the payment, returns to /checkout/return, and we then CAPTURE the money
  * and check it really is this order, in this amount, before marking it paid.
  *
- * Credentials come from Admin -> API Management (or the PAYPAL_CLIENT_ID /
- * PAYPAL_CLIENT_SECRET / PAYPAL_ENV environment variables) - see
- * lib/api-keys.ts getPaypalCredentials().
+ * Credentials come ONLY from the Vercel variables PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET and PAYPAL_MODE
+ * ("sandbox" or "live") - see lib/api-keys.ts getPaypalCredentials(), which also applies the safeguard.
  */
 
 export type PaypalEnvironment = "sandbox" | "live";
@@ -89,8 +88,8 @@ export function evaluatePaypalCapture(
 }
 
 export async function getAccessToken(): Promise<{ token: string; base: string }> {
-  const { clientId, clientSecret, environment } = await getPaypalCredentials();
-  if (!clientId || !clientSecret) throw new Error("PayPal isn't set up yet.");
+  const { clientId, clientSecret, environment, blocked } = await getPaypalCredentials();
+  if (!clientId || !clientSecret) throw new Error(blocked ?? "PayPal isn't set up yet.");
   const base = paypalBaseUrl(environment);
   const res = await fetch(`${base}/v1/oauth2/token`, {
     method: "POST",
@@ -108,7 +107,7 @@ export async function getAccessToken(): Promise<{ token: string; base: string }>
   return { token: data.access_token, base };
 }
 
-/** Checks the saved credentials (used by "Test PayPal connection"). */
+/** Checks the credentials by asking PayPal for a sign-in token (no charge, no order). */
 export async function testPaypalCredentials(): Promise<void> {
   await getAccessToken();
 }

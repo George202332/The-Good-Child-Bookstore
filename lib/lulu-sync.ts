@@ -14,6 +14,7 @@ export async function applyLuluJob(orderId: string, json: unknown): Promise<{ ap
   const job = parsePrintJob(json);
   if (!job) return { applied: false, notified: false };
   const shipped = job.status.toUpperCase() === "SHIPPED";
+  const before = await prisma.order.findUnique({ where: { id: orderId }, select: { luluStatus: true } });
   await prisma.order.update({
     where: { id: orderId },
     data: {
@@ -26,6 +27,13 @@ export async function applyLuluJob(orderId: string, json: unknown): Promise<{ ap
       luluSyncedAt: new Date(),
     },
   });
+  if (before?.luluStatus !== job.status) {
+    const { logRecordChange } = await import("@/lib/records");
+    await logRecordChange({
+      entityType: "LULU", entityId: orderId, action: "LULU_STATUS", summary: `Lulu status ${before?.luluStatus ?? "(none)"} -> ${job.status}`,
+      before: { luluStatus: before?.luluStatus ?? null }, after: { luluStatus: job.status }, actorName: "Lulu (sync or webhook)",
+    });
+  }
   let notified = false;
   if (isRejectedStatus(job.status)) {
     notified = await recordRejectionAndNotify(orderId, reasonFromPrintJob(json) ?? "Lulu rejected this print job and did not say why.");

@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  resolveLuluEnvironment,
   luluBaseUrl,
   toLuluPodPackageId,
   LULU_POD_PACKAGE_ID_MAX,
@@ -16,12 +15,7 @@ import {
   buildLuluPrintJobBody,
 } from "../lib/lulu-order";
 
-test("environment: stored setting wins, then env var, then payment mode", () => {
-  assert.equal(resolveLuluEnvironment({ stored: "production", envVar: "sandbox", paymentMode: "test" }), "production");
-  assert.equal(resolveLuluEnvironment({ stored: null, envVar: "live", paymentMode: "test" }), "production");
-  assert.equal(resolveLuluEnvironment({ paymentMode: "live" }), "production");
-  assert.equal(resolveLuluEnvironment({ paymentMode: "test" }), "sandbox");
-  assert.equal(resolveLuluEnvironment({}), "sandbox");
+test("lulu base url: production is the live system, there is no sandbox for this account", () => {
   assert.equal(luluBaseUrl("production"), "https://api.lulu.com");
   assert.equal(luluBaseUrl("sandbox"), "https://api.sandbox.lulu.com");
 });

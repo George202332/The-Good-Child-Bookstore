@@ -322,12 +322,13 @@ export async function deleteUserAccount(userId: string): Promise<{ ok: boolean; 
     where: { id: userId },
     include: {
       authorProfile: { include: { books: { include: { _count: { select: { saleLines: true } } } } } },
-      readerProfile: { include: { orders: { where: { status: "PAID" } } } },
+      readerProfile: { include: { orders: true } },
     },
   });
   if (!user) return { ok: false, error: "Account not found." };
 
   const hasBookSales = user.authorProfile?.books.some((b: { _count: { saleLines: number } }) => b._count.saleLines > 0) ?? false;
+  // Any order at all (paid or not) is a financial record that is never deleted.
   const hasPaidOrders = (user.readerProfile?.orders.length ?? 0) > 0;
   if (hasBookSales || hasPaidOrders) {
     return { ok: false, error: "This account has real sales or order history and can't be deleted — suspend it instead to prevent sign-in while keeping its financial records intact." };

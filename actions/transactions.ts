@@ -1,13 +1,10 @@
 "use server";
 
 import { saleModeLabel, payoutModeLabel } from "@/lib/payment-mode";
-import { revalidatePath } from "next/cache";
-import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { PAID_ONLY } from "@/lib/paid-sales";
 import { authEither as auth } from "@/lib/auth-either";
 import { BACKEND_ROLES, canViewFinancials } from "@/lib/roles";
-import { deleteNotificationsForRecords } from "@/lib/notification-cleanup";
 
 /**
  * A unified transaction ledger for the admin backend — every individual
@@ -257,149 +254,6 @@ export async function getTransactionDetail(id: string, type: "sale" | "payout"):
   }
 }
 
-/**
- * Permanently deletes a single transaction — Admin only. Works for
- * both a sale ("Organic Sale"/"Affiliate Sale", backed by SaleLine)
- * and a payout (backed by PayoutRequest), real or test.
- *
- * "Completely removed everywhere, with no trace left" means more than
- * deleting the SaleLine/PayoutRequest row itself:
- *
- * - Any Notification generated from this specific record (a "You've
- *   got a sale" for a SaleLine, or a "Payout sent"/"Payout rejected"
- *   for a PayoutRequest) is deleted too, via the loose relatedRecordId
- *   reference set when that notification was created (see
- *   lib/payments/finalize.ts and the createNotification call sites in
- *   actions/admin.ts). Without this,
- *   the author's or reader's Recent Activity would still show a
- *   notification about a "sale" or "payout" that no longer exists.
- * - For a sale specifically, deleting the SaleLine can leave its
- *   parent Order empty (if it was the only line) or with a stale
- *   totalAmount (if other lines remain). An empty Order is deleted
- *   outright (cascading its PaymentLog/Invoice rows); an Order with
- *   remaining lines gets totalAmount recomputed from what's left, so
- *   nothing about the deleted line lingers in the reader's own Orders
- *   view either.
- */
-export async function deleteTransaction(id: string, type: "sale" | "payout"): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can delete a transaction." };
-
-  try {
-    if (type === "sale") {
-      const line = await prisma.saleLine.findUnique({ where: { id }, select: { orderId: true } });
-      if (!line) return { ok: false, error: "This transaction no longer exists." };
-
-      await prisma.saleLine.delete({ where: { id } });
-      // Only after the sale is really gone: its notifications go with it
-      // (sale, royalty, referral and promotion notices all carry the
-      // sale line's id). A failed delete therefore never loses them.
-      await deleteNotificationsForRecords([id]);
-
-      const remaining = await prisma.saleLine.findMany({ where: { orderId: line.orderId }, select: { grossAmount: true } });
-      if (remaining.length === 0) {
-        // No lines left on this order at all — nothing left for the
-        // reader to see, so remove the order itself rather than
-        // leaving an empty $0.00 order behind.
-        await prisma.order.delete({ where: { id: line.orderId } }).catch(() => {
-          // If the order was already gone (or something still
-          // references it), there's nothing more to clean up here.
-        });
-        // The reader's "Payment received / Order confirmed" notification
-        // is tied to the order itself, which is now gone too.
-        await deleteNotificationsForRecords([line.orderId]);
-      } else {
-        const orderRow = await prisma.order.findUnique({ where: { id: line.orderId }, select: { shippingAmount: true, fulfillmentAmount: true } });
-        // The customer-paid shipping and Lulu fulfillment fee stay part of the order total.
-        const newTotal = remaining.reduce((sum: number, l: { grossAmount: unknown }) => sum + Number(l.grossAmount), 0) + Number(orderRow?.shippingAmount ?? 0) + Number(orderRow?.fulfillmentAmount ?? 0);
-        await prisma.order.update({ where: { id: line.orderId }, data: { totalAmount: newTotal } });
-      }
-    } else {
-      await prisma.payoutRequest.delete({ where: { id } });
-      await deleteNotificationsForRecords([id]);
-    }
-
-    await prisma.auditLog.create({
-      data: {
-        actorId: session.user.id,
-        action: "DELETE_TRANSACTION",
-        metadata: { transactionId: id, transactionType: type, deletedAt: new Date().toISOString() },
-      },
-    });
-
-    // The admin dashboard's "Total orders" card (and the analytics page)
-    // read live counts on every request, but Next's client-side Router
-    // Cache can still serve an already-visited page's last snapshot
-    // instead of refetching — so without this, deleting a transaction
-    // (or the order it belonged to) left "Total orders" showing its
-    // pre-deletion figure until something else happened to force a
-    // refetch. Revalidating every place that number (or the deleted
-    // transaction itself) could still be showing makes sure the very
-    // next visit to any of them is always freshly computed.
-    revalidatePath("/admin");
-    revalidatePath("/admin/analytics");
-    revalidatePath("/admin/transactions");
-    revalidatePath("/admin/payouts");
-    revalidatePath("/account/orders");
-    revalidatePath("/account/revenue");
-    revalidatePath("/account/transactions");
-    revalidatePath("/account/transaction-history");
-    revalidatePath("/account/payout-settings");
-
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Couldn't delete this transaction." };
-  }
-}
-
-/**
- * Wipes every Order (and, cascading from it, every SaleLine, PaymentLog
- * and Invoice) — a bulk version of deleteTransaction's per-row delete,
- * for clearing out leftover test/demo orders in one action now that the
- * old Data Management page's bulk test-data tools are gone. Admin-only,
- * and deliberately without any "only test data" filter — like
- * deleteTransaction, this is a direct, explicit action the admin chose
- * to take, not an automated sweep, so it's trusted to mean what it says
- * on rows real or test alike.
- *
- * Same "leave no trace" cleanup as deleteTransaction: any Notification
- * generated from one of these SaleLines is removed too, so no stray
- * "you've got a sale" ever outlives the sale it was about.
- */
-export async function resetAllOrders(): Promise<{ ok: boolean; error?: string; deleted?: { orders: number; saleLines: number } }> {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can reset order data." };
-
-  try {
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const saleLines = await tx.saleLine.findMany({ select: { id: true } });
-      const orderRows = await tx.order.findMany({ select: { id: true } });
-      // Sale notifications (tied to each sale line) and the readers'
-      // order-confirmed notifications (tied to each order).
-      await deleteNotificationsForRecords([...saleLines.map((l: { id: string }) => l.id), ...orderRows.map((o: { id: string }) => o.id)], tx);
-      const orders = await tx.order.deleteMany({});
-      await tx.auditLog.create({
-        data: {
-          actorId: session.user.id,
-          action: "RESET_ALL_ORDERS",
-          metadata: { orders: orders.count, saleLines: saleLines.length, resetAt: new Date().toISOString() },
-        },
-      });
-      return { orders: orders.count, saleLines: saleLines.length };
-    });
-
-    revalidatePath("/admin");
-    revalidatePath("/admin/analytics");
-    revalidatePath("/admin/transactions");
-    revalidatePath("/admin/payouts");
-    revalidatePath("/account/orders");
-    revalidatePath("/account/revenue");
-    revalidatePath("/account/transactions");
-    revalidatePath("/account/transaction-history");
-    revalidatePath("/account/payout-settings");
-
-    return { ok: true, deleted: result };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Couldn't reset order data." };
-  }
-}
+// Deleting transactions and resetting all orders were removed on purpose. After launch no payment, order, refund or
+// payout is ever deleted: a problem is recorded as its own entry (see actions/records.ts and lib/records.ts) and the
+// database itself refuses to delete these rows (migration 20261106090000_records_never_deleted).

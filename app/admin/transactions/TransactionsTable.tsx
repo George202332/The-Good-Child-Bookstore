@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { getTransactionDetail, type TransactionDetail, type TransactionRow } from "@/actions/transactions";
-import { DeleteTransactionButton } from "./DeleteTransactionButton";
 import { ColHelp } from "@/components/ColHelp";
 import { Modal } from "@/components/Modal";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
@@ -31,7 +30,7 @@ const COLUMNS: { label: string; help: string }[] = [
  * getTransactionDetail and shows it in a modal with a Cancel button at
  * the top.
  */
-export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[]; canDelete: boolean }) {
+export function TransactionsTable({ rows }: { rows: TransactionRow[] }) {
   const [detail, setDetail] = useState<TransactionDetail | null>(null);
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
 
@@ -141,11 +140,9 @@ export function TransactionsTable({ rows, canDelete }: { rows: TransactionRow[];
                     <DetailRow label="Resolved" value={detail.resolvedAt ? new Date(detail.resolvedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—"} />
                   </>
                 )}
-                {canDelete && (
-                  <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
-                    <DeleteTransactionButton id={detail.id} type={detail.kind} detail={detail.bookTitle ?? detail.type} onDeleted={() => setDetail(null)} />
-                  </div>
-                )}
+                <p className="field-hint" style={{ marginTop: 16 }}>
+                  Transactions are never deleted. To correct something, use Admin &rarr; Records &amp; Refunds (a refund, a payment status or a reversing entry is added as its own record).
+                </p>
               </div>
             )}
         </Modal>

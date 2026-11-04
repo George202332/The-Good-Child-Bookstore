@@ -28,7 +28,7 @@ export default async function InvestorTransactionsPage() {
           </p>
         </div>
       </div>
-      <TransactionsTable rows={rows} canDelete={false} />
+      <TransactionsTable rows={rows} />
     </InvestorShell>
   );
 }

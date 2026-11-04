@@ -4,7 +4,6 @@ import { AdminShell } from "@/components/AdminShell";
 import { getTransactionLedger } from "@/actions/transactions";
 import { canViewFinancials } from "@/lib/roles";
 import { TransactionsTable } from "./TransactionsTable";
-import { ResetOrdersButton } from "./ResetOrdersButton";
 import { PrintOrdersPanel } from "./PrintOrdersPanel";
 import { listPrintOrdersNeedingAttention } from "@/actions/print-orders";
 
@@ -34,10 +33,9 @@ export default async function TransactionsPage() {
             earned a commission on each sale. Click a row for full details.
           </p>
         </div>
-        {role === "ADMIN" && <ResetOrdersButton />}
       </div>
       <PrintOrdersPanel rows={printOrders} />
-      <TransactionsTable rows={rows} canDelete={role === "ADMIN"} />
+      <TransactionsTable rows={rows} />
     </AdminShell>
   );
 }

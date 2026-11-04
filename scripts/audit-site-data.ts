@@ -86,7 +86,7 @@ async function main() {
     else keep.set(k, o.createdAt);
   }
   say(`${dupes.length} duplicate unpaid order(s) found (of ${pending.length} unpaid orders in all).`);
-  if (fix && dupes.length) say(`Deleted ${(await prisma.order.deleteMany({ where: { id: { in: dupes } } })).count}.`);
+  if (fix && dupes.length) say(`Marked ${(await prisma.order.updateMany({ where: { id: { in: dupes }, status: "PENDING" }, data: { status: "CANCELLED" } })).count} as CANCELLED (orders are never deleted).`);
 
   // 4. Print orders missing figures.
   head("Paid print orders with missing figures");

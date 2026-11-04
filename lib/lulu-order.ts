@@ -14,29 +14,9 @@
 
 export type LuluEnvironment = "sandbox" | "production";
 
-/** Which Lulu system orders are sent to. Lulu runs two completely separate
- * systems with separate accounts and keys: the SANDBOX (test jobs that are
- * never printed or charged) and PRODUCTION (real printing, real charges).
- * An order sent to one never appears in the other.
- *
- * Order of precedence: the value chosen in Admin → API Management; then the
- * LULU_ENV environment variable; then the Paystack key mode ("live" →
- * production, "test" → sandbox), so real orders go to the real Lulu account
- * and test orders never print or charge. */
-export function resolveLuluEnvironment(opts: {
-  stored?: string | null;
-  envVar?: string | null;
-  paymentMode?: string | null;
-}): LuluEnvironment {
-  const pick = (v: string | null | undefined): LuluEnvironment | null => {
-    const s = v?.trim().toLowerCase();
-    if (s === "production" || s === "live") return "production";
-    if (s === "sandbox" || s === "test") return "sandbox";
-    return null;
-  };
-  return pick(opts.stored) ?? pick(opts.envVar) ?? (opts.paymentMode === "live" ? "production" : "sandbox");
-}
-
+/** Lulu has one live system (api.lulu.com) and no sandbox for this account, so every call goes to production. Real print
+ * orders are still never created from staging or for test money - see lib/runtime-env.ts realPrintAllowed and
+ * lib/print-submission-guard.ts. */
 export function luluBaseUrl(env: LuluEnvironment): string {
   return env === "production" ? "https://api.lulu.com" : "https://api.sandbox.lulu.com";
 }

@@ -12,3 +12,7 @@ SCHEMA CHANGE (staging first, then production before merging):
   Production: back up with a Neon branch first, then the same command with the production URL. Never migrate reset.
 
 No stored data is changed by this update. Stored keys: run  npx tsx scripts/scrub-stored-keys.ts  to REPORT only; --apply only after you approve.
+
+CUMULATIVE ZIP: this zip contains every file changed in rounds 65 AND 66, so it is safe even if round 65 was never applied.
+Extra file to delete (from round 65): app/admin/api-management/ApiManagementForm.tsx
+After unzipping, the folder app/admin/api-management must be gone completely.

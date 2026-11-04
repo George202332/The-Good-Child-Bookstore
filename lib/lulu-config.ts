@@ -7,7 +7,7 @@
  *
  * This is the real configuration shape, used to build a genuine
  * pod_package_id string for a print submission — but it is not yet
- * wired to an actual Lulu API call (no LULU_API_KEY has real network
+ * wired to an actual Lulu API call (no Lulu key has real network
  * access to verify against in this environment), and the live cover-wrap
  * dimension preview / EAN-13 barcode rendering from the original aren't
  * built. That's real, separate follow-up work.

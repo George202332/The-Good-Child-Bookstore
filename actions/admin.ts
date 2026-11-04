@@ -59,6 +59,20 @@ async function requireAdminRole() {
   return role;
 }
 
+/** Writes the permanent "who did this, and when" line for a payout that was just marked paid or rejected. */
+async function logPayoutChange(ids: string[], action: "PAYOUT_PAID" | "PAYOUT_REJECTED", status: "PAID" | "REJECTED", resolvedAt: Date) {
+  const session = await auth();
+  const { logRecordChange } = await import("@/lib/records");
+  for (const id of ids) {
+    await logRecordChange({
+      entityType: "PAYOUT", entityId: id, action,
+      summary: `Payout marked ${status}`,
+      after: { status, resolvedAt: resolvedAt.toISOString() },
+      actorId: session?.user?.id ?? null, actorName: session?.user?.name ?? null,
+    });
+  }
+}
+
 export async function approveBook(bookId: string): Promise<{ ok: boolean; error?: string }> {
   try {
     await requireModerationRole();
@@ -314,6 +328,7 @@ export async function approvePayoutRequest(payoutId: string | string[]): Promise
     }
 
     const payouts = await prisma.payoutRequest.findMany({ where: { id: { in: payable }, status: "PAID", resolvedAt } });
+    await logPayoutChange(payouts.map((p: { id: string }) => p.id), "PAYOUT_PAID", "PAID", resolvedAt);
     for (const payout of payouts) {
       await clearPayoutNotices(payout.id);
       await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);
@@ -382,6 +397,7 @@ export async function rejectPayoutRequest(payoutId: string | string[]): Promise<
       return { ok: false, error: "This payout has already been processed (or is no longer pending) — refresh to see its current status." };
     }
     const payouts = await prisma.payoutRequest.findMany({ where: { id: { in: ids }, status: "REJECTED", resolvedAt } });
+    await logPayoutChange(payouts.map((p: { id: string }) => p.id), "PAYOUT_REJECTED", "REJECTED", resolvedAt);
     for (const payout of payouts) {
       await clearPayoutNotices(payout.id);
       await createNotification(payout.userId, "Payout rejected", `Your $${Number(payout.amount).toFixed(2)} payout request was not approved.`, "PAYOUT", payout.id);
@@ -520,6 +536,7 @@ export async function bulkMarkPayoutsPaid(payoutIds: string[]): Promise<{ ok: bo
         const paid = await prisma.payoutRequest.findMany({
           where: { id: { in: payable }, status: "PAID", resolvedAt },
         });
+        await logPayoutChange(paid.map((p: { id: string }) => p.id), "PAYOUT_PAID", "PAID", resolvedAt);
         for (const payout of paid) {
           await clearPayoutNotices(payout.id);
           await createNotification(payout.userId, "Payout sent", `Your $${Number(payout.amount).toFixed(2)} payout has been sent.`, "PAYOUT", payout.id);

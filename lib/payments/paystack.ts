@@ -1,13 +1,13 @@
 import { createHmac } from "crypto";
-import { getPaystackCredentials } from "@/lib/api-keys";
+import { getPaystackCredentials, getPaystackSecretForVerification } from "@/lib/api-keys";
 
 /**
  * Paystack integration — Transactions API. The brief's other "live"
- * gateway (cards: Visa, Mastercard, Amex, Verve). Credentials (separate
- * test/live secret+public key pairs) come from Site Settings if saved
- * there, falling back to PAYSTACK_SECRET_KEY/PUBLIC_KEY env vars — see
- * lib/api-keys.ts getPaystackCredentials(). Not exercised against a live
- * Paystack account in this sandbox (no network access).
+ * gateway (cards: Visa, Mastercard, Amex, Verve). The keys come ONLY from the
+ * Vercel variables PAYSTACK_SECRET_KEY / PAYSTACK_PUBLIC_KEY - see
+ * lib/api-keys.ts getPaystackCredentials(). Starting a NEW payment goes through the
+ * safeguard (a live key on staging, or a test key on the launched live site, switches
+ * Paystack off); confirming a payment that was already taken uses the key as it is.
  */
 
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
@@ -39,10 +39,18 @@ export function paystackKeyMode(key: string | undefined): "live" | "test" | "unk
   return "unknown";
 }
 
+/** For starting a NEW payment: refuses when a safeguard has switched Paystack off. */
 async function requireSecretKey(): Promise<string> {
-  const { secretKey } = await getPaystackCredentials();
-  if (!secretKey) throw new Error("Paystack isn't configured yet — set it up in Site Settings or the PAYSTACK_SECRET_KEY environment variable.");
+  const { secretKey, blocked } = await getPaystackCredentials();
+  if (!secretKey) throw new Error(blocked ?? "Paystack isn't configured yet — set PAYSTACK_SECRET_KEY in Vercel.");
   return secretKey;
+}
+
+/** For checking a payment or webhook that already happened: never blocked, so a real payment can always be confirmed. */
+function requireVerificationKey(): string {
+  const key = getPaystackSecretForVerification();
+  if (!key) throw new Error("Paystack isn't configured yet — set PAYSTACK_SECRET_KEY in Vercel.");
+  return key;
 }
 
 /** The public key is safe to expose to the browser (e.g. for Paystack's
@@ -110,7 +118,7 @@ export async function verifyPaystackTransaction(reference: string): Promise<{
   currency: string | null;
   authorization: { code: string; reusable: boolean; cardType: string; last4: string; bank: string } | null;
 }> {
-  const secretKey = await requireSecretKey();
+  const secretKey = requireVerificationKey();
   const res = await fetch(`${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`, {
     headers: { Authorization: `Bearer ${secretKey}` },
     cache: "no-store",
@@ -168,10 +176,10 @@ export async function chargeAuthorization(
 
 /** Verifies the `x-paystack-signature` header via HMAC-SHA512 of the raw
  * body with the secret key — Paystack's documented webhook verification.
- * Async since the secret key may come from the database. */
+ * The key is the PAYSTACK_SECRET_KEY Vercel variable. */
 export async function verifyPaystackWebhookSignature(rawBody: string, signatureHeader: string | null): Promise<boolean> {
   if (!signatureHeader) return false;
-  const secretKey = await requireSecretKey();
+  const secretKey = requireVerificationKey();
   const expected = createHmac("sha512", secretKey).update(rawBody).digest("hex");
   return expected === signatureHeader;
 }
