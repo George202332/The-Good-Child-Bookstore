@@ -8,6 +8,7 @@ import { PublishingFormatToggles } from "./PublishingFormatToggles";
 import { DeleteBookButton } from "./DeleteBookButton";
 import { ColHelp } from "@/components/ColHelp";
 import { BookFormatTabs } from "@/components/BookFormatTabs";
+import { listPrintBookIssues } from "@/lib/print-book-issues";
 
 const STATUS_TABS: { key: "ALL" | "PUBLISHED" | "PENDING_REVIEW" | "DRAFT" | "REJECTED"; label: string }[] = [
   { key: "ALL", label: "All" },
@@ -49,6 +50,8 @@ export default async function BookManagementPage({
   const activeStatus = (STATUS_TABS.find((t) => t.key === statusParam)?.key ?? "ALL");
 
   const [stats, books, siteSettings] = await Promise.all([getBookStats(), listBooksForModeration(activeStatus), getSiteSettings()]);
+  // Printed books with incomplete print details (a customer may not get a shipping price for them): flagged beside the title.
+  const printIssues = role === "ADMIN" ? await listPrintBookIssues().catch(() => ({})) : {};
 
   return (
     <AdminShell role={role} activeKey="books" displayName={session.user.name ?? ""}>
@@ -131,6 +134,15 @@ export default async function BookManagementPage({
                   <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>{b.isbn || "—"}</td>
                   <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>
                     <Link href={`/admin/books/${b.id}/review`} title="Open this book's details" style={{ fontWeight: 700, color: "inherit", textDecoration: "underline", overflowWrap: "anywhere" }}>{b.title}</Link>
+                    {b.editions.map((e) => {
+                      const issue = (printIssues as Record<string, import("@/lib/print-book-issues").PrintBookIssue>)[e.id];
+                      return issue ? (
+                        <div key={`pi-${e.id}`} title={[...issue.problems, issue.flagged?.message].filter(Boolean).join(" ")} style={{ marginTop: 4, fontSize: 11.5, fontWeight: 700, color: issue.level === "error" ? "#a1262a" : "#8a5a00" }}>
+                          {issue.level === "error" ? "Print details incomplete: customers may not get a shipping price" : "Print details missing: shipping price is slow"}{" "}
+                          <Link href={`/admin/books/${e.id}/review`} style={{ fontWeight: 400, textDecoration: "underline", color: "inherit" }}>fix</Link>
+                        </div>
+                      ) : null;
+                    })}
                     <details style={{ marginTop: 4 }}>
                       <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--admin-accent, #5B8DEF)" }}>Formats ({b.tabs.map((t) => t.label).join(", ")})</summary>
                       <BookFormatTabs tabs={b.tabs} />

@@ -22,6 +22,7 @@ import { getSiteSettings } from "@/actions/site-settings";
 import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls } from "@/lib/site-settings";
 import { PhonePrefixSelect } from "@/components/PhonePrefixSelect";
 import { prefixAfterCountryChange, prefixAfterManualChoice } from "@/lib/phone-prefix";
+import { QUOTE_MESSAGES, deliveryBlockers } from "@/lib/quote-log";
 import { ROUTE_TIMEOUT_MS, RouteTimeoutError, failureMessage, lockNote, timeoutMessage, withTimeout, workingLabel, type PayRoute } from "@/lib/checkout-routes";
 
 /**
@@ -128,6 +129,13 @@ export function CheckoutClient({
   // country) the key no longer matches the answer, which is what shows "Updating Shipping".
   const [quoted, setQuoted] = useState<{ key: string; result: ShippingOptionsResult } | null>(null);
   const [shippingRefresh, setShippingRefresh] = useState(0);
+  // When the current price request began, and whether the one automatic retry is running (drives the waiting messages).
+  const [quoteStartedAt, setQuoteStartedAt] = useState<number | null>(null);
+  const [quoteElapsed, setQuoteElapsed] = useState(0);
+  const [quoteRetrying, setQuoteRetrying] = useState(false);
+  // Shown after the customer presses Continue and something stops them (which field, and why).
+  const [showBlockers, setShowBlockers] = useState(false);
+  const [continueNote, setContinueNote] = useState<string | null>(null);
   const [shippingLevel, setShippingLevel] = useState("");
   const [paymentBadges, setPaymentBadges] = useState<PaymentBadgeUrls>(DEFAULT_SITE_SETTINGS.paymentBadges);
 
@@ -159,24 +167,43 @@ export function CheckoutClient({
   useEffect(() => {
     if (!quoteKey) return;
     let cancelled = false;
+    setQuoteStartedAt(Date.now());
+    setQuoteElapsed(0);
+    setQuoteRetrying(false);
+    const unavailable = (message: string): ShippingOptionsResult => ({ rows: [], state: "unavailable", retryable: true, kind: "error", message });
+    const ask = () =>
+      withTimeout(
+        getShippingOptions({
+          items: (JSON.parse(quoteItemsKey) as [string, number, string][]).map(([bookId, qty, format]) => ({ bookId, qty, format })),
+          country: printCountry,
+          address: quoteAddress,
+          phone: quotePhone,
+        }),
+        24000,
+      ).catch((): ShippingOptionsResult => unavailable("We could not get shipping prices just now. Your details are safe and nothing has been charged. Please press Try again."));
     // Wait a moment after typing stops so we ask for a price once, not per keystroke.
-    const timer = setTimeout(() => {
-      getShippingOptions({
-        items: (JSON.parse(quoteItemsKey) as [string, number, string][]).map(([bookId, qty, format]) => ({ bookId, qty, format })),
-        country: printCountry,
-        address: quoteAddress,
-        phone: quotePhone,
-      })
-        .catch((): ShippingOptionsResult => ({ rows: [], state: "unavailable", message: "We could not get shipping prices just now. Please wait a moment and check your address again; nothing has been charged." }))
-        .then((result) => {
-          if (cancelled) return;
-          setQuoted({ key: quoteKey, result });
-          setShippingLevel((cur) => (result.rows.some((o) => o.id === cur) ? cur : result.rows[0]?.id ?? ""));
-        });
+    const timer = setTimeout(async () => {
+      let result = await ask();
+      // One automatic retry when asking again can help (Lulu slow or briefly failing), before the customer sees a problem.
+      if (!cancelled && (result.state === "unavailable" || result.state === "price-unavailable") && result.retryable !== false) {
+        setQuoteRetrying(true);
+        await new Promise((r) => setTimeout(r, 1200));
+        if (!cancelled) result = await ask();
+      }
+      if (cancelled) return;
+      setQuoteRetrying(false);
+      setQuoted({ key: quoteKey, result });
+      setShippingLevel((cur) => (result.rows.some((o) => o.id === cur) ? cur : result.rows[0]?.id ?? ""));
+      setContinueNote(null);
     }, 500);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [quoteKey, quoteItemsKey, printCountry, quoteAddress, quotePhone]);
   const shippingBusy = !!quoteKey && quoted?.key !== quoteKey;
+  useEffect(() => {
+    if (!shippingBusy || quoteStartedAt === null) return;
+    const id = setInterval(() => setQuoteElapsed(Date.now() - quoteStartedAt), 500);
+    return () => clearInterval(id);
+  }, [shippingBusy, quoteStartedAt]);
   const shippingResult = quoteKey ? quoted?.result : undefined;
   const shippingOptions = shippingResult?.rows ?? [];
 
@@ -199,7 +226,35 @@ export function CheckoutClient({
   const grandTotal = Math.round((subtotal + shippingCost + fulfillmentFee) * 100) / 100;
   // The Pay buttons are ready only once Lulu's printing price (and fee) for this exact order is confirmed.
   const printPriceConfirmed = !hasPrintItem || (!shippingBusy && !!chosenShipping && chosenShipping.source === "lulu" && typeof chosenShipping.fulfillment === "number");
-  // Print copies are shipped by our print partner, which needs a complete
+
+  // Why the customer cannot move on, shown right beside the field. Server-side field hints (from Lulu's own complaint) too.
+  const blockers = deliveryBlockers({ fullName: data.fullName, email: data.email, country: data.country, phone: data.phone, address: data.billingAddress, city: data.city, state: data.state, postcode: data.postcode }, hasPrintItem);
+  const SERVER_FIELD_ID: Record<string, string> = { postcode: "co-postcode", phone: "co-phone", state: "co-state", city: "co-city", address: "co-address", country: "co-country" };
+  const quoteProblem = !!shippingResult && !shippingBusy && (shippingResult.state === "cannot-ship" || shippingResult.state === "unavailable" || shippingResult.state === "price-unavailable");
+  const fieldNote = (id: string) => {
+    const mine = showBlockers ? blockers.find((b) => b.fieldId === id)?.message : undefined;
+    const fromLulu = quoteProblem && shippingResult?.field && SERVER_FIELD_ID[shippingResult.field] === id ? shippingResult.message : undefined;
+    const text = mine ?? fromLulu;
+    return text ? <div className="field-hint" role="alert" style={{ color: "#a1262a", marginTop: 2 }}>{text}</div> : null;
+  };
+  function tryQuoteAgain() { setContinueNote(null); setShippingRefresh((n) => n + 1); }
+  function continueFromDelivery() {
+    if (blockers.length > 0) {
+      setShowBlockers(true);
+      setContinueNote(null);
+      document.getElementById(blockers[0].fieldId)?.focus();
+      return;
+    }
+    if (hasPrintItem && !printPriceConfirmed) {
+      setContinueNote(shippingBusy
+        ? "Please wait a moment: we are still getting your shipping price. This page moves on as soon as it is ready."
+        : shippingResult?.message ?? "We do not have your shipping price yet. Please press Try again.");
+      return;
+    }
+    setShowBlockers(false);
+    setContinueNote(null);
+    goTo(3);
+  }  // Print copies are shipped by our print partner, which needs a complete
   // address; the order stores it as street / city / state / postal code.
   const shipAddressValue = hasPrintItem
     ? composeShipAddress({ street: data.billingAddress, street2: data.street2, city: data.city, state: data.state, postcode: data.postcode })
@@ -447,15 +502,18 @@ export function CheckoutClient({
       {step === 2 && (
         <form
           style={{ maxWidth: 420, margin: "0 auto" }}
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
-            goTo(3);
+            continueFromDelivery();
           }}
         >
           <label className="field-label field-label-compact" htmlFor="co-name">Full name</label>
           <input className="field field-compact" id="co-name" type="text" required value={data.fullName} onChange={(e) => setData((d) => ({ ...d, fullName: e.target.value }))} />
+          {fieldNote("co-name")}
           <label className="field-label field-label-compact" htmlFor="co-email">Email address</label>
           <input className="field field-compact" id="co-email" type="email" required value={data.email} onChange={(e) => setData((d) => ({ ...d, email: e.target.value }))} />
+          {fieldNote("co-email")}
           <label className="field-label field-label-compact" htmlFor="co-country">Country</label>
           <select
             className="field field-compact"
@@ -474,6 +532,7 @@ export function CheckoutClient({
             <option value="">Select a country</option>
             {COUNTRIES.map((c) => <option key={c.iso2} value={c.name}>{c.name}</option>)}
           </select>
+          {fieldNote("co-country")}
           <label className="field-label field-label-compact" htmlFor="co-phone">Phone number {!hasPrintItem && <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(optional)</span>}</label>
           <div style={{ display: "flex", gap: 8 }}>
             <PhonePrefixSelect
@@ -485,18 +544,23 @@ export function CheckoutClient({
             />
             <input className="field field-compact" id="co-phone" type="tel" style={{ flex: 1 }} required={hasPrintItem} value={data.phone} onChange={(e) => setData((d) => ({ ...d, phone: e.target.value }))} />
           </div>
+          {fieldNote("co-phone")}
           <label className="field-label field-label-compact" htmlFor="co-address">{hasPrintItem ? "Street address" : "Billing address"}</label>
           <textarea className="field field-compact" id="co-address" required value={data.billingAddress} onChange={(e) => setData((d) => ({ ...d, billingAddress: e.target.value }))} />
+          {fieldNote("co-address")}
           {hasPrintItem && (
             <>
               <label className="field-label field-label-compact" htmlFor="co-street2">Apartment, suite, unit <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(optional)</span></label>
               <input className="field field-compact" id="co-street2" type="text" value={data.street2} onChange={(e) => setData((d) => ({ ...d, street2: e.target.value }))} />
               <label className="field-label field-label-compact" htmlFor="co-city">City</label>
               <input className="field field-compact" id="co-city" type="text" required value={data.city} onChange={(e) => setData((d) => ({ ...d, city: e.target.value }))} />
+              {fieldNote("co-city")}
               <label className="field-label field-label-compact" htmlFor="co-state">State / province / region {["United States", "Canada", "Australia", "Mexico"].includes(data.country) ? "" : <span style={{ fontWeight: 400, color: "var(--ink-faint)" }}>(if your country uses one)</span>}</label>
               <input className="field field-compact" id="co-state" type="text" required={["United States", "Canada", "Australia", "Mexico"].includes(data.country)} value={data.state} onChange={(e) => setData((d) => ({ ...d, state: e.target.value }))} />
+              {fieldNote("co-state")}
               <label className="field-label field-label-compact" htmlFor="co-postcode">Postal / ZIP code</label>
               <input className="field field-compact" id="co-postcode" type="text" required value={data.postcode} onChange={(e) => setData((d) => ({ ...d, postcode: e.target.value }))} />
+              {fieldNote("co-postcode")}
               <fieldset style={{ border: "none", padding: 0, margin: "12px 0 0" }}>
                 <legend className="field-label field-label-compact">Shipping method</legend>
                 {shippingBusy && (
@@ -540,9 +604,32 @@ export function CheckoutClient({
               ? "Your print copy will be printed and shipped to this address. Shipping is paid by you and is added to your total."
               : "Books are delivered digitally; this address is used for billing and tax purposes only."}
           </div>
+          {hasPrintItem && shippingBusy && (
+            <div className="ship-updating" role="status" aria-live="polite">
+              <span className="ship-spinner" aria-hidden="true" />
+              {quoteRetrying ? QUOTE_MESSAGES.retrying : quoteElapsed >= 5000 ? QUOTE_MESSAGES.slow : QUOTE_MESSAGES.loading}
+            </div>
+          )}
+          {hasPrintItem && quoteProblem && (
+            <div className="ship-problem" role="alert">
+              {shippingResult?.message}
+              {shippingResult?.retryable !== false && (
+                <div style={{ marginTop: 8 }}><button type="button" className="btn btn-primary btn-small" onClick={tryQuoteAgain}>Try again</button></div>
+              )}
+            </div>
+          )}
+          {showBlockers && blockers.length > 0 && (
+            <div className="ship-problem" role="alert">
+              To continue, please fix: {blockers.map((b) => b.message.replace(/\.$/, "")).join(" · ")}.
+            </div>
+          )}
+          {continueNote && !shippingBusy && !quoteProblem && <div className="ship-problem" role="alert">{continueNote}</div>}
+          {continueNote && shippingBusy && <div className="field-hint" role="status" style={{ color: "#8a5a00" }}>{continueNote}</div>}
           <div className="checkout-actions">
             <button type="button" className="btn btn-ghost btn-small" onClick={() => goTo(1)}>← Back to Cart</button>
-            <button className="btn btn-primary btn-small" type="submit" disabled={hasPrintItem && !printPriceConfirmed}>Continue</button>
+            <button className="btn btn-primary btn-small" type="submit" aria-busy={hasPrintItem && shippingBusy}>
+              {hasPrintItem && shippingBusy ? <><span className="ship-spinner" aria-hidden="true" /> Getting your shipping price…</> : "Continue"}
+            </button>
           </div>
         </form>
       )}

@@ -86,6 +86,6 @@ export function variableGroups(deployment: Deployment): { group: string; names: 
     { group: "Email", names: ["RESEND_API_KEY", "FROM_EMAIL"] },
     { group: "Database and sign-in", names: ["DATABASE_URL", "AUTH_SECRET"] },
     { group: "Scheduled checks", names: ["CRON_SECRET"] },
-    { group: "Optional", names: ["PRODUCTION_DATABASE_ENDPOINT", "DATABASE_LABEL", "NEXT_PUBLIC_GA_MEASUREMENT_ID", "NEXT_PUBLIC_GTM_ID", "GOOGLE_SITE_VERIFICATION"] },
+    { group: "Optional", names: ["PRODUCTION_DATABASE_ENDPOINT", "LULU_QUOTE_SIMULATE", "DATABASE_LABEL", "NEXT_PUBLIC_GA_MEASUREMENT_ID", "NEXT_PUBLIC_GTM_ID", "GOOGLE_SITE_VERIFICATION"] },
   ];
 }

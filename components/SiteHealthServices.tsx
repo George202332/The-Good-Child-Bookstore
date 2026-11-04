@@ -6,6 +6,8 @@ import { deploymentLabel, describeDatabase, STAGING_LULU_REFERENCE } from "@/lib
 import { ensureFreshServiceHealth, getAlertEmail, readCheckHistory, readIncidents, CHECK_EVERY_MINUTES } from "@/lib/site-health/service-health";
 import { getStagingLuluSwitch } from "@/lib/staging-lulu";
 import { SERVICE_ORDER } from "@/lib/service-checks";
+import { readQuoteStats } from "@/lib/site-health/quote-log";
+import { SLOW_QUOTE_MS } from "@/lib/quote-log";
 import { ServiceStatusTable } from "@/components/ServiceStatusTable";
 import { RunChecksButton, AlertEmailForm } from "@/app/admin/site-health/ServiceChecksControls";
 
@@ -19,8 +21,8 @@ const when = (d: Date | string) => new Date(d).toLocaleString();
 
 /** The whole "outside services" part of Site Health. Used by the Admin page (with controls) and the Investor page (readOnly: no buttons, no forms). */
 export async function SiteHealthServices({ readOnly, basePath, page, service }: { readOnly: boolean; basePath: string; page: number; service?: string }) {
-  const [snap, safety, alertEmail, history, incidents] = await Promise.all([
-    ensureFreshServiceHealth(), getPaymentSafety(), getAlertEmail(), readCheckHistory({ page, pageSize: 50, service }), readIncidents(100),
+  const [snap, safety, alertEmail, history, incidents, quoteStats] = await Promise.all([
+    ensureFreshServiceHealth(), getPaymentSafety(), getAlertEmail(), readCheckHistory({ page, pageSize: 50, service }), readIncidents(100), readQuoteStats(),
   ]);
   const deployment = safety.deployment;
   const db = describeDatabase(process.env.DATABASE_URL, process.env.DATABASE_LABEL);
@@ -89,6 +91,17 @@ export async function SiteHealthServices({ readOnly, basePath, page, service }: 
         <p style={{ margin: "0 0 12px" }}><a className="btn btn-small" href={PDF_URL} download>Download PDF</a>{alertEmail ? <span style={{ fontSize: 13, marginLeft: 10 }}>Alerts go to {alertEmail}.</span> : null}</p>
       )}
       <div style={{ marginBottom: 24 }}><ServiceStatusTable results={snap.results} states={snap.states} /></div>
+
+      <h3 style={{ fontSize: 16, margin: "0 0 8px" }}>Lulu: shipping-price requests at checkout</h3>
+      <div className="map-card" style={{ padding: 14, marginBottom: 24, fontSize: 13 }}>
+        <div>Today: <strong>{quoteStats.summary.today.ok}</strong> fine · <strong style={{ color: quoteStats.summary.today.slow ? "#8a5a00" : undefined }}>{quoteStats.summary.today.slow}</strong> slow (over {SLOW_QUOTE_MS / 1000} s) · <strong style={{ color: quoteStats.summary.today.failed ? "#d64545" : undefined }}>{quoteStats.summary.today.failed}</strong> failed</div>
+        <div>Last 7 days: <strong>{quoteStats.summary.last7d.ok}</strong> fine · <strong>{quoteStats.summary.last7d.slow}</strong> slow · <strong>{quoteStats.summary.last7d.failed}</strong> failed{Object.keys(quoteStats.summary.byKind).length > 0 && <> (reasons: {Object.entries(quoteStats.summary.byKind).map(([k, n]) => `${k} ${n}`).join(", ")})</>}</div>
+        {quoteStats.recent.length > 0 && (
+          <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontFamily: "monospace", fontSize: 12 }}>
+            {quoteStats.recent.map((e, i) => <li key={i}>{when(e.at)} {e.outcome} {e.kind ?? ""} {e.ms} ms country {e.country}</li>)}
+          </ul>
+        )}
+      </div>
 
       <h3 style={{ fontSize: 16, margin: "0 0 8px" }}>Variables in this environment (names only, never values)</h3>
       <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", marginBottom: 8 }}>

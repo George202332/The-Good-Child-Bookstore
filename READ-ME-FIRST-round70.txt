@@ -1,0 +1,18 @@
+ROUND 70: CHECKOUT SHIPPING STEP NEVER STALLS SILENTLY
+No database change this round (no migration). No files to delete.
+
+What changed
+- Checkout delivery step: "Getting your shipping price..." with a spinner; Continue shows its own spinner and is never dead.
+- After about 5 seconds: "This is taking longer than usual, please wait."
+- One automatic retry, then a clear message with a Try again button (typed details are kept).
+- If a field blocks Next, the reason appears beside that exact field.
+- Server logs every slow or failed price request (kind, country, time, book count; no personal data).
+- Site Health shows fine/slow/failed counts under Lulu.
+- Admin Books table and Lulu Publishing tab flag books with incomplete print details.
+- Staging-only test switch LULU_QUOTE_SIMULATE (slow / fail / postcode). Ignored on the live site. Leave unset normally.
+
+Deploy to staging
+git checkout staging
+git add .
+git commit -m "Checkout shipping step never stalls silently"
+git push origin staging

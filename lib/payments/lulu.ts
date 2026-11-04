@@ -78,6 +78,8 @@ async function getAccessToken(baseUrl: string): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: `Basic ${basicAuth}` },
     body: new URLSearchParams({ grant_type: "client_credentials" }),
+    // A sign-in that hangs must never leave the checkout waiting for a minute.
+    signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) {
     throw new Error(
@@ -168,25 +170,37 @@ export async function quoteLuluShipping(lines: ShippingQuoteLine[], address: Lul
 export async function quoteLuluShippingDetailed(
   lines: ShippingQuoteLine[],
   address: LuluAddress,
-): Promise<{ status: "ok" | "none" | "error"; quotes: ShippingQuote[] }> {
+): Promise<{ status: "ok" | "none" | "error"; quotes: ShippingQuote[]; failure?: QuoteFailure }> {
+  const err = (failure: QuoteFailure) => {
+    // Server log only: the kind, Lulu's HTTP status and its short reason. Never a key, token or secret.
+    console.error(`[lulu-quote] shipping options failed kind=${failure.kind} status=${failure.status ?? "none"} country=${address.country_code} detail=${failure.detail || "none"}`);
+    return { status: "error" as const, quotes: [] as ShippingQuote[], failure };
+  };
   try {
     const items = await buildQuoteItems(lines);
-    if (!items) return { status: "error", quotes: [] };
+    if (!items) return err(classifyQuoteFailure({ pagesMissing: true }));
     const baseUrl = luluBaseUrl(await getLuluEnvironment());
-    const token = await getAccessToken(baseUrl);
-    const res = await fetch(`${baseUrl}/shipping-options/`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ currency: "USD", line_items: items, shipping_address: luluQuoteAddress(address) }),
-    });
+    let token: string;
+    try {
+      token = await getAccessToken(baseUrl);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      const auth = /authentication failed \((\d+)\)/i.exec(msg);
+      return err(auth ? classifyQuoteFailure({ status: Number(auth[1]) >= 500 ? Number(auth[1]) : 401, body: msg }) : classifyQuoteFailure({ network: msg || "Lulu could not be reached" }));
+    }
+    // Asked with a time limit and up to three tries, like the price calculator.
+    const res = await postLuluQuote(`${baseUrl}/shipping-options/`, token, { currency: "USD", line_items: items, shipping_address: luluQuoteAddress(address) });
+    if ("network" in res) return err(classifyQuoteFailure({ network: res.network }));
     // Lulu answering "no" (the address or country is not served, or the combination is refused) is different
     // from Lulu being unreachable or failing.
-    if (res.status === 400 || res.status === 404 || res.status === 422) return { status: "none", quotes: [] };
-    if (!res.ok) return { status: "error", quotes: [] };
-    const quotes = parseLuluShippingOptions(await res.json());
+    if (res.status === 400 || res.status === 404 || res.status === 422) return { status: "none", quotes: [], failure: classifyQuoteFailure({ status: res.status, body: res.text }) };
+    if (res.status < 200 || res.status >= 300) return err(classifyQuoteFailure({ status: res.status, body: res.text }));
+    let json: unknown = null;
+    try { json = JSON.parse(res.text); } catch { /* handled below */ }
+    const quotes = parseLuluShippingOptions(json);
     return { status: quotes.length > 0 ? "ok" : "none", quotes };
-  } catch {
-    return { status: "error", quotes: [] };
+  } catch (e) {
+    return err(classifyQuoteFailure({ network: e instanceof Error ? e.message : "Lulu could not be reached." }));
   }
 }
 

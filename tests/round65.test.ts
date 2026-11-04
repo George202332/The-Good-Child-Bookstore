@@ -313,3 +313,76 @@ test("payments use the guarded return address, and the confirmation page re-chec
   assert.match(readFileSync(join(root, "app/checkout/confirmation/page.tsx"), "utf8"), /AutoRefresh/);
   assert.doesNotMatch(readFileSync(join(root, "lib/seo/site-url.ts"), "utf8"), /return "https:\/\/thegoodchildbookstore\.com";\n}/);
 });
+
+// ---- checkout shipping step never stalls silently (Round 70) ---------------------------------------------------------------
+import { classifyDuration, deliveryBlockers, fieldForAddressDetail, quotePhase, summarizeQuoteDays, SLOW_QUOTE_MS, QUOTE_BUDGET_MS } from "../lib/quote-log";
+import { printDetailsProblems, worstLevel } from "../lib/print-details-check";
+
+test("slow and failed quotes are told apart", () => {
+  assert.equal(classifyDuration(true, 1200), "ok");
+  assert.equal(classifyDuration(true, SLOW_QUOTE_MS), "slow");
+  assert.equal(classifyDuration(false, 100), "failed");
+  assert.ok(QUOTE_BUDGET_MS < 30000, "the customer never waits half a minute for one try");
+});
+
+test("quote counts per day and per failure kind", () => {
+  const now = "2026-11-05T12:00:00.000Z";
+  const days = { "2026-11-05": { ok: 5, slow: 1, failed: 2 }, "2026-11-01": { ok: 3, slow: 0, failed: 0 }, "2026-10-01": { ok: 99, slow: 9, failed: 9 } };
+  const ev = [
+    { at: "2026-11-05T10:00:00.000Z", outcome: "failed" as const, kind: "address", ms: 900, country: "KE" },
+    { at: "2026-11-05T09:00:00.000Z", outcome: "failed" as const, kind: "address", ms: 800, country: "KE" },
+    { at: "2026-09-01T09:00:00.000Z", outcome: "failed" as const, kind: "auth", ms: 800, country: "KE" },
+  ];
+  const s = summarizeQuoteDays(days, ev, now);
+  assert.deepEqual(s.today, { ok: 5, slow: 1, failed: 2 });
+  assert.deepEqual(s.last7d, { ok: 8, slow: 1, failed: 2 });
+  assert.deepEqual(s.byKind, { address: 2 });
+});
+
+test("a Lulu address complaint is shown beside the right field", () => {
+  assert.equal(fieldForAddressDetail("Invalid postal code for this country"), "postcode");
+  assert.equal(fieldForAddressDetail("phone_number is required"), "phone");
+  assert.equal(fieldForAddressDetail("state_code not recognised"), "state");
+  assert.equal(fieldForAddressDetail("something else"), null);
+});
+
+test("waiting messages and the never-dead button", () => {
+  assert.equal(quotePhase({ busy: true, elapsedMs: 1000, stateOk: false, hasProblem: false }), "loading");
+  assert.equal(quotePhase({ busy: true, elapsedMs: 6000, stateOk: false, hasProblem: false }), "slow");
+  assert.equal(quotePhase({ busy: false, elapsedMs: 0, stateOk: false, hasProblem: true }), "failed");
+  const src = readFileSync(join(root, "app/checkout/CheckoutClient.tsx"), "utf8");
+  assert.doesNotMatch(src, /type="submit" disabled=\{hasPrintItem && !printPriceConfirmed\}/, "the Continue button is never silently disabled");
+  assert.match(src, /Try again/);
+  assert.match(src, /getShippingOptions/);
+});
+
+test("the field that blocks Next is named in plain words", () => {
+  const ok = { fullName: "A B", email: "a@b.co", country: "Kenya", phone: "712345678", address: "1 Road", city: "Nairobi", state: "", postcode: "00100" };
+  assert.deepEqual(deliveryBlockers(ok, true), []);
+  assert.deepEqual(deliveryBlockers({ ...ok, phone: "" }, true).map((b) => b.fieldId), ["co-phone"]);
+  assert.match(deliveryBlockers({ ...ok, phone: "12" }, true)[0].message, /incomplete/);
+  assert.deepEqual(deliveryBlockers({ ...ok, phone: "" }, false), [], "phone is optional for digital-only orders");
+  assert.deepEqual(deliveryBlockers({ ...ok, country: "United States", state: "", postcode: "ABC" }, true).map((b) => b.fieldId), ["co-state", "co-postcode"]);
+  assert.match(deliveryBlockers({ ...ok, email: "nope" }, true)[0].message, /does not look right/);
+});
+
+test("incomplete print details are flagged", () => {
+  const complete = { submissionMetadata: { pages: 40, trimSizeCode: "0600X0900" }, hasInteriorFile: true, hasPrintFormat: true };
+  assert.deepEqual(printDetailsProblems(complete), []);
+  assert.equal(worstLevel(printDetailsProblems({ ...complete, submissionMetadata: {}, hasInteriorFile: false })), "error");
+  assert.equal(worstLevel(printDetailsProblems({ ...complete, submissionMetadata: {} })), "warning");
+  assert.deepEqual(printDetailsProblems({ ...complete, submissionMetadata: null, hasInteriorFile: false, hasPrintFormat: false }), []);
+});
+
+test("Lulu calls have time limits, quote failures are logged without personal data, and the test switch is never live", () => {
+  const l = readFileSync(join(root, "lib/payments/lulu.ts"), "utf8");
+  const ship = l.slice(l.indexOf("export async function quoteLuluShippingDetailed"), l.indexOf("const LULU_REQUEST_TIMEOUT_MS"));
+  assert.match(ship, /postLuluQuote\(/);
+  assert.doesNotMatch(ship, /await fetch\(/);
+  assert.match(l.slice(l.indexOf("async function getAccessToken"), l.indexOf("export type LuluPrintLineItem")), /AbortSignal\.timeout/);
+  const a = readFileSync(join(root, "actions/shipping-options.ts"), "utf8");
+  assert.match(a, /QUOTE_BUDGET_MS/);
+  assert.match(a, /\[quote\] \$\{outcome\} kind=/);
+  assert.doesNotMatch(a, /console\.(error|log)\([^)]*(input\.address|input\.phone|input\.name)/);
+  assert.match(a, /deploymentOf\(\) === "production"\) return null/);
+});

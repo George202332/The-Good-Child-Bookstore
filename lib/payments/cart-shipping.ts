@@ -22,6 +22,8 @@ export interface CartShippingResult {
   /** ok = Lulu priced this address; none = Lulu cannot ship these books to this address; error = Lulu could not
    * be asked; incomplete = the address is not complete yet, so only the store's estimate is shown. */
   lulu: "ok" | "none" | "error" | "incomplete";
+  /** Why Lulu gave no price (kind, status, short reason). Present when lulu is "error" or "none". */
+  failure?: import("@/lib/lulu-quote-failure").QuoteFailure;
 }
 
 export async function quoteCartShippingDetailed(opts: {
@@ -59,6 +61,7 @@ export async function quoteCartShippingDetailed(opts: {
   return {
     quotes: opts.levels.map((level) => pickShippingQuote(level, answer.quotes, opts.countryIso, copies)),
     lulu: answer.status,
+    failure: "failure" in answer ? answer.failure : undefined,
   };
 }
 
