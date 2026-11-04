@@ -386,3 +386,14 @@ test("Lulu calls have time limits, quote failures are logged without personal da
   assert.doesNotMatch(a, /console\.(error|log)\([^)]*(input\.address|input\.phone|input\.name)/);
   assert.match(a, /deploymentOf\(\) === "production"\) return null/);
 });
+
+test("the one-time cleanup is a single atomic statement that refuses staging and cannot weaken the lock", () => {
+  const run = readFileSync(join(root, "scripts/cleanup-test-data.ts"), "utf8");
+  const sql = readFileSync(join(root, "scripts/cleanup-sql.ts"), "utf8");
+  assert.doesNotMatch(run, /\$transaction/, "no long step-by-step transaction (Neon drops those: 'Transaction not found')");
+  assert.match(run, /ep-royal-unit-ax5doypv/);
+  assert.match(run, /DELETE TEST DATA/);
+  assert.match(sql, /set_config\('app\.allow_record_delete', 'on', true\)/, "the lock is lifted for that one statement only");
+  assert.doesNotMatch(sql + run, /DROP\s+(TABLE|TRIGGER)|TRUNCATE|migrate reset|db push/i);
+  for (const kept of ['"User"', '"Book"', '"BookFile"']) assert.ok(!new RegExp(`DELETE FROM ${kept}`).test(sql), `${kept} is never deleted`);
+});

@@ -93,7 +93,7 @@ try {
   if ($LASTEXITCODE -ne 0) {
     $script:failed = $true
     Write-Host ""
-    Write-Host "THE CLEANUP STOPPED. Nothing was changed (it runs as one transaction)." -ForegroundColor Red
+    Write-Host "THE CLEANUP STOPPED. Nothing was changed (the delete is one all-or-nothing statement)." -ForegroundColor Red
     Write-Host "Take a photo of the red text above and send it to me."
     return
   }
