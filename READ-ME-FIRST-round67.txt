@@ -1,0 +1,5 @@
+ROUND 67 - staging checkout fix (database was behind the code) + "database behind" warnings
+
+Nothing to delete. Unzip over the project (the 'bookstore' folder), then follow the steps in the chat.
+package.json changes: one new line, "prebuild", so every build records which database updates the code needs.
+No new database migration in this round. The migration you must apply to staging is the one from round 66 (and any earlier one still waiting).

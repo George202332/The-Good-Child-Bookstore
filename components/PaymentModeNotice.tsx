@@ -1,5 +1,6 @@
 import { getPaymentSafety } from "@/lib/api-keys";
 import { deploymentLabel, describeDatabase } from "@/lib/runtime-env";
+import { getMigrationStatus, migrationWarning } from "@/lib/migration-status";
 
 /** A small strip shown to the ADMIN only (never to editors, accountants or customers). It shows which copy of the site this is,
  * which payment mode is active, which database the site is connected to (endpoint NAME only, never a password) and, in red at
@@ -12,6 +13,7 @@ export async function PaymentModeNotice() {
     return null;
   }
   const db = describeDatabase(process.env.DATABASE_URL, process.env.DATABASE_LABEL);
+  const migWarning = migrationWarning(await getMigrationStatus().catch(() => ({ checked: false, expectedCount: 0, appliedCount: 0, missing: [], failed: [], behind: false })));
   const set = safety.set;
   const warnings = [safety.paystack, safety.paypal].filter((s) => s.safeguard && s.reason);
   const colour = warnings.length ? "#a1262a" : set === "live" ? "#165236" : "#8a5a00";
@@ -19,6 +21,11 @@ export async function PaymentModeNotice() {
   const state = (s: { allowed: boolean; safeguard: boolean }) => (s.allowed ? set.toUpperCase() : s.safeguard ? "SWITCHED OFF" : "not set up");
   return (
     <>
+      {migWarning && (
+        <div role="alert" style={{ position: "fixed", top: warnings.length > 0 ? 40 : 0, left: 0, right: 0, zIndex: 79, background: "#a1262a", color: "#fff", padding: "8px 14px", fontSize: 13, lineHeight: 1.4 }}>
+          <strong>Database behind:</strong> {migWarning}
+        </div>
+      )}
       {warnings.length > 0 && (
         <div role="alert" style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 80, background: "#a1262a", color: "#fff", padding: "8px 14px", fontSize: 13, lineHeight: 1.4 }}>
           <strong>Payment safeguard:</strong> {warnings.map((w) => w.reason).join(" ")}

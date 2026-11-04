@@ -251,3 +251,33 @@ test("the service checks only read", () => {
   assert.doesNotMatch(s, /transaction\/initialize|charge_authorization|v2\/checkout\/orders|\/capture|\/payouts|emails\.send|resend\.emails|method: "DELETE"|method: "PUT"/);
   assert.doesNotMatch(s, /\/print-jobs\/["`]/);
 });
+
+// ---- database behind the code (Round 67) ----------------------------------------------------------------------------
+import { compareMigrations, migrationWarning } from "../lib/migration-status";
+
+test("a database that lacks a migration the code needs is reported as behind", () => {
+  const ok = { finished: true, rolledBack: false };
+  const r = compareMigrations(["a", "b", "c"], [{ name: "a", ...ok }, { name: "b", ...ok }]);
+  assert.deepEqual(r.missing, ["c"]);
+  assert.equal(r.behind, true);
+  assert.equal(compareMigrations(["a"], [{ name: "a", ...ok }, { name: "zzz-extra", ...ok }]).behind, false, "extra applied migrations are fine");
+  assert.equal(compareMigrations(["a"], [{ name: "a", finished: false, rolledBack: false }]).behind, true, "a half-finished migration counts");
+  assert.equal(compareMigrations(["a"], [{ name: "a", finished: true, rolledBack: true }]).behind, true);
+  const w = migrationWarning({ checked: true, behind: true, missing: ["x_col"], failed: [], expectedCount: 2, appliedCount: 1 });
+  assert.match(w ?? "", /BEHIND/);
+  assert.match(w ?? "", /x_col/);
+  assert.equal(migrationWarning({ checked: true, behind: false, missing: [], failed: [], expectedCount: 1, appliedCount: 1 }), null);
+});
+
+test("the list of expected migrations matches the migration folders (regenerated before every build)", () => {
+  const dir = join(root, "prisma", "migrations");
+  const folders = readdirSync(dir).filter((n) => statSync(join(dir, n)).isDirectory()).sort();
+  const listed = JSON.parse(readFileSync(join(root, "lib/expected-migrations.json"), "utf8"));
+  assert.deepEqual(listed, folders);
+  assert.match(readFileSync(join(root, "package.json"), "utf8"), /"prebuild": "node scripts\/write-migration-list.mjs"/);
+});
+
+test("checkout error logs hide any address", () => {
+  const src = readFileSync(join(root, "actions/orders.ts"), "utf8");
+  assert.match(src, /\[address hidden\]/);
+});

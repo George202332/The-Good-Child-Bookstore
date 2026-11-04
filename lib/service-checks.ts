@@ -219,6 +219,16 @@ async function databaseCheck(now: string): Promise<ServiceResult> {
   }
 }
 
+async function migrationsCheck(now: string): Promise<ServiceResult> {
+  const { getMigrationStatus, migrationWarning } = await import("@/lib/migration-status");
+  const s = await getMigrationStatus(0);
+  const base = { key: "migrations" as const, label: "Database is up to date with the code (migrations)", mode: "n/a" as const, keyPresent: true, checkedAt: now, variables: ["DATABASE_URL"] };
+  if (!s.checked) return { ...base, ok: false, reason: `Could not read the list of applied database updates (${s.error ?? "unknown"}).` };
+  const warn = migrationWarning(s);
+  if (warn) return { ...base, ok: false, reason: warn };
+  return { ...base, ok: true, note: `All ${s.expectedCount} database updates the code needs are applied.` };
+}
+
 async function vercelCheck(now: string): Promise<ServiceResult> {
   const d = deploymentOf();
   const base = { key: "vercel" as const, label: "Vercel (hosting)", mode: "n/a" as const, keyPresent: !!process.env.VERCEL_ENV, checkedAt: now, variables: ["VERCEL_ENV"] };
@@ -243,12 +253,12 @@ async function integrationsCheck(now: string): Promise<ServiceResult> {
 }
 
 const RUNNERS: Record<ServiceKey, (now: string) => Promise<ServiceResult>> = {
-  database: databaseCheck, vercel: vercelCheck, paystack: paystackCheck, paypal: paypalCheck,
+  database: databaseCheck, migrations: migrationsCheck, vercel: vercelCheck, paystack: paystackCheck, paypal: paypalCheck,
   lulu_auth: luluAuthCheck, lulu_quote: luluQuoteCheck, lulu_files: luluFilesCheck, lulu_order: luluOrderCheck,
   email: emailCheck, storage: storageCheck, integrations: integrationsCheck,
 };
 
-export const SERVICE_ORDER: ServiceKey[] = ["database", "vercel", "paystack", "paypal", "lulu_auth", "lulu_quote", "lulu_files", "lulu_order", "email", "storage", "integrations"];
+export const SERVICE_ORDER: ServiceKey[] = ["database", "migrations", "vercel", "paystack", "paypal", "lulu_auth", "lulu_quote", "lulu_files", "lulu_order", "email", "storage", "integrations"];
 
 /** Runs one check; a failure is retried once after a short pause so a single hiccup does not raise an alert. */
 export async function runServiceCheck(key: ServiceKey, opts: { retry?: boolean } = {}): Promise<ServiceResult> {

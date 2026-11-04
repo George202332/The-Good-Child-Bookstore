@@ -501,7 +501,7 @@ export async function createPendingOrder(input: {
     // The order could not be saved (for example the database is a step behind the code). Say so plainly instead of leaving
     // the checkout spinning, tell the team, and keep the reason in the server log (never any key).
     const code = (e as { code?: string } | null)?.code ?? "unknown";
-    console.error(`[checkout] the order could not be saved (${code}):`, e instanceof Error ? e.message.split("\n").slice(-3).join(" ") : e);
+    console.error(`[checkout] the order could not be saved (${code}):`, e instanceof Error ? e.message.split("\n").slice(-3).join(" ").replace(/\b[a-z][a-z0-9+.-]*:\/\/\S+/gi, "[address hidden]").slice(0, 400) : "unknown error");
     const { reportSystemError } = await import("@/lib/site-health/alert");
     await reportSystemError("DATABASE", e instanceof Error ? e : new Error(String(e)), { step: "createPendingOrder", code }).catch(() => undefined);
     return { ok: false, error: "We couldn't save your order just now, so nothing has been charged. Please try again in a few minutes; our team has been told." };

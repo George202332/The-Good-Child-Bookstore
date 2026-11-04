@@ -3,7 +3,7 @@
  * when it recovers, and a reminder only if it stays down for many hours. Never one email per check.
  */
 
-export type ServiceKey = "database" | "vercel" | "paystack" | "paypal" | "lulu_auth" | "lulu_quote" | "lulu_files" | "lulu_order" | "email" | "storage" | "integrations";
+export type ServiceKey = "database" | "migrations" | "vercel" | "paystack" | "paypal" | "lulu_auth" | "lulu_quote" | "lulu_files" | "lulu_order" | "email" | "storage" | "integrations";
 
 export interface ServiceState {
   ok: boolean;

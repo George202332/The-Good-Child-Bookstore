@@ -1,0 +1,19 @@
+[
+  "20260723133004_init",
+  "20260724093906_add_images_and_suspension",
+  "20260724144014_accountant_role_and_blog_comments",
+  "20260724200900_fix_missing_tables",
+  "20260724205051_full_submission_form_rebuild",
+  "20260725114618_seo_marketing_infrastructure",
+  "20260725204729_affiliate_commission_fix_and_author_referrals",
+  "20260727071339_password_reset_and_admin_fixes",
+  "20260727110953_real_format_pricing_and_dashboard_rebuild",
+  "20261101120000_sale_line_royalty_log",
+  "20261101180000_order_shipping_quote",
+  "20261101200000_order_fulfillment_amount",
+  "20261103090000_catch_up_missing_schema",
+  "20261104090000_accounting_tables",
+  "20261105090000_accounting_reports",
+  "20261106090000_records_never_deleted",
+  "20261107090000_site_health_history"
+]
