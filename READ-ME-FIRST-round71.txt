@@ -1,0 +1,18 @@
+ROUND 71, STEP 1: PRODUCTION TEST-DATA CLEANUP REPORT (READ ONLY)
+Nothing is deleted or changed by this round. No database change, nothing to delete from your folder.
+
+New files
+  scripts\report-cleanup.ps1   (safe launcher: hidden paste, endpoint box, refuses staging)
+  scripts\report-cleanup.ts    (the read-only report)
+
+Put them in the project, then deploy to staging (so the files are in your repo):
+  git checkout staging
+  git add .
+  git commit -m "Add read-only production cleanup report"
+  git push origin staging
+
+Run the report (from the bookstore folder, the one with package.json):
+  powershell -ExecutionPolicy Bypass -File scripts\report-cleanup.ps1 -LiveSince 2026-11-04
+(use the real day production switched to live keys instead of 2026-11-04)
+To save the output to a file:  ... scripts\report-cleanup.ps1 -LiveSince 2026-11-04 > report.txt
+The report prints no passwords, names or emails.
