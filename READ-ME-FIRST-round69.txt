@@ -1,0 +1,3 @@
+ROUND 69 - production migration helper (scripts\migrate-production.ps1)
+Nothing to delete. No database change. The staging helper is untouched.
+Run from the "staging" branch, before merging into main. Follow the steps in the chat.
