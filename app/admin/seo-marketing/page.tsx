@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
-import { getSeoOverview, listSeoEntries, listIndexNowLog, listRedirects } from "@/actions/seo-marketing";
+import { getSeoOverview, listSeoEntries, listIndexNowLog, listRedirects, listSeoQualityIssues } from "@/actions/seo-marketing";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { SeoEntryForm } from "./SeoEntryForm";
 import { IndexNowPanel } from "./IndexNowPanel";
@@ -22,7 +22,7 @@ export default async function SeoMarketingPage() {
   const role = session.user.role;
   if (role !== "ADMIN" && role !== "EDITOR") redirect("/account");
 
-  const [overview, entries, indexNowLog, redirects] = await Promise.all([getSeoOverview(), listSeoEntries(), listIndexNowLog(), listRedirects()]);
+  const [overview, entries, indexNowLog, redirects, issues] = await Promise.all([getSeoOverview(), listSeoEntries(), listIndexNowLog(), listRedirects(), listSeoQualityIssues()]);
   const siteUrl = getPublicSiteUrl();
 
   const feeds = [
@@ -30,6 +30,7 @@ export default async function SeoMarketingPage() {
     { label: "Books sitemap", href: "/sitemap-books.xml" },
     { label: "Blog sitemap", href: "/sitemap-blogs.xml" },
     { label: "Authors sitemap", href: "/sitemap-authors.xml" },
+    { label: "Topic pages sitemap", href: "/sitemap-topics.xml" },
     { label: "Static pages sitemap", href: "/sitemap-static.xml" },
     { label: "RSS feed", href: "/feed.xml" },
     { label: "robots.txt", href: "/robots.txt" },
@@ -69,6 +70,20 @@ export default async function SeoMarketingPage() {
           <span>Published posts with empty content</span>
           <span className="age-pill" style={overview.blogsWithoutExcerpt > 0 ? { background: "var(--admin-danger, #EF6262)", color: "#1B0A0A" } : undefined}>{overview.blogsWithoutExcerpt}</span>
         </div>
+      </div>
+
+      <h3 style={{ fontSize: 16, marginBottom: 6 }}>Content quality flags</h3>
+      <p style={{ fontSize: 13, color: "var(--admin-text-faint)", margin: "0 0 10px" }}>Books and posts written by authors that need attention. Nothing is changed automatically; very thin book pages are asked not to be indexed.</p>
+      <div className="map-card" style={{ padding: "6px 16px", marginBottom: 24 }}>
+        {issues.length === 0 ? (
+          <div style={{ padding: "10px 0" }}>No quality problems found.</div>
+        ) : issues.slice(0, 60).map((i, n) => (
+          <div key={`${i.slug}-${n}`} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "9px 0", borderBottom: "1px solid var(--line)", fontSize: 13.5 }}>
+            <span><a href={i.kind === "book" ? `/${i.slug}` : `/blog/${i.slug}`} target="_blank" rel="noopener noreferrer">{i.title}</a> <span style={{ color: "var(--admin-text-faint)" }}>({i.kind})</span></span>
+            <span>{i.problem}</span>
+          </div>
+        ))}
+        {issues.length > 60 && <div style={{ padding: "9px 0", fontSize: 13 }}>…and {issues.length - 60} more.</div>}
       </div>
 
       <h3 style={{ fontSize: 16, marginBottom: 14 }}>Generated Feeds</h3>

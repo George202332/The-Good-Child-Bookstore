@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { saveBlogPost, updateBlogPost } from "@/actions/blog";
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { BLOG_CATEGORIES } from "@/lib/blog-categories";
+import { BlogSeoPanel } from "@/components/BlogSeoPanel";
+import { parseKeywords, serializeKeywords } from "@/lib/blog/keywords";
 
 export interface EditingBlogPost {
   id: string;
@@ -66,7 +68,10 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
   const [tags, setTags] = useState<string[]>(editingPost?.tags ?? []);
   const [metaTitle, setMetaTitle] = useState(editingPost?.metaTitle ?? "");
   const [metaDescription, setMetaDescription] = useState(editingPost?.metaDescription ?? "");
-  const [seoKeywords, setSeoKeywords] = useState(editingPost?.seoKeywords ?? "");
+  // The focus keyword and the related keywords are kept together in the one existing "seoKeywords" field (first = focus).
+  const [focusKeyword, setFocusKeyword] = useState(parseKeywords(editingPost?.seoKeywords).focus);
+  const [relatedKeywords, setRelatedKeywords] = useState(parseKeywords(editingPost?.seoKeywords).related.join(", "));
+  const seoKeywords = serializeKeywords(focusKeyword, relatedKeywords.split(","));
   const [canonicalUrl, setCanonicalUrl] = useState(editingPost?.canonicalUrl ?? "");
   const [featured, setFeatured] = useState(editingPost?.featured ?? false);
   const [allowComments, setAllowComments] = useState(editingPost?.allowComments ?? true);
@@ -198,6 +203,7 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
     onDone?.({ submittedForReview: submitForReview });
   }
 
+  const previewHost = useSyncExternalStore(() => () => undefined, () => window.location.host, () => "yoursite.com");
   const searchPreviewTitle = metaTitle.trim() || title.trim() || "Your post title";
   const searchPreviewDesc = metaDescription.trim() || "Your meta description will appear here.";
 
@@ -341,12 +347,17 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
         </div>
         <label className="field-label" htmlFor="blog-meta-title">Meta title</label>
         <input className="field" id="blog-meta-title" type="text" placeholder="Defaults to the post title if left blank" value={metaTitle} onChange={(e) => setMetaTitle(e.target.value)} />
+        <div className="field-hint" style={{ color: (metaTitle.trim() || title.trim()).length > 60 ? "#c0392b" : undefined }}>{(metaTitle.trim() || title.trim()).length} / 60 characters. Longer titles are cut off in Google.</div>
 
         <label className="field-label" htmlFor="blog-meta-desc" style={{ marginTop: 14 }}>Meta description</label>
         <textarea className="field" id="blog-meta-desc" rows={2} placeholder="Shown under the title in search results (about 150-160 characters)" value={metaDescription} onChange={(e) => setMetaDescription(e.target.value)} />
+        <div className="field-hint" style={{ color: metaDescription.length > 158 ? "#c0392b" : undefined }}>{metaDescription.length} / 158 characters.</div>
 
-        <label className="field-label" htmlFor="blog-seo-keywords" style={{ marginTop: 14 }}>SEO keywords</label>
-        <input className="field" id="blog-seo-keywords" type="text" placeholder="e.g. bedtime routine, picture books, read-aloud tips" value={seoKeywords} onChange={(e) => setSeoKeywords(e.target.value)} />
+        <label className="field-label" htmlFor="blog-focus-keyword" style={{ marginTop: 14 }}>Focus keyword</label>
+        <input className="field" id="blog-focus-keyword" type="text" placeholder="The main phrase a parent would search, e.g. bedtime stories for toddlers" value={focusKeyword} onChange={(e) => setFocusKeyword(e.target.value)} />
+        <div className="field-hint">One phrase per post. Use a different one for each post.</div>
+        <label className="field-label" htmlFor="blog-related-keywords" style={{ marginTop: 14 }}>Related keywords</label>
+        <input className="field" id="blog-related-keywords" type="text" placeholder="Up to five, separated by commas" value={relatedKeywords} onChange={(e) => setRelatedKeywords(e.target.value)} />
 
         <label className="field-label" htmlFor="blog-canonical" style={{ marginTop: 14 }}>Canonical URL</label>
         <input className="field" id="blog-canonical" type="text" placeholder="Optional; only needed if this post is republished elsewhere" value={canonicalUrl} onChange={(e) => setCanonicalUrl(e.target.value)} />
@@ -354,10 +365,11 @@ export function BlogEditorForm({ defaultAuthorName, editingPost, onDone }: {
 
         <label className="field-label" style={{ marginTop: 14 }}>Search preview</label>
         <div style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 16, background: "#fff" }}>
-          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>thegoodchildbookstore.com › blog › {effectiveSlug || "your-post-slug"}</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-soft)" }}>{previewHost} › blog › {effectiveSlug || "your-post-slug"}</div>
           <div style={{ fontSize: 17, color: "#1a0dab", marginTop: 2 }}>{searchPreviewTitle}</div>
           <div style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 2 }}>{searchPreviewDesc}</div>
         </div>
+        <BlogSeoPanel postId={editingPost?.id} title={title} slug={effectiveSlug} content={content} metaTitle={metaTitle} metaDescription={metaDescription} imageAlt={imageAltText} hasImage={!!coverImageUrl} focus={focusKeyword} />
       </div>
 
       {/* Section 5 — Publishing options */}

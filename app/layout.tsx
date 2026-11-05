@@ -5,6 +5,8 @@ import { SiteChrome } from "@/components/SiteChrome";
 import { getSiteSettings } from "@/actions/site-settings";
 import { Providers } from "@/components/Providers";
 import { StagingBanner } from "@/components/StagingBanner";
+import { getPublicSiteUrl } from "@/lib/seo/site-url";
+import { isIndexableDeployment } from "@/lib/seo/indexing";
 
 const DEFAULT_FAVICON =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60'%3E%3Ccircle cx='30' cy='30' r='28' fill='%23F7D8E2'/%3E%3Ccircle cx='22' cy='27' r='5' fill='%233F3350'/%3E%3Ccircle cx='38' cy='27' r='5' fill='%233F3350'/%3E%3Ccircle cx='22' cy='27' r='2' fill='%23fff'/%3E%3Ccircle cx='38' cy='27' r='2' fill='%23fff'/%3E%3Cpath d='M30 32 L26 40 L34 40 Z' fill='%23F4B942'/%3E%3C/svg%3E";
@@ -32,19 +34,18 @@ export async function generateMetadata(): Promise<Metadata> {
       "independent bookstore",
     ],
     authors: [{ name: "The Good Child Bookstore" }],
-    robots: "index, follow",
-    alternates: {
-      canonical: "https://thegoodchildbookstore.com/",
-      types: { "application/rss+xml": "/feed.xml" },
-    },
+    // Only the live site may be indexed; staging and every other copy says "do not index" on every page.
+    robots: isIndexableDeployment() ? { index: true, follow: true } : { index: false, follow: false },
+    // No canonical address here on purpose: a canonical set in the root layout is inherited by every page that does not set its
+    // own, which would tell Google those pages are copies of the home page. Each page sets its own (see lib/seo/page-meta.ts).
+    metadataBase: new URL(getPublicSiteUrl()),
+    alternates: { types: { "application/rss+xml": "/feed.xml" } },
     openGraph: {
       type: "website",
       siteName: "The Good Child Bookstore",
       title: "The Good Child Bookstore | Storybooks Chosen for Bedtime and Read-Aloud",
       description:
         "A curated children's bookshop: picture books, bedtime stories, and middle grade reads chosen for how they read aloud and the art on every cover.",
-      url: "https://thegoodchildbookstore.com/",
-      images: ["https://thegoodchildbookstore.com/og-cover.png"],
       locale: "en_US",
     },
     twitter: {
@@ -52,7 +53,6 @@ export async function generateMetadata(): Promise<Metadata> {
       title: "The Good Child Bookstore",
       description:
         "Storybooks chosen for the way they read aloud, the questions they raise at bedtime, and the shelf-worthy art on every cover.",
-      images: ["https://thegoodchildbookstore.com/og-cover.png"],
     },
     icons: {
       icon: settings.faviconImageUrl || DEFAULT_FAVICON,
@@ -84,20 +84,6 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#2E2442",
-};
-
-const JSON_LD = {
-  "@context": "https://schema.org",
-  "@type": "BookStore",
-  name: "The Good Child Bookstore",
-  description:
-    "A curated children's bookshop for picture books, bedtime stories, and middle grade reads, with a monthly book subscription box.",
-  url: "https://thegoodchildbookstore.com/",
-  sameAs: [],
-  makesOffer: {
-    "@type": "Offer",
-    itemOffered: { "@type": "Service", name: "Monthly children's book subscription box" },
-  },
 };
 
 /**
@@ -149,10 +135,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             above for why this is a plain script reading a cookie rather
             than a server-computed class on <html>. */}
         <script dangerouslySetInnerHTML={{ __html: DARK_MODE_INIT_SCRIPT }} />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
-        />
         {/* Google Analytics 4 — only loads when NEXT_PUBLIC_GA_MEASUREMENT_ID
             is set in .env, per the brief's "Google Analytics 4" requirement. */}
         {gaId && (

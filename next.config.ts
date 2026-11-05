@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
     "/account/books/**": ["./node_modules/@napi-rs/canvas/**/*", "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*"],
     "/admin/**": ["./node_modules/@napi-rs/canvas/**/*", "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*"],
   },
+  /* Staging (a Vercel preview) and any copy that is not the live site tell every crawler not to index anything. */
+  async headers() {
+    if (process.env.VERCEL_ENV === "production") return [];
+    return [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }];
+  },
   experimental: {
     /* The actual root cause of "no image upload works at all": Next.js
      * Server Actions default to a 1MB request body limit. Every image

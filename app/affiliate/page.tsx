@@ -2,6 +2,8 @@ import Link from "next/link";
 import { getPagesContent } from "@/actions/page-content";
 import { bannerClassName } from "@/lib/banner-style";
 import { BannerFrame } from "@/components/BannerFrame";
+import { pageMeta } from "@/lib/seo/page-meta";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,10 @@ const AFFILIATE_FAQ: [string, string][] = [
  * below it are fully admin editable (Admin → Page Content → Affiliate
  * page), including each section's own image.
  */
+export function generateMetadata(): Metadata {
+  return pageMeta({ title: "Become an Affiliate", description: "Earn a commission by sharing children's books you love. Join The Good Child Bookstore affiliate programme and track every sale from your links.", path: "/affiliate" });
+}
+
 export default async function AffiliateMarketingPage() {
   const { affiliateMarketing } = await getPagesContent();
   return (

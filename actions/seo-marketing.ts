@@ -232,3 +232,46 @@ export async function getIndexingReport(): Promise<IndexingRow[]> {
     return [];
   }
 }
+
+export interface SeoQualityIssue { kind: "book" | "post"; title: string; slug: string; problem: string }
+
+/**
+ * Quality flags for user-published content: books with a duplicate or near-empty description or no cover, and posts that are
+ * thin, have no internal link, or share a focus keyword with another post. Read-only. Staff only.
+ */
+export async function listSeoQualityIssues(): Promise<SeoQualityIssue[]> {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (!role || !canModerateContent(role)) return [];
+  const issues: SeoQualityIssue[] = [];
+  try {
+    const { squash, wordCount } = await import("@/lib/seo/text");
+    const { plainText, linkCounts } = await import("@/lib/blog/content");
+    const { parseKeywords, normalizeKeyword } = await import("@/lib/blog/keywords");
+    const books = await prisma.book.findMany({ where: { status: "PUBLISHED" }, select: { title: true, slug: true, description: true, coverImageUrl: true }, take: 3000 });
+    const seen = new Map<string, string[]>();
+    for (const b of books) {
+      const d = squash(b.description).toLowerCase();
+      if (d.length >= 20) seen.set(d, [...(seen.get(d) ?? []), b.title]);
+    }
+    for (const b of books) {
+      const d = squash(b.description);
+      if (d.length < 40) issues.push({ kind: "book", title: b.title, slug: b.slug, problem: "Description is empty or almost empty (under 40 characters)" });
+      else if ((seen.get(d.toLowerCase())?.length ?? 0) > 1) issues.push({ kind: "book", title: b.title, slug: b.slug, problem: "Description is identical to another book's" });
+      if (!b.coverImageUrl) issues.push({ kind: "book", title: b.title, slug: b.slug, problem: "No cover image" });
+    }
+    const posts = await prisma.blog.findMany({ where: { status: "PUBLISHED" }, select: { title: true, slug: true, content: true, seoKeywords: true }, take: 3000 });
+    const focusCount = new Map<string, number>();
+    for (const p of posts) { const f = normalizeKeyword(parseKeywords(p.seoKeywords).focus); if (f) focusCount.set(f, (focusCount.get(f) ?? 0) + 1); }
+    for (const p of posts) {
+      const words = wordCount(plainText(p.content));
+      if (words < 300) issues.push({ kind: "post", title: p.title, slug: p.slug, problem: `Thin post (${words} words; under 300)` });
+      if (linkCounts(p.content, new URL(getPublicSiteUrl()).host).internal === 0) issues.push({ kind: "post", title: p.title, slug: p.slug, problem: "No link to a book, author or category" });
+      const f = normalizeKeyword(parseKeywords(p.seoKeywords).focus);
+      if (f && (focusCount.get(f) ?? 0) > 1) issues.push({ kind: "post", title: p.title, slug: p.slug, problem: `Focus keyword “${f}” is also used by another post` });
+    }
+  } catch {
+    // an empty list is shown if the database cannot be read
+  }
+  return issues;
+}

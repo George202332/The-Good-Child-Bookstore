@@ -1,0 +1,17 @@
+SEO PART 1: BOOKS AND BLOGS (no database change, nothing to delete)
+
+Staging only:
+  git checkout staging
+  git add .
+  git commit -m "SEO part 1: automatic book and blog SEO, topic pages, sitemaps, staging no-index"
+  git push origin staging
+
+What is in this zip: see the summary in the chat. Highlights:
+ - staging is never indexed (robots, every page, and a header); the live site is unchanged in what it allows
+ - every page has its OWN canonical address (the home page's was being inherited by other pages)
+ - book titles/descriptions written automatically from each book's data
+ - crawlable topic pages: /browse/category|subcategory|genre|age/... and /blog/topic/...
+ - blog: headings, table of contents, related books and posts, focus keyword, live SEO score, duplicate-keyword warning
+ - author checklist: SEO score for each book (never blocks publishing)
+ - admin: content quality flags in SEO & Marketing
+ - sitemaps: index, books split into files of 1,000, topics; staging answers empty

@@ -18,6 +18,9 @@ import { useWishlist } from "@/hooks/useWishlist";
 import { categorySlug, isCategory } from "@/lib/taxonomy";
 import { restrictionMessage } from "@/lib/book-country-restriction";
 import { isAiDeclaration } from "@/lib/ai-declaration";
+import { topicPath } from "@/lib/seo/topics";
+import { slugify } from "@/lib/seo/text";
+import { bookMetaDescription } from "@/lib/seo/book-meta";
 
 /** Genre shelf name for a shelf id; "" for the "unknown" shelf. */
 function catName(id: string): string {
@@ -192,6 +195,8 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
     ratingValue: b.rating,
     reviewCount: b.reviews,
     imageUrl: b.coverImage,
+    url: `${siteUrl}/${bookSlug(b)}`,
+    description: bookMetaDescription({ title: b.title, subtitle: b.subtitle, author: b.author, genre: b.genre, category: b.series, subcategory: b.subcategory, age: b.age, blurb: b.blurb }),
     // One offer per format actually on sale (eBook, Audiobook, Paperback,
     // Hardcover), so the audiobook price is declared next to the eBook's.
     offers: (
@@ -204,7 +209,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
     ).filter((o): o is { name: string; price: number } => !!o),
   });
   const shelfName = catName(b.category);
-  const seriesHref = b.series && isCategory(b.series) ? `/bookshelf?series=${categorySlug(b.series)}` : null;
+  const seriesHref = b.series && isCategory(b.series) ? topicPath({ kind: "category", slug: categorySlug(b.series) }) : null;
   const breadcrumbLd = breadcrumbJsonLd([
     { name: "Home", url: `${siteUrl}/` },
     { name: "Bookshelf", url: `${siteUrl}/bookshelf` },
@@ -269,6 +274,16 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
 
         <div className="detail-info">
           <div className="detail-cat-tag">{b.series || shelfName || ""}</div>
+          {/* Ordinary, crawlable links to this book's topic pages (category, subcategory, genre, age group). */}
+          <p className="detail-topic-links" style={{ fontSize: 13, margin: "4px 0 10px", color: "var(--ink-soft)" }}>
+            {[
+              b.series && seriesHref ? <Link key="c" href={seriesHref}>{b.series}</Link> : null,
+              b.subcategory ? <Link key="s" href={topicPath({ kind: "subcategory", slug: slugify(b.subcategory) })}>{b.subcategory}</Link> : null,
+              b.genre ? <Link key="g" href={topicPath({ kind: "genre", slug: slugify(b.genre) })}>{b.genre}</Link> : null,
+              b.age ? <Link key="a" href={topicPath({ kind: "age", slug: (b.ages && b.ages[0]) || b.age })}>Ages {b.age}</Link> : null,
+              b.authorId ? <Link key="u" href={`/authors/profile/${b.authorId}`}>More by {b.author}</Link> : null,
+            ].filter(Boolean).flatMap((el, i) => (i === 0 ? [el] : [<span key={`d${i}`}> · </span>, el]))}
+          </p>
           <div className="az-title-row">
             <h1>{b.title}</h1>
             <button type="button" className="az-share-btn" title="Share">

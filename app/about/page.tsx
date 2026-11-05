@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Motif } from "@/components/Motif";
 import { PALETTES } from "@/lib/data/catalog";
 import { getPagesContent } from "@/actions/page-content";
+import { pageMeta } from "@/lib/seo/page-meta";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +35,10 @@ const TEAM = [
 ];
 
 const VALUE_BG = ["var(--pink)", "var(--mint)", "var(--lavender)", "#F5D98F"];
+
+export function generateMetadata(): Metadata {
+  return pageMeta({ title: "About Us", description: "The Good Child Bookstore is an open children's bookshop where independent authors publish picture books, bedtime stories and middle grade books in eBook, audiobook and print.", path: "/about" });
+}
 
 export default async function AboutPage() {
   const { about } = await getPagesContent();

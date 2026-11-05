@@ -7,11 +7,13 @@ import { isRestrictedForCountries } from "@/lib/book-visibility";
 import { BookDetailClient } from "../book/[id]/BookDetailClient";
 import { after } from "next/server";
 import { ensurePrintMockups, getPrintMockupUrls, shouldMakeMockupsNow } from "@/lib/mockup/store";
+import { bookMeta } from "@/lib/seo/book-meta";
+import { pageMeta } from "@/lib/seo/page-meta";
 
 export const dynamic = "force-dynamic";
 
 /**
- * A book's real, canonical URL — thegoodchildbookstore.com/{title-slug},
+ * A book's real, canonical URL — the site address followed by /{title-slug},
  * with no "/book/" segment, per explicit instruction. This is a
  * root-level dynamic route, which only ever matches a path that isn't
  * already claimed by one of the site's real, explicit routes (Next.js
@@ -33,7 +35,7 @@ async function resolveBookBySlug(slug: string) {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const resolved = await resolveBookBySlug(slug);
-  if (!resolved) return { title: "Book not found | The Good Child Bookstore" };
+  if (!resolved) return { title: "Book not found | The Good Child Bookstore", robots: { index: false, follow: false } };
 
   const { book } = resolved;
 
@@ -49,16 +51,21 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
-  const title = `${book.title} by ${book.author} | The Good Child Bookstore`;
-  const description = book.blurb;
-
-  return {
-    title,
-    description,
-    alternates: { canonical: `https://thegoodchildbookstore.com/${bookSlug(book)}` },
-    openGraph: { title, description, type: "book" },
-    twitter: { card: "summary", title, description },
-  };
+  // Title and description are written from this book's own data (see lib/seo/book-meta.ts): never typed by hand, never generic.
+  const fa = book.formatAvailable ?? { ebook: true, paperback: true, hardcover: true, audiobook: true };
+  const meta = bookMeta({
+    title: book.title,
+    subtitle: book.subtitle,
+    author: book.author,
+    genre: book.genre,
+    category: book.series,
+    subcategory: book.subcategory,
+    age: book.age,
+    formats: [fa.ebook && "eBook", fa.audiobook && "Audiobook", fa.paperback && "Paperback", fa.hardcover && "Hardcover"].filter((f): f is string => !!f),
+    blurb: book.blurb,
+    hasCover: !!book.coverImage,
+  });
+  return pageMeta({ title: meta.title, description: meta.description, path: `/${bookSlug(book)}`, image: book.coverImage, type: "book", noindex: meta.thin });
 }
 
 export default async function BookBySlugPage({ params }: { params: Promise<{ slug: string }> }) {

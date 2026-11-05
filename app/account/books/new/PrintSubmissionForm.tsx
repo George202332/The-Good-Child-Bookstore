@@ -32,6 +32,7 @@ import { AiDeclarationField } from "@/components/AiDeclarationField";
 import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
 import { detectTrimFromPageSize, formatInches, type DetectedTrim } from "@/lib/trim-size";
 import { printOptionsSummary } from "@/lib/print-options-summary";
+import { BookSeoAdvice } from "@/components/BookSeoAdvice";
 import { PublishPanel, scrollToFirstMissing, type ChecklistItem, type PublishNotice } from "./PublishPanel";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
 
@@ -1078,7 +1079,9 @@ export function PrintSubmissionForm({
         notice={notice}
         missingIntro={editingPublished ? "Please finish these before saving:" : undefined}
         extraActions={extraActions}
-      />
+      >
+        <BookSeoAdvice title={title} subtitle={subtitle} descriptionText={descriptionHtml} hasCover={!!frontCoverImageUrl} category={category} subcategory={subcategory} genre={genre} ageGroup={ageGroup} />
+      </PublishPanel>
     </div>
   );
 }

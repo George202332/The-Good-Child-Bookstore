@@ -3,6 +3,8 @@ import { BOOKS } from "@/lib/data/catalog";
 import { getPagesContent } from "@/actions/page-content";
 import { bannerClassName } from "@/lib/banner-style";
 import { BannerFrame } from "@/components/BannerFrame";
+import { pageMeta } from "@/lib/seo/page-meta";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,10 @@ const AUTHORSHIP_FAQ: [string, string][] = [
   ["Is there a cost to publish?", "No upfront cost to publish. Print copies are produced on demand through our print partner, so there is no inventory to buy."],
   ["How long does review take?", "Most submissions are reviewed within a few business days. You can track the status from your author dashboard the whole time."],
 ];
+
+export function generateMetadata(): Metadata {
+  return pageMeta({ title: "Publish Your Children's Book", description: "Publish your children's book with The Good Child Bookstore: sell eBooks, audiobooks and print editions worldwide and earn a share of every sale.", path: "/authors" });
+}
 
 export default async function AuthorsPage() {
   const authorCount = new Set(BOOKS.map((b) => b.author)).size;

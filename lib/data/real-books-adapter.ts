@@ -56,6 +56,7 @@ function ageFromAgeGroup(ageGroup: string | null | undefined): string {
 interface RealBookRow {
   id: string;
   title: string;
+  subtitle?: string | null;
   description: string | null;
   isbn: string | null;
   price: unknown;
@@ -128,6 +129,7 @@ function toCatalogBook(row: RealBookRow): Book {
     id: row.id,
     slug: row.slug,
     title: row.title,
+    subtitle: row.subtitle?.trim() || undefined,
     // The name actually typed into the "Author" field at submission —
     // a pen name is fully supported and always wins when provided.
     // Falls back to the account's real name only for older

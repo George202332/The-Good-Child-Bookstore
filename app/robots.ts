@@ -1,31 +1,21 @@
 import type { MetadataRoute } from "next";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
+import { isIndexableDeployment } from "@/lib/seo/indexing";
 
 /**
- * Converted from the brief's SEO requirement to auto-generate
- * robots.txt. /account and /admin are excluded since they're private,
- * signed-in-only surfaces with no public content worth indexing.
- * Explicit per-crawler rules for Google/Bing (full access) and the
- * common AI crawlers (allowed, since a children's bookstore has nothing
- * to lose from AI-assisted discovery) — separated out rather than one
- * generic "*" rule, so any of them can be tightened individually later
- * without affecting the others.
+ * Crawler rules. On the live site: everything public is open; private areas (admin, author dashboard, account, library, cart,
+ * checkout, API, sign-in and download routes) are closed. On staging (or any copy that is not the live site) EVERYTHING is closed,
+ * and every page also carries a no-index signal, so staging can never appear in Google.
  */
+export const PRIVATE_PATHS = ["/admin", "/account", "/library", "/api", "/checkout", "/cart", "/editor", "/investor", "/login", "/forgot-password", "/reset-password", "/verify-email", "/welcome", "/wishlist", "/unsubscribe"];
+
 export default function robots(): MetadataRoute.Robots {
   const siteUrl = getPublicSiteUrl();
-  const disallow = ["/account", "/admin", "/api", "/checkout", "/cart"];
-
+  if (!isIndexableDeployment()) {
+    return { rules: [{ userAgent: "*", disallow: "/" }] };
+  }
   return {
-    rules: [
-      { userAgent: "Googlebot", allow: "/", disallow },
-      { userAgent: "Bingbot", allow: "/", disallow },
-      { userAgent: "GPTBot", allow: "/", disallow },
-      { userAgent: "ChatGPT-User", allow: "/", disallow },
-      { userAgent: "CCBot", allow: "/", disallow },
-      { userAgent: "anthropic-ai", allow: "/", disallow },
-      { userAgent: "ClaudeBot", allow: "/", disallow },
-      { userAgent: "*", allow: "/", disallow },
-    ],
+    rules: [{ userAgent: "*", allow: "/", disallow: PRIVATE_PATHS }],
     sitemap: `${siteUrl}/sitemap.xml`,
   };
 }

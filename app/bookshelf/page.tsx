@@ -2,8 +2,22 @@ import { ShopPageClient } from "@/components/ShopPageClient";
 import { getRealPublishedBooks } from "@/lib/data/real-books-adapter";
 import { BOOKS } from "@/lib/data/catalog";
 import { getVisitorCountries } from "@/lib/visitor-country";
+import { pageMeta } from "@/lib/seo/page-meta";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }): Promise<Metadata> {
+  const sp = await searchParams;
+  // Search results and filtered shelves are not pages to index; they point at the clean bookshelf address.
+  const filtered = Object.keys(sp).length > 0;
+  return pageMeta({
+    title: "Bookshelf: Children's Books by Age, Genre and Category",
+    description: "Browse the whole bookshelf of children's books from independent authors: picture books, bedtime stories, early readers, middle grade and activity books.",
+    path: "/bookshelf",
+    noindex: filtered,
+  });
+}
 
 export default async function ShopPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // The filters in the address bar are read here on the server and handed down,

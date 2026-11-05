@@ -1,3 +1,4 @@
+import { pageMeta } from "@/lib/seo/page-meta";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -57,7 +58,6 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const { name } = await searchParams;
-  const siteUrl = getPublicSiteUrl();
   try {
     const author = await prisma.authorProfile.findUnique({
       where: { id },
@@ -68,13 +68,19 @@ export async function generateMetadata({
     });
     if (!author) return { title: "Author not found | The Good Child Bookstore" };
     const displayName = resolveDisplayName(name, author, author.books);
-    const title = `${displayName} | The Good Child Bookstore`;
-    return {
-      title,
-      description: author.bio ?? `Books by ${displayName} on The Good Child Bookstore.`,
-      alternates: { canonical: `${siteUrl}/authors/profile/${id}` },
-      openGraph: { title, type: "profile" },
-    };
+    const titles = author.books.map((b: { title: string }) => b.title).slice(0, 3);
+    const description = author.bio?.trim()
+      ? author.bio.trim().slice(0, 155)
+      : titles.length
+        ? `Books by ${displayName}, a children's author on The Good Child Bookstore: ${titles.join(", ")}${author.books.length > 3 ? " and more" : ""}.`
+        : `${displayName} is a children's author on The Good Child Bookstore.`;
+    return pageMeta({
+      title: `${displayName}: Children's Author`,
+      description,
+      path: `/authors/profile/${id}${name ? `?name=${encodeURIComponent(name)}` : ""}`,
+      type: "website",
+      noindex: author.books.length === 0 && !author.bio,
+    });
   } catch {
     return { title: "Author | The Good Child Bookstore" };
   }

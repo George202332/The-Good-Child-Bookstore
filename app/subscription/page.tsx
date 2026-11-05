@@ -1,4 +1,6 @@
 import { PlanButton } from "./PlanButton";
+import { pageMeta } from "@/lib/seo/page-meta";
+import type { Metadata } from "next";
 
 /** Converted from subscriptionHTML() (the-good-child-bookstore_54_1.html:5145-5182).
  * This was never converted in the initial build — 404 in production until now. */
@@ -8,6 +10,10 @@ const PLANS = [
   { name: "The Good Shelf", age: "Ages 3–8", price: 22, per: "book box / month", feats: ["2 picture books or early readers", "Free shipping, always", "A bookmark + activity sheet", "Swap any title before it ships"], featured: true },
   { name: "The Long Reader", age: "Ages 9–12", price: 26, per: "book box / month", feats: ["1 middle-grade novel + surprise extra", "Free shipping, always", "Discussion questions for car rides", "Skip a month whenever you like"], featured: false },
 ];
+
+export function generateMetadata(): Metadata {
+  return pageMeta({ title: "Monthly Children's Book Subscription", description: "A monthly box of carefully chosen children's books, delivered to your door. See the plans and choose the one that fits your family.", path: "/subscription" });
+}
 
 export default function SubscriptionPage() {
   return (

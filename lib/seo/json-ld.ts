@@ -25,6 +25,9 @@ export interface BookJsonLdInput {
   reviewCount?: number;
   reviews?: { author: string; body: string; rating?: number; datePublished?: string }[];
   imageUrl?: string;
+  /** The book's own page address (used as the offer address). */
+  url?: string;
+  description?: string;
 }
 
 /** Book + Product merged schema — Google reads either, and merging both
@@ -37,6 +40,8 @@ export function bookJsonLd(input: BookJsonLdInput) {
     "@context": "https://schema.org",
     "@type": ["Book", "Product"],
     name: input.title,
+    ...(input.url ? { url: input.url } : {}),
+    ...(input.description ? { description: input.description } : {}),
     author: {
       "@type": "Person",
       name: input.authorName,
@@ -70,6 +75,8 @@ export function bookJsonLd(input: BookJsonLdInput) {
             price: o.price.toFixed(2),
             priceCurrency: input.currency ?? "USD",
             availability: input.inStock === false ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+            ...(input.url ? { url: input.url } : {}),
+            seller: { "@type": "Organization", name: SITE_LEGAL_NAME },
           }))
         : {
             "@type": "Offer",
@@ -90,6 +97,8 @@ export interface BlogJsonLdInput {
   datePublished: string;
   dateModified: string;
   imageUrl?: string;
+  keywords?: string[];
+  wordCount?: number;
 }
 
 /** BlogPosting/Article schema with a real Person author (linked to their
@@ -114,9 +123,12 @@ export function blogPostingJsonLd(input: BlogJsonLdInput) {
       "@type": "Organization",
       name: "The Good Child Bookstore",
       logo: { "@type": "ImageObject", url: `${siteUrl}/favicon.ico` },
+      url: `${siteUrl}/`,
     },
     datePublished: input.datePublished,
     dateModified: input.dateModified,
+    ...(input.keywords && input.keywords.length ? { keywords: input.keywords.join(", ") } : {}),
+    ...(input.wordCount ? { wordCount: input.wordCount } : {}),
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
   };
 }
@@ -133,5 +145,73 @@ export function breadcrumbJsonLd(items: { name: string; url: string }[]) {
       name: item.name,
       item: item.url,
     })),
+  };
+}
+
+export const SITE_LEGAL_NAME = "The Good Child Bookstore";
+
+/** The organisation behind the site. Used once, on the home page. */
+export function organizationJsonLd(logoUrl?: string) {
+  const siteUrl = getPublicSiteUrl();
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": `${siteUrl}/#organization`,
+    name: SITE_LEGAL_NAME,
+    url: `${siteUrl}/`,
+    ...(logoUrl ? { logo: logoUrl } : {}),
+  };
+}
+
+/** The site itself, with the bookshelf search (the search box on the site uses ?q=). */
+export function websiteJsonLd() {
+  const siteUrl = getPublicSiteUrl();
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "@id": `${siteUrl}/#website`,
+    name: SITE_LEGAL_NAME,
+    url: `${siteUrl}/`,
+    publisher: { "@id": `${siteUrl}/#organization` },
+    potentialAction: {
+      "@type": "SearchAction",
+      target: { "@type": "EntryPoint", urlTemplate: `${siteUrl}/bookshelf?q={search_term_string}` },
+      "query-input": "required name=search_term_string",
+    },
+  };
+}
+
+/** An author as a Person, linked to their public page. Only facts the author entered. */
+export function personJsonLd(input: { name: string; id: string; bio?: string | null; imageUrl?: string | null }) {
+  const siteUrl = getPublicSiteUrl();
+  return {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    name: input.name,
+    url: `${siteUrl}/authors/profile/${input.id}`,
+    ...(input.bio ? { description: input.bio.slice(0, 300) } : {}),
+    ...(input.imageUrl ? { image: input.imageUrl } : {}),
+  };
+}
+
+/** A list page (topic page) as an ItemList of ordinary links. */
+export function itemListJsonLd(name: string, items: { name: string; url: string }[]) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name,
+    numberOfItems: items.length,
+    itemListElement: items.map((it, i) => ({ "@type": "ListItem", position: i + 1, name: it.name, url: it.url })),
+  };
+}
+
+/** FAQ markup, only from questions that are really on the page. Returns null when there are none. */
+export function faqJsonLd(items: { question: string; answer: string }[]) {
+  const real = items.filter((i) => i.question.trim() && i.answer.trim());
+  if (real.length === 0) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: real.map((i) => ({ "@type": "Question", name: i.question, acceptedAnswer: { "@type": "Answer", text: i.answer } })),
   };
 }

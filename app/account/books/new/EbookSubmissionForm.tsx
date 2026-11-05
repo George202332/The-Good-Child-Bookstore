@@ -8,6 +8,7 @@ import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
+import { BookSeoAdvice } from "@/components/BookSeoAdvice";
 import { PublishPanel, scrollToFirstMissing, type ChecklistItem, type PublishNotice } from "./PublishPanel";
 import { PublisherField } from "./PublisherField";
 import { AiDeclarationField } from "@/components/AiDeclarationField";
@@ -826,6 +827,7 @@ export function EbookSubmissionForm({
         missingIntro={editingPublished ? "Please finish these before saving:" : undefined}
         extraActions={extraActions}
       >
+        <BookSeoAdvice title={title} subtitle={subtitle} descriptionText={plainTextFromHtml(descriptionHtml)} hasCover={!!coverImageUrl} category={category} subcategory={subcategory} genre={genre} ageGroup={ageGroup} />
         {metadataMismatch && (
           <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 10, background: "#FDECEA", border: "1px solid #F3B6AE", fontSize: 13, color: "#8A2E1F" }}>
             ⚠ We checked the first couple of pages of your uploaded manuscript, and{" "}

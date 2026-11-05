@@ -28,6 +28,10 @@ import { bookCountLabel } from "@/lib/category-counts";
 import { getVisitorCountries } from "@/lib/visitor-country";
 import { getPlatformStats } from "@/lib/platform-stats";
 import { LiveRefresher } from "@/components/LiveRefresher";
+import { pageMeta } from "@/lib/seo/page-meta";
+import type { Metadata } from "next";
+import { organizationJsonLd, websiteJsonLd } from "@/lib/seo/json-ld";
+import { getPublicSiteUrl } from "@/lib/seo/site-url";
 
 /**
  * Converted from homeHTML() (the-good-child-bookstore_54_1.html:3651+).
@@ -90,6 +94,14 @@ interface HomeBlogPost {
   reads: number;
   comments: number;
   author: { name: string };
+}
+
+export function generateMetadata(): Metadata {
+  return pageMeta({
+    title: "The Good Child Bookstore | Children's Books for Bedtime, Read-Aloud and Every Shelf",
+    description: "Children's picture books, bedtime stories, early readers and middle grade books from independent authors, in eBook, audiobook and print. Shop by age, genre and category.",
+    path: "/",
+  });
 }
 
 export default async function HomePage() {
@@ -162,8 +174,18 @@ export default async function HomePage() {
     // unreachable — the rest of the homepage should still render.
   }
 
+  const siteUrl = getPublicSiteUrl();
+  const homeJsonLd = [organizationJsonLd(), websiteJsonLd(), {
+    "@context": "https://schema.org",
+    "@type": "BookStore",
+    name: "The Good Child Bookstore",
+    url: `${siteUrl}/`,
+    description: "A children's bookshop for picture books, bedtime stories and middle grade reads from independent authors.",
+  }];
+
   return (
     <main>
+      {homeJsonLd.map((ld, i) => <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />)}
       <section style={{ paddingTop: "0.5in", paddingBottom: "calc(0.5in - 8mm)" }}>
         <div className="wrap">
           <HeroBannerCarousel

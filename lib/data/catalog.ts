@@ -110,6 +110,8 @@ export const PUB_MONTHS = [
 export interface Book {
   id: string;
   title: string;
+  /** The author's own subtitle (real submitted books only). */
+  subtitle?: string;
   /** URL slug for this book's page (/[slug], not /book/[id]) — real
    * books have a real, stored slug; demo books get one computed from
    * the title (see bookSlug() below) since the static catalog never

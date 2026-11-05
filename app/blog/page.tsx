@@ -5,6 +5,8 @@ import type { MotifKind } from "@/lib/data/catalog";
 import { hashStr } from "@/lib/hash";
 import { getPagesContent } from "@/actions/page-content";
 import { BLOG_PAGE_SIZE, blogListUrl, pageWindow, parsePageParam, searchTerms, totalPagesFor } from "@/lib/blog-pagination";
+import { pageMeta } from "@/lib/seo/page-meta";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,17 @@ function bylineFor(p: { authorFirstName: string | null; authorLastName: string |
  * + comment-count meta row. View counts from the original aren't shown
  * since this app doesn't track real view counts — a fake number would
  * be worse than leaving it out. */
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ q?: string | string[]; page?: string | string[] }> }): Promise<Metadata> {
+  const sp = await searchParams;
+  const page = Number(Array.isArray(sp.page) ? sp.page[0] : sp.page) || 1;
+  return pageMeta({
+    title: page > 1 ? `The Journal, page ${page}` : "The Journal: Stories, Tips and Ideas for Children's Reading",
+    description: "Read the Good Child Bookstore journal: reading tips, bedtime ideas and stories from our independent children's authors, with the books they lead to.",
+    path: page > 1 ? `/blog?page=${page}` : "/blog",
+    noindex: !!sp.q,
+  });
+}
+
 export default async function BlogListPage({ searchParams }: { searchParams: Promise<{ q?: string | string[]; page?: string | string[] }> }) {
   const { blog } = await getPagesContent();
   const sp = await searchParams;

@@ -72,3 +72,27 @@ export async function deleteMyBlog(blogId: string): Promise<{ ok: boolean; error
   revalidateBlogPaths(blog.slug);
   return { ok: true };
 }
+
+/**
+ * Other live or pending posts that use the same focus keyword as this one (two posts competing for the same words weaken each
+ * other). Read-only; the writer sees the titles of other people's posts only when they are live, never drafts.
+ */
+export async function findDuplicateFocusKeyword(focus: string, ownPostId?: string): Promise<{ title: string; slug: string; mine: boolean }[]> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  const needle = focus.trim().toLowerCase();
+  if (!userId || needle.length < 3) return [];
+  try {
+    const rows = await prisma.blog.findMany({
+      where: { seoKeywords: { startsWith: focus.trim(), mode: "insensitive" }, ...(ownPostId ? { id: { not: ownPostId } } : {}), OR: [{ authorId: userId }, { status: "PUBLISHED" }] },
+      select: { title: true, slug: true, seoKeywords: true, authorId: true },
+      take: 20,
+    });
+    return rows
+      .filter((r) => (r.seoKeywords ?? "").split(",")[0].trim().toLowerCase() === needle)
+      .slice(0, 5)
+      .map((r) => ({ title: r.title, slug: r.slug, mine: r.authorId === userId }));
+  } catch {
+    return [];
+  }
+}

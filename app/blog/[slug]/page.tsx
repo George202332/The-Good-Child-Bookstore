@@ -8,6 +8,11 @@ import { BlogShareButtons } from "@/components/BlogShareButtons";
 import { blogPostingJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { recordBlogRead } from "@/actions/blog-reads";
+import { parseBlocks, tocOf, readTimeMinutes as postReadTime, plainText, firstParagraph, type Inline } from "@/lib/blog/content";
+import { parseKeywords } from "@/lib/blog/keywords";
+import { booksForPost, postsForPost, listBlogTopics } from "@/lib/blog/related-server";
+import { pageMeta } from "@/lib/seo/page-meta";
+import { clip, wordCount } from "@/lib/seo/text";
 
 export const dynamic = "force-dynamic";
 
@@ -36,47 +41,22 @@ interface PublishedBlog {
   author: { name: string };
 }
 
-interface RelatedBlog {
-  slug: string;
-  title: string;
-  content: string;
-  shortSummary: string | null;
-  coverImageUrl: string | null;
-  imageAltText: string | null;
-  authorFirstName: string | null;
-  authorLastName: string | null;
-  publishAt: Date | null;
-  createdAt: Date;
-  author: { name: string };
-}
-
-function readTimeMinutes(content: string): number {
-  const words = content.split(/\s+/).filter(Boolean).length;
-  return Math.max(3, Math.round(words / 200));
-}
-
 function bylineFor(p: { authorFirstName: string | null; authorLastName: string | null; author: { name: string } }): string {
   return (p.authorFirstName || p.authorLastName) ? `${p.authorFirstName ?? ""} ${p.authorLastName ?? ""}`.trim() : p.author.name;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const siteUrl = getPublicSiteUrl();
   try {
     const post = await prisma.blog.findUnique({
       where: { slug },
       select: { title: true, content: true, status: true, metaTitle: true, metaDescription: true, canonicalUrl: true, coverImageUrl: true },
     });
-    if (!post || post.status !== "PUBLISHED") return { title: "Post not found | The Good Child Bookstore" };
-    const title = `${post.metaTitle || post.title} | The Good Child Bookstore Journal`;
-    const description = post.metaDescription || post.content.slice(0, 155);
-    return {
-      title,
-      description,
-      alternates: { canonical: post.canonicalUrl || `${siteUrl}/blog/${slug}` },
-      openGraph: { title, description, type: "article", ...(post.coverImageUrl ? { images: [post.coverImageUrl] } : {}) },
-      twitter: { card: "summary_large_image", title, description, ...(post.coverImageUrl ? { images: [post.coverImageUrl] } : {}) },
-    };
+    if (!post || post.status !== "PUBLISHED") return { title: "Post not found | The Good Child Bookstore", robots: { index: false, follow: false } };
+    const description = post.metaDescription?.trim() || clip(firstParagraph(post.content) || plainText(post.content), 155);
+    const meta = pageMeta({ title: post.metaTitle?.trim() || post.title, description, path: `/blog/${slug}`, image: post.coverImageUrl, type: "article" });
+    // A post republished elsewhere may name that original address as its canonical address.
+    return post.canonicalUrl ? { ...meta, alternates: { canonical: post.canonicalUrl } } : meta;
   } catch {
     return { title: "The Good Child Bookstore Journal" };
   }
@@ -105,27 +85,29 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   await recordBlogRead(post.id);
   const comments = post.allowComments ? await getPublicBlogComments(post.id) : [];
   const siteUrl = getPublicSiteUrl();
-  const readTime = readTimeMinutes(post.content);
+  const readTime = postReadTime(post.content);
   const byline = bylineFor(post);
   const authorInitial = (byline || "?").trim().slice(0, 1).toUpperCase();
 
-  let related: RelatedBlog[] = [];
-  try {
-    const result = await prisma.blog.findMany({
-      where: { status: "PUBLISHED", slug: { not: slug } },
-      include: { author: true },
-      orderBy: { publishAt: "desc" },
-      take: 3,
-    });
-    if (Array.isArray(result)) related = result as RelatedBlog[];
-  } catch {
-    // Related posts are a nice-to-have — an empty list is fine.
-  }
+  const kw = parseKeywords(post.seoKeywords);
+  const relPost = { slug, title: post.title, content: post.content, tags: post.tags, categories: post.categories, seoKeywords: post.seoKeywords };
+  // Related posts and related books come from the post's own topics and words; either list is simply left out when empty.
+  const [related, relatedBookRows, topics] = await Promise.all([postsForPost(relPost, 3), booksForPost(relPost, 3), listBlogTopics()]);
+  const topicSlugs = new Set(topics.map((t) => t.slug));
+  const blocks = parseBlocks(post.content);
+  const toc = tocOf(blocks);
+  const updated = post.updatedAt.getTime() - (post.publishAt ?? post.createdAt).getTime() > 24 * 3600 * 1000;
+  const updatedLabel = post.updatedAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const renderInline = (parts: Inline[]) => parts.map((x, i) => (x.href ? (x.href.startsWith("/") ? <Link key={i} href={x.href}>{x.text}</Link> : <a key={i} href={x.href} rel="noopener noreferrer" target="_blank">{x.text}</a>) : x.bold ? <strong key={i}>{x.text}</strong> : <span key={i}>{x.text}</span>));
+  const topicSlugOf = (t: string) => t.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
   const jsonLd = blogPostingJsonLd({
     title: post.title,
     slug,
-    excerpt: post.content.slice(0, 200),
+    excerpt: post.metaDescription?.trim() || clip(firstParagraph(post.content) || plainText(post.content), 200),
+    imageUrl: post.coverImageUrl ?? undefined,
+    keywords: [kw.focus, ...kw.related, ...post.tags].filter(Boolean),
+    wordCount: wordCount(plainText(post.content)),
     authorName: byline,
     datePublished: (post.publishAt ?? post.createdAt).toISOString(),
     dateModified: post.updatedAt.toISOString(),
@@ -160,7 +142,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <div className="blog-sidebar-author-avatar">{authorInitial}</div>
             <div>
               <div className="blog-author-name">{byline}</div>
-              <div className="blog-author-sub">{dateLabel} · {readTime} min read</div>
+              <div className="blog-author-sub"><time dateTime={(post.publishAt ?? post.createdAt).toISOString()}>{dateLabel}</time> · {readTime} min read{updated && <> · Updated <time dateTime={post.updatedAt.toISOString()}>{updatedLabel}</time></>}</div>
             </div>
           </div>
         </div>
@@ -169,17 +151,44 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <div className="wrap" style={{ padding: "40px 0 0" }}>
         <div className="blog-detail-layout">
           <div className="blog-detail-main">
+            {toc.length >= 3 && (
+              <nav className="blog-toc" aria-label="Table of contents" style={{ border: "1px solid var(--line, #e5e0ee)", borderRadius: 12, padding: "14px 18px", margin: "0 0 24px" }}>
+                <strong style={{ fontSize: 14 }}>In this post</strong>
+                <ol style={{ margin: "8px 0 0", paddingLeft: 20, fontSize: 14, lineHeight: 1.7 }}>
+                  {toc.map((t) => <li key={t.id} style={{ marginLeft: t.level === 3 ? 16 : 0 }}><a href={`#${t.id}`}>{t.text}</a></li>)}
+                </ol>
+              </nav>
+            )}
             <article className="blog-article-body">
-              {post.content.split(/\n\s*\n/).filter((p) => p.trim()).map((para, i) => (
-                <p key={i} style={{ whiteSpace: "pre-wrap" }}>{para.trim()}</p>
-              ))}
+              {blocks.map((b, i) => {
+                switch (b.type) {
+                  case "h2": return <h2 key={i} id={b.id}>{b.text}</h2>;
+                  case "h3": return <h3 key={i} id={b.id}>{b.text}</h3>;
+                  case "ul": return <ul key={i}>{b.items.map((it, j) => <li key={j}>{renderInline(it)}</li>)}</ul>;
+                  case "ol": return <ol key={i}>{b.items.map((it, j) => <li key={j}>{renderInline(it)}</li>)}</ol>;
+                  case "quote": return <blockquote key={i}>{renderInline(b.inline)}</blockquote>;
+                  // eslint-disable-next-line @next/next/no-img-element -- an image the author placed in the post
+                  case "img": return <img key={i} src={b.src} alt={b.alt || post.imageAltText || post.title} loading="lazy" decoding="async" style={{ maxWidth: "100%", height: "auto" }} />;
+                  default: return <p key={i} style={{ whiteSpace: "pre-wrap" }}>{renderInline(b.inline)}</p>;
+                }
+              })}
             </article>
+            {relatedBookRows.length > 0 && (
+              <section style={{ margin: "28px 0" }} aria-label="Books to read next">
+                <h2 style={{ fontSize: 20 }}>Books to read next</h2>
+                <ul style={{ listStyle: "none", padding: 0, display: "grid", gap: 10 }}>
+                  {relatedBookRows.map((b) => (
+                    <li key={b.id}><Link href={`/${b.slug}`} style={{ fontWeight: 600 }}>{b.title}</Link> <span style={{ color: "var(--ink-soft)", fontSize: 14 }}>by {b.author}</span></li>
+                  ))}
+                </ul>
+              </section>
+            )}
             <div className="blog-article-end-mark">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="var(--coral)"><circle cx="12" cy="12" r="5" /></svg>
             </div>
             {post.tags.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "20px 0" }}>
-                {post.tags.map((t) => <span key={t} className="status-pill status-draft">{t}</span>)}
+                {post.tags.map((t) => topicSlugs.has(topicSlugOf(t)) ? <Link key={t} href={`/blog/topic/${topicSlugOf(t)}`} className="status-pill status-draft">{t}</Link> : <span key={t} className="status-pill status-draft">{t}</span>)}
               </div>
             )}
 
@@ -212,7 +221,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               <div className="blog-sidebar-card">
                 <div className="blog-sidebar-label">Categories</div>
                 <div className="blog-cat-pills">
-                  {post.categories.map((c) => <span key={c} className="blog-cat-pill active">{c}</span>)}
+                  {post.categories.map((c) => <Link key={c} href={`/blog/topic/${topicSlugOf(c)}`} className="blog-cat-pill active">{c}</Link>)}
                 </div>
               </div>
             )}
@@ -237,10 +246,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                   </Link>
                   <div className="blog-body">
                     <Link href={`/blog/${p.slug}`}><h3>{p.title}</h3></Link>
-                    <p>{(p.shortSummary || p.content).slice(0, 160)}{(p.shortSummary || p.content).length > 160 ? "…" : ""}</p>
+                    <p>{(p.shortSummary || "").slice(0, 160)}{(p.shortSummary || "").length > 160 ? "…" : ""}</p>
                     <div className="blog-meta">
-                      <span>by {bylineFor(p)}</span>
-                      <span>{(p.publishAt ?? p.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+                                            <span>{(p.publishAt ?? p.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
                     </div>
                     <Link className="blog-read-more" href={`/blog/${p.slug}`}>Read more →</Link>
                   </div>
