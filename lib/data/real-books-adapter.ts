@@ -1,4 +1,5 @@
 import { firstAiDeclaration } from "@/lib/ai-declaration";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { capitalizeName } from "@/lib/person-name";
 import { hashStr } from "@/lib/hash";
@@ -317,21 +318,35 @@ export type VisitorCountries = readonly (string | null | undefined)[];
  * when `visitorCountries` is given, books restricted in any of those
  * countries are hidden too. */
 export async function getRealPublishedBooks(visitorCountries?: VisitorCountries): Promise<Book[]> {
+  const all = await loadCatalogCached();
+  return all.filter((b) => isBookVisibleToVisitor(b, visitorCountries ?? []));
+}
+
+/** The whole catalog before any visitor-specific hiding, kept for CATALOG_CACHE_SECONDS so a burst of visitors shares one
+ * database read instead of each loading every book with its files, reviews and ratings. Prices charged at checkout are
+ * always read fresh (getBooksByIds), so a stale display price can never be charged. */
+export const CATALOG_CACHE_SECONDS = 60;
+
+async function readCatalog(): Promise<Book[]> {
+  const rows = await prisma.book.findMany({
+    where: { status: "PUBLISHED" },
+    include: BOOK_INCLUDE,
+    orderBy: { createdAt: "desc" },
+  });
+  if (!Array.isArray(rows)) return [];
+  // One entry per book: the editions of a title (eBook / audiobook / print records) become
+  // one catalog book with a price tab per format.
+  const sellable = rows.filter((r) => !isSellOnStoreDisabled(r.submissionMetadata));
+  return groupEditions(sellable).map((g) => toGroupedCatalogBook(g));
+}
+
+const readCatalogCached = unstable_cache(readCatalog, ["gcb-catalog-v1"], { revalidate: CATALOG_CACHE_SECONDS, tags: ["books"] });
+
+async function loadCatalogCached(): Promise<Book[]> {
   try {
-    const rows = await prisma.book.findMany({
-      where: { status: "PUBLISHED" },
-      include: BOOK_INCLUDE,
-      orderBy: { createdAt: "desc" },
-    });
-    if (!Array.isArray(rows)) return [];
-    // One entry per book: the editions of a title (eBook / audiobook / print records) become
-    // one catalog book with a price tab per format.
-    const sellable = rows.filter((r) => !isSellOnStoreDisabled(r.submissionMetadata));
-    return groupEditions(sellable)
-      .map((g) => toGroupedCatalogBook(g))
-      .filter((b) => isBookVisibleToVisitor(b, visitorCountries ?? []));
+    return await readCatalogCached();
   } catch {
-    return [];
+    try { return await readCatalog(); } catch { return []; }
   }
 }
 

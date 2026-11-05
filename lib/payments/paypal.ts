@@ -1,3 +1,4 @@
+import { timedFetch } from "@/lib/http";
 import { getPaypalCredentials } from "@/lib/api-keys";
 
 /**
@@ -91,7 +92,7 @@ export async function getAccessToken(): Promise<{ token: string; base: string }>
   const { clientId, clientSecret, environment, blocked } = await getPaypalCredentials();
   if (!clientId || !clientSecret) throw new Error(blocked ?? "PayPal isn't set up yet.");
   const base = paypalBaseUrl(environment);
-  const res = await fetch(`${base}/v1/oauth2/token`, {
+  const res = await timedFetch(`${base}/v1/oauth2/token`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`,
@@ -142,7 +143,7 @@ export async function capturePaypalOrder(paypalOrderId: string): Promise<PaypalO
   if (res.ok) return (await res.json()) as PaypalOrderResponse;
   const failure = (await res.json().catch(() => null)) as { details?: { issue?: string }[] } | null;
   if (failure?.details?.some((d) => d.issue === "ORDER_ALREADY_CAPTURED")) {
-    const get = await fetch(`${base}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`, {
+    const get = await timedFetch(`${base}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`, {
       headers: { Authorization: `Bearer ${token}` },
       cache: "no-store",
     });
@@ -154,7 +155,7 @@ export async function capturePaypalOrder(paypalOrderId: string): Promise<PaypalO
 /** Reads an order back from PayPal (used by the webhook to check a payment for itself). */
 export async function getPaypalOrder(paypalOrderId: string): Promise<PaypalOrderResponse> {
   const { token, base } = await getAccessToken();
-  const res = await fetch(`${base}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`, {
+  const res = await timedFetch(`${base}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });

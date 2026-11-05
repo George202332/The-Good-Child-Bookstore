@@ -1,5 +1,6 @@
 "use server";
 
+import { RULES, rateLimitByIp } from "@/lib/rate-limit";
 import { prisma } from "@/lib/prisma";
 import { getEnabledShippingLevels } from "@/lib/api-keys";
 import { countryToIso2 } from "@/lib/user-country";
@@ -188,6 +189,7 @@ const TIMEOUT_RESULT: ShippingOptionsResult = {
 /** The shipping methods and prices for the printed copies in the cart. Never waits longer than QUOTE_BUDGET_MS, never throws,
  * and logs every failed or slow request (country code, book ids, failure kind, time taken: no names, addresses or keys). */
 export async function getShippingOptions(input: ShippingOptionsInput): Promise<ShippingOptionsResult> {
+  if (!(await rateLimitByIp(RULES.shippingQuote)).ok) return TIMEOUT_RESULT;
   const t0 = Date.now();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let result: ShippingOptionsResult;

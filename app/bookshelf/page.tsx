@@ -1,3 +1,6 @@
+import { RULES, rateLimitByIp } from "@/lib/rate-limit";
+import { parseShopFilters, filteredSortedBooks, SHOP_PAGE_SIZE } from "@/lib/shop-filters";
+import { subcategoriesWithBooks } from "@/lib/subcategory-availability";
 import { ShopPageClient } from "@/components/ShopPageClient";
 import { getRealPublishedBooks } from "@/lib/data/real-books-adapter";
 import { BOOKS } from "@/lib/data/catalog";
@@ -32,12 +35,21 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
   // Books restricted in the visitor's country are hidden from the shelf (and
   // therefore from the client-side search over this list). This route was
   // already force-dynamic, so reading the request adds no cacheability cost.
+  // Search is limited per visitor (60 a minute); past that the shelf shows without the search words instead of failing.
+  if (query.has("q") && !(await rateLimitByIp(RULES.search)).ok) query.delete("q");
   const realBooks = await getRealPublishedBooks(await getVisitorCountries());
   // Real, published books first, then the demo catalog fills out the
   // rest of the shelf — see lib/data/real-books-adapter.ts.
   const books = [...realBooks, ...BOOKS];
 
+  // Search, filter, sort and page are done here, so a catalog of thousands of books never travels to the browser.
+  const filters = parseShopFilters(query);
+  const list = filteredSortedBooks(filters, books);
+  const totalPages = Math.max(1, Math.ceil(list.length / SHOP_PAGE_SIZE));
+  const page = Math.min(filters.page, totalPages);
+  const pageBooks = list.slice((page - 1) * SHOP_PAGE_SIZE, page * SHOP_PAGE_SIZE);
+
   return (
-    <ShopPageClient books={books} query={query.toString()} />
+    <ShopPageClient pageBooks={pageBooks} total={list.length} availableSubs={subcategoriesWithBooks(books)} query={query.toString()} />
   );
 }

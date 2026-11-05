@@ -42,6 +42,18 @@ import { prisma } from "@/lib/prisma";
  * to get its real bookId/affiliateId at the moment of purchase, rather
  * than trusting whatever was baked into the cookie at click time.
  */
+/** The admin-managed redirect list is tiny and rarely changes, so each server instance reads it once a minute instead of asking the
+ * database on every public page request. A new redirect therefore starts working within a minute. */
+const REDIRECT_TTL_MS = 60_000;
+let redirectCache: { at: number; map: Map<string, { toPath: string; statusCode: number }> } | null = null;
+async function redirectFor(pathname: string): Promise<{ toPath: string; statusCode: number } | null> {
+  if (!redirectCache || Date.now() - redirectCache.at > REDIRECT_TTL_MS) {
+    const rows = await prisma.redirect.findMany({ select: { fromPath: true, toPath: true, statusCode: true }, take: 5000 });
+    redirectCache = { at: Date.now(), map: new Map(rows.map((r) => [r.fromPath, { toPath: r.toPath, statusCode: r.statusCode }])) };
+  }
+  return redirectCache.map.get(pathname) ?? null;
+}
+
 export default async function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
@@ -54,7 +66,7 @@ export default async function middleware(req: NextRequest) {
   const isPublicContentRoute = pathname.startsWith("/blog") || pathname.startsWith("/book") || (!pathname.startsWith("/admin") && !pathname.startsWith("/editor") && !pathname.startsWith("/investor") && !pathname.startsWith("/account") && pathname !== "/signup/author");
   if (isPublicContentRoute) {
     try {
-      const redirect = await prisma.redirect.findUnique({ where: { fromPath: pathname } });
+      const redirect = await redirectFor(pathname);
       if (redirect) {
         const destination = redirect.toPath.startsWith("http") ? redirect.toPath : new URL(redirect.toPath, req.nextUrl.origin);
         return NextResponse.redirect(destination, redirect.statusCode);

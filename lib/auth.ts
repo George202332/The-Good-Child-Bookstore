@@ -1,3 +1,4 @@
+import { RULES, rateLimitByIp } from "@/lib/rate-limit";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -19,6 +20,8 @@ import { consumeOrderLoginToken } from "@/lib/order-login";
  * below (surfaced on the Site Health page's auth card).
  */
 async function authorizeReaderOrAuthor(credentials: Partial<Record<"email" | "password", unknown>>) {
+  // Too many tries in a few minutes from one address for one e-mail: refuse quietly (same generic "wrong e-mail or password" message).
+  if (!(await rateLimitByIp(RULES.login, String(credentials.email).trim().toLowerCase())).ok) return null;
   // Trimmed the same way registerUser() and requestPasswordReset()
   // already trim it when creating/looking up an account — this was
   // previously only lowercased here, not trimmed, so a stray

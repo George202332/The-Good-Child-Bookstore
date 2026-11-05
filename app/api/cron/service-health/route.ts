@@ -25,6 +25,12 @@ export async function GET(req: Request) {
   const header = req.headers.get("authorization") ?? "";
   if (!sameSecret(header, `Bearer ${secret}`)) return NextResponse.json({ error: "Not allowed." }, { status: 401 });
   const snap = await runServiceHealth();
+  // Capacity alerts (database connections nearly full, error spike, slow services) use the same de-duplicated alert e-mail as other errors.
+  try {
+    const { readCapacity } = await import("@/lib/site-health/capacity");
+    const { reportSystemError } = await import("@/lib/site-health/alert");
+    if (process.env.VERCEL_ENV === "production") for (const w of (await readCapacity()).warnings) await reportSystemError("DATABASE", new Error(`Capacity warning: ${w}`));
+  } catch { /* an alert problem never stops the health check */ }
   return NextResponse.json({
     ranAt: snap.lastRunAt,
     results: snap.results.map((r) => ({ service: r.key, ok: r.ok, mode: r.mode, reason: r.ok ? undefined : r.reason })),

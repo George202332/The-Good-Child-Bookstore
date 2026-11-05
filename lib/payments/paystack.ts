@@ -1,3 +1,4 @@
+import { timedFetch } from "@/lib/http";
 import { createHmac } from "crypto";
 import { getPaystackCredentials, getPaystackSecretForVerification } from "@/lib/api-keys";
 
@@ -119,7 +120,7 @@ export async function verifyPaystackTransaction(reference: string): Promise<{
   authorization: { code: string; reusable: boolean; cardType: string; last4: string; bank: string } | null;
 }> {
   const secretKey = requireVerificationKey();
-  const res = await fetch(`${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`, {
+  const res = await timedFetch(`${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(reference)}`, {
     headers: { Authorization: `Bearer ${secretKey}` },
     cache: "no-store",
   });

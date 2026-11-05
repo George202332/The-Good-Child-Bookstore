@@ -7,6 +7,7 @@ import { isRestrictedForCountries } from "@/lib/book-visibility";
 import { BookDetailClient } from "../book/[id]/BookDetailClient";
 import { after } from "next/server";
 import { ensurePrintMockups, getPrintMockupUrls, shouldMakeMockupsNow } from "@/lib/mockup/store";
+import { relatedCandidates } from "@/lib/related-candidates";
 import { bookMeta } from "@/lib/seo/book-meta";
 import { pageMeta } from "@/lib/seo/page-meta";
 
@@ -92,7 +93,7 @@ export default async function BookBySlugPage({ params }: { params: Promise<{ slu
     <BookDetailClient
       book={resolved.book}
       isRealBook={resolved.isRealBook}
-      allBooks={[...realBooks, ...BOOKS]}
+      allBooks={relatedCandidates(resolved.book, [...realBooks, ...BOOKS])}
       restricted={restricted}
       printMockups={printMockups}
     />

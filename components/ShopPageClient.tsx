@@ -4,8 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { CATS, PRICE_RANGES, type Book } from "@/lib/data/catalog";
 import { categoryFromSlug, subcategoriesFor } from "@/lib/taxonomy";
-import { subcategoriesWithBooks } from "@/lib/subcategory-availability";
-import { parseShopFilters, filteredSortedBooks, SHOP_PAGE_SIZE } from "@/lib/shop-filters";
+import { parseShopFilters, SHOP_PAGE_SIZE } from "@/lib/shop-filters";
 import { formatLabel } from "@/lib/shop-formats";
 import { BookCard } from "@/components/BookCard";
 import { ShopSidebar } from "@/components/ShopSidebar";
@@ -14,7 +13,7 @@ import { ShopSidebar } from "@/components/ShopSidebar";
  * `books` is the real, published catalog (real submitted books first,
  * demo catalog filling out the rest — see lib/data/real-books-adapter.ts)
  * rather than always the static 50-book fixture. */
-export function ShopPageClient({ books, query }: { books: Book[]; query: string }) {
+export function ShopPageClient({ pageBooks, total, availableSubs, query }: { pageBooks: Book[]; total: number; availableSubs: Record<string, string[]>; query: string }) {
   const router = useRouter();
   const pathname = usePathname();
   // The address-bar filters, supplied by the server page (see app/bookshelf/page.tsx).
@@ -22,11 +21,10 @@ export function ShopPageClient({ books, query }: { books: Book[]; query: string 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const filters = parseShopFilters(searchParams);
-  const list = filteredSortedBooks(filters, books);
-  const availableSubs = useMemo(() => subcategoriesWithBooks(books), [books]);
-  const totalPages = Math.max(1, Math.ceil(list.length / SHOP_PAGE_SIZE));
+  // The server already searched, sorted and cut out this page (app/bookshelf/page.tsx), so the browser only receives one page of books.
+  const totalPages = Math.max(1, Math.ceil(total / SHOP_PAGE_SIZE));
   const page = Math.min(filters.page, totalPages);
-  const pageList = list.slice((page - 1) * SHOP_PAGE_SIZE, page * SHOP_PAGE_SIZE);
+  const pageList = pageBooks;
 
   const chips: { label: string; remove: () => void }[] = [];
   function paramsWithout(key: string, value?: string, base?: URLSearchParams) {

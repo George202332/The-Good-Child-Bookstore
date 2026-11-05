@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notifyRevenueEarners } from "@/lib/payments/notify-earners";
 import { reportSystemError } from "@/lib/site-health/alert";
@@ -34,7 +35,11 @@ async function gatewayModeOf(gateway: "PAYSTACK" | "PAYPAL", rawPayload: unknown
 export async function finalizeOrderPayment(
   orderId: string,
   gateway: "PAYSTACK" | "PAYPAL",
-  rawPayload: unknown
+  rawPayload: unknown,
+  /** Webhooks pass defer:true: the payment is recorded and the gateway is answered at once, and the follow-up work (notices,
+   * print job, receipt e-mail) runs right after the reply. The scheduled order-retry job repeats the print job and the receipt
+   * if either failed. The buyer's return page keeps the default (follow-up before the page shows, so it can show the print status). */
+  opts: { defer?: boolean } = {}
 ): Promise<void> {
   let order;
   let claimedHere = false;
@@ -72,35 +77,45 @@ export async function finalizeOrderPayment(
     throw e;
   }
 
+  const followUp = async () => {
   try {
-    await prisma.notification.create({
-      data: {
-        userId: order.reader.user.id,
-        title: "Order confirmed",
-        body: `Your order #${orderId.slice(0, 8).toUpperCase()} for $${Number(order.totalAmount).toFixed(2)} is confirmed.`,
-        type: "PAYMENT",
-        // Tied to the order so deleting the order removes this too.
-        relatedRecordId: orderId,
-      },
+      await prisma.notification.create({
+        data: {
+          userId: order.reader.user.id,
+          title: "Order confirmed",
+          body: `Your order #${orderId.slice(0, 8).toUpperCase()} for $${Number(order.totalAmount).toFixed(2)} is confirmed.`,
+          type: "PAYMENT",
+          // Tied to the order so deleting the order removes this too.
+          relatedRecordId: orderId,
+        },
+      });
+    } catch {
+      // Non-critical — a failed notification shouldn't block payment confirmation.
+    }
+  
+    // Notifies the author of each line's book ("You've got a sale" on
+    // their Recent Activity, plus the Revenue-tab blink), and any
+    // referring/promoting affiliate of their own commission — see
+    // lib/payments/notify-earners.ts, now shared with the demo-mode
+    // confirmation path (actions/orders.ts confirmOrderPaidDirectly) so
+    // the two can't drift out of sync again.
+    await notifyRevenueEarners(orderId);
+  
+    // Any physical copies in this order get submitted to Lulu as a real
+    // print-on-demand job — never allowed to block payment confirmation
+    // if it fails, since the customer's payment already succeeded.
+    const { submitPrintJobsForOrder } = await import("@/lib/payments/lulu");
+    await submitPrintJobsForOrder(orderId);
+  
+    const { sendOrderReceiptEmail } = await import("@/actions/order-emails");
+    await sendOrderReceiptEmail(orderId);
+  };
+
+  if (opts.defer) {
+    after(async () => {
+      try { await followUp(); } catch (e) { await reportSystemError("CHECKOUT", e, { orderId, gateway, stage: "follow-up" }); }
     });
-  } catch {
-    // Non-critical — a failed notification shouldn't block payment confirmation.
+    return;
   }
-
-  // Notifies the author of each line's book ("You've got a sale" on
-  // their Recent Activity, plus the Revenue-tab blink), and any
-  // referring/promoting affiliate of their own commission — see
-  // lib/payments/notify-earners.ts, now shared with the demo-mode
-  // confirmation path (actions/orders.ts confirmOrderPaidDirectly) so
-  // the two can't drift out of sync again.
-  await notifyRevenueEarners(orderId);
-
-  // Any physical copies in this order get submitted to Lulu as a real
-  // print-on-demand job — never allowed to block payment confirmation
-  // if it fails, since the customer's payment already succeeded.
-  const { submitPrintJobsForOrder } = await import("@/lib/payments/lulu");
-  await submitPrintJobsForOrder(orderId);
-
-  const { sendOrderReceiptEmail } = await import("@/actions/order-emails");
-  await sendOrderReceiptEmail(orderId);
+  await followUp();
 }

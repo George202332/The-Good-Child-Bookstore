@@ -1,5 +1,6 @@
 "use server";
 
+import { RULES, rateLimit } from "@/lib/rate-limit";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -50,6 +51,9 @@ export async function submitReview(input: { bookId: string; content: string; sta
   }
   if (!input.content.trim()) {
     return { ok: false, error: "Please write something before submitting." };
+  }
+  if (!(await rateLimit(RULES.review, session.user.id)).ok) {
+    return { ok: false, error: "You have sent several reviews recently. Please wait a little while and try again." };
   }
 
   const readerProfile = await prisma.readerProfile.findUnique({ where: { userId: session.user.id } });

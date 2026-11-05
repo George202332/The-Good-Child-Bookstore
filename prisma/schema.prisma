@@ -568,6 +568,7 @@ model Book {
 
   @@index([status])
   @@index([authorId])
+  @@index([status, createdAt])
 }
 
 model BookFile {
@@ -661,6 +662,7 @@ model Blog {
   // being reported across every account rather than only high-volume
   // ones. Requires `npx prisma db push` to actually take effect.
   @@index([authorId])
+  @@index([status, publishAt])
 }
 
 /** A single real page view of a published post, geotagged the same way
@@ -706,6 +708,7 @@ model Review {
 
   @@index([bookId])
   @@index([userId])
+  @@index([bookId, createdAt])
 }
 
 model Rating {
@@ -810,6 +813,7 @@ model Order {
 
   @@index([readerId])
   @@index([status])
+  @@index([status, createdAt])
 }
 
 // One SaleLine per book in an order. This is where the confirmed revenue
@@ -852,6 +856,7 @@ model SaleLine {
   @@index([bookId])
   @@index([affiliateLinkId])
   @@index([authorReferralAffiliateId])
+  @@index([orderId])
 }
 
 model PaymentLog {
@@ -867,6 +872,7 @@ model PaymentLog {
   status          String    @default("RECORDED")
   statusReason    String?
   statusChangedAt DateTime?
+  @@index([orderId])
 }
 
 // ---------- Affiliate system ----------
@@ -1108,6 +1114,7 @@ model AnalyticsEvent {
   type      String
   metadata  Json?
   createdAt DateTime @default(now())
+  @@index([type, createdAt])
 }
 
 /**
@@ -1155,6 +1162,7 @@ model SystemErrorLog {
 
   @@index([source, createdAt])
   @@index([signature, createdAt])
+  @@index([createdAt])
 }
 
 
@@ -1396,4 +1404,14 @@ model ServiceIncident {
 
   @@index([service, startedAt])
   @@index([startedAt])
+}
+
+/** Counts requests per key and time window, for rate limiting (lib/rate-limit.ts). Old windows are deleted by the order-retry job. */
+model RateLimitBucket {
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+  @@index([windowStart])
 }

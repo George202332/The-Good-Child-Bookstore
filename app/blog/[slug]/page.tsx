@@ -7,9 +7,12 @@ import { BlogCommentSection } from "@/components/BlogCommentSection";
 import { BlogShareButtons } from "@/components/BlogShareButtons";
 import { blogPostingJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
-import { recordBlogRead } from "@/actions/blog-reads";
+import { storeBlogRead, looksLikeBot } from "@/lib/blog/record-read";
+import { getRequestGeo } from "@/lib/geo";
+import { headers } from "next/headers";
 import { parseBlocks, tocOf, readTimeMinutes as postReadTime, plainText, firstParagraph, type Inline } from "@/lib/blog/content";
 import { parseKeywords } from "@/lib/blog/keywords";
+import { after } from "next/server";
 import { BlogClickTracker } from "@/components/AnalyticsTrackers";
 import { booksForPost, postsForPost, listBlogTopics } from "@/lib/blog/related-server";
 import { pageMeta } from "@/lib/seo/page-meta";
@@ -83,7 +86,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   })) as PublishedBlog | null;
 
   if (!post || post.status !== "PUBLISHED" || (post.publishAt && post.publishAt > new Date())) notFound();
-  await recordBlogRead(post.id);
+  // Counted after the page is sent, so the reader never waits for the database write.
+  const readGeo = await getRequestGeo();
+  const isBot = looksLikeBot((await headers()).get("user-agent"));
+  if (!isBot) after(() => storeBlogRead(post.id, { country: readGeo.country ?? null, region: readGeo.region ?? null }));
   const comments = post.allowComments ? await getPublicBlogComments(post.id) : [];
   const siteUrl = getPublicSiteUrl();
   const readTime = postReadTime(post.content);

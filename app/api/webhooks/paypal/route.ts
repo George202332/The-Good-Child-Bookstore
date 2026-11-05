@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   if (!order) return NextResponse.json({ ok: true, verified: false });
   if (order.status === "PAID") {
     // Already confirmed (return page or an earlier event): finalize is a no-op that only retries a failed email.
-    await finalizeOrderPayment(ourOrderId, "PAYPAL", { source: "webhook", eventId: event.id ?? null });
+    await finalizeOrderPayment(ourOrderId, "PAYPAL", { source: "webhook", eventId: event.id ?? null }, { defer: true });
     return NextResponse.json({ ok: true });
   }
   if (order.status !== "PENDING") return NextResponse.json({ ok: true, verified: false });
@@ -59,6 +59,6 @@ export async function POST(request: Request) {
   const verdict = evaluatePaypalCapture(result, ourOrderId, Number(order.totalAmount));
   if (!verdict.ok) return NextResponse.json({ ok: true, verified: false });
 
-  await finalizeOrderPayment(ourOrderId, "PAYPAL", { source: "webhook", eventId: event.id ?? null, paypalOrderId: plan.paypalOrderId, captured: result });
+  await finalizeOrderPayment(ourOrderId, "PAYPAL", { source: "webhook", eventId: event.id ?? null, paypalOrderId: plan.paypalOrderId, captured: result }, { defer: true });
   return NextResponse.json({ ok: true });
 }

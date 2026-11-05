@@ -38,6 +38,7 @@
  * full-wrap PDF.
  */
 
+import { timedFetch } from "@/lib/http";
 import { getLuluCredentials, getLuluEnvironment } from "@/lib/api-keys";
 import { deploymentOf, printBlockedMessage, realPrintAllowed, STAGING_EMAIL_ADDRESS, STAGING_LULU_REFERENCE } from "@/lib/runtime-env";
 import { getStagingLuluSwitch } from "@/lib/staging-lulu";
@@ -357,7 +358,7 @@ export async function fetchLuluPrintJob(jobId: string): Promise<{ ok: true; json
   try {
     const baseUrl = luluBaseUrl(await getLuluEnvironment());
     const token = await getAccessToken(baseUrl);
-    const res = await fetch(`${baseUrl}/print-jobs/${encodeURIComponent(jobId)}/`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await timedFetch(`${baseUrl}/print-jobs/${encodeURIComponent(jobId)}/`, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) return { ok: false, error: `Lulu answered ${res.status} for print job ${jobId}.` };
     return { ok: true, json: await res.json() };
   } catch (e) {
@@ -757,7 +758,7 @@ export async function getLuluValidation(kind: LuluValidationKind, id: string): P
     const baseUrl = luluBaseUrl(await getLuluEnvironment());
     const token = await getAccessToken(baseUrl);
     const path = kind === "interior" ? "validate-interior" : "validate-cover";
-    const res = await fetch(`${baseUrl}/${path}/${encodeURIComponent(id)}/`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await timedFetch(`${baseUrl}/${path}/${encodeURIComponent(id)}/`, { headers: { Authorization: `Bearer ${token}` } });
     if (!res.ok) return { ok: false, error: `Lulu could not report the ${kind} check (${res.status}).` };
     return { ok: true, parsed: parseLuluValidation(await res.json(), kind) };
   } catch (e) {

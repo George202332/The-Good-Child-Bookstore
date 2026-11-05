@@ -1,0 +1,35 @@
+PART 3: SCALING. One small DATABASE CHANGE (indexes and a rate-limit table). Staging first.
+
+ORDER OF WORK (important: database first, code second)
+1. Unzip bookstore-scaling-part3.zip over the project (replace files when asked).
+2. STAGING database + code:
+     git checkout staging
+     npm test
+     git add -A
+     git commit -m "Part 3: scaling"
+     git push origin staging
+     powershell -ExecutionPolicy Bypass -File scripts\migrate-staging.ps1
+   Then redeploy staging WITHOUT the build cache. Site Health > "Database updates" must say up to date.
+3. In Vercel set DATABASE_URL (Preview/staging and, later, Production) to Neon's POOLED connection string (host contains -pooler). See docs\SCALING-AND-CAPACITY.md.
+4. Run the load test against staging only:   node scripts\load-test-staging.mjs https://YOUR-STAGING-ADDRESS
+   (it refuses to run on the live site). Send me the printed result.
+
+PRODUCTION (only after staging passes)
+   a. In Neon make a backup branch of production (as before).
+   b. powershell -ExecutionPolicy Bypass -File scripts\migrate-production.ps1
+   c. git checkout main
+      git pull origin main
+      git merge staging
+      git push origin main
+      git checkout staging
+   d. Set the production DATABASE_URL to the pooled string, then redeploy.
+   e. GitHub: the file REPO-ROOT-FILES\.github\workflows\order-retry.yml must be copied to .github\workflows\order-retry.yml in the repository root and merged to main.
+
+STAGING TEST CHECKLIST
+1. Home, bookshelf (try a search, page 2), a book page, a blog post all load. Bookshelf page 2 shows different books.
+2. Admin > Site Health > "Capacity and speed" shows connection numbers, errors, response times.
+3. Wrong password 11 times quickly for one e-mail: the 11th attempt is refused for a few minutes; the right password then works after the wait.
+4. Staging test purchase (Paystack test): confirmation page shows, receipt e-mail arrives, order is PAID.
+5. Visit a missing address like /no-such-page-xyz: friendly "We could not find that page".
+
+ONE FILE TO DELETE: actions\blog-reads.ts  (replaced by lib\blog\record-read.ts; nothing uses it any more).

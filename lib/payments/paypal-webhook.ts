@@ -1,3 +1,4 @@
+import { timedFetch } from "@/lib/http";
 import { getAccessToken } from "@/lib/payments/paypal";
 
 /**
@@ -41,7 +42,7 @@ export async function verifyPaypalWebhook(headers: { get(name: string): string |
   const body = buildVerifyBody(headers, webhookId, event);
   if (!body) return false;
   const { token, base } = await getAccessToken();
-  const res = await fetch(`${base}/v1/notifications/verify-webhook-signature`, {
+  const res = await timedFetch(`${base}/v1/notifications/verify-webhook-signature`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),

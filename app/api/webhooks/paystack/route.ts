@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { verifyPaystackWebhookSignature } from "@/lib/payments/paystack";
 import { confirmPaystackReference } from "@/lib/payments/paystack-confirm";
 import { finalizeOrderPayment } from "@/lib/payments/finalize";
@@ -28,8 +28,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, verified: false });
   }
 
-  await finalizeOrderPayment(confirmed.orderId, "PAYSTACK", event);
-  await saveCardIfReusable(confirmed.orderId, confirmed.authorization);
+  // Answer Paystack quickly: record the payment now, do the follow-up work right after the reply.
+  await finalizeOrderPayment(confirmed.orderId, "PAYSTACK", event, { defer: true });
+  after(async () => { try { await saveCardIfReusable(confirmed.orderId, confirmed.authorization); } catch { /* a missed saved card never matters more than the sale */ } });
 
   return NextResponse.json({ ok: true });
 }
