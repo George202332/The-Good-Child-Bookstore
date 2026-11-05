@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { blogSource, pushToGoogle, trackEvent } from "@/lib/analytics/track";
 
 export type CartFormat = "ebook" | "paperback" | "hardcover" | "audiobook";
 
@@ -61,6 +62,9 @@ export function useCart() {
       : [...current, { bookId, format, quantity: isDigital ? 1 : quantity }];
     writeCart(next);
     setItems(next);
+    // Anonymous count, only after the visitor accepted analytics (see lib/analytics/track.ts).
+    trackEvent("add_to_cart", { bookId, format, blogSlug: blogSource() });
+    pushToGoogle("add_to_cart", { item_id: bookId, item_variant: format });
   }, []);
 
   const removeItem = useCallback((bookId: string, format: CartFormat) => {

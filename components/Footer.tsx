@@ -3,6 +3,7 @@ import { Logo } from "./Logo";
 import { PaymentBadgeIcon } from "./PaymentBadgeIcon";
 import { SocialIcon, SOCIAL_PLATFORM_LABELS, type SocialPlatform } from "./SocialIcon";
 import { DEFAULT_SITE_SETTINGS, type PaymentBadgeUrls, type SocialLinks } from "@/lib/site-settings";
+import { openCookieSettings } from "./AnalyticsConsent";
 
 const SOCIAL_PLATFORMS: SocialPlatform[] = ["facebook", "instagram", "pinterest", "youtube", "twitter", "tiktok"];
 
@@ -152,6 +153,7 @@ export function Footer({
               <li><Link href="/terms">Terms of service</Link></li>
               <li><Link href="/returns">Returns policy</Link></li>
               <li><Link href="/faq">FAQs</Link></li>
+              <li><button type="button" onClick={openCookieSettings} style={{ background: "none", border: 0, padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textDecoration: "underline" }}>Cookie settings</button></li>
             </ul>
           </div>
         </div>

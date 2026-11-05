@@ -1,0 +1,31 @@
+ANALYTICS PART 2: cookie notice, safe tracking, Website Analytics page, setup guide
+No database change. No new packages. Staging first.
+
+STAGING (run in VS Code terminal, from the bookstore folder):
+  git checkout staging
+  (unzip bookstore-analytics-part2.zip over the project, replace files when asked)
+  npm test
+  git add -A
+  git commit -m "Analytics part 2: consent notice, tracking, website analytics page"
+  git push origin staging
+
+PRODUCTION (only after your staging checks pass):
+  git checkout main
+  git pull origin main
+  git merge staging
+  git push origin main
+  git checkout staging
+(No backup branch or migrate-production.ps1 needed: there is no schema change.)
+
+STAGING TEST CHECKLIST
+1. Open the staging site in a private window. There should be NO cookie notice and nothing from googletagmanager.com in the Network tab.
+2. Open /admin/web-analytics on staging: it says this is not the live site; all lists say no data.
+3. Check footer has "Cookie settings" (does nothing on staging, by design).
+
+LIVE TEST CHECKLIST (after production deploy, private window)
+1. Home page shows the notice. Network tab: no googletagmanager.com request before pressing a button.
+2. Press "No thanks": no Google requests, notice gone, comes back never until you click Cookie settings.
+3. Cookie settings > Accept: browse a blog post, click a book link from it, press Add to Cart, open checkout. No notice appears on checkout.
+4. On /checkout and /account pages: no googletagmanager.com requests at all.
+5. After a real small test purchase, /admin/web-analytics (current month) shows page views, book view, add to cart, checkout started, 1 purchase with the blog post it came from. Test CSV and PDF downloads.
+6. Accept then choose No thanks: the page reloads and the _ga cookies are gone.

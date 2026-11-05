@@ -10,6 +10,7 @@ import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { recordBlogRead } from "@/actions/blog-reads";
 import { parseBlocks, tocOf, readTimeMinutes as postReadTime, plainText, firstParagraph, type Inline } from "@/lib/blog/content";
 import { parseKeywords } from "@/lib/blog/keywords";
+import { BlogClickTracker } from "@/components/AnalyticsTrackers";
 import { booksForPost, postsForPost, listBlogTopics } from "@/lib/blog/related-server";
 import { pageMeta } from "@/lib/seo/page-meta";
 import { clip, wordCount } from "@/lib/seo/text";
@@ -121,7 +122,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const dateLabel = (post.publishAt ?? post.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
   return (
-    <div>
+    <BlogClickTracker slug={slug}>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
 
@@ -258,6 +259,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </div>
         </section>
       )}
-    </div>
+    </BlogClickTracker>
   );
 }

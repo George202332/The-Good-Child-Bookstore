@@ -14,6 +14,7 @@ import { ReadSampleViewer } from "@/components/ReadSampleViewer";
 import { bookJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { useCart } from "@/hooks/useCart";
+import { BookViewTracker } from "@/components/AnalyticsTrackers";
 import { useWishlist } from "@/hooks/useWishlist";
 import { categorySlug, isCategory } from "@/lib/taxonomy";
 import { restrictionMessage } from "@/lib/book-country-restriction";
@@ -116,6 +117,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
   // "Featured books": every published book until real ratings exist, then same-category books ranked by a weighted score
   // (see lib/featured-books.ts). Always six when the shop has that many.
   const featuredBooks = pickFeaturedBooks(b, allBooks).books;
+  const viewTracker = <BookViewTracker key={b.id} bookId={b.id} />;
 
   // "People who read this book also searched for" — genuine matches
   // only (same category or genre), real + demo combined, capped at a
@@ -219,6 +221,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
 
   return (
     <div className="wrap detail-wrap">
+      {viewTracker}
       {/* A restricted visitor gets no Product/offer markup at all. */}
       {!restricted && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />

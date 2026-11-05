@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
+import { AnalyticsConsent } from "@/components/AnalyticsConsent";
+import { analyticsEnabledFor } from "@/lib/analytics/policy";
 import "./globals.css";
 import { SiteChrome } from "@/components/SiteChrome";
 import { getSiteSettings } from "@/actions/site-settings";
@@ -125,8 +126,10 @@ try {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const settings = await getSiteSettings();
-  const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
-  const gtmId = process.env.NEXT_PUBLIC_GTM_ID;
+  // Analytics exists only on the live site, decided here from VERCEL_ENV: the two ids may stay set on staging and nothing loads.
+  const analyticsOn = analyticsEnabledFor();
+  const gaId = analyticsOn ? process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || null : null;
+  const gtmId = analyticsOn ? process.env.NEXT_PUBLIC_GTM_ID || null : null;
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -135,42 +138,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
             above for why this is a plain script reading a cookie rather
             than a server-computed class on <html>. */}
         <script dangerouslySetInnerHTML={{ __html: DARK_MODE_INIT_SCRIPT }} />
-        {/* Google Analytics 4 — only loads when NEXT_PUBLIC_GA_MEASUREMENT_ID
-            is set in .env, per the brief's "Google Analytics 4" requirement. */}
-        {gaId && (
-          <>
-            <Script src={`https://www.googletagmanager.com/gtag/js?id=${gaId}`} strategy="afterInteractive" />
-            <Script id="ga4-init" strategy="afterInteractive">
-              {`window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${gaId}');`}
-            </Script>
-          </>
-        )}
-        {/* Google Tag Manager — only loads when NEXT_PUBLIC_GTM_ID is set. */}
-        {gtmId && (
-          <Script id="gtm-init" strategy="afterInteractive">
-            {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});
-              var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';
-              j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-              })(window,document,'script','dataLayer','${gtmId}');`}
-          </Script>
+        {/* Google defaults to "denied" until the visitor accepts (see components/AnalyticsConsent.tsx, the only place
+            Google Analytics / Tag Manager are loaded). Only emitted on the live site. */}
+        {analyticsOn && (gaId || gtmId) && (
+          <script dangerouslySetInnerHTML={{ __html: "window.dataLayer=window.dataLayer||[];window.gtag=function(){dataLayer.push(arguments);};gtag('consent','default',{analytics_storage:'denied',ad_storage:'denied',ad_user_data:'denied',ad_personalization:'denied'});" }} />
         )}
       </head>
       <body>
-        {gtmId && (
-          <noscript>
-            <iframe
-              src={`https://www.googletagmanager.com/ns.html?id=${gtmId}`}
-              height="0"
-              width="0"
-              style={{ display: "none", visibility: "hidden" }}
-              title="Google Tag Manager"
-            />
-          </noscript>
-        )}
         <StagingBanner />
+        <AnalyticsConsent enabled={analyticsOn} gaId={gaId} gtmId={gtmId} />
         <Providers>
           <SiteChrome settings={settings}>{children}</SiteChrome>
         </Providers>

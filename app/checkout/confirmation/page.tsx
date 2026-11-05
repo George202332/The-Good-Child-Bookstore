@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { getOrderSummary } from "@/lib/order-summary";
+import { PurchaseTracker } from "@/components/AnalyticsTrackers";
 import { ClearCartOnMount } from "@/components/ClearCartOnMount";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { EnterAccountButton } from "@/components/EnterAccountButton";
@@ -76,6 +77,7 @@ export default async function CheckoutConfirmationPage({
   return (
     <div className="wrap cart-wrap" style={{ maxWidth: 520, margin: "0 auto" }}>
       <ClearCartOnMount />
+      {order.status === "PAID" && <PurchaseTracker orderId={order.id} />}
       <div style={{ textAlign: "center" }}>
         <div className="confirmation-check">✓</div>
         <h2 style={{ marginBottom: 6 }}>Thank You for Your Order!</h2>

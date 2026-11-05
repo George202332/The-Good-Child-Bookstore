@@ -1,5 +1,6 @@
 "use client";
 
+import { CheckoutStartedTracker } from "@/components/AnalyticsTrackers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -92,6 +93,7 @@ export function CheckoutClient({
     [isDirectBuy, directBookId, directFormat, cartItems]
   );
   const { data: session } = useSession();
+  const bookIdsForCount = useMemo(() => items.map((i) => i.bookId), [items]);
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [data, setData] = useState<CheckoutData>({
@@ -418,6 +420,7 @@ export function CheckoutClient({
 
   return (
     <div className="wrap cart-wrap" style={{ maxWidth: step === 1 ? undefined : 820 }}>
+      <CheckoutStartedTracker bookIds={bookIdsForCount} />
       <h1 style={{ marginBottom: 24, textAlign: "center" }}>Checkout</h1>
       {paymentFailed && (
         <div className="checkout-error" role="alert" style={{ marginBottom: 16 }}>

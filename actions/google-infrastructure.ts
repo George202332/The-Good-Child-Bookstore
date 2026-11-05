@@ -251,7 +251,7 @@ export async function getGoogleAnalyticsDiagnostics(): Promise<GoogleAnalyticsDi
   let ecommerceEventCount = 0;
   try {
     ecommerceEventCount = await prisma.analyticsEvent.count({
-      where: { type: { in: ["purchase", "add_to_cart", "view_item", "begin_checkout"] } },
+      where: { type: { in: ["purchase", "add_to_cart", "view_item", "begin_checkout", "book_view", "checkout_started"] } },
     });
   } catch {
     ecommerceEventCount = 0;
