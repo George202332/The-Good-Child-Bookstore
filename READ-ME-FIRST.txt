@@ -1,6 +1,15 @@
-PRINT FIX 2 (staging only, no database change, no Stage A).
-Copy "lib" and "tests" into your bookstore folder (Replace), then in PowerShell inside the bookstore folder:
+PRINT FIX 3: lets Lulu download files from the protected staging address. Staging only. No database change. Includes print fix 2's file (lulu-validation.ts), so you can apply this instead of it.
+
+PART 1, in Vercel (you do this once; no secret is ever typed or pasted anywhere else):
+ 1. Vercel > your project > Settings > Deployment Protection.
+ 2. Scroll to "Protection Bypass for Automation". Click to create/enable it (leave "Require Log In" ON).
+ 3. Vercel then adds a variable named VERCEL_AUTOMATION_BYPASS_SECRET to the project by itself. Check Settings > Environment Variables that it is there. Do NOT copy its value anywhere.
+ 4. If the bypass option is missing or says it needs Pro, stop and tell me.
+
+PART 2, code. Copy "lib" and "tests" into your bookstore folder (Replace), then in PowerShell inside the bookstore folder:
   git checkout staging
   git add .
-  git commit -m "Print check: Lulu not-a-valid-PDF is reported as our side, not the author's file"
+  git commit -m "Staging: let Lulu download print files through Vercel protection"
   git push origin staging
+
+PART 3: redeploy staging WITHOUT build cache (so it picks up the new variable), open a print edition, and the Interior and Cover checks should now finish.

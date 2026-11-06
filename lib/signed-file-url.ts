@@ -47,11 +47,24 @@ export function verifySignedFile(fileId: string, exp: string | null | undefined,
  * The address Lulu should use for a stored file. A stored "/api/files/<id>" path becomes a signed, expiring
  * link; anything else (an absolute address, no secret configured) is returned as before.
  */
+/**
+ * Staging only. The staging address sits behind Vercel's login wall, so Lulu would download a sign-in page instead of the file.
+ * Vercel's "Protection Bypass for Automation" makes it let a link through when it carries the project's own bypass secret
+ * (the Vercel variable VERCEL_AUTOMATION_BYPASS_SECRET). The secret is added to the link handed to Lulu and nowhere else:
+ * never on the live site, never stored, never logged.
+ */
+export function withVercelBypass(link: string, env: { [k: string]: string | undefined } = process.env): string {
+  if (env.VERCEL_ENV !== "preview") return link;
+  const secret = env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  if (!secret || !link.includes("/api/lulu-files/")) return link;
+  return `${link}${link.includes("?") ? "&" : "?"}x-vercel-protection-bypass=${encodeURIComponent(secret)}`;
+}
+
 export function luluFileUrl(url: string | null | undefined, siteUrl: string, ttlSeconds: number): string | null {
   const m = url?.trim().match(/^\/api\/files\/([^/?#]+)/);
   if (m) {
     const signed = signedFilePath(decodeURIComponent(m[1]), ttlSeconds);
-    if (signed) return `${siteUrl.replace(/\/+$/, "")}${signed}`;
+    if (signed) return withVercelBypass(`${siteUrl.replace(/\/+$/, "")}${signed}`);
   }
   return absoluteFileUrl(url, siteUrl);
 }

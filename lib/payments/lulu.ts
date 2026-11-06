@@ -711,7 +711,7 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
 // is ever printed. The real print job is still sent only when a reader buys.
 // ---------------------------------------------------------------------------
 
-import { parseLuluValidation, type ParsedLuluValidation } from "@/lib/lulu-validation";
+import { parseLuluValidation, scrubSecrets, type ParsedLuluValidation } from "@/lib/lulu-validation";
 
 /** True when Lulu API credentials are set (stored in Admin or in the environment). */
 export async function luluIsConfigured(): Promise<boolean> {
@@ -742,13 +742,13 @@ export async function startLuluValidation(opts: {
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      return { ok: false, error: `Lulu could not start the ${opts.kind} check (${res.status}). ${text}`.slice(0, 600) };
+      return { ok: false, error: scrubSecrets(`Lulu could not start the ${opts.kind} check (${res.status}). ${text}`).slice(0, 600) };
     }
     const json = await res.json();
     if (json?.id == null) return { ok: false, error: "Lulu did not return a check id." };
     return { ok: true, id: String(json.id), parsed: parseLuluValidation(json, opts.kind) };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Lulu could not be reached." };
+    return { ok: false, error: e instanceof Error ? scrubSecrets(e.message) : "Lulu could not be reached." };
   }
 }
 

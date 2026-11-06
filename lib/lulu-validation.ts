@@ -19,18 +19,23 @@ export interface ParsedLuluValidation {
   errors: string[];
 }
 
+/** Lulu may repeat the file address in an error. The staging bypass secret that can be on it is removed before anything is kept or shown. */
+export function scrubSecrets(text: string): string {
+  return text.replace(/([?&]x-vercel-protection-bypass=)[^&\s'"]*/gi, "$1[hidden]");
+}
+
 function flattenErrors(value: unknown, out: string[] = []): string[] {
   if (value == null) return out;
-  if (typeof value === "string") { if (value.trim()) out.push(value.trim()); return out; }
+  if (typeof value === "string") { if (value.trim()) out.push(scrubSecrets(value.trim())); return out; }
   if (Array.isArray(value)) { for (const v of value) flattenErrors(v, out); return out; }
   if (typeof value === "object") {
     const o = value as Record<string, unknown>;
     const msg = o.message ?? o.error ?? o.detail ?? o.description;
-    if (typeof msg === "string" && msg.trim()) { out.push(msg.trim()); return out; }
+    if (typeof msg === "string" && msg.trim()) { out.push(scrubSecrets(msg.trim())); return out; }
     for (const v of Object.values(o)) flattenErrors(v, out);
     return out;
   }
-  out.push(String(value));
+  out.push(scrubSecrets(String(value)));
   return out;
 }
 
