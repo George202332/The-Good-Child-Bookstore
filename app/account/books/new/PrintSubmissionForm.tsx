@@ -10,7 +10,7 @@ import { ageGroupProblem } from "@/lib/age-groups";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitBook, updateBookFull } from "@/actions/submissions";
-import { describeUploadedFile, type UploadFileResult } from "@/actions/files";
+import { type UploadFileResult } from "@/actions/files";
 import { startPrintPreflight, pollPrintPreflight, type PrintPreflightView } from "@/actions/print-preflight";
 import { packagesFor } from "@/lib/print-preflight-packages";
 import { coverKeyFor, packageKey, type SavedPreflight } from "@/lib/print-preflight-result";
@@ -260,7 +260,7 @@ export function PrintSubmissionForm({
   }
 
   // The "Autofill from eBook" button (inside this tab): copies what was entered on the eBook /
-  // Audiobook tab - the text details, the cover image AND the uploaded file - into this form.
+  // Audiobook tab - the text details, and the cover image (never the eBook file) - into this form.
   // Fields the eBook tab left empty are skipped so nothing here is blanked. The author can edit
   // everything afterwards, and every file that comes across goes through the same print file
   // check as one uploaded directly.
@@ -300,19 +300,8 @@ export function PrintSubmissionForm({
       setBackCoverMode("auto");
       copied.push("front cover image");
     }
-    let fileNote = "";
-    if (prefill.manuscriptFileId) {
-      // Only a PDF can be printed. The same file may serve both the eBook and the print edition.
-      const info = await describeUploadedFile(prefill.manuscriptFileId).catch(() => null);
-      if (info?.ok && info.mimeType === "application/pdf") {
-        setPrintReadyPdfFileId(info.fileId);
-        setCarriedFileName(info.fileName ?? prefill.manuscriptFileName ?? "Manuscript PDF");
-        applyInteriorMeta(info);
-        copied.push("print-ready PDF");
-      } else if (info?.ok) {
-        fileNote = " Your eBook file is not a PDF, so it cannot be printed - upload a print-ready PDF in the Files section below.";
-      }
-    }
+    // The eBook file (the book itself) is never copied: a print edition needs its own print-ready PDF, uploaded in the Files section.
+    const fileNote = " Your eBook file is not copied - upload your print-ready PDF in the Files section below.";
     setAutofillNote(`Filled in from your eBook details: ${copied.join(", ")}. Check each one, then add the print-only details below.${fileNote}`);
     setAutofilling(false);
   }
@@ -326,12 +315,15 @@ export function PrintSubmissionForm({
   // that does not pass cannot be submitted.
   const [preflight, setPreflight] = useState<PrintPreflightView | null>(null);
   const [preflightBusy, setPreflightBusy] = useState(false);
+  // Which files and settings the result on screen belongs to, so a result for older files is never shown as if it were current.
+  const [preflightFor, setPreflightFor] = useState("");
   const coverKey = coverKeyFor({ customCoverFileId: backCoverMode === "custom" ? customBackCoverPdfFileId : undefined, frontCoverImageUrl });
   const packages = useMemo(
     () => packagesFor({ trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor }),
     [trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor],
   );
   const currentKeys = `${printReadyPdfFileId ?? ""}|${coverKey}|${packageKey(packages.map((p) => p.packageId))}`;
+  const shownPreflight = preflight && preflightFor === currentKeys ? preflight : null;
   // A passed result belongs to the two files. It is kept for as long as the interior file and the cover are the
   // same ones, whatever else is edited, and is only checked again when a new interior or a new cover is uploaded.
   const savedPassedForFiles = !!initial?.preflight && initial.preflight.status === "PASSED" && (initial.printReadyPdfFileId ?? "") === (printReadyPdfFileId ?? "") && initial.preflight.coverKey === coverKey;
@@ -350,6 +342,7 @@ export function PrintSubmissionForm({
       title, authorName: `${authorFirstName} ${authorLastName}`.trim(),
     }).catch(() => ({ ok: false, error: "The check could not be started. Please try again." }) as PrintPreflightView);
     setPreflight(res);
+    setPreflightFor(currentKeys);
     setPreflightBusy(false);
     // No button to press: when the check could not be started or finish, it is tried again by itself (twice at most).
     if ((!res.status || res.status === "UNAVAILABLE") && autoRetries.current < 2) {
@@ -382,8 +375,10 @@ export function PrintSubmissionForm({
 
   // The saved result of an unchanged edit counts as passed; otherwise the live check decides.
   const unchangedSaved = editing && !!initial?.preflight && initial.preflight.status === "PASSED" && (savedPassedForFiles || `${initial.printReadyPdfFileId ?? ""}|${initial.preflight.coverKey}|${initial.preflight.packageIds}` === currentKeys);
-  const preflightPassed = preflight?.status === "PASSED" || (!preflight && unchangedSaved);
+  const preflightPassed = shownPreflight?.status === "PASSED" || (!shownPreflight && unchangedSaved);
   const hasPrintFiles = !!printReadyPdfFileId && (!!frontCoverImageUrl || (backCoverMode === "custom" && !!customBackCoverPdfFileId));
+  // Still being checked: running now, waiting to start, or Lulu has not answered yet. Nothing "needs fixing" until a real answer is in.
+  const checkingNow = hasPrintFiles && !unchangedSaved && (preflightBusy || !shownPreflight || shownPreflight.status === "CHECKING");
 
 
   // ---- What we read from the file, fonts, and Lulu's real printing cost ----------------------
@@ -628,13 +623,13 @@ export function PrintSubmissionForm({
             type="button"
             className="btn btn-small btn-ghost"
             disabled={autofilling}
-            title="Copy the title, description, cover image, author and the uploaded file from the eBook / Audiobook tab into this print edition"
+            title="Copy the title, description, cover image and author from the eBook / Audiobook tab into this print edition (the eBook file itself is not copied)"
             onClick={() => { void autofillFromEbook(); }}
           >
             {autofilling ? "Copying…" : "Autofill from eBook"}
           </button>
           <span className="field-hint" style={{ margin: 0 }}>
-            Copies your eBook details, cover and uploaded file into this form. You can edit everything afterwards.
+            Copies your eBook details and cover into this form. The eBook file is not copied: upload your print-ready PDF below. You can edit everything afterwards.
           </span>
         </div>
       )}
@@ -694,8 +689,8 @@ export function PrintSubmissionForm({
         </p>
         <PreflightPanel
           hasFiles={hasPrintFiles}
-          busy={preflightBusy}
-          result={preflight}
+          busy={checkingNow}
+          result={shownPreflight}
           savedFromBook={unchangedSaved ? initial?.preflight : undefined}
         />
 
@@ -717,9 +712,9 @@ export function PrintSubmissionForm({
           </div>
           <FileVerdictBox
             title="Interior File Check"
-            verdict={printReadyPdfFileId ? preflight?.interior : "NONE"}
-            issues={(preflight?.issues ?? []).filter((i) => i.file === "interior")}
-            saved={unchangedSaved && !preflight ? initial?.preflight : undefined}
+            verdict={printReadyPdfFileId ? (checkingNow ? "CHECKING" : shownPreflight?.interior) : "NONE"}
+            issues={checkingNow ? [] : (shownPreflight?.issues ?? []).filter((i) => i.file === "interior")}
+            saved={unchangedSaved && !shownPreflight ? initial?.preflight : undefined}
           />
         </div>
 
@@ -764,9 +759,9 @@ export function PrintSubmissionForm({
           </div>
           <FileVerdictBox
             title="Cover Check"
-            verdict={frontCoverImageUrl || customBackCoverPdfFileId ? preflight?.cover : "NONE"}
-            issues={(preflight?.issues ?? []).filter((i) => i.file === "cover")}
-            saved={unchangedSaved && !preflight ? initial?.preflight : undefined}
+            verdict={frontCoverImageUrl || customBackCoverPdfFileId ? (checkingNow ? "CHECKING" : shownPreflight?.cover) : "NONE"}
+            issues={checkingNow ? [] : (shownPreflight?.issues ?? []).filter((i) => i.file === "cover")}
+            saved={unchangedSaved && !shownPreflight ? initial?.preflight : undefined}
           />
         </div>
 
@@ -1086,6 +1081,24 @@ export function PrintSubmissionForm({
   );
 }
 
+/** Moving dots and a slim progress bar shown while a file is being checked; replaced by the verdict when it arrives. */
+function CheckProgress({ text }: { text: string }) {
+  return (
+    <div style={{ margin: "8px 0 0" }} role="status">
+      <style>{`@keyframes gcbDot{0%,80%,100%{opacity:.25}40%{opacity:1}}@keyframes gcbBar{0%{margin-left:-40%}100%{margin-left:100%}}`}</style>
+      <p className="field-hint" style={{ margin: 0 }}>
+        {text}{" "}
+        <span aria-hidden="true">
+          {[0, 1, 2].map((n) => <span key={n} style={{ animation: "gcbDot 1.2s infinite", animationDelay: `${n * 0.2}s`, fontWeight: 700 }}>.</span>)}
+        </span>
+      </p>
+      <div style={{ height: 4, borderRadius: 999, background: "#EEE9F6", overflow: "hidden", marginTop: 6 }} aria-hidden="true">
+        <div style={{ width: "40%", height: "100%", borderRadius: 999, background: "#4A3868", animation: "gcbBar 1.4s ease-in-out infinite" }} />
+      </div>
+    </div>
+  );
+}
+
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
   PASSED: { bg: "#E3F5EA", fg: "#165236", label: "Passed" },
   FAILED: { bg: "#FCE4E4", fg: "#6F1A28", label: "Needs fixing" },
@@ -1100,7 +1113,7 @@ function PreflightPanel({ hasFiles, busy, result, savedFromBook }: {
   result: PrintPreflightView | null;
   savedFromBook?: SavedPreflight;
 }) {
-  const status = busy && !result ? "CHECKING" : result?.status ?? (savedFromBook ? savedFromBook.status : undefined);
+  const status = busy ? "CHECKING" : result?.status ?? (savedFromBook ? savedFromBook.status : undefined);
   const style = status ? STATUS_STYLE[status] : undefined;
   return (
     <div style={{ marginTop: 14, border: "1px solid var(--line)", borderRadius: 12, padding: "14px 16px", background: "var(--paper)" }} aria-live="polite">
@@ -1113,11 +1126,7 @@ function PreflightPanel({ hasFiles, busy, result, savedFromBook }: {
           As soon as the print-ready PDF and a cover are uploaded, we check them for printing: embedded fonts, page size, page count and cover size, and then our print partner (Lulu) checks them too. Nothing is ordered or printed by this check.
         </p>
       )}
-      {hasFiles && status === "CHECKING" && (
-        <p className="field-hint" style={{ margin: "8px 0 0" }}>
-          Checking your files with our print partner. This usually takes under a minute; you can keep filling in the form.
-        </p>
-      )}
+      {hasFiles && status === "CHECKING" && <CheckProgress text="We and Lulu are checking your files. This usually takes under a minute, and you can keep filling in the form." />}
       {status === "PASSED" && (
         <p className="field-hint" style={{ margin: "8px 0 0", color: "#165236" }}>
           Your print files meet our print partner&apos;s standards. {savedFromBook && !result ? `Checked ${new Date(savedFromBook.checkedAt).toLocaleDateString()}.` : ""}
@@ -1166,7 +1175,7 @@ function FileVerdictBox({ title, verdict, issues, saved }: {
       {shown === "PASSED" && (
         <p className="field-hint" style={{ margin: "8px 0 0", color: "#165236" }}>Our checks and Lulu&apos;s file validation both passed.</p>
       )}
-      {shown === "CHECKING" && <p className="field-hint" style={{ margin: "8px 0 0" }}>Lulu is checking this file. This usually takes under a minute.</p>}
+      {shown === "CHECKING" && <CheckProgress text="We and Lulu are checking this file." />}
       {shown === "WAITING" && <p className="field-hint" style={{ margin: "8px 0 0" }}>This file is sent to Lulu once the other file&apos;s problems are fixed.</p>}
       {issues.length > 0 && (
         <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 13 }}>

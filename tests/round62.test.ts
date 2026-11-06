@@ -75,7 +75,7 @@ describe("Hardcover mockup", () => {
   test("the settings code changed, so every saved mockup is made again in the new scene", () => {
     const spec = { format: "hardcover" as const, title: "t", author: "a", description: "", isbn: null, trimCode: "0600X0900", pages: 100, paperCode: "060UW444", finish: "M", linenColor: "N", foilColor: "X", foilTitle: "", foilAuthor: "", wrapFileId: null };
     assert.equal(mockupHash(spec, "c"), mockupHash(spec, "c"));
-    assert.match(readFileSync(new URL("../lib/mockup/spec.ts", import.meta.url), "utf8"), /v: 6/);
+    assert.match(readFileSync(new URL("../lib/mockup/spec.ts", import.meta.url), "utf8"), /v: 7/);
   });
   test("a Hardcover with a cloth colour no longer skips the artwork", () => {
     const store = readFileSync(new URL("../lib/mockup/store.ts", import.meta.url), "utf8");

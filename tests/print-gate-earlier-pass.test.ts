@@ -37,3 +37,12 @@ describe("print gate: a pass for the same two files is not cancelled by a later 
     }
   });
 });
+
+import { explainGateMiss } from "../lib/print-preflight-gate";
+describe("print gate: a refusal says why", () => {
+  const rc = (interiorFileId: string, coverKey: string, status: string) => ({ interiorFileId, coverKey, packageIds: "A", status, createdAt: new Date() });
+  test("no checks at all", () => assert.match(explainGateMiss(keys, []), /No print file check/));
+  test("a different interior file", () => assert.match(explainGateMiss(keys, [rc("other", keys.coverKey, "PASSED")]), /different interior file/));
+  test("a different cover", () => assert.match(explainGateMiss(keys, [rc("pdf1", "front:/other.png", "PASSED")]), /cover differs/));
+  test("files match but not passed", () => assert.match(explainGateMiss(keys, [rc("pdf1", keys.coverKey, "CHECKING")]), /none of them passed \(status: CHECKING\)/));
+});

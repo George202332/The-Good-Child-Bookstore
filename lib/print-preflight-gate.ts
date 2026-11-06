@@ -79,3 +79,25 @@ export function decidePreflightGate(opts: {
 }
 
 export { coverKeyFor, packageKey };
+
+export interface RecentCheck { interiorFileId: string; coverKey: string; packageIds: string; status: string; createdAt: Date }
+
+const short = (v: string) => (v.length > 40 ? `${v.slice(0, 18)}...${v.slice(-14)}` : v);
+
+/**
+ * Plain words for WHY no passed check was found, so a refusal can be traced instead of guessed. It only names file ids and
+ * statuses (never a secret): the author's newest checks are compared with the files being submitted.
+ */
+export function explainGateMiss(keys: GateKeys, recent: RecentCheck[]): string {
+  if (recent.length === 0) return "No print file check has been recorded for your account in the last 30 days.";
+  const sameInterior = recent.filter((r) => r.interiorFileId === keys.interiorFileId);
+  if (sameInterior.length === 0) {
+    return `The newest check on record was run on a different interior file (${short(recent[0].interiorFileId)}) from the one being submitted (${short(keys.interiorFileId)}).`;
+  }
+  const same = sameInterior.filter((r) => r.coverKey === keys.coverKey);
+  if (same.length === 0) {
+    return `The interior file matches a recorded check, but the cover differs: checked "${short(sameInterior[0].coverKey)}", submitting "${short(keys.coverKey)}".`;
+  }
+  const statuses = [...new Set(same.map((r) => r.status))].join(", ");
+  return `Both files match recorded checks, but none of them passed (status: ${statuses}).`;
+}

@@ -129,7 +129,7 @@ function hull(points: { x: number; y: number }[]): { x: number; y: number }[] {
 
 const f2 = (n: number) => (Math.round(n * 100) / 100).toString();
 
-export interface SceneOptions { width: number; height: number; margin?: number; /** Share of the height kept free at the bottom for the reflection (0 to 0.3). */ reserveBottom?: number; /** Draw the soft reflection of the books in the floor. */ reflection?: boolean; defs?: string; /** Paint a pale studio backdrop (default). False leaves the picture transparent so it sits on the page's own background. */ backdrop?: boolean; /** A pre-blurred shadow picture (data address) from shadowLayerSvg, instead of drawing the shadows here. */ shadowLayer?: string }
+export interface SceneOptions { width: number; height: number; margin?: number; /** Share of the height kept free at the bottom for the reflection (0 to 0.3). */ reserveBottom?: number; /** Draw the soft reflection of the books in the floor. */ reflection?: boolean; defs?: string; /** Paint a pale studio backdrop (default). False leaves the picture transparent so it sits on the page's own background. */ backdrop?: boolean; /** A pre-blurred shadow picture (data address) from shadowLayerSvg, instead of drawing the shadows here. */ shadowLayer?: string; /** Draw the soft ground shadows (default true). The product mockups turn them off. */ shadows?: boolean }
 
 /** Which faces of each book can be seen, for tests: by face key. */
 export function visibleFaceKeys(p: Placement): (keyof TextureSet)[] {
@@ -198,7 +198,9 @@ ${opts.defs ?? ""}
   if (opts.backdrop) out.push(`<rect width="${opts.width}" height="${opts.height}" fill="url(#bg)"/>`);
 
   // Shadows first, so every book sits on top of all of them: the small pre-blurred layer when given, otherwise drawn here.
-  if (opts.shadowLayer) {
+  if (opts.shadows === false) {
+    // No ground shadows.
+  } else if (opts.shadowLayer) {
     out.push(`<image x="0" y="0" width="${opts.width}" height="${opts.height}" preserveAspectRatio="none" xlink:href="${opts.shadowLayer}" href="${opts.shadowLayer}"/>`);
   } else {
     for (const sh of shadowShapes(items, px)) {

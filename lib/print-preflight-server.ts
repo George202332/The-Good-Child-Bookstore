@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { decidePreflightGate, PREFLIGHT_VALIDITY_MS } from "@/lib/print-preflight-gate";
+import { decidePreflightGate, explainGateMiss, PREFLIGHT_VALIDITY_MS } from "@/lib/print-preflight-gate";
 import { packagesFor } from "@/lib/print-preflight-packages";
 import { coverKeyFor, packageKey, type SavedPreflight } from "@/lib/print-preflight-result";
 
@@ -73,7 +73,17 @@ export async function gatePrintEdition(opts: {
   const passed = pick ? { id: pick.id, status: pick.status, createdAt: pick.createdAt, packageIds: pick.packageIds, reasons: [] as string[] } : null;
 
   const decision = decidePreflightGate({ keys, latest, passed, saved: opts.existingMetadata?.printPreflight ?? null, requirePass: opts.requirePass });
-  if (!decision.ok) return { ok: false, error: decision.error };
+  if (!decision.ok) {
+    const recent = await prisma.printPreflightCheck.findMany({
+      where: { userId: opts.userId, createdAt: { gte: since } },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { interiorFileId: true, coverKey: true, packageIds: true, status: true, createdAt: true },
+    });
+    const why = explainGateMiss(keys, recent);
+    console.error(`[print-gate] refused: ${why}`);
+    return { ok: false, error: `${decision.error}\n\nWhy: ${why}` };
+  }
   return { ok: true, saved: decision.save };
 }
 

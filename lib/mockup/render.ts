@@ -1,5 +1,5 @@
 import { ean13Bars, isbnDigits13 } from "@/lib/mockup/barcode";
-import { composeScene, shadowLayerSvg, standardScene, type BookDims, type TextureSet } from "@/lib/mockup/scene";
+import { composeScene, standardScene, type BookDims, type TextureSet } from "@/lib/mockup/scene";
 import { WrapError, type WrapCrops } from "@/lib/mockup/wrap";
 import { planSpineText } from "@/lib/spine-text";
 import { bookDimensions, LINEN_COLORS, type MockupSpec } from "@/lib/mockup/spec";
@@ -272,12 +272,12 @@ export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | n
   const base = { dims, tex: built.tex };
   const placements = standardScene(base, base);
   const sceneOpts = { width: OUT_W, height: OUT_H, margin: 0.025, backdrop: opts.backdrop === true, reflection: true, reserveBottom: 0.12 };
-  const shadowPng = await sharp(Buffer.from(shadowLayerSvg(placements, sceneOpts, 4)), { density: 72 }).png().toBuffer();
-  const svg = composeScene(placements, { ...sceneOpts, defs: built.defs.join("\n"), shadowLayer: `data:image/png;base64,${shadowPng.toString("base64")}` });
+  // The mockups carry no ground shadows (the book sits cleanly on the page).
+  const svg = composeScene(placements, { ...sceneOpts, defs: built.defs.join("\n"), shadows: false });
   return sharp(Buffer.from(svg), { density: 72 }).png().toBuffer();
 }
 
-/** The same picture on a plain light background (for promotions). The soft shadow stays. */
+/** The same picture on a plain light background (for promotions). */
 export async function onLightBackground(png: Buffer): Promise<Buffer> {
   const sharp = (await import("sharp")).default;
   return sharp(png).flatten({ background: "#f4f4f6" }).png().toBuffer();
