@@ -1,4 +1,4 @@
-BATCH 6 (replaces print fix 5; includes it). No database change. Staging only.
+BATCH 6, version 2 (replaces print fix 5; includes it; now also includes the decision buttons file the review page needs). No database change. Staging only.
 
 1. Copy the app, lib and tests folders from this zip into your bookstore folder (Replace).
 2. In PowerShell inside the bookstore folder:

@@ -5,6 +5,16 @@ import { useRouter } from "next/navigation";
 import { approveBook, rejectBook, proposeOrApplySuspend, proposeOrApplyWithdraw, ratifyPendingModeration } from "@/actions/admin";
 
 type Tab = "attention" | "suspend" | "withdraw" | null;
+type Choice = "approve" | "attention" | "suspend" | "withdraw" | null;
+
+/** The decision that matches where the book stands right now (nothing is highlighted for drafts or books under review). */
+function choiceFromStatus(status: string): Choice {
+  if (status === "PUBLISHED") return "approve";
+  if (status === "REJECTED") return "attention";
+  if (status === "SUSPENDED") return "suspend";
+  if (status === "WITHDRAWN") return "withdraw";
+  return null;
+}
 
 /**
  * Approve / Attention / Suspend / Withdraw sit as one row of tabs,
@@ -18,17 +28,22 @@ export function ReviewActions({
   canRatify,
   pendingAction,
   pendingActionBy,
+  status,
 }: {
   bookId: string;
   canRatify: boolean;
   pendingAction: string | null;
   pendingActionBy: string | null;
+  status: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [comments, setComments] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Highlight only the chosen button: the one being written up, otherwise the book's real current status.
+  const selected: Choice = activeTab ?? choiceFromStatus(status);
+  const btnClass = (c: Exclude<Choice, null>) => `gcb-decision btn btn-small ${selected === c ? "btn-primary is-selected" : "btn-ghost"}`;
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>) {
     setError(null);
@@ -78,17 +93,18 @@ export function ReviewActions({
     <div>
       <div className="map-card" style={{ padding: 18 }}>
         <h3 style={{ fontSize: 14, marginBottom: 12 }}>Decision</h3>
+        <style>{`.gcb-decision:not(.is-selected):hover,.gcb-decision:not(.is-selected):focus{background:transparent}`}</style>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <button type="button" className="btn btn-primary btn-small" disabled={isPending} onClick={() => run(() => approveBook(bookId))}>
+          <button type="button" aria-pressed={selected === "approve"} className={btnClass("approve")} disabled={isPending} onClick={() => run(() => approveBook(bookId))}>
             Approve
           </button>
-          <button type="button" className={`btn btn-small ${activeTab === "attention" ? "btn-primary" : "btn-ghost"}`} disabled={isPending} onClick={() => { setActiveTab(activeTab === "attention" ? null : "attention"); setError(null); }}>
+          <button type="button" aria-pressed={selected === "attention"} className={btnClass("attention")} disabled={isPending} onClick={() => { setActiveTab(activeTab === "attention" ? null : "attention"); setError(null); }}>
             Attention
           </button>
-          <button type="button" className={`btn btn-small ${activeTab === "suspend" ? "btn-primary" : "btn-ghost"}`} disabled={isPending} onClick={() => { setActiveTab(activeTab === "suspend" ? null : "suspend"); setError(null); }}>
+          <button type="button" aria-pressed={selected === "suspend"} className={btnClass("suspend")} disabled={isPending} onClick={() => { setActiveTab(activeTab === "suspend" ? null : "suspend"); setError(null); }}>
             Suspend
           </button>
-          <button type="button" className={`btn btn-small ${activeTab === "withdraw" ? "btn-primary" : "btn-ghost"}`} disabled={isPending} onClick={() => { setActiveTab(activeTab === "withdraw" ? null : "withdraw"); setError(null); }}>
+          <button type="button" aria-pressed={selected === "withdraw"} className={btnClass("withdraw")} disabled={isPending} onClick={() => { setActiveTab(activeTab === "withdraw" ? null : "withdraw"); setError(null); }}>
             Withdraw
           </button>
         </div>
