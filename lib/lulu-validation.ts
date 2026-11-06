@@ -54,6 +54,9 @@ export function parseLuluValidation(json: unknown, kind: "interior" | "cover"): 
 export function isSiteFetchError(raw: string): boolean {
   const t = raw.toLowerCase();
   return t.includes("failed to fetch") || t.includes("source url") || /received an? \d{3} status/.test(t)
+    // "not a valid PDF" is only ever shown for files that our own checks already opened as real PDFs (an unreadable one stops
+    // before Lulu is asked), so it means Lulu was handed something else, such as a sign-in page, instead of the file.
+    || /not a valid pdf/.test(t)
     || t.includes("unable to retrieve") || t.includes("could not retrieve") || t.includes("not accessible") || t.includes("unable to download") || t.includes("could not download");
 }
 
