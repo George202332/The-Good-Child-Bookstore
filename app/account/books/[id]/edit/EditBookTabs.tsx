@@ -34,6 +34,7 @@ export function EditBookTabs({
   printInitial,
   addPrefill,
   combined = false,
+  only,
 }: {
   startOn: Format;
   enabledFormats: { ebook: boolean; print: boolean; audiobook: boolean };
@@ -45,8 +46,10 @@ export function EditBookTabs({
   addPrefill: SharedSubmissionFields;
   /** A title created with eBook and print together: one form, no tabs. */
   combined?: boolean;
+  /** Open exactly one edition: the other edition and the tab bar are not shown, so editing one can never touch the other. */
+  only?: Format;
 }) {
-  const [active, setActive] = useState<Format>(startOn);
+  const [active, setActive] = useState<Format>(only ?? startOn);
   const [shared, setShared] = useState<SharedSubmissionFields | undefined>(undefined);
   // One AI declaration for the whole book, shared by every edition form on this screen.
   const [ai, setAi] = useState(firstAiDeclaration(ebookInitial?.aiDeclaration, printInitial?.aiDeclaration, addPrefill?.aiDeclaration));
@@ -74,7 +77,10 @@ export function EditBookTabs({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
-        <div role="tablist" style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+        {only && (
+          <h3 style={{ fontSize: 14, marginBottom: 6 }}>{only === "print" ? "Print Book" : "eBook and Audiobook"}</h3>
+        )}
+        <div role="tablist" style={{ display: only ? "none" : "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
           {tabs.map((t) => (
             <button
               key={t.key}
@@ -92,7 +98,7 @@ export function EditBookTabs({
         <p style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>{hint(current.key, current.tab)}</p>
       </div>
 
-      <div style={{ display: active === "ebook" ? "block" : "none" }}>
+      <div style={{ display: active === "ebook" && only !== "print" ? "block" : "none" }}>
         {ebookTab.mode === "edit" && ebookInitial ? (
           <>
             <EbookSubmissionForm
@@ -108,7 +114,7 @@ export function EditBookTabs({
           <ClosedNote />
         )}
       </div>
-      <div style={{ display: active === "print" ? "block" : "none" }}>
+      <div style={{ display: active === "print" && only !== "ebook" ? "block" : "none" }}>
         {combined && printTab.mode === "edit" ? (
           <>
             <div className="form-section" style={{ background: "var(--cream)" }}>

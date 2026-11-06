@@ -23,8 +23,8 @@ type Format = "ebook" | "print";
  * "Autofill from eBook" button copies them (and the cover and file) on request. */
 export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: boolean; print: boolean; audiobook: boolean } }) {
   const ALL_FORMATS: { key: Format; label: string }[] = [
-    { key: "ebook", label: "eBook and Audiobook" },
-    { key: "print", label: "Print" },
+    { key: "ebook", label: "Publish eBook/Audiobook" },
+    { key: "print", label: "Publish Print Book" },
   ];
   const visibleFormats = ALL_FORMATS.filter((f) => enabledFormats[f.key]);
   const [activeFormat, setActiveFormat] = useState<Format>(visibleFormats[0]?.key ?? "ebook");
@@ -60,8 +60,8 @@ export function NewBookFormTabs({ enabledFormats }: { enabledFormats: { ebook: b
         </div>
         <p style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>
           {activeFormat === "print"
-            ? "A dedicated workflow for printed books, fulfilled through our print-on-demand partner. Use the Autofill from eBook button on this tab to copy what you entered on the eBook and Audiobook tab, including the cover and file."
-            : "Publish an eBook with an optional audiobook edition right on this tab. Publishing a printed book? The Print tab opens our dedicated print publishing workflow, including cover wrap preview and print-on-demand fulfillment."}
+            ? "A dedicated workflow for printed books, fulfilled through our print-on-demand partner. Use the Autofill from eBook button on this tab to copy the details and cover you entered on the Publish eBook/Audiobook tab. The eBook file is not copied: upload your print-ready PDF here."
+            : "Publish an eBook with an optional audiobook edition right on this tab. Publishing a printed book? The Publish Print Book tab opens our dedicated print publishing workflow, including cover wrap preview and print-on-demand fulfillment."}
         </p>
       </div>
 

@@ -14,7 +14,7 @@ export interface PublishNotice { kind: "ok" | "error"; text: string }
 /**
  * The live publishing checklist and the action buttons, shared by the eBook / Audiobook tab and the Print tab.
  * The checklist is built from the same rules that decide whether a book can be published (each form passes its
- * own list), so what is shown here and what is enforced never disagree. Save Changes sits on the left and
+ * own list), so what is shown here and what is enforced never disagree. Save Draft (Save Changes once the book is published) sits on the left, then Publish, and
  * Delete Book (passed in as `extraActions`) at the far right of the row, with a gap between them. Messages
  * appear right below the buttons.
  */
@@ -56,7 +56,7 @@ export function PublishPanel({
       <div className="publish-row">
         <div className="publish-row-main">
           <button type="button" className="btn btn-ghost btn-small" disabled={working} onClick={onSave}>
-            {busy === "saving" ? "Saving…" : "Save Changes"}
+            {busy === "saving" ? "Saving…" : showPublish ? "Save Draft" : "Save Changes"}
           </button>
           {showPublish && (
             <button type="button" className="btn btn-primary btn-small" disabled={working} onClick={onPublish}>

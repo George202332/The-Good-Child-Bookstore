@@ -44,7 +44,26 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
   });
   if (!book) notFound();
 
-  const manuscript = (book.files as { kind: string; url: string }[]).find((f) => f.kind === "MANUSCRIPT");
+  // The other edition of the same title (eBook/Audiobook vs Print Book) is reviewed on this same page, in its own section,
+  // each with its own preview and its own decision. They stay separate records.
+  type Row = typeof book;
+  const isPrintOnly = (b: { hasPrint: boolean; hasEbook: boolean; hasAudiobook: boolean }) => b.hasPrint && !b.hasEbook && !b.hasAudiobook;
+  const isCombinedRow = book.hasPrint && (book.hasEbook || book.hasAudiobook);
+  let sibling: Row | null = null;
+  if (!isCombinedRow) {
+    const candidates = await prisma.book.findMany({
+      where: { authorId: book.authorId, id: { not: book.id }, deletedByAuthorAt: null, title: { equals: book.title, mode: "insensitive" } },
+      include: { author: { include: { user: true } }, categories: { include: { category: true } }, genres: { include: { genre: true } }, files: true },
+      orderBy: { createdAt: "desc" },
+    });
+    sibling = candidates.find((c) => !(c.hasPrint && (c.hasEbook || c.hasAudiobook)) && isPrintOnly(c) !== isPrintOnly(book)) ?? null;
+  }
+  const digitalRow: Row | null = isPrintOnly(book) ? sibling : book;
+  const printRow: Row | null = isPrintOnly(book) ? book : sibling;
+  const sections: { kind: "digital" | "print"; row: Row }[] = [];
+  if (digitalRow) sections.push({ kind: "digital", row: digitalRow });
+  if (printRow && printRow.id !== digitalRow?.id) sections.push({ kind: "print", row: printRow });
+  const fileOf = (r: Row, kind: string) => (r.files as { kind: string; url: string }[]).find((f) => f.kind === kind);
   // Same submission-time-name → pen name → real name priority order used
   // everywhere else a book's author name is shown (see
   // lib/book-author-name.ts) — an admin reviewing a submission should
@@ -76,22 +95,66 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
         </div>
       </div>
 
-      {/* Top row: 2-page preview (left) — decision (right) */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 20, marginBottom: 24, alignItems: "start" }}>
-        <div className="map-card" style={{ padding: 20 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 4, textAlign: "center" }}>Manuscript Preview</h3>
-          <p className="field-hint" style={{ margin: "0 0 12px", textAlign: "center" }}>
-            Read-only — this opens the manuscript for review here, it doesn&apos;t offer a download.
-          </p>
-          {manuscript ? (
-            <ManuscriptReviewViewer url={manuscript.url} title={book.title} spread />
-          ) : (
-            <p style={{ fontSize: 13, color: "var(--admin-text-faint)", textAlign: "center" }}>No manuscript file uploaded.</p>
-          )}
-        </div>
-
-        <ReviewActions bookId={book.id} canRatify={canRatifyModeration(role)} pendingAction={book.pendingAction} pendingActionBy={book.pendingActionBy} />
-      </div>
+      {/* One section per edition: its own previews and its own decision */}
+      {sections.map(({ kind, row }) => {
+        const manuscript = fileOf(row, "MANUSCRIPT");
+        const audiobook = fileOf(row, "AUDIOBOOK");
+        const meta = (row.submissionMetadata as Record<string, unknown> | null) ?? {};
+        const preflight = meta.printPreflight as { status?: string } | undefined;
+        const title = kind === "print" ? "Print Book" : "eBook / Audiobook";
+        const waiting = row.status === "PENDING_REVIEW" || row.pendingRevisionData != null;
+        return (
+          <section key={row.id} id={`edition-${kind}`} style={{ marginBottom: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+              <h3 style={{ fontSize: 17 }}>{title}</h3>
+              <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 999, background: "var(--admin-panel)", border: "1px solid var(--admin-border, #2A3244)" }}>
+                {STATUS_LABEL[row.status] ?? row.status}
+              </span>
+              {waiting && <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 999, background: "#F5D98F", color: "#6B4503" }}>Needs review</span>}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 260px", gap: 20, alignItems: "start" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <div className="map-card" style={{ padding: 20 }}>
+                  <h3 style={{ fontSize: 15, marginBottom: 4, textAlign: "center" }}>{kind === "print" ? "Print Interior Preview" : "Manuscript Preview"}</h3>
+                  <p className="field-hint" style={{ margin: "0 0 12px", textAlign: "center" }}>
+                    {kind === "print"
+                      ? "Print books are PDF only. Read-only, no download."
+                      : "Opens PDF, EPUB or MOBI files for review here. Read-only, no download."}
+                  </p>
+                  {manuscript ? (
+                    <ManuscriptReviewViewer url={manuscript.url} title={row.title} spread />
+                  ) : (
+                    <p style={{ fontSize: 13, color: "var(--admin-text-faint)", textAlign: "center" }}>{kind === "print" ? "No print interior PDF uploaded." : "No manuscript file uploaded."}</p>
+                  )}
+                </div>
+                {kind === "digital" && (
+                  <div className="map-card" style={{ padding: 20 }}>
+                    <h3 style={{ fontSize: 15, marginBottom: 4 }}>Audiobook</h3>
+                    {audiobook ? (
+                      <audio controls controlsList="nodownload" preload="none" src={audiobook.url} style={{ width: "100%" }} />
+                    ) : (
+                      <p className="field-hint" style={{ margin: 0 }}>No audiobook file was uploaded for this book.</p>
+                    )}
+                  </div>
+                )}
+                {kind === "print" && (
+                  <div className="map-card" style={{ padding: 20, fontSize: 13.5 }}>
+                    <h3 style={{ fontSize: 15, marginBottom: 10 }}>Print Details</h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <div><strong>Paperback</strong><div style={{ color: "var(--admin-text-faint)" }}>{meta.paperbackEnabled ? `$${Number(meta.paperbackRetailPrice ?? 0).toFixed(2)}` : "Not offered"}</div></div>
+                      <div><strong>Hardcover</strong><div style={{ color: "var(--admin-text-faint)" }}>{meta.hardcoverEnabled ? `$${Number(meta.hardcoverRetailPrice ?? 0).toFixed(2)}` : "Not offered"}</div></div>
+                      <div><strong>ISBN</strong><div style={{ color: "var(--admin-text-faint)" }}>{String(meta.printIsbn ?? row.isbn ?? "") || "—"}</div></div>
+                      <div><strong>Pages</strong><div style={{ color: "var(--admin-text-faint)" }}>{meta.pages ? String(meta.pages) : "—"}</div></div>
+                      <div><strong>Print file check</strong><div style={{ color: "var(--admin-text-faint)" }}>{preflight?.status === "PASSED" ? "Passed" : preflight?.status ? preflight.status : "Not recorded"}</div></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <ReviewActions bookId={row.id} canRatify={canRatifyModeration(role)} pendingAction={row.pendingAction} pendingActionBy={row.pendingActionBy} status={row.status} />
+            </div>
+          </section>
+        );
+      })}
 
       {/* Beneath: cover + every other submission detail */}
       <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 24, alignItems: "start" }}>
@@ -125,13 +188,14 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
             </p>
           </div>
 
-          {(() => {
-            const pending = book.pendingRevisionData as unknown as { kind?: string; manuscriptFileId?: string; coverImageUrl?: string; input?: { title?: string; description?: string; price?: number } } | null;
+          {sections.map(({ row }) => {
+            const pending = row.pendingRevisionData as unknown as { kind?: string; manuscriptFileId?: string; coverImageUrl?: string; input?: { title?: string; description?: string; price?: number } } | null;
             if (!pending) return null;
             if (pending.kind === "files") {
               return (
                 <RevisionReviewCard
-                  bookId={book.id}
+                  key={row.id}
+                  bookId={row.id}
                   files={{ manuscriptUrl: pending.manuscriptFileId ? `/api/files/${pending.manuscriptFileId}` : undefined, coverUrl: pending.coverImageUrl }}
                 />
               );
@@ -139,7 +203,8 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
             if (!pending.input) return null;
             return (
               <RevisionReviewCard
-                bookId={book.id}
+                key={row.id}
+                bookId={row.id}
                 revision={{
                   title: pending.input.title ?? "",
                   description: pending.input.description ?? "",
@@ -147,7 +212,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
                 }}
               />
             );
-          })()}
+          })}
 
           {book.revisionNotes && (
             <div className="map-card" style={{ padding: 20, background: "#F5D98F" }}>

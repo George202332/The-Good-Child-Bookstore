@@ -407,7 +407,7 @@ export function EbookSubmissionForm({
       }
       if (outcome === "live") router.push("/account/books?saved=live");
       else if (outcome === "live_files_pending") router.push(`/account/books?saved=files-review-${held ?? "manuscript"}`);
-      else router.push("/account/books?saved=review");
+      else router.push("/account/books/published?kind=ebook");
     } catch {
       setNotice({ kind: "error", text: "Something went wrong and the action did not finish. Nothing was lost, so you can try again." });
     } finally {

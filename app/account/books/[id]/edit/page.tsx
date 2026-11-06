@@ -16,8 +16,10 @@ import { buildEbookInitial, buildPrintInitial, classify, sharedPrefill, type Boo
  * a replaced manuscript or cover goes to review. A format the title does
  * not have yet can be added from its tab.
  */
-export default async function EditBookPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditBookPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ edition?: string }> }) {
   const { id } = await params;
+  const editionParam = (await searchParams)?.edition;
+  const only: "ebook" | "print" | undefined = editionParam === "print" || editionParam === "ebook" ? editionParam : undefined;
   const session = await auth();
   if (!session?.user) redirect("/login");
   if (session.user.role !== "AUTHOR") redirect("/account");
@@ -93,7 +95,8 @@ export default async function EditBookPage({ params }: { params: Promise<{ id: s
         />
       ) : (
         <EditBookTabs
-          startOn={thisIsPrint ? "print" : "ebook"}
+          startOn={only ?? (thisIsPrint ? "print" : "ebook")}
+          only={only}
           enabledFormats={settings.publishingFormatsEnabled}
           ebookTab={ebookTab}
           printTab={printTab}

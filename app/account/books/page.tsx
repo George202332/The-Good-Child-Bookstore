@@ -1,5 +1,4 @@
 import { FlashNotice } from "@/components/FlashNotice";
-import { EndlessTbody } from "@/components/EndlessRows";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
@@ -13,6 +12,7 @@ import { bookAuthorDisplayName } from "@/lib/book-author-name";
 
 interface SaleLineShare {
   authorShare: unknown;
+  format?: string | null;
 }
 interface AuthorBook {
   hasEbook: boolean;
@@ -29,27 +29,23 @@ interface AuthorBook {
   pendingRevisionData?: unknown;
   saleLines: SaleLineShare[];
   categories: { category: { name: string } }[];
+  category: string | null;
 }
 
-const STATUS_PILL: Record<string, { label: string; className: string }> = {
-  REJECTED: { label: "Attention", className: "status-attention" },
-  PUBLISHED: { label: "Published", className: "status-published" },
-  PENDING_REVIEW: { label: "On Review", className: "status-on-review" },
-  DRAFT: { label: "Draft", className: "status-draft-purple" },
-  ARCHIVED: { label: "Suspended by you", className: "status-suspended" },
-  SUSPENDED: { label: "Suspended", className: "status-attention" },
-  WITHDRAWN: { label: "Withdrawn", className: "status-suspended" },
+const PAGE_SIZE = 15;
+
+/** The words shown under a format's figure for a book that is live: "Published". Anything else is "Unpublished" (the stage is shown small beneath). */
+const STAGE_LABEL: Record<string, string> = {
+  PENDING_REVIEW: "On Review", DRAFT: "Draft", REJECTED: "Attention", ARCHIVED: "Suspended by you", SUSPENDED: "Suspended", WITHDRAWN: "Withdrawn",
 };
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
 const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
 
 /**
- * "My Books" — a real table: status (color-coded tab matching where the
- * book actually is in the review pipeline), category, units sold across
- * every format, total royalties, and one action: Edit. One book is one row, even when
- * it has several formats; Edit opens it with an "eBook and Audiobook" tab and a "Print"
- * tab, each with its own Delete book button.
+ * "My Books": 15 books to a page. Columns: Title, Author, Category, Units Sold, Royalty, then one cell per format (eBook,
+ * Audiobook, Paperback, Hardcover) holding that format's copies sold with its status beneath ("Unpublished" when it is not live).
+ * One book is one row; hovering a row offers Edit eBook/Audiobook and Edit Print Book, each opening only that edition.
  */
 const SAVED_NOTICES: Record<string, string> = {
   review: "Your book was sent for review. We will publish it as soon as it is approved.",
@@ -59,8 +55,9 @@ const SAVED_NOTICES: Record<string, string> = {
   "files-review-both": "Your changes were saved. Your new manuscript and cover are under review and will go live once approved.",
 };
 
-export default async function MyBooksPage({ searchParams }: { searchParams?: Promise<{ saved?: string }> }) {
-  const savedKey = (await searchParams)?.saved;
+export default async function MyBooksPage({ searchParams }: { searchParams?: Promise<{ saved?: string; page?: string }> }) {
+  const sp = (await searchParams) ?? {};
+  const savedKey = sp.saved;
   const savedNotice = savedKey ? SAVED_NOTICES[savedKey] : undefined;
   const session = await auth();
   if (!session?.user) redirect("/login");
@@ -76,6 +73,9 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
   const authorPenName = user?.authorProfile?.penName ?? null;
   const accountName = user?.name ?? "";
   const groups = groupEditions(records.map((r) => ({ ...r, authorId: r.authorId ?? "me" })));
+  const totalPages = Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
+  const page = Math.min(totalPages, Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1));
+  const pageGroups = groups.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
@@ -94,34 +94,54 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
           You haven&apos;t published any books yet — submit your first title above.
         </div>
       ) : (
-        <div className="map-card" style={{ padding: 0 }}>
+        <>
+        <style>{`
+          .mybooks-row .row-edit{position:absolute;left:16px;bottom:4px;display:none;gap:6px;flex-wrap:wrap;z-index:2}
+          .mybooks-row:hover .row-edit,.mybooks-row:focus-within .row-edit{display:flex}
+          @media (hover:none){.mybooks-row .row-edit{display:flex;position:static;margin-top:6px}}
+          .mybooks-row:hover{background:var(--cream)}
+        `}</style>
+        <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
               <tr>
-                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title. One book is one row, even when it has several formats." /></th>
+                <th style={TABLE_HEAD_STYLE}>Title<ColHelp text="The book's title. One book is one row, even when it has several formats. Hover over a row to edit its eBook / Audiobook or its Print Book." /></th>
                 <th style={TABLE_HEAD_STYLE}>Author<ColHelp text="The author name entered on this book. It can differ from your account name." /></th>
-                <th style={TABLE_HEAD_STYLE}>Status<ColHelp text="Attention: sent back for revision. Published: live in the store. On Review: awaiting moderation. Draft: not yet submitted. Suspended: pulled off the shelf." /></th>
-                <th style={TABLE_HEAD_STYLE}>Category<ColHelp text="The book's primary category." /></th>
-                <th style={TABLE_HEAD_STYLE}>Units Sold<ColHelp text="Total copies sold across every format (eBook, print, audiobook) combined." /></th>
-                <th style={TABLE_HEAD_STYLE}>Royalties<ColHelp text="Your total lifetime earnings from this book's sales." /></th>
-                <th style={TABLE_HEAD_STYLE}>Edit<ColHelp text="Opens the book. The eBook and Audiobook tab and the Print tab each show that edition's details, price, files and status, and each has its own Delete book button." /></th>
+                <th style={TABLE_HEAD_STYLE}>Category<ColHelp text="The book's category." /></th>
+                <th style={TABLE_HEAD_STYLE}>Units Sold<ColHelp text="Total copies sold across every format combined." /></th>
+                <th style={TABLE_HEAD_STYLE}>Royalty<ColHelp text="Your total lifetime earnings from this book's sales." /></th>
+                <th style={TABLE_HEAD_STYLE}>eBook<ColHelp text="Copies sold of the eBook. Unpublished means it is not live in the store." /></th>
+                <th style={TABLE_HEAD_STYLE}>Audiobook<ColHelp text="Copies sold of the audiobook. Unpublished means it is not live in the store." /></th>
+                <th style={TABLE_HEAD_STYLE}>Paperback<ColHelp text="Copies sold of the paperback. Unpublished means it is not live in the store." /></th>
+                <th style={TABLE_HEAD_STYLE}>Hardcover<ColHelp text="Copies sold of the hardcover. Unpublished means it is not live in the store." /></th>
               </tr>
             </thead>
             <tbody>
-              <EndlessTbody colSpan={7} rows={groups.map((group) => {
+              {pageGroups.map((group) => {
                 const b = group[0];
                 const units = group.reduce((n, r) => n + r.saleLines.length, 0);
                 const royalties = group.reduce((sum, r) => sum + r.saleLines.reduce((s2, l) => s2 + Number(l.authorShare), 0), 0);
-                const statuses = [...new Set(group.map((r) => r.status))];
                 const authorName = bookAuthorDisplayName({ submissionMetadata: b.submissionMetadata, author: { penName: authorPenName, user: { name: accountName } } });
                 const cover = group.map((r) => r.coverImageUrl).find(Boolean);
-                const labelOf = (r: AuthorBook) => [r.hasEbook && "eBook", r.hasAudiobook && "Audiobook", r.hasPrint && "Print"].filter(Boolean).join(" + ");
-                // One status per book: Published as soon as one edition is, with the live editions named.
-                const anyPublished = group.some((r) => r.status === "PUBLISHED");
-                const liveLabel = [...new Set(group.filter((r) => r.status === "PUBLISHED").flatMap((r) => [r.hasEbook && "eBook", r.hasAudiobook && "Audiobook", r.hasPrint && "Print"].filter(Boolean) as string[]))].join(", ");
+                const category = group.map((r) => r.category).find(Boolean) ?? group.map((r) => r.categories[0]?.category.name).find(Boolean) ?? "—";
+                const digitalRow = group.find((r) => r.hasEbook || r.hasAudiobook);
+                const printRow = group.find((r) => r.hasPrint);
+                // One cell per format: the copies sold of that format, with where the format stands beneath.
+                const soldOf = (fmt: string) => group.reduce((n, r) => n + r.saleLines.filter((l) => String(l.format ?? "").toLowerCase() === fmt).length, 0);
+                const printOn = (key: "paperbackEnabled" | "hardcoverEnabled", r: AuthorBook | undefined) => {
+                  if (!r) return false;
+                  const flag = (r.submissionMetadata as Record<string, unknown> | null)?.[key];
+                  return flag === undefined ? true : !!flag;
+                };
+                const cells: { fmt: string; row: AuthorBook | undefined; offered: boolean }[] = [
+                  { fmt: "ebook", row: group.find((r) => r.hasEbook), offered: true },
+                  { fmt: "audiobook", row: group.find((r) => r.hasAudiobook), offered: true },
+                  { fmt: "paperback", row: printRow, offered: printOn("paperbackEnabled", printRow) },
+                  { fmt: "hardcover", row: printRow, offered: printOn("hardcoverEnabled", printRow) },
+                ];
                 return (
-                  <tr key={b.id}>
-                    <td style={TABLE_CELL_STYLE}>
+                  <tr key={b.id} className="mybooks-row" style={{ position: "relative" }}>
+                    <td style={{ ...TABLE_CELL_STYLE, position: "relative", paddingBottom: 30 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         {cover ? (
                           // eslint-disable-next-line @next/next/no-img-element -- author-uploaded cover served from our own file route
@@ -141,38 +161,49 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                           ))}
                         </div>
                       </div>
+                      <div className="row-edit">
+                        {digitalRow && <Link href={`/account/books/${digitalRow.id}/edit?edition=ebook`} className="btn btn-ghost btn-small">Edit eBook/Audiobook</Link>}
+                        {printRow && <Link href={`/account/books/${printRow.id}/edit?edition=print`} className="btn btn-ghost btn-small">Edit Print Book</Link>}
+                        {!digitalRow && printRow && <Link href={`/account/books/${printRow.id}/edit?edition=ebook`} className="btn btn-ghost btn-small">Add eBook/Audiobook</Link>}
+                        {!printRow && digitalRow && <Link href={`/account/books/${digitalRow.id}/edit?edition=print`} className="btn btn-ghost btn-small">Add Print Book</Link>}
+                      </div>
                     </td>
                     <td style={TABLE_CELL_STYLE}>{authorName}</td>
-                    <td style={TABLE_CELL_STYLE}>
-                      {anyPublished ? (
-                        <>
-                          <span className={`status-pill ${STATUS_PILL.PUBLISHED.className}`}>{STATUS_PILL.PUBLISHED.label}</span>
-                          <div style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 4 }}>Live: {liveLabel}</div>
-                        </>
-                      ) : statuses.length === 1 ? (
-                        (() => { const pill = STATUS_PILL[statuses[0]] ?? { label: statuses[0], className: "status-draft" }; return <span className={`status-pill ${pill.className}`}>{pill.label}</span>; })()
-                      ) : (
-                        group.map((r) => {
-                          const pill = STATUS_PILL[r.status] ?? { label: r.status, className: "status-draft" };
-                          return (
-                            <div key={r.id} style={{ marginBottom: 4 }}>
-                              <span className={`status-pill ${pill.className}`}>{pill.label}</span>
-                              <span style={{ fontSize: 11, color: "var(--ink-faint)", marginLeft: 6 }}>{labelOf(r)}</span>
-                            </div>
-                          );
-                        })
-                      )}
-                    </td>
-                    <td style={TABLE_CELL_STYLE}>{group.map((r) => r.categories[0]?.category.name).find(Boolean) ?? "—"}</td>
+                    <td style={TABLE_CELL_STYLE}>{category}</td>
                     <td style={TABLE_CELL_STYLE}>{units}</td>
                     <td style={TABLE_CELL_STYLE}>${royalties.toFixed(2)}</td>
-                    <td style={TABLE_CELL_STYLE}><Link href={`/account/books/${b.id}/edit`} className="btn btn-ghost btn-small">Edit</Link></td>
+                    {cells.map(({ fmt, row, offered }) => {
+                      const live = !!row && offered && row.status === "PUBLISHED";
+                      return (
+                        <td key={fmt} style={TABLE_CELL_STYLE}>
+                          {live ? (
+                            <>
+                              <div style={{ fontWeight: 700 }}>{soldOf(fmt)}</div>
+                              <div style={{ fontSize: 11, color: "#165236" }}>Published</div>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ color: "var(--ink-faint)" }}>Unpublished</div>
+                              {row && offered && STAGE_LABEL[row.status] && <div style={{ fontSize: 11, color: "var(--ink-faint)" }}>{STAGE_LABEL[row.status]}</div>}
+                            </>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 );
-              })} />
+              })}
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <nav aria-label="Pages of books" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 14, marginTop: 14 }}>
+            {page > 1 ? <Link href={`/account/books?page=${page - 1}`} className="btn btn-ghost btn-small" aria-label="Previous 15 books">←</Link> : <span className="btn btn-ghost btn-small" style={{ opacity: 0.35 }} aria-hidden>←</span>}
+            <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>Page {page} of {totalPages}</span>
+            {page < totalPages ? <Link href={`/account/books?page=${page + 1}`} className="btn btn-ghost btn-small" aria-label="Next 15 books">→</Link> : <span className="btn btn-ghost btn-small" style={{ opacity: 0.35 }} aria-hidden>→</span>}
+          </nav>
+        )}
+        </>
       )}
     </DashboardShell>
   );

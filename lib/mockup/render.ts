@@ -271,7 +271,7 @@ export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | n
   const built = await buildTextures(spec, dims, front, avg, bold, regular, wrap);
   const base = { dims, tex: built.tex };
   const placements = standardScene(base, base);
-  const sceneOpts = { width: OUT_W, height: OUT_H, margin: 0.025, backdrop: opts.backdrop === true, reflection: true, reserveBottom: 0.12 };
+  const sceneOpts = { width: OUT_W, height: OUT_H, margin: 0.025, backdrop: opts.backdrop === true, reflection: false, reserveBottom: 0 };
   // The mockups carry no ground shadows (the book sits cleanly on the page).
   const svg = composeScene(placements, { ...sceneOpts, defs: built.defs.join("\n"), shadows: false });
   return sharp(Buffer.from(svg), { density: 72 }).png().toBuffer();

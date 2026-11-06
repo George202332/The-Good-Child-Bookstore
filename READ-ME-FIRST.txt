@@ -1,21 +1,18 @@
-PRINT FIX 5 (replaces print fixes 1 to 4; includes all of them). No database change. Staging first.
+BATCH 6 (replaces print fix 5; includes it). No database change. Staging only.
 
-WHAT IS IN IT
-1. Print gate: an earlier passed check for the same two files is no longer cancelled by a later re-run; a refusal now ends with a line "Why: ..." naming the exact reason.
-2. Autofill from eBook: copies the details and the COVER only. The eBook file (the book itself) is never imported; the author uploads the print-ready PDF in Files.
-3. While the files are being checked the screen shows "We and Lulu are checking ..." with moving dots and a slim progress bar. "Needs fixing" / "Rejected" appears only once a real answer is in; a result for older files is never shown for new files.
-4. Mockup covers have no ground shadows. Existing mockups are redrawn without shadows the next time each book's mockup is opened.
-5. Lulu's "not a valid PDF" is reported as our side; staging bypass for Vercel's login wall (already applied; included here so nothing is missing).
+1. Copy the app, lib and tests folders from this zip into your bookstore folder (Replace).
+2. In PowerShell inside the bookstore folder:
+     git checkout staging
+     git add .
+     git commit -m "Batch 6: publish page, My Books table, separate editing, admin review sections, mockups without shadows"
+     git push origin staging
+3. Wait for staging to be Ready.
 
-STEPS (PowerShell, inside the bookstore folder)
- 1. Copy every folder in this zip (app, lib, tests) into your bookstore folder; choose Replace.
- 2. git checkout staging
-    git add .
-    git commit -m "Print fix: autofill cover only, checking progress, no mockup shadows, clearer refusal"
-    git push origin staging
- 3. Wait for staging to be Ready and test (checklist in my message).
- 4. To release to the live site afterwards:
-    git checkout main
-    git pull origin main
-    git merge staging
-    git push origin main
+STAGING TEST CHECKLIST
+ A. Submit a New Title: the two tabs read "Publish eBook/Audiobook" and "Publish Print Book". The buttons at the bottom: Save Draft, Publish (and Delete Book on a saved book).
+ B. Press Publish on a complete book: you land on a page "Your ... Was Successfully Published ... submitted for review for approval", then My Books after about 5 seconds (or press Go to My Books).
+ C. My Books: 15 books a page with arrows under the table; columns Title, Author, Category (the real category, not the genre), Units Sold, Royalty, eBook, Audiobook, Paperback, Hardcover. No Status or Edit column. Published formats show the number sold with "Published" beneath (0 if none); anything else says "Unpublished".
+ D. Hover a book row: "Edit eBook/Audiobook" and "Edit Print Book" appear. Each opens only that edition, with no other tab. Saving a print edit never touches the eBook, and the other way round.
+ E. Mockups (author preview and product page, after choosing Paperback or Hardcover): no shadow under the books and no reflection. Old product-page mockups redraw the next time they are opened.
+ F. Admin: open a book posted by an author in Book Management > review. There is a section "eBook / Audiobook" (manuscript preview in PDF/EPUB/MOBI plus an audiobook player) and a section "Print Book" (PDF preview and print details), each with its own Approve / Attention / Suspend / Withdraw. In Book Management a yellow banner and a "Needs review" tag mark books waiting.
+ G. Print: Autofill from eBook copies details and cover only, never the eBook file; checks show moving dots while running.

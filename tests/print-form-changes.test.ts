@@ -31,3 +31,54 @@ describe("mockup covers carry no ground shadows", () => {
     assert.ok(!svg.includes("softShadow)") && !svg.includes("contactShadow)") && !svg.includes("<image"));
   });
 });
+
+describe("author side changes (batch 6A)", () => {
+  const r = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  test("mockups: no ground shadow and no floor reflection", () => {
+    const m = r("lib/mockup/render.ts");
+    assert.match(m, /shadows: false/);
+    assert.match(m, /reflection: false/);
+  });
+  test("tabs and buttons are named as asked", () => {
+    const t = r("app/account/books/new/NewBookFormTabs.tsx");
+    assert.match(t, /Publish eBook\/Audiobook/);
+    assert.match(t, /Publish Print Book/);
+    assert.match(r("app/account/books/new/PublishPanel.tsx"), /"Save Draft"/);
+  });
+  test("publishing goes to the confirmation page first", () => {
+    assert.match(r("app/account/books/new/EbookSubmissionForm.tsx"), /books\/published\?kind=ebook/);
+    assert.match(r("app/account/books/new/PrintSubmissionForm.tsx"), /books\/published\?kind=print/);
+    assert.match(r("app/account/books/published/page.tsx"), /submitted for review for approval/);
+  });
+  test("My Books: 15 a page, the new columns, hover edit, no status or edit column", () => {
+    const p = r("app/account/books/page.tsx");
+    assert.match(p, /PAGE_SIZE = 15/);
+    for (const h of ["Title", "Author", "Category", "Units Sold", "Royalty", "eBook", "Audiobook", "Paperback", "Hardcover"]) assert.ok(p.includes(`>${h}<ColHelp`), h);
+    assert.ok(!p.includes(">Status<ColHelp") && !p.includes(">Edit<ColHelp"));
+    assert.match(p, /Edit eBook\/Audiobook/);
+    assert.match(p, /Edit Print Book/);
+    assert.match(p, /r\.category/);
+  });
+  test("editing one edition opens only that edition", () => {
+    assert.match(r("app/account/books/[id]/edit/page.tsx"), /editionParam === "print"/);
+    assert.match(r("app/account/books/[id]/edit/EditBookTabs.tsx"), /only !== "print"/);
+  });
+});
+
+describe("admin review (batch 6B)", () => {
+  const r = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  const page = r("app/admin/books/[id]/review/page.tsx");
+  test("the review page has a section per edition with its own preview and decision", () => {
+    assert.match(page, /"eBook \/ Audiobook"/);
+    assert.match(page, /"Print Book"/);
+    assert.match(page, /<audio controls/);
+    assert.match(page, /<ReviewActions bookId=\{row\.id\}/);
+    assert.match(page, /Print books are PDF only/);
+    assert.match(page, /PDF, EPUB or MOBI/);
+  });
+  test("Book Management shows an alert for books waiting for review", () => {
+    const m = r("app/admin/books/page.tsx");
+    assert.match(m, /waiting for review/);
+    assert.match(m, /Needs review:/);
+  });
+});

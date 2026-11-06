@@ -5,7 +5,6 @@ import { AdminShell } from "@/components/AdminShell";
 import { getBookStats, listBooksForModeration } from "@/actions/book-management";
 import { getSiteSettings } from "@/actions/site-settings";
 import { PublishingFormatToggles } from "./PublishingFormatToggles";
-import { DeleteBookButton } from "./DeleteBookButton";
 import { ColHelp } from "@/components/ColHelp";
 import { BookFormatTabs } from "@/components/BookFormatTabs";
 import { listPrintBookIssues } from "@/lib/print-book-issues";
@@ -63,6 +62,13 @@ export default async function BookManagementPage({
       </div>
 
       {role === "ADMIN" && <PublishingFormatToggles initial={siteSettings.publishingFormatsEnabled} />}
+
+      {stats.pendingReview > 0 && (
+        <Link href="/admin/books?status=PENDING_REVIEW" role="alert" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "12px 16px", borderRadius: 12, background: "#F5D98F", color: "#6B4503", fontWeight: 700, fontSize: 13.5, textDecoration: "none" }}>
+          <span aria-hidden="true" style={{ fontSize: 16 }}>!</span>
+          {stats.pendingReview} {stats.pendingReview === 1 ? "edition is" : "editions are"} waiting for review. Open the Under Review list.
+        </Link>
+      )}
 
       <div className="stat-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card">
@@ -124,7 +130,6 @@ export default async function BookManagementPage({
                 <th style={{ ...TH, textAlign: "center" }}>eBook<ColHelp text="A tick means the eBook has been posted (it is live on the shelf). A cross means it has not been posted, or the book has no eBook." /></th>
                 <th style={{ ...TH, textAlign: "center" }}>Audiobook<ColHelp text="A tick means the audiobook has been posted (it is live on the shelf). A cross means it has not been posted, or the book has no audiobook." /></th>
                 <th style={{ ...TH, textAlign: "center" }}>Print<ColHelp text="A tick means the print edition has been posted (it is live on the shelf). A cross means it has not been posted, or the book has no print edition." /></th>
-                <th style={TH}>Delete<ColHelp text="Permanently remove this book from the platform." /></th>
               </tr>
             </thead>
             <tbody>
@@ -134,6 +139,15 @@ export default async function BookManagementPage({
                   <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>{b.isbn || "—"}</td>
                   <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>
                     <Link href={`/admin/books/${b.id}/review`} title="Open this book's details" style={{ fontWeight: 700, color: "inherit", textDecoration: "underline", overflowWrap: "anywhere" }}>{b.title}</Link>
+                    {(() => {
+                      const waiting = b.editions.filter((e) => e.status === "PENDING_REVIEW" || e.hasPendingRevision);
+                      if (waiting.length === 0) return null;
+                      return (
+                        <div role="status" style={{ marginTop: 4, display: "inline-block", fontSize: 11.5, fontWeight: 700, padding: "2px 10px", borderRadius: 999, background: "#F5D98F", color: "#6B4503" }}>
+                          Needs review: {waiting.map((e) => (e.label.includes("Print") && !e.label.includes("eBook") && !e.label.includes("Audiobook") ? "Print Book" : "eBook/Audiobook")).join(" and ")}
+                        </div>
+                      );
+                    })()}
                     {b.editions.map((e) => {
                       const issue = (printIssues as Record<string, import("@/lib/print-book-issues").PrintBookIssue>)[e.id];
                       return issue ? (
@@ -169,13 +183,6 @@ export default async function BookManagementPage({
                   <FormatMark posted={b.posted.ebook} label="eBook" />
                   <FormatMark posted={b.posted.audiobook} label="Audiobook" />
                   <FormatMark posted={b.posted.print} label="Print" />
-                  <td style={{ padding: "10px 8px", borderBottom: "1px solid var(--line)" }}>
-                    {b.editions.map((e) => (
-                      <div key={e.id} style={{ marginBottom: 4 }}>
-                        <DeleteBookButton bookId={e.id} bookTitle={b.editions.length > 1 ? `${b.title} (${e.label})` : b.title} />
-                      </div>
-                    ))}
-                  </td>
                 </tr>
               ))}
             </tbody>
