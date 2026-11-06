@@ -20,6 +20,11 @@ export interface CheckRecord {
   reasons: string[];
 }
 
+/** A passed check for the same interior file and cover (the package list it ran with is kept). */
+export interface PassedRecord extends CheckRecord {
+  packageIds: string;
+}
+
 export const PREFLIGHT_NEEDED_MESSAGE =
   "This print edition has not passed the print file check yet. Open the Print tab, wait for the check under Files to finish, fix anything it lists, and then submit again.";
 
@@ -30,6 +35,12 @@ export function decidePreflightGate(opts: {
   keys: GateKeys;
   /** The latest server record for exactly these keys, if any. */
   latest: CheckRecord | null;
+  /**
+   * The newest PASSED check for this author, this interior file and this cover (an exact package match is preferred),
+   * whatever was checked after it. A later re-run that is still "checking", or that could not reach Lulu, must not
+   * cancel a pass the author already has for the same two files.
+   */
+  passed?: PassedRecord | null;
   /** The result already saved on the book, if any (an edit that did not change the files). */
   saved: SavedPreflight | null;
   requirePass: boolean;
@@ -45,6 +56,9 @@ export function decidePreflightGate(opts: {
     packageIds: opts.keys.packageIds,
     reasons: r.reasons,
   });
+
+  const passedFresh = opts.passed && opts.passed.status === "PASSED" && now.getTime() - opts.passed.createdAt.getTime() <= PREFLIGHT_VALIDITY_MS ? opts.passed : null;
+  if (passedFresh) return { ok: true, save: { ...toSaved(passedFresh, "PASSED"), packageIds: passedFresh.packageIds } };
 
   const fresh = opts.latest && now.getTime() - opts.latest.createdAt.getTime() <= PREFLIGHT_VALIDITY_MS ? opts.latest : null;
   if (fresh && fresh.status === "PASSED") return { ok: true, save: toSaved(fresh, "PASSED") };

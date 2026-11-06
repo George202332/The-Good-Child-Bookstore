@@ -1,0 +1,9 @@
+PRINT FIX ONLY (no Stage A). No database change. Staging only.
+
+1. Copy the "lib" and "tests" folders from here into your bookstore folder (Replace when asked).
+2. In PowerShell, inside the bookstore folder:
+     git checkout staging
+     git add .
+     git commit -m "Print fix: an earlier passed print check is not cancelled by a later re-run"
+     git push origin staging
+3. Wait for Ready on Vercel (staging), then test as in the report.

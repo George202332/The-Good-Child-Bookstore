@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { decidePreflightGate } from "@/lib/print-preflight-gate";
+import { decidePreflightGate, PREFLIGHT_VALIDITY_MS } from "@/lib/print-preflight-gate";
 import { packagesFor } from "@/lib/print-preflight-packages";
 import { coverKeyFor, packageKey, type SavedPreflight } from "@/lib/print-preflight-result";
 
@@ -62,7 +62,17 @@ export async function gatePrintEdition(opts: {
     ? { id: latestRow.id, status: latestRow.status, createdAt: latestRow.createdAt, reasons: reasonsOf(latestRow.siteIssues, latestRow.luluJobs) }
     : null;
 
-  const decision = decidePreflightGate({ keys, latest, saved: opts.existingMetadata?.printPreflight ?? null, requirePass: opts.requirePass });
+  // Any recent PASSED check for these two files counts, even if a later re-run of the check is still running or could not finish.
+  const since = new Date(Date.now() - PREFLIGHT_VALIDITY_MS);
+  const passedRows = await prisma.printPreflightCheck.findMany({
+    where: { userId: opts.userId, interiorFileId: keys.interiorFileId, coverKey: keys.coverKey, status: "PASSED", createdAt: { gte: since } },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+  const pick = passedRows.find((r) => r.packageIds === keys.packageIds) ?? passedRows[0];
+  const passed = pick ? { id: pick.id, status: pick.status, createdAt: pick.createdAt, packageIds: pick.packageIds, reasons: [] as string[] } : null;
+
+  const decision = decidePreflightGate({ keys, latest, passed, saved: opts.existingMetadata?.printPreflight ?? null, requirePass: opts.requirePass });
   if (!decision.ok) return { ok: false, error: decision.error };
   return { ok: true, saved: decision.save };
 }
