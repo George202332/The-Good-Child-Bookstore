@@ -1,10 +1,8 @@
 import { titleKey } from "@/lib/book-groups";
 
 /**
- * Affiliate eligibility belongs to each EDITION (the eBook and Audiobook record, and the Print
- * record), not to the title: each edition has its own Affiliate Eligible switch in its own tab, so
- * an eBook-only or print-only book works on its own. An affiliate link points at a book, and works
- * for whichever editions of that title are eligible.
+ * Every published book is available to affiliates, in every format. An affiliate link points at a book and
+ * earns on any edition of that title that is bought through it.
  */
 export interface EditionLike {
   authorId: string;
@@ -18,16 +16,11 @@ export function isPrintFormat(format: PurchasedFormat): boolean {
   return format === "paperback" || format === "hardcover";
 }
 
-/** Is the edition that sells this format switched on for affiliates? Print editions read their own switch
- * (affiliateEligiblePrint, which older saves also wrote as affiliateEnabled); eBook and audiobook read affiliateEnabled. */
-export function editionAffiliateEligible(book: EditionLike, format: PurchasedFormat): boolean {
-  const meta = (book.submissionMetadata ?? null) as { affiliateEnabled?: unknown; affiliateEligiblePrint?: unknown } | null;
-  if (!meta) return false;
-  if (isPrintFormat(format)) {
-    if (typeof meta.affiliateEligiblePrint === "boolean") return meta.affiliateEligiblePrint;
-    return meta.affiliateEnabled === true;
-  }
-  return meta.affiliateEnabled === true;
+/** Every published book, in every format, is available to affiliates. This used to be a per-edition switch; old stored values
+ * (affiliateEnabled, affiliateEligiblePrint) are ignored and left untouched. */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function editionAffiliateEligible(_book: EditionLike, _format: PurchasedFormat): boolean {
+  return true;
 }
 
 /** Two records are editions of the same title when they have the same author and the same title. */

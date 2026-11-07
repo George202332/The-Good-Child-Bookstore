@@ -16,7 +16,6 @@ export interface PreviewInput {
   title: string;
   author: string;
   description: string;
-  isbn?: string;
   frontCoverImageUrl?: string;
   trimCode: string;
   pages: number;
@@ -36,8 +35,7 @@ function toSpec(i: PreviewInput): MockupSpec {
     format: i.format === "hardcover" ? "hardcover" : "paperback",
     title: clip(i.title, 200) || "Your Book Title",
     author: clip(i.author, 120),
-    description: clip(i.description, 700),
-    isbn: clip(i.isbn, 20) || null,
+    description: clip(i.description, 2400),
     trimCode: /^\d{4}X\d{4}$/.test(i.trimCode) ? i.trimCode : "0600X0900",
     pages: Number.isFinite(i.pages) && i.pages > 0 && i.pages < 2000 ? Math.round(i.pages) : 32,
     paperCode: clip(i.paperCode, 12),

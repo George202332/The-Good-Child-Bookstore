@@ -49,6 +49,7 @@ export interface PrintPreflightInput {
   foilColor: string;
   title: string;
   authorName: string;
+  description?: string;
 }
 
 export interface PrintPreflightView {
@@ -173,7 +174,7 @@ export async function startPrintPreflight(input: PrintPreflightInput): Promise<P
     let coverFileId = input.customCoverFileId ?? null;
     if (!coverFileId) {
       const wrap = await storeGeneratedCoverWrap({
-        frontCoverImageUrl: input.frontCoverImageUrl!, title: input.title || "Untitled", authorName: input.authorName,
+        frontCoverImageUrl: input.frontCoverImageUrl!, title: input.title || "Untitled", authorName: input.authorName, description: input.description,
         podPackageId: p.packageId, pageCount: pageCount ?? 0, trimCode: input.trimCode,
       });
       if (!wrap.ok) {

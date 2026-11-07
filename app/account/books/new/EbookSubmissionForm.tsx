@@ -14,7 +14,6 @@ import { PublisherField } from "./PublisherField";
 import { AiDeclarationField } from "@/components/AiDeclarationField";
 import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
 import { ChoiceChips } from "@/components/ChoiceChips";
-import { AffiliateCopyOffer } from "@/components/AffiliateCopyOffer";
 import { AgeGroupField } from "./AgeGroupField";
 import { ageGroupProblem } from "@/lib/age-groups";
 import { isRealIsbn } from "@/lib/identifiers";
@@ -83,7 +82,6 @@ export interface EbookSubmissionInitial {
   keywords?: string[];
   price?: string;
   taxSetting?: string;
-  affiliateEnabled?: boolean;
   worldwideRights?: boolean;
   /** ISO-2 codes where this book may NOT be sold. */
   restrictedCountries?: string[];
@@ -110,7 +108,6 @@ export function EbookSubmissionForm({
   initial,
   audiobookEnabled = true,
   onSharedFieldsChange,
-  affiliateOffer,
   extraActions,
   aiShared,
 }: {
@@ -129,8 +126,6 @@ export function EbookSubmissionForm({
    * change, so the Print tab can be pre-filled with them — see
    * SharedSubmissionFields in ./shared.tsx. */
   onSharedFieldsChange?: (fields: SharedSubmissionFields) => void;
-  /** When this edition is added to a title that already has another edition: that edition's Affiliate Eligible setting, offered (never forced). */
-  affiliateOffer?: { from: string; value: boolean };
 } = {}) {
   const router = useRouter();
 
@@ -221,7 +216,6 @@ export function EbookSubmissionForm({
   // "Sell on store" is no longer a choice (every book is sold on the
   // store) and featured placement isn't available yet — both are fixed
   // server side (sellOnStore: true, featuredRequest: false).
-  const [affiliateEnabled, setAffiliateEnabled] = useState(initial?.affiliateEnabled ?? false);
 
   // Rights
   const [worldwideRights, setWorldwideRights] = useState(initial?.worldwideRights ?? true);
@@ -270,14 +264,13 @@ export function EbookSubmissionForm({
       descriptionHtml,
       aiDeclaration,
       publisher,
-      affiliateEligible: affiliateEnabled,
       coverImageUrl,
       manuscriptFileId,
       manuscriptFileName,
       manuscriptMimeType: manuscriptMime,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onSharedFieldsChange is expected to be a stable callback from the parent; including it would re-run this on every parent render for no reason.
-  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, descriptionHtml, aiDeclaration, publisher, affiliateEnabled, coverImageUrl, manuscriptFileId, manuscriptFileName, manuscriptMime]);
+  }, [title, subtitle, edition, seriesName, language, publicationDate, category, genre, subcategory, ageGroup, readingLevel, authorFirstName, authorLastName, descriptionHtml, descriptionHtml, aiDeclaration, publisher, coverImageUrl, manuscriptFileId, manuscriptFileName, manuscriptMime]);
 
   const [metadataCheck, setMetadataCheck] = useState<MetadataCheckResult>({ titleFound: true, authorFound: true, checked: false });
   useEffect(() => {
@@ -377,7 +370,6 @@ export function EbookSubmissionForm({
         licenseType,
         sellOnStore: true,
         featuredRequest: false,
-        affiliateEnabled,
         seoTitle,
         seoDescription,
         keywords: keywords.join(", "),
@@ -715,16 +707,7 @@ export function EbookSubmissionForm({
           <span>Request Featured Placement</span>
           <span className="field-hint" style={{ margin: "0 0 0 8px" }}>(This feature is not yet available. You will be notified when it becomes available.)</span>
         </div>
-        <div className="toggle-row">
-          <label className="toggle-switch"><input type="checkbox" checked={affiliateEnabled} onChange={(e) => setAffiliateEnabled(e.target.checked)} /><span className="toggle-slider" /></label>
-          <span>Affiliate Eligible</span>
-        </div>
-        {!initial && affiliateOffer && <AffiliateCopyOffer from={affiliateOffer.from} value={affiliateOffer.value} current={affiliateEnabled} onCopy={setAffiliateEnabled} />}
-        {affiliateEnabled && (
-          <p className="field-hint" style={{ marginTop: 4 }}>
-            Affiliates who sell this book will automatically earn 10% of the list price.
-          </p>
-        )}
+        <p className="field-hint" style={{ marginTop: 4 }}>All published books are available to affiliates.</p>
       </Card>
 
       {/* Section 8 — Rights */}

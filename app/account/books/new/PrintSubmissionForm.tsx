@@ -17,16 +17,13 @@ import { coverKeyFor, packageKey, type SavedPreflight } from "@/lib/print-prefli
 import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { ChoiceChips } from "@/components/ChoiceChips";
-import { AffiliateCopyOffer } from "@/components/AffiliateCopyOffer";
 import { ButtonGroup } from "@/components/ButtonGroup";
 import { CoverWrapPreview } from "@/components/CoverWrapPreview";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
-import { Ean13Barcode } from "@/components/Ean13Barcode";
 import { LULU_CONFIG, buildPodPackageId, labelForCode } from "@/lib/lulu-config";
 import { computePrintPricing, computePrintPricingFromCost } from "@/lib/lulu-pricing";
 import { analyzePrintInterior, fixPrintFonts, quotePrintCost, type FixFontsResult, type PrintCostItem, type PrintSpecReport } from "@/actions/print-specs";
-import { checkPriceFloor } from "@/lib/print-specs";
-import { isbn13Of, isbnProblem } from "@/lib/identifiers";
+import { checkPriceFloor, minimumRetailPrice, MIN_COMPANY_SHARE } from "@/lib/print-specs";
 import { PrintSpecsPanel } from "./PrintSpecsPanel";
 import { AiDeclarationField } from "@/components/AiDeclarationField";
 import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
@@ -93,8 +90,6 @@ export interface PrintSubmissionInitial {
   hardcoverRetailPrice?: string;
   luluGlobalDistribution?: boolean;
   privatePrinting?: boolean;
-  affiliateEligiblePrint?: boolean;
-  promotionalCampaignEligible?: boolean;
 }
 
 
@@ -142,7 +137,8 @@ export function PrintSubmissionForm({
   const [seriesName, setSeriesName] = useState(initial?.seriesName ?? prefill?.seriesName ?? "");
   const [edition, setEdition] = useState(initial?.edition ?? prefill?.edition ?? "");
   // The author's own ISBN for the print edition (optional). Nothing is requested from Lulu: its Print API has no ISBN call.
-  const [printIsbn, setPrintIsbn] = useState(initial?.printIsbn ?? "");
+  // An ISBN is no longer asked for or needed. One already saved with an older book is carried along untouched.
+  const printIsbn = initial?.printIsbn ?? "";
   const [language, setLanguage] = useState(initial?.language || prefill?.language || LANGUAGES[0]);
   const [publisher, setPublisher] = useState(initial?.publisher ?? "");
   const [publicationDate, setPublicationDate] = useState(initial?.publicationDate ?? prefill?.publicationDate ?? "");
@@ -219,8 +215,6 @@ export function PrintSubmissionForm({
   // longer a choice here (metadata always stores true for both flags).
   const [luluGlobalDistribution, setLuluGlobalDistribution] = useState(initial?.luluGlobalDistribution ?? true);
   const [privatePrinting, setPrivatePrinting] = useState(initial?.privatePrinting ?? false);
-  const [affiliateEligiblePrint, setAffiliateEligiblePrint] = useState(initial?.affiliateEligiblePrint ?? false);
-  const [promotionalCampaignEligible, setPromotionalCampaignEligible] = useState(initial?.promotionalCampaignEligible ?? false);
 
   const [busy, setBusy] = useState<"idle" | "saving" | "publishing">("idle");
   const [notice, setNotice] = useState<PublishNotice | null>(null);
@@ -339,7 +333,7 @@ export function PrintSubmissionForm({
       frontCoverImageUrl: frontCoverImageUrl || undefined,
       customCoverFileId: backCoverMode === "custom" ? customBackCoverPdfFileId : undefined,
       trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor,
-      title, authorName: `${authorFirstName} ${authorLastName}`.trim(),
+      title, authorName: `${authorFirstName} ${authorLastName}`.trim(), description,
     }).catch(() => ({ ok: false, error: "The check could not be started. Please try again." }) as PrintPreflightView);
     setPreflight(res);
     setPreflightFor(currentKeys);
@@ -349,7 +343,7 @@ export function PrintSubmissionForm({
       autoRetries.current += 1;
       setTimeout(() => { checkedKeys.current = ""; setRetryTick((n) => n + 1); }, 8000);
     } else if (res.status === "PASSED" || res.status === "FAILED") autoRetries.current = 0;
-  }, [printReadyPdfFileId, packages, frontCoverImageUrl, backCoverMode, customBackCoverPdfFileId, currentKeys, trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor, title, authorFirstName, authorLastName]);
+  }, [printReadyPdfFileId, packages, frontCoverImageUrl, backCoverMode, customBackCoverPdfFileId, currentKeys, trimCode, paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor, title, description, authorFirstName, authorLastName]);
 
   useEffect(() => {
     if (!printReadyPdfFileId || checkedKeys.current === currentKeys) return;
@@ -463,8 +457,6 @@ export function PrintSubmissionForm({
     return () => { cancelled = true; clearTimeout(t); };
   }, [pagesNum, trimCode, specSettings, paperbackEnabled, hardcoverEnabled]);
 
-  const isbnError = isbnProblem(printIsbn);
-  const barcodeIsbn = isbn13Of(printIsbn);
   const foilCharsUsed = foilStampTitleText.length + foilStampAuthorText.length;
 
   const paperbackPodId = buildPodPackageId({
@@ -482,17 +474,20 @@ export function PrintSubmissionForm({
   const hardcoverPricing = hcItem && hcItem.cost !== null ? computePrintPricingFromCost(hcRetail, hcItem.cost) : computePrintPricing(hcRetail, "LW", pagesNum || undefined);
   const costLabel = (item: PrintCostItem | undefined) =>
     item?.source === "lulu" ? "Lulu's quote for your file's specs" : item?.source === "refused" ? "Lulu does not offer these settings" : pagesNum ? "Estimate: Lulu could not be asked" : "Estimate: upload your interior PDF to get Lulu's quote";
-  // The price must cover Lulu's printing cost and leave the author a positive royalty. Publishing is blocked until it does.
+  // The company must keep at least $3.00 (Paperback) or $2.00 (Hardcover) per copy. Publishing is blocked until the price allows it.
   const priceProblems: string[] = [];
+  const refusals: string[] = [];
   if (paperbackEnabled) {
-    if (pbItem?.source === "refused") priceProblems.push(`Paperback: ${pbItem.message}`);
-    else { const r = checkPriceFloor(pbRetail, paperbackPricing.printingCost, "Paperback"); if (!r.ok && r.message) priceProblems.push(r.message); }
+    if (pbItem?.source === "refused") { priceProblems.push(`Paperback: ${pbItem.message}`); refusals.push(`Paperback: ${pbItem.message}`); }
+    else { const r = checkPriceFloor(pbRetail, paperbackPricing.printingCost, "paperback"); if (!r.ok && r.message) priceProblems.push(r.message); }
   }
   if (hardcoverEnabled) {
-    if (hcItem?.source === "refused") priceProblems.push(`Hardcover: ${hcItem.message}`);
-    else { const r = checkPriceFloor(hcRetail, hardcoverPricing.printingCost, "Hardcover"); if (!r.ok && r.message) priceProblems.push(r.message); }
+    if (hcItem?.source === "refused") { priceProblems.push(`Hardcover: ${hcItem.message}`); refusals.push(`Hardcover: ${hcItem.message}`); }
+    else { const r = checkPriceFloor(hcRetail, hardcoverPricing.printingCost, "hardcover"); if (!r.ok && r.message) priceProblems.push(r.message); }
   }
   const priceBlocked = priceProblems.length > 0 || costBusy;
+  const pbMin = paperbackEnabled && pbItem?.source !== "refused" ? minimumRetailPrice(paperbackPricing.printingCost, "paperback") : null;
+  const hcMin = hardcoverEnabled && hcItem?.source !== "refused" ? minimumRetailPrice(hardcoverPricing.printingCost, "hardcover") : null;
 
   // The publishing checklist is the list of rules that really decide whether this print book can be published today.
   const checklist: ChecklistItem[] = [
@@ -502,9 +497,8 @@ export function PrintSubmissionForm({
     { label: "Book description", ok: !!description.trim(), section: "info" },
     { label: "Category, Subcategory and Genre selected", ok: !!category && !!subcategory && !!genre, section: "info" },
     { label: "Age groups are consecutive", ok: !!ageGroup && !ageGroupProblem(ageGroup), section: "info" },
-    ...(isbnError ? [{ label: "ISBN is valid (or leave it empty)", ok: false, section: "info" }] : []),
     { label: "AI use declared (tick one box)", ok: !!aiChoiceOf(aiDeclaration), section: "info" },
-    { label: "Price covers Lulu's printing cost and leaves a royalty", ok: !priceBlocked && (paperbackEnabled || hardcoverEnabled), section: "pricing" },
+    { label: "Price meets the company minimum ($3.00 per Paperback copy, $2.00 per Hardcover copy)", ok: !priceBlocked && (paperbackEnabled || hardcoverEnabled), section: "pricing" },
   ];
   const flag = (section: string) => showMissing && checklist.some((c) => !c.ok && c.section === section);
 
@@ -556,10 +550,8 @@ export function PrintSubmissionForm({
         worldwideRights: true,
         licenseType: "All rights reserved",
         sellOnStore: true,
-        includeInPromotions: promotionalCampaignEligible,
         featuredRequest: false,
         allowBundles: true,
-        affiliateEnabled: affiliateEligiblePrint,
         paperbackEnabled,
         hardcoverEnabled,
         paperbackRetailPrice: Number(paperbackRetailPrice) || 0,
@@ -575,8 +567,6 @@ export function PrintSubmissionForm({
         sellThroughWebsite: true,
         luluGlobalDistribution,
         privatePrinting,
-        affiliateEligiblePrint,
-        promotionalCampaignEligible,
         interiorColor,
         printQuality,
         binding: paperbackEnabled ? paperbackBinding : "LW",
@@ -754,7 +744,6 @@ export function PrintSubmissionForm({
             authorFirstName={authorFirstName}
             authorLastName={authorLastName}
             description={description}
-            isbn={barcodeIsbn}
             trimCode={trimCode}
             paperCode={paperType}
             coverImageUrl={frontCoverImageUrl}
@@ -777,7 +766,6 @@ export function PrintSubmissionForm({
             title,
             author: `${authorFirstName} ${authorLastName}`.trim(),
             description,
-            isbn: barcodeIsbn,
             frontCoverImageUrl,
             customCoverFileId: backCoverMode === "custom" ? customBackCoverPdfFileId || undefined : undefined,
             trimCode,
@@ -825,18 +813,6 @@ export function PrintSubmissionForm({
           <div>
             <label className="field-label" htmlFor="p-edition">Edition</label>
             <input className="field" id="p-edition" type="text" value={edition} onChange={(e) => setEdition(e.target.value)} />
-          </div>
-          <div>
-            <label className="field-label" htmlFor="p-isbn">ISBN</label>
-            <input className="field" id="p-isbn" type="text" inputMode="numeric" placeholder="Enter your own ISBN (optional)" value={printIsbn} onChange={(e) => setPrintIsbn(e.target.value)} aria-invalid={!!isbnError} />
-            {isbnError && <div className="field-hint" role="alert" style={{ color: "var(--coral-deep)" }}>{isbnError}</div>}
-            {!printIsbn.trim() && !isbnError && (
-              <div className="field-hint" role="status">
-                {hasPrintFiles && preflightPassed
-                  ? "Your files passed. An ISBN cannot be assigned automatically: Lulu does not issue ISBNs through the connection this site uses. Enter your own ISBN here, or leave this empty and Lulu can supply a free one when the book goes to Global Distribution on their website. Printing for this store does not need one."
-                  : "Optional. If you have your own ISBN, enter it here and its barcode appears below."}
-              </div>
-            )}
           </div>
         </div>
         <ChoiceChips id="p-lang" label="Language" options={LANGUAGES} value={language} onChange={setLanguage} />
@@ -999,12 +975,14 @@ export function PrintSubmissionForm({
             <div>
               <label className="field-label" htmlFor="p-pbprice">Paperback Retail Price</label>
               <input className="field" id="p-pbprice" type="number" step={0.01} value={paperbackRetailPrice} onChange={(e) => setPaperbackRetailPrice(e.target.value)} />
+              {pbMin !== null && <div className="field-hint" role="status">Minimum price for this edition: ${pbMin.toFixed(2)}</div>}
             </div>
           )}
           {hardcoverEnabled && (
             <div>
               <label className="field-label" htmlFor="p-hcprice">Hardcover Retail Price</label>
               <input className="field" id="p-hcprice" type="number" step={0.01} value={hardcoverRetailPrice} onChange={(e) => setHardcoverRetailPrice(e.target.value)} />
+              {hcMin !== null && <div className="field-hint" role="status">Minimum price for this edition: ${hcMin.toFixed(2)}</div>}
             </div>
           )}
         </div>
@@ -1025,50 +1003,32 @@ export function PrintSubmissionForm({
           </div>
         )}
               {costBusy && <p role="status" className="field-hint" style={{ marginTop: 10 }}>Asking Lulu for the printing cost of your file&apos;s specifications…</p>}
-        {priceProblems.length > 0 && (
-          <div role="alert" className="field-hint" style={{ marginTop: 10, color: "var(--coral-deep)" }}>
-            {priceProblems.map((m) => <p key={m} style={{ margin: "0 0 6px" }}><strong>Price too low.</strong> {m}</p>)}
-            <p style={{ margin: 0 }}>Publishing is blocked until this is fixed.</p>
+        {refusals.length > 0 && (
+          <div role="status" className="field-hint" style={{ marginTop: 10 }}>
+            {refusals.map((m) => <p key={m} style={{ margin: "0 0 6px" }}>{m}</p>)}
           </div>
         )}
+        <p className="field-hint" style={{ marginTop: 10 }}>
+          To publish, the company must keep at least ${MIN_COMPANY_SHARE.paperback.toFixed(2)} on every Paperback copy and ${MIN_COMPANY_SHARE.hardcover.toFixed(2)} on every Hardcover copy (its 30% of the price minus the printing cost). An edition below that price cannot be published.
+        </p>
       </Card>
 
       {/* Section 8 */}
       <Card>
         <SectionHeader n={5} title="Distribution" sub="Where this print edition can be sold." />
-        <div className="form-grid-2">
-          <div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={privatePrinting} onChange={(e) => setPrivatePrinting(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Private printing (author copies only)</span>
-            </div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={promotionalCampaignEligible} onChange={(e) => setPromotionalCampaignEligible(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Promotional Campaign Eligible</span>
-            </div>
-          </div>
-          <div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={luluGlobalDistribution} onChange={(e) => setLuluGlobalDistribution(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Lulu Global Distribution</span>
-            </div>
-            <div className="toggle-row">
-              <label className="toggle-switch"><input type="checkbox" checked={affiliateEligiblePrint} onChange={(e) => setAffiliateEligiblePrint(e.target.checked)} /><span className="toggle-slider" /></label>
-              <span>Affiliate Eligible</span>
-            </div>
-            {!initial && prefill && <AffiliateCopyOffer from="eBook and Audiobook" value={prefill.affiliateEligible} current={affiliateEligiblePrint} onCopy={setAffiliateEligiblePrint} />}
-          </div>
+        <div className="toggle-row">
+          <label className="toggle-switch"><input type="checkbox" checked={privatePrinting} onChange={(e) => setPrivatePrinting(e.target.checked)} /><span className="toggle-slider" /></label>
+          <span>Private Printing (Author Copies Only)</span>
         </div>
-      </Card>
-
-      {/* Section 10 */}
-      <Card>
-        <SectionHeader n={6} title="ISBN Barcode" sub="Made from your ISBN as soon as it is valid. Download it to place on your own back cover." />
-        {barcodeIsbn ? <Ean13Barcode isbn={barcodeIsbn} /> : <p className="field-hint">Enter a valid ISBN in Book Information and its barcode appears here, with PNG and SVG downloads you can place on your own back cover.</p>}
+        <div className="toggle-row">
+          <label className="toggle-switch"><input type="checkbox" checked={luluGlobalDistribution} onChange={(e) => setLuluGlobalDistribution(e.target.checked)} /><span className="toggle-slider" /></label>
+          <span>Lulu Global Distribution</span>
+        </div>
+        <p className="field-hint" style={{ marginTop: 4 }}>All published books are available to affiliates.</p>
       </Card>
 
       <PublishPanel
-        n={7}
+        n={6}
         sub="Everything below is needed before this print edition can be published. It updates as you fill the form in."
         items={checklist}
         showMissing={showMissing}

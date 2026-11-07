@@ -93,8 +93,6 @@ function toCatalogBook(row: RealBookRow): Book {
   const price = headlinePrice(row) ?? Number(row.price);
   const avgRating = row.ratings.length > 0 ? row.ratings.reduce((s, r) => s + r.stars, 0) / row.ratings.length : 0;
   const meta = (row.submissionMetadata as {
-    affiliateEnabled?: boolean;
-    includeInPromotions?: boolean;
     paperbackEnabled?: boolean;
     hardcoverEnabled?: boolean;
     paperbackRetailPrice?: number;
@@ -195,8 +193,9 @@ function toCatalogBook(row: RealBookRow): Book {
     format: [row.hasEbook && "eBook", row.hasPrint && "Print", row.hasAudiobook && "Audiobook"].filter(Boolean).join(", ") || "eBook",
     blurb: row.description ?? "",
     descriptionHtml: descriptionHtmlOf(row),
-    featured: meta?.includeInPromotions ?? false,
-    affiliateEnabled: meta?.affiliateEnabled ?? false,
+    // The old Promotional Campaign Eligible switch is gone; every published book is available to affiliates.
+    featured: false,
+    affiliateEnabled: true,
     coverImage: row.coverImageUrl ?? undefined,
     coverAltText: row.coverAltText ?? undefined,
   };

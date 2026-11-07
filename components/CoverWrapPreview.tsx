@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { buildEan13Layout } from "@/lib/ean13-barcode";
+import { layoutBackDescription, backWordCount, backWordsOver, BACK_DESCRIPTION_MAX_WORDS } from "@/lib/back-cover";
 import { planSpineText } from "@/lib/spine-text";
 import {
   PALETTES, MOTIFS, hashStr, deriveBackCoverPalette, extractDominantColor,
-  motifSvgInner, fitDescriptionText, computeCoverGeometry,
+  motifSvgInner, computeCoverGeometry,
 } from "@/lib/cover-preview";
 
 /**
@@ -30,7 +30,6 @@ export function CoverWrapPreview({
   authorFirstName,
   authorLastName,
   description,
-  isbn,
   trimCode,
   paperCode,
   pages = 32,
@@ -43,7 +42,6 @@ export function CoverWrapPreview({
   authorFirstName?: string;
   authorLastName?: string;
   description: string;
-  isbn: string;
   trimCode: string;
   paperCode: string;
   pages?: number;
@@ -152,19 +150,18 @@ export function CoverWrapPreview({
   const back = deriveBackCoverPalette(palette, dominantColor);
   const motif = MOTIFS[seed % MOTIFS.length];
 
-  // ---- Back cover: description text + barcode, bottom-left of the safe area ----
+  // ---- Back cover: the description, justified, filling the safe area from margin to margin (same layout as the print file) ----
   const boxX = backX + margin, boxY = bleed + margin;
   const boxW = trimW - margin * 2;
-  const barcodeLayout = buildEan13Layout(isbn || "", 0.62);
-  const barcodeDisplayW = barcodeLayout?.canvasW ?? 180 * 0.62;
-  const barcodeDisplayH = barcodeLayout?.canvasH ?? 122.4 * 0.62;
-  const barcodeGap = 12;
-  const barcodeY = bleed + trimH - margin - barcodeDisplayH;
-  const textAreaH = barcodeY - barcodeGap - boxY;
-  const fit = fitDescriptionText(
-    description || "Add a book description above to see it appear here automatically.",
-    boxW, Math.max(20, textAreaH), 11.5, 7
-  );
+  const boxH = trimH - margin * 2;
+  const backLayout = layoutBackDescription({
+    text: description || "Add a book description above to see it appear here automatically.",
+    boxW, boxH, unitsPerInch: U,
+    // Approximate width of regular sans-serif text; the print file measures with the real font.
+    width: (text, size) => text.length * size * 0.5,
+  });
+  const descWords = backWordCount(description);
+  const descOver = backWordsOver(description);
 
   // ---- Spine ----
   const spineColor = back.spine;
@@ -213,6 +210,15 @@ export function CoverWrapPreview({
         </p>
       )}
 
+      {!useCustom && descOver > 0 && (
+        <p className="field-hint" role="status" style={{ color: "var(--coral-deep)" }}>
+          Your description is {descWords} words. The back cover holds about {BACK_DESCRIPTION_MAX_WORDS}, so {descOver} {descOver === 1 ? "word is" : "words are"} over and the end is cut off on the printed cover. Shorten it to print it all.
+        </p>
+      )}
+      {!useCustom && descOver === 0 && descWords > 0 && (
+        <p className="field-hint">Back cover description: {descWords} of about {BACK_DESCRIPTION_MAX_WORDS} words.</p>
+      )}
+
       {/* Preview is centered, and sized so the book panel itself renders
           at a true 6in height (a real CSS physical-length unit) — width
           follows automatically from the real trim/spine geometry below. */}
@@ -233,29 +239,20 @@ export function CoverWrapPreview({
           {/* Back cover */}
           {!useCustom && <g>
             <rect x={backX} y={bleed} width={trimW} height={trimH} fill={back.background} />
-            <text fontFamily="Georgia, 'Times New Roman', serif" fontSize={fit.fontSize} fill="#fff">
-              {fit.lines.map((l, i) => (
-                <tspan key={i} x={boxX} y={boxY + fit.fontSize + i * fit.lineHeight}>{l}</tspan>
-              ))}
-            </text>
-            {barcodeLayout && (
-              <g transform={`translate(${boxX},${barcodeY})`}>
-                <rect x={0} y={0} width={barcodeDisplayW} height={barcodeDisplayH} fill="#fff" />
-                {barcodeLayout.bars.map((b, i) => (
-                  <rect key={i} x={b.x} y={b.y} width={b.width} height={b.height} fill="#000" />
+            {backLayout.lines.map((line, i) => (
+              <text key={i} fontFamily="Arial, Helvetica, sans-serif" fontSize={backLayout.size} fill={spineTextColor}>
+                {line.words.map((w, j) => (
+                  <tspan key={j} x={boxX + w.x} y={boxY + line.baseline}>{w.text}</tspan>
                 ))}
-                {barcodeLayout.textGroups.map((t, i) => (
-                  <text key={i} x={t.x} y={t.y} fontFamily="Courier, monospace" fontSize={t.fontSize}>{t.text}</text>
-                ))}
-              </g>
-            )}
+              </text>
+            ))}
           </g>}
 
           {/* Spine */}
           {!useCustom && <g>
             <rect x={spineX} y={bleed} width={spineW} height={trimH} fill={spineColor} />
             {spinePlan && spinePlan.lines.map((line, i) => (
-              // Same plan as the print cover and the 3D mockups: author at the top, title below, nothing on a thin spine.
+              // Same plan as the print cover and the 3D mockups: author at the top end, title lower toward the bottom end, nothing on a thin spine.
               <text
                 key={i}
                 x={spineX + spineW / 2 + line.size * 0.35} y={bleed + line.start}

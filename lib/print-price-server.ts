@@ -12,7 +12,7 @@ interface PriceMeta {
 /**
  * The server's own price-floor check for a print edition, run when it is sent for review, so the
  * browser cannot skip it. Each enabled format's price must cover Lulu's printing cost for the book's
- * exact specifications and leave the author at least the minimum royalty (lib/print-specs.ts).
+ * exact specifications and leave the company at least its minimum share per copy ($3.00 Paperback, $2.00 Hardcover; lib/print-specs.ts).
  * Uses Lulu's live quote; only when Lulu cannot be asked does it use the site's estimate.
  * Returns the problem in plain words, or null when the prices are fine.
  */
@@ -38,7 +38,7 @@ export async function printPriceProblem(m: PriceMeta): Promise<string | null> {
     const q = await quotePrintingCostPerCopy(p.packageId, pageCount);
     if (!q.ok && q.rejected) { problems.push(`${label}: Lulu does not offer ${trimLabel(m.trimSizeCode)} with these settings at ${pageCount} pages.`); continue; }
     const cost = q.ok ? q.cost : estimatePrintingCost(p.bindingCode as "PB" | "CO" | "LW", pageCount);
-    const r = checkPriceFloor(retail, cost, label);
+    const r = checkPriceFloor(retail, cost, p.format === "hardcover" ? "hardcover" : "paperback");
     if (!r.ok && r.message) problems.push(r.message);
   }
   return problems.length ? problems.join(" ") : null;

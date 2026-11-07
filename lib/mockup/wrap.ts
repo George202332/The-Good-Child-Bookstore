@@ -10,9 +10,10 @@
  * author's own wrap cannot be shown, and the caller is told why (it never silently shows something else).
  */
 
-import { coverLayout, pickBackColor, type CoverLayout } from "@/lib/lulu-cover";
+import { coverLayout, pickBackColor, BACK_SAFE_MARGIN_PT, type CoverLayout } from "@/lib/lulu-cover";
 import { computeCoverGeometry } from "@/lib/cover-preview";
 import { planSpineText } from "@/lib/spine-text";
+import { layoutBackDescription } from "@/lib/back-cover";
 import { loadFont } from "@/lib/mockup/text-paths";
 import { trimInches } from "@/lib/mockup/spec";
 
@@ -79,7 +80,7 @@ export async function customWrapCrops(pdf: Uint8Array, trimCode: string): Promis
 }
 
 /** The wrap the site builds for Lulu when there is no uploaded wrap, cut into panels without leaving sharp. */
-export async function generatedWrapCrops(opts: { frontImage: Buffer; title: string; author: string; trimCode: string; paperCode: string; pages: number }): Promise<WrapCrops> {
+export async function generatedWrapCrops(opts: { frontImage: Buffer; title: string; author: string; description?: string; trimCode: string; paperCode: string; pages: number }): Promise<WrapCrops> {
   const sharp = (await import("sharp")).default;
   const geo = computeCoverGeometry(opts.trimCode, opts.paperCode, opts.pages);
   const L = coverLayout(
@@ -113,6 +114,18 @@ export async function generatedWrapCrops(opts: { frontImage: Buffer; title: stri
   }
   svg += "</svg>";
   const spine = await sharp(Buffer.from(svg), { density: 72 }).jpeg({ quality: 92 }).toBuffer();
-  const backImg = await sharp({ create: { width: 8, height: 8, channels: 3, background: bg } }).jpeg().toBuffer();
+  // Back: the solid colour with the description, justified inside the safe margins, outlined from the same font the PDF embeds.
+  const bw = 1200, bh = Math.round(bw * (L.trimH / L.trimW)), kb = bw / L.trimW;
+  const regular = await loadFont("Arimo_400Regular.ttf");
+  let backSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${bw}" height="${bh}" viewBox="0 0 ${bw} ${bh}"><rect width="${bw}" height="${bh}" fill="rgb(${back.r},${back.g},${back.b})"/>`;
+  if (opts.description?.trim()) {
+    const m = BACK_SAFE_MARGIN_PT * kb;
+    const lay = layoutBackDescription({ text: opts.description, boxW: bw - 2 * m, boxH: bh - 2 * m, unitsPerInch: 72 * kb, width: (t, s) => regular.width(t, s) });
+    for (const line of lay.lines) for (const w of line.words) {
+      backSvg += `<path d="${regular.path(w.text, lay.size, m + w.x, m + line.baseline)}" fill="${ink}"/>`;
+    }
+  }
+  backSvg += "</svg>";
+  const backImg = await sharp(Buffer.from(backSvg), { density: 72 }).jpeg({ quality: 90 }).toBuffer();
   return { front, spine, back: backImg, source: "generated" };
 }

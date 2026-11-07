@@ -3,7 +3,7 @@
  * preview and by the 3D mockups, so all three show the same thing.
  *
  *   - A spine thinner than SPINE_TEXT_MIN_IN (about a third of an inch) carries no writing at all.
- *   - Otherwise the author's name sits at the top and the title below it, both reading top to bottom (the front cover
+ *   - Otherwise the author's name sits at the top end and the title lower, toward the bottom end, both centred across the spine and reading top to bottom (the front cover
  *     facing right, the spine on the left).
  *
  * Pure: it works in whatever unit the caller uses (PDF points, SVG units, pixels) and measures text with the function it is given.
@@ -50,12 +50,16 @@ export function planSpineText(opts: {
   };
 
   const lines: SpineLine[] = [];
-  let cursor = top;
+  let used = 0;
   if (authorText) {
     const a = fit(authorText, authorSize, room * 0.34);
-    lines.push({ text: a, size: authorSize, start: cursor });
-    cursor += opts.width(a, authorSize) + gap;
+    lines.push({ text: a, size: authorSize, start: top });
+    used = opts.width(a, authorSize) + gap;
   }
-  lines.push({ text: fit(titleText, size, Math.max(room - (cursor - top), room * 0.3)), size, start: cursor });
+  // The title sits toward the bottom end of the spine (its last letter ends at the bottom margin), so the two lines
+  // are spread along the spine instead of crowded at the top. Both are centred across the spine's thickness by the callers.
+  const t = fit(titleText, size, Math.max(room - used, room * 0.3));
+  const titleStart = Math.max(top + used, opts.length - top - opts.width(t, size));
+  lines.push({ text: t, size, start: titleStart });
   return { lines };
 }

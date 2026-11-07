@@ -6,8 +6,6 @@ export interface MockupSpec {
   title: string;
   author: string;
   description: string;
-  /** The print ISBN, when there is one. The barcode on the back cover is made from it. */
-  isbn: string | null;
   /** Lulu trim code such as "0550X0850". */
   trimCode: string;
   pages: number;

@@ -1,8 +1,8 @@
-import { ean13Bars, isbnDigits13 } from "@/lib/mockup/barcode";
+import { layoutBackDescription } from "@/lib/back-cover";
 import { composeScene, standardScene, type BookDims, type TextureSet } from "@/lib/mockup/scene";
 import { WrapError, type WrapCrops } from "@/lib/mockup/wrap";
 import { planSpineText } from "@/lib/spine-text";
-import { bookDimensions, LINEN_COLORS, type MockupSpec } from "@/lib/mockup/spec";
+import { bookDimensions, LINEN_COLORS, trimInches, type MockupSpec } from "@/lib/mockup/spec";
 import { loadFont, type TextFont } from "@/lib/mockup/text-paths";
 
 /**
@@ -76,24 +76,6 @@ function clothTile(): Promise<string> {
   return clothTileCache;
 }
 
-function barcodeSvg(isbn: string | null, x: number, y: number, w: number, h: number, font: TextFont): string {
-  const d13 = isbnDigits13(isbn);
-  let s = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#ffffff"/>`;
-  if (!d13) {
-    // No ISBN yet: a plain grey placeholder, never a made-up number.
-    const barH = h * 0.62;
-    for (let i = 0; i < 28; i++) s += `<rect x="${x + 12 + i * ((w - 24) / 28)}" y="${y + 8}" width="${(i % 3 === 0 ? 3 : 1.6)}" height="${barH}" fill="#c4c4c9"/>`;
-    s += `<path d="${font.path("ISBN barcode", 11, x + 12, y + h - 10)}" fill="#8a8a92"/>`;
-    return s;
-  }
-  const bars = ean13Bars(d13);
-  const usable = w - 24;
-  const mod = usable / 95;
-  const barH = h - 28;
-  for (const b of bars) s += `<rect x="${(x + 12 + b.x * mod).toFixed(2)}" y="${y + 6}" width="${(b.w * mod).toFixed(2)}" height="${barH}" fill="#000"/>`;
-  s += `<path d="${font.path(d13, 10.5, x + w / 2 - font.width(d13, 10.5) / 2, y + h - 7)}" fill="#000"/>`;
-  return s;
-}
 
 async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | null, avg: Rgb, bold: TextFont, regular: TextFont, wrap: WrapCrops | null): Promise<Built> {
   const defs: string[] = [];
@@ -174,9 +156,10 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
     const titleLines = bold.wrap(spec.title, 30, W - 110, 3);
     for (const l of titleLines) { backSvg += `<path d="${bold.path(l, 30, 55, by)}" fill="${backInk}"/>`; by += 38; }
     by += 14;
-    const descLines = regular.wrap(spec.description || "", 15, W - 110, 9);
-    for (const l of descLines) { backSvg += `<path d="${regular.path(l, 15, 55, by)}" fill="${backInk}" opacity="0.92"/>`; by += 23; }
-    backSvg += barcodeSvg(spec.isbn, W - 235, H - 150, 190, 110, regular);
+    // The description, justified inside the same safe margins as the print file (half an inch of 6-inch-wide pages).
+    const m = W * (0.5 / trimInches(spec.trimCode).w);
+    const lay = layoutBackDescription({ text: spec.description || "", boxW: W - 2 * m, boxH: H - by - m, unitsPerInch: W / trimInches(spec.trimCode).w, width: (t, sz) => regular.width(t, sz) });
+    for (const line of lay.lines) for (const w of line.words) backSvg += `<path d="${regular.path(w.text, lay.size, m + w.x, by + line.baseline)}" fill="${backInk}" opacity="0.92"/>`;
   }
   if (hardcover) backSvg += `<rect x="1.5" y="1.5" width="${W - 3}" height="${H - 3}" fill="none" stroke="#000" stroke-opacity="0.22" stroke-width="3"/>`;
   if (gloss && !hardcover) {

@@ -14,6 +14,10 @@
  */
 
 import { planSpineText } from "@/lib/spine-text";
+import { layoutBackDescription } from "@/lib/back-cover";
+
+/** The safe margin inside the trim edge: nothing important is printed closer than this (half an inch). */
+export const BACK_SAFE_MARGIN_PT = 0.5 * 72;
 
 export interface CoverLayout {
   /** Page size in PDF points. */
@@ -74,6 +78,8 @@ export async function buildCoverWrapPdf(opts: {
   frontImage: Buffer;
   title: string;
   author?: string;
+  /** Printed justified on the back cover, inside the safe margins. */
+  description?: string;
 }): Promise<Uint8Array> {
   const sharp = (await import("sharp")).default;
   const { PDFDocument, rgb, degrees } = await import("pdf-lib");
@@ -128,6 +134,26 @@ export async function buildCoverWrapPdf(opts: {
           color: ink,
           rotate: degrees(-90),
         });
+      }
+    }
+  }
+
+  // Back cover: the description, justified, filling the safe area from the left margin to the right margin.
+  if (opts.description && opts.description.trim()) {
+    const regular = await doc.embedFont(await readBundledFont("Arimo_400Regular.ttf"), { subset: false });
+    const boxW = L.trimW - 2 * BACK_SAFE_MARGIN_PT;
+    const boxH = L.trimH - 2 * BACK_SAFE_MARGIN_PT;
+    const lay = layoutBackDescription({
+      text: opts.description, boxW, boxH, unitsPerInch: 72,
+      width: (t, size) => regular.widthOfTextAtSize(t, size),
+    });
+    const lum = (0.299 * back.r + 0.587 * back.g + 0.114 * back.b) / 255;
+    const ink = lum > 0.55 ? rgb(0.08, 0.08, 0.1) : rgb(1, 1, 1);
+    const boxX = L.backX + BACK_SAFE_MARGIN_PT;
+    const boxTop = L.height - L.margin - BACK_SAFE_MARGIN_PT;
+    for (const line of lay.lines) {
+      for (const w of line.words) {
+        page.drawText(w.text, { x: boxX + w.x, y: boxTop - line.baseline, size: lay.size, font: regular, color: ink });
       }
     }
   }

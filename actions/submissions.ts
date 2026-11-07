@@ -223,10 +223,8 @@ export interface SubmissionMetadata {
   copyrightHolder?: string;
   licenseType: string;
   sellOnStore: boolean;
-  includeInPromotions?: boolean;
   featuredRequest: boolean;
   allowBundles?: boolean;
-  affiliateEnabled: boolean;
   seoTitle?: string;
   seoDescription?: string;
   keywords?: string;
@@ -292,8 +290,6 @@ export interface SubmissionMetadata {
   sellThroughWebsite?: boolean;
   luluGlobalDistribution?: boolean;
   privatePrinting?: boolean;
-  affiliateEligiblePrint?: boolean;
-  promotionalCampaignEligible?: boolean;
 }
 
 export interface SubmitBookInput {

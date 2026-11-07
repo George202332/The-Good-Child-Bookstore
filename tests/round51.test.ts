@@ -13,21 +13,17 @@ test("ISBN-10 converts to ISBN-13 and bad check digits are refused", () => {
   assert.equal(isbnProblem("9780306406157"), null);
 });
 
-test("affiliate eligibility is per edition", () => {
-  const meta = { affiliateEnabled: true, affiliateEligiblePrint: false };
-  const book = { authorId: "a", title: "T", submissionMetadata: meta };
-  assert.equal(editionAffiliateEligible(book, "ebook"), true);
-  assert.equal(editionAffiliateEligible(book, "paperback"), false);
-  assert.equal(editionAffiliateEligible({ ...book, submissionMetadata: { affiliateEnabled: true } }, "hardcover"), true);
+test("every published book is available to affiliates, whatever old switches were stored", () => {
+  const off = { authorId: "a", title: "T", submissionMetadata: { affiliateEnabled: false, affiliateEligiblePrint: false } };
+  for (const f of ["ebook", "audiobook", "paperback", "hardcover"]) assert.equal(editionAffiliateEligible(off, f), true);
+  assert.equal(editionAffiliateEligible({ authorId: "a", title: "T", submissionMetadata: null }, "paperback"), true);
 });
 
-test("an affiliate link counts only for eligible editions of the same title", () => {
-  const linked = { id: "l", authorId: "a", title: "My Book", submissionMetadata: { affiliateEnabled: true } };
-  const print = { id: "p", authorId: "a", title: "My Book", submissionMetadata: { affiliateEligiblePrint: true } };
-  const printOff = { ...print, submissionMetadata: { affiliateEligiblePrint: false } };
+test("an affiliate link counts for every edition of the same title, and only for that title", () => {
+  const linked = { id: "l", authorId: "a", title: "My Book", submissionMetadata: { affiliateEnabled: false } };
+  const print = { id: "p", authorId: "a", title: "My Book", submissionMetadata: { affiliateEligiblePrint: false } };
   const other = { id: "o", authorId: "a", title: "Another", submissionMetadata: { affiliateEligiblePrint: true } };
   assert.equal(isAffiliateSaleFor(linked, print, "paperback"), true);
-  assert.equal(isAffiliateSaleFor(linked, printOff, "paperback"), false);
   assert.equal(isAffiliateSaleFor(linked, other, "paperback"), false);
 });
 

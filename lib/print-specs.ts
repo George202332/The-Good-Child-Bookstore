@@ -82,35 +82,44 @@ export function recommendTrim(detected: TrimEvaluation | null, chosen: TrimEvalu
 // Price floor
 // ---------------------------------------------------------------------------
 
-/** The least the author must still earn on one copy, in the least generous case (a sale through a
- * promotional affiliate link, where the author gets 60% of the balance). Change it here only. */
-export const MIN_AUTHOR_ROYALTY = 1;
+/** The least the company must keep on every copy (its 30% of the balance: retail price minus Lulu's printing cost).
+ * Publishing a print edition is blocked below it, in the form and again on the server. Change it here only. */
+export const MIN_COMPANY_SHARE = { paperback: 3, hardcover: 2 } as const;
+export type PrintFormat = keyof typeof MIN_COMPANY_SHARE;
 
-/** The lowest retail price that covers Lulu's printing cost and leaves the author at least the minimum royalty. */
-export function minimumRetailPrice(printingCost: number): number {
-  let price = Math.ceil((printingCost + 0.01) * 100) / 100;
-  // Walk up cent by cent until the author's affiliate-sale royalty reaches the minimum.
-  for (let i = 0; i < 100000; i++) {
-    if (calculateSplits(price, true, undefined, printingCost).authorShare >= MIN_AUTHOR_ROYALTY) return price;
-    price = Math.round((price + 0.01) * 100) / 100;
+/** The company's share of one copy at this price, worked out by the same split engine real sales use. */
+export function companyShareAt(retail: number, printingCost: number): number {
+  return calculateSplits(retail, false, undefined, printingCost).companyShare;
+}
+
+/** The lowest retail price (to the cent) at which the company's share reaches the minimum for this format. */
+export function minimumRetailPrice(printingCost: number, format: PrintFormat): number {
+  const need = MIN_COMPANY_SHARE[format];
+  // The balance (price minus printing cost) must reach need / 0.30 ($10.00 Paperback, $6.67 Hardcover rounded up), so the
+  // price is the printing cost plus that balance, to the next cent. The split engine's own figure is checked as well.
+  const balanceCents = Math.ceil(Math.round((need / 0.3) * 1e6) / 1e4);
+  let cents = Math.round(printingCost * 100) + balanceCents;
+  for (let i = 0; i < 1000; i++) {
+    if (companyShareAt(cents / 100, printingCost) >= need) return cents / 100;
+    cents += 1;
   }
-  return price;
+  return cents / 100;
 }
 
 export interface PriceFloorResult {
   ok: boolean;
   minimum: number;
-  /** Plain-language warning, only when not ok. */
+  /** Plain-language reason, only when not ok. */
   message?: string;
 }
 
-export function checkPriceFloor(retail: number, printingCost: number, formatLabel: string): PriceFloorResult {
-  const minimum = minimumRetailPrice(printingCost);
+export function checkPriceFloor(retail: number, printingCost: number, format: PrintFormat): PriceFloorResult {
+  const minimum = minimumRetailPrice(printingCost, format);
   if (Number.isFinite(retail) && retail >= minimum) return { ok: true, minimum };
-  const price = Number.isFinite(retail) ? `$${retail.toFixed(2)}` : "this price";
+  const label = format === "hardcover" ? "Hardcover" : "Paperback";
   return {
     ok: false,
     minimum,
-    message: `${formatLabel}: ${price} is too low. Lulu charges $${printingCost.toFixed(2)} to print each copy, so the price must be at least $${minimum.toFixed(2)} to leave you a royalty of at least $${MIN_AUTHOR_ROYALTY.toFixed(2)} on every copy, even on a sale through a promotional affiliate link. Raise the price to continue.`,
+    message: `${label}: this edition cannot be published below $${minimum.toFixed(2)}. At that price the company keeps at least $${MIN_COMPANY_SHARE[format].toFixed(2)} on every copy after Lulu's printing cost of $${printingCost.toFixed(2)}.`,
   };
 }

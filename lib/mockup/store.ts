@@ -87,7 +87,7 @@ export async function makeMockupPng(spec: MockupSpec, coverUrl: string | null | 
   } else {
     if (!front) throw new WrapError(`The front cover image for the ${spec.format === "hardcover" ? "Hardcover" : "Paperback"} could not be found. Please upload your front cover again, then save.`);
     try {
-      wrap = await generatedWrapCrops({ frontImage: front, title: spec.title, author: spec.author, trimCode: spec.trimCode, paperCode: spec.paperCode, pages: spec.pages });
+      wrap = await generatedWrapCrops({ frontImage: front, title: spec.title, author: spec.author, description: spec.description, trimCode: spec.trimCode, paperCode: spec.paperCode, pages: spec.pages });
     } catch (e) {
       // The front artwork alone still makes a correct picture, but a front image that cannot be read at all is reported.
       if (e instanceof WrapError && /image|picture/i.test(e.message)) throw e;
@@ -116,13 +116,11 @@ export function specFromBook(format: MockupFormat, book: BookForMockup): { spec:
   if ((format === "paperback" ? book.paperbackPrice : book.hardcoverPrice) == null) return null;
   const s = (v: unknown) => (typeof v === "string" ? v : "");
   const pages = Number(meta.pages);
-  const printIsbns = (meta.printIsbns as { paperback?: string; hardcover?: string } | undefined) ?? {};
   const spec: MockupSpec = {
     format,
     title: book.title,
     author: bookAuthorDisplayName(book),
-    description: descriptionToPlainText(book.description ?? "").slice(0, 700),
-    isbn: s(meta.printIsbn).trim() || s(printIsbns[format]).trim() || null,
+    description: descriptionToPlainText(book.description ?? "").slice(0, 2400),
     trimCode: s(meta.trimSizeCode) || "0600X0900",
     pages: Number.isFinite(pages) && pages > 0 ? pages : 32,
     paperCode: s(meta.paperType) || "060UW444",

@@ -1,5 +1,4 @@
 import type { Prisma } from "@prisma/client";
-import { editionAffiliateEligible } from "@/lib/affiliate-eligibility";
 import { sanitizeDescriptionHtml, plainToDescriptionHtml } from "@/lib/description-html";
 import { capitalizeName } from "@/lib/person-name";
 import { canonicalCategory, categoryOfSubcategory, normalizeGenre, isSubcategoryOf } from "@/lib/taxonomy";
@@ -81,7 +80,6 @@ export function buildEbookInitial(book: BookWithRelations): EbookSubmissionIniti
       ? ""
       : String(Number(book.price)),
     taxSetting: str(meta.taxSetting),
-    affiliateEnabled: (meta.affiliateEnabled as boolean) ?? false,
     worldwideRights: restrictedCountries.length > 0 ? false : ((meta.worldwideRights as boolean) ?? true),
     restrictedCountries,
     copyrightHolder: str(meta.copyrightHolder),
@@ -143,8 +141,6 @@ export function buildPrintInitial(book: BookWithRelations): PrintSubmissionIniti
     hardcoverRetailPrice: price(meta.hardcoverRetailPrice, book.hardcoverPrice),
     luluGlobalDistribution: bool("luluGlobalDistribution", true),
     privatePrinting: bool("privatePrinting", false),
-    affiliateEligiblePrint: bool("affiliateEligiblePrint", false),
-    promotionalCampaignEligible: bool("promotionalCampaignEligible", false),
   };
 }
 
@@ -168,8 +164,6 @@ export function sharedPrefill(book: BookWithRelations, c: { category: string; ge
     descriptionHtml: sanitizeDescriptionHtml(str(meta.longDescriptionHtml) || str(meta.printDescriptionHtml)) || undefined,
     aiDeclaration: str(meta.aiDeclaration),
     publisher: str(meta.publisher),
-    // Each edition has its own switch: a print-only record keeps it in affiliateEligiblePrint, the others in affiliateEnabled.
-    affiliateEligible: editionAffiliateEligible({ authorId: book.authorId, title: book.title, submissionMetadata: meta }, book.hasPrint && !book.hasEbook && !book.hasAudiobook ? "paperback" : "ebook"),
     coverImageUrl: book.coverImageUrl ?? "",
     manuscriptFileId: manuscript?.id,
     manuscriptFileName: manuscript?.name,
