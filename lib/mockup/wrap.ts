@@ -12,7 +12,7 @@
 
 import { coverLayout, pickBackColor, BACK_SAFE_MARGIN_PT, type CoverLayout } from "@/lib/lulu-cover";
 import { computeCoverGeometry } from "@/lib/cover-preview";
-import { planSpineText } from "@/lib/spine-text";
+import { planSpineText, SPINE_CENTRE_K } from "@/lib/spine-text";
 import { layoutBackDescription } from "@/lib/back-cover";
 import { loadFont } from "@/lib/mockup/text-paths";
 import { trimInches } from "@/lib/mockup/spec";
@@ -104,19 +104,19 @@ export async function generatedWrapCrops(opts: { frontImage: Buffer; title: stri
 
   // Spine: the solid colour with the shared writing plan, drawn as outlines of the same font the PDF embeds.
   const sw = Math.max(4, Math.round(L.spine * k)), sh = Math.round(L.trimH * k);
-  const bold = await loadFont("Arimo_700Bold.ttf");
+  const bold = await loadFont("Tinos_700Bold.ttf");
   const plan = planSpineText({ spine: sw, length: sh, unitsPerInch: 72 * k, title: opts.title, author: opts.author, width: (t, s) => bold.width(t, s) });
   const lum = (0.299 * back.r + 0.587 * back.g + 0.114 * back.b) / 255;
   const ink = lum > 0.55 ? "#141419" : "#ffffff";
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${sw}" height="${sh}" viewBox="0 0 ${sw} ${sh}"><rect width="${sw}" height="${sh}" fill="rgb(${back.r},${back.g},${back.b})"/>`;
   for (const line of plan?.lines ?? []) {
-    svg += `<g transform="translate(${(sw / 2 + line.size * 0.35).toFixed(2)} ${line.start.toFixed(2)}) rotate(90)"><path d="${bold.path(line.text, line.size, 0, 0)}" fill="${ink}"/></g>`;
+    svg += `<g transform="translate(${(sw / 2 - line.size * SPINE_CENTRE_K).toFixed(2)} ${line.start.toFixed(2)}) rotate(90)"><path d="${bold.path(line.text, line.size, 0, 0)}" fill="${ink}"/></g>`;
   }
   svg += "</svg>";
   const spine = await sharp(Buffer.from(svg), { density: 72 }).jpeg({ quality: 92 }).toBuffer();
-  // Back: the solid colour with the description, justified inside the safe margins, outlined from the same font the PDF embeds.
+  // Back: the solid colour with the description, left-aligned at 11 points inside the safe margins, outlined from the same font the PDF embeds.
   const bw = 1200, bh = Math.round(bw * (L.trimH / L.trimW)), kb = bw / L.trimW;
-  const regular = await loadFont("Arimo_400Regular.ttf");
+  const regular = await loadFont("Tinos_400Regular.ttf");
   let backSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${bw}" height="${bh}" viewBox="0 0 ${bw} ${bh}"><rect width="${bw}" height="${bh}" fill="rgb(${back.r},${back.g},${back.b})"/>`;
   if (opts.description?.trim()) {
     const m = BACK_SAFE_MARGIN_PT * kb;

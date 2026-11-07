@@ -2045,6 +2045,23 @@
   .upload-card.has-file{border-style:solid;border-color:#165236;background:transparent;}
   .upload-card.drag-over{border-style:solid;border-color:var(--coral-deep);background:transparent;transform:scale(1.02);transition:transform .1s ease;}
   .upload-card-inner{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;}
+  .upload-card-text{display:flex;flex-direction:column;align-items:center;gap:10px;}
+  /* The three print upload cards are the same size; a filled Front Cover Only card puts its thumbnail on the left and the check and hint on the right. */
+  .upload-card.with-hover{position:relative;min-height:190px;display:flex;align-items:center;justify-content:center;}
+  .upload-card.with-hover .upload-card-inner{width:100%;}
+  .upload-card-inner.upload-card-side{flex-direction:row;gap:14px;text-align:left;justify-content:flex-start;}
+  .upload-card-inner.upload-card-side .upload-card-text{align-items:flex-start;gap:6px;}
+  .upload-card-inner.upload-card-side .upload-card-success-badge{justify-content:flex-start;}
+  /* Hover options appear only where there is a real hover (a computer with a mouse); on phones and tablets tapping the card opens the file picker. */
+  .upload-card-hover{display:none;}
+  @media (hover:hover) and (pointer:fine){
+    .upload-card.with-hover:hover .upload-card-hover{display:flex;}
+  }
+  .upload-card-hover{position:absolute;inset:0;border-radius:12px;background:var(--paper);flex-direction:column;align-items:center;justify-content:center;gap:6px;pointer-events:none;text-align:center;padding:10px;}
+  .upload-card-hover-btn{display:inline-block;background:var(--ink);color:var(--cream);font-weight:700;font-size:13.5px;padding:8px 22px;border-radius:999px;}
+  .upload-card-hover-or{font-size:11.5px;color:var(--ink-faint);}
+  .upload-card-hover-drop{font-size:13px;font-weight:600;color:var(--ink);border:1.5px dashed var(--line-strong);border-radius:10px;padding:8px 14px;}
+  html.dark-mode .upload-card-hover{background:var(--paper);}
   .upload-card svg{width:30px;height:30px;color:var(--ink-soft);flex-shrink:0;}
   .upload-card.has-file svg{color:#165236;}
   .upload-card-title{font-weight:700;font-size:14px;color:var(--ink);}

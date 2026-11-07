@@ -2,7 +2,7 @@ import { readBundledFont } from "@/lib/pdf-fonts";
 
 /**
  * Text as vector outlines. The mockup is drawn on the server, and a server has no fonts installed, so text
- * can't be left for the image engine to draw. We read our own bundled open-licence font files (Arimo, SIL Open Font
+ * can't be left for the image engine to draw. We read our own bundled open-licence font files (Arimo and Tinos, SIL Open Font
  * Licence) with fontkit and turn each letter into a path.
  */
 
@@ -11,7 +11,7 @@ interface FkFont { unitsPerEm: number; layout(text: string): { glyphs: FkGlyph[]
 
 const cache = new Map<string, FkFont>();
 
-export async function loadFont(file: "Arimo_700Bold.ttf" | "Arimo_400Regular.ttf"): Promise<TextFont> {
+export async function loadFont(file: "Arimo_700Bold.ttf" | "Arimo_400Regular.ttf" | "Tinos_700Bold.ttf" | "Tinos_400Regular.ttf"): Promise<TextFont> {
   let f = cache.get(file);
   if (!f) {
     const fontkit = (await import("@pdf-lib/fontkit")).default as unknown as { create(b: Uint8Array): FkFont };

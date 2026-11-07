@@ -435,7 +435,7 @@ async function resolveCoverUrl(opts: {
   bookCoverImageUrl: string | null;
   title: string;
   authorName: string;
-  /** The book's description, printed (justified) on the back cover of a generated wrap. */
+  /** The book's description, printed (left-aligned, 11 points) on the back cover of a generated wrap. */
   description?: string | null;
   orderId: string;
   baseUrl: string;

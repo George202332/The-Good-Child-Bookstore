@@ -1,7 +1,7 @@
 import { layoutBackDescription } from "@/lib/back-cover";
 import { composeScene, standardScene, type BookDims, type TextureSet } from "@/lib/mockup/scene";
 import { WrapError, type WrapCrops } from "@/lib/mockup/wrap";
-import { planSpineText } from "@/lib/spine-text";
+import { planSpineText, SPINE_CENTRE_K } from "@/lib/spine-text";
 import { bookDimensions, LINEN_COLORS, trimInches, type MockupSpec } from "@/lib/mockup/spec";
 import { loadFont, type TextFont } from "@/lib/mockup/text-paths";
 
@@ -9,7 +9,7 @@ import { loadFont, type TextFont } from "@/lib/mockup/text-paths";
  * Makes the 3D mockup picture of a print book.
  *
  * Tools: sharp (picture handling, and turning the finished scene into a PNG), fontkit (letters as outlines, via our bundled
- * Arimo font) and our own small 3D scene (lib/mockup/scene.ts). All of it is plain JavaScript or ships inside sharp, so it
+ * Tinos font) and our own small 3D scene (lib/mockup/scene.ts). All of it is plain JavaScript or ships inside sharp, so it
  * runs on Vercel with nothing extra installed.
  *
  * Limits: the front picture is the author's front cover image. If the author uploaded their own complete wrap as a PDF, the
@@ -156,7 +156,7 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
     const titleLines = bold.wrap(spec.title, 30, W - 110, 3);
     for (const l of titleLines) { backSvg += `<path d="${bold.path(l, 30, 55, by)}" fill="${backInk}"/>`; by += 38; }
     by += 14;
-    // The description, justified inside the same safe margins as the print file (half an inch of 6-inch-wide pages).
+    // The description, left-aligned at 11 points inside the same safe margins as the print file (half an inch of 6-inch-wide pages).
     const m = W * (0.5 / trimInches(spec.trimCode).w);
     const lay = layoutBackDescription({ text: spec.description || "", boxW: W - 2 * m, boxH: H - by - m, unitsPerInch: W / trimInches(spec.trimCode).w, width: (t, sz) => regular.width(t, sz) });
     for (const line of lay.lines) for (const w of line.words) backSvg += `<path d="${regular.path(w.text, lay.size, m + w.x, by + line.baseline)}" fill="${backInk}" opacity="0.92"/>`;
@@ -188,7 +188,7 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
       width: (text, size) => bold.width(text, size),
     });
     for (const line of plan?.lines ?? []) {
-      spineSvg += `<g transform="translate(${T / 2 + line.size * 0.35} ${line.start}) rotate(90)"><path d="${bold.path(line.text, line.size, 0, 0)}" fill="${spineInk}"/></g>`;
+      spineSvg += `<g transform="translate(${T / 2 - line.size * SPINE_CENTRE_K} ${line.start}) rotate(90)"><path d="${bold.path(line.text, line.size, 0, 0)}" fill="${spineInk}"/></g>`;
     }
   }
   spineSvg += `<rect width="${T}" height="${H}" fill="url(#${sid})"/>`;
@@ -235,7 +235,7 @@ function hexToRgb(h: string): Rgb {
 export async function renderPrintMockup(spec: MockupSpec, frontImage: Buffer | null, wrap: WrapCrops | null = null, opts: { backdrop?: boolean } = {}): Promise<Buffer> {
   const sharp = (await import("sharp")).default;
   const dims = bookDimensions(spec);
-  const [bold, regular] = await Promise.all([loadFont("Arimo_700Bold.ttf"), loadFont("Arimo_400Regular.ttf")]);
+  const [bold, regular] = await Promise.all([loadFont("Tinos_700Bold.ttf"), loadFont("Tinos_400Regular.ttf")]);
 
   let front: Buffer | null = null;
   let avg: Rgb = { r: 120, g: 110, b: 150 };

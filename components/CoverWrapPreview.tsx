@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { layoutBackDescription, backWordCount, backWordsOver, BACK_DESCRIPTION_MAX_WORDS } from "@/lib/back-cover";
-import { planSpineText } from "@/lib/spine-text";
+import { planSpineText, SPINE_CENTRE_K } from "@/lib/spine-text";
+import { timesWidth } from "@/lib/times-widths";
 import {
   PALETTES, MOTIFS, hashStr, deriveBackCoverPalette, extractDominantColor,
   motifSvgInner, computeCoverGeometry,
@@ -25,6 +26,9 @@ import {
  * live canvas measurement, so server and client render identically and
  * never mismatch on hydration.
  */
+/** Times New Roman, falling back to its metric twin and then any serif. */
+const SERIF = "'Times New Roman', Tinos, 'Liberation Serif', Times, serif";
+
 export function CoverWrapPreview({
   title,
   authorFirstName,
@@ -150,15 +154,15 @@ export function CoverWrapPreview({
   const back = deriveBackCoverPalette(palette, dominantColor);
   const motif = MOTIFS[seed % MOTIFS.length];
 
-  // ---- Back cover: the description, justified, filling the safe area from margin to margin (same layout as the print file) ----
+  // ---- Back cover: the description, left-aligned at 11 points (10 at the smallest), inside the safe area from margin to margin (same layout as the print file) ----
   const boxX = backX + margin, boxY = bleed + margin;
   const boxW = trimW - margin * 2;
   const boxH = trimH - margin * 2;
   const backLayout = layoutBackDescription({
     text: description || "Add a book description above to see it appear here automatically.",
     boxW, boxH, unitsPerInch: U,
-    // Approximate width of regular sans-serif text; the print file measures with the real font.
-    width: (text, size) => text.length * size * 0.5,
+    // Times New Roman letter widths (the print file embeds Tinos, which has the same widths), so the lines break where the print file's do.
+    width: (text, size) => timesWidth(text, size, false),
   });
   const descWords = backWordCount(description);
   const descOver = backWordsOver(description);
@@ -167,8 +171,8 @@ export function CoverWrapPreview({
   const spineColor = back.spine;
   const spinePlan = useCustom ? null : planSpineText({
     spine: spineW, length: trimH, unitsPerInch: U, title, author: `${authorFirstName ?? ""} ${authorLastName ?? ""}`,
-    // Approximate width of bold sans-serif text; the print file measures with the real font.
-    width: (text, size) => text.length * size * 0.6,
+    // Times New Roman Bold letter widths (the print file embeds Tinos, which has the same widths).
+    width: (text, size) => timesWidth(text, size, true),
   });
   const spineTextColor = (() => {
     const m = /^#?([0-9a-f]{6})$/i.exec(spineColor);
@@ -210,6 +214,9 @@ export function CoverWrapPreview({
         </p>
       )}
 
+      {!useCustom && spinePlan?.notice && (
+        <p className="field-hint" role="status" style={{ color: "var(--coral-deep)" }}>{spinePlan.notice}</p>
+      )}
       {!useCustom && descOver > 0 && (
         <p className="field-hint" role="status" style={{ color: "var(--coral-deep)" }}>
           Your description is {descWords} words. The back cover holds about {BACK_DESCRIPTION_MAX_WORDS}, so {descOver} {descOver === 1 ? "word is" : "words are"} over and the end is cut off on the printed cover. Shorten it to print it all.
@@ -240,7 +247,7 @@ export function CoverWrapPreview({
           {!useCustom && <g>
             <rect x={backX} y={bleed} width={trimW} height={trimH} fill={back.background} />
             {backLayout.lines.map((line, i) => (
-              <text key={i} fontFamily="Arial, Helvetica, sans-serif" fontSize={backLayout.size} fill={spineTextColor}>
+              <text key={i} fontFamily={SERIF} fontSize={backLayout.size} fill={spineTextColor}>
                 {line.words.map((w, j) => (
                   <tspan key={j} x={boxX + w.x} y={boxY + line.baseline}>{w.text}</tspan>
                 ))}
@@ -255,9 +262,9 @@ export function CoverWrapPreview({
               // Same plan as the print cover and the 3D mockups: author at the top end, title lower toward the bottom end, nothing on a thin spine.
               <text
                 key={i}
-                x={spineX + spineW / 2 + line.size * 0.35} y={bleed + line.start}
-                fontFamily="Arial, Helvetica, sans-serif" fontWeight={700} fontSize={line.size} fill={spineTextColor}
-                transform={`rotate(90 ${spineX + spineW / 2 + line.size * 0.35} ${bleed + line.start})`}
+                x={spineX + spineW / 2 - line.size * SPINE_CENTRE_K} y={bleed + line.start}
+                fontFamily={SERIF} fontWeight={700} fontSize={line.size} fill={spineTextColor}
+                transform={`rotate(90 ${spineX + spineW / 2 - line.size * SPINE_CENTRE_K} ${bleed + line.start})`}
               >
                 {line.text}
               </text>

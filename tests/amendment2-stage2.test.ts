@@ -7,25 +7,48 @@ import { buildCoverWrapPdf, coverLayout } from "../lib/lulu-cover";
 
 const width = (t: string, s: number) => t.length * s * 0.5;
 
-test("spine: author at the top end, title lower toward the bottom end, nothing crowded at the top", () => {
+test("spine: author 2 mm from the top edge, title's last letter 2 mm from the bottom edge, same letter size as before", () => {
   const plan = planSpineText({ spine: 0.7 * 72, length: 612, unitsPerInch: 72, title: "The Friend", author: "Liam Walker", width })!;
   const [author, title] = plan.lines;
-  assert.equal(author.start, 0.5 * 72);
+  const mm2 = (2 / 25.4) * 72;
+  assert.ok(Math.abs(author.start - mm2) < 1e-9, "the author's first letter is 2 mm from the top");
   const titleEnd = title.start + width(title.text, title.size);
-  assert.ok(Math.abs(titleEnd - (612 - 0.5 * 72)) < 0.01, "the title ends at the bottom margin");
-  assert.ok(title.start > author.start + width(author.text, author.size) + 100, "a clear gap between the two");
+  assert.ok(Math.abs(titleEnd - (612 - mm2)) < 1e-9, "the title's last letter is 2 mm from the bottom");
+  assert.ok(Math.abs(title.size - Math.min(0.2 * 72, 0.7 * 72 * 0.5)) < 1e-9, "letter size unchanged");
+  assert.equal(plan.shrink, 1);
+  assert.equal(plan.notice, null);
 });
 
-test("back cover: justified lines fill the width exactly and never pass the margins", () => {
+test("spine: a long title shrinks slightly, then is shortened with a notice; nothing passes the 2 mm gaps; very thick and very thin spines", () => {
+  const mm2 = (2 / 25.4) * 72;
+  const slightly = planSpineText({ spine: 0.7 * 72, length: 240, unitsPerInch: 72, title: "A Fairly Long Title Here", author: "Liam Walker", width })!;
+  assert.ok(slightly.shrink < 1 && slightly.shrink >= 0.7 && !slightly.truncated);
+  assert.match(slightly.notice ?? "", /smaller/);
+  const very = planSpineText({ spine: 0.7 * 72, length: 300, unitsPerInch: 72, title: "A".repeat(200), author: "Liam Walker", width })!;
+  assert.ok(very.truncated && /shortened/.test(very.notice ?? ""));
+  for (const p of [slightly, very]) for (const l of p.lines) {
+    assert.ok(l.start >= mm2 - 1e-9);
+    assert.ok(l.start + width(l.text, l.size) <= (p === very ? 300 : 240) - mm2 + 1e-9);
+  }
+  const thick = planSpineText({ spine: 3 * 72, length: 612, unitsPerInch: 72, title: "The Friend", author: "Liam Walker", width })!;
+  assert.ok(Math.abs(thick.lines[1].size - 0.2 * 72) < 1e-9, "a very thick spine keeps the same letter size, never larger");
+  assert.equal(planSpineText({ spine: 0.2 * 72, length: 612, unitsPerInch: 72, title: "The Friend", author: "Liam Walker", width }), null);
+});
+
+test("back cover: lines are left-aligned (ragged right), start at the left margin, never pass the right margin; 11 points, down to 10", () => {
   const text = Array.from({ length: 120 }, (_, i) => `word${i}`).join(" ");
   const lay = layoutBackDescription({ text, boxW: 200, boxH: 400, unitsPerInch: 72, width });
   assert.ok(lay.lines.length > 2);
-  lay.lines.slice(0, -1).forEach((l) => {
-    const last = l.words[l.words.length - 1];
-    assert.ok(Math.abs(last.x + width(last.text, lay.size) - 200) < 0.01);
-    assert.ok(l.words.every((w) => w.x >= 0));
+  const ends = lay.lines.slice(0, -1).map((l) => { const last = l.words[l.words.length - 1]; return last.x + width(last.text, lay.size); });
+  assert.ok(ends.every((e) => e <= 200 + 1e-9), "never past the right margin");
+  assert.ok(new Set(ends.map((e) => Math.round(e))).size > 1, "ragged, not justified");
+  lay.lines.forEach((l) => {
+    assert.equal(l.words[0].x, 0);
+    l.words.slice(1).forEach((w, i) => assert.ok(Math.abs(w.x - (l.words[i].x + width(l.words[i].text, lay.size) + width(" ", lay.size))) < 1e-9, "normal word spacing"));
   });
-  assert.ok(lay.size >= 0.1265 * 72 * 0.88 - 1e-9 && lay.size <= 0.1265 * 72 + 1e-9);
+  assert.ok(Math.abs(lay.size - 11) < 1e-9, "11 points");
+  const tight = layoutBackDescription({ text, boxW: 200, boxH: 330, unitsPerInch: 72, width });
+  assert.ok(tight.size >= 10 - 1e-9 && tight.size <= 11 + 1e-9);
 });
 
 test("back cover: about 170 words, counted, with the words over reported; text is cut rather than overflow", () => {

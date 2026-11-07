@@ -642,6 +642,7 @@ export function PrintSubmissionForm({
             onUploaded={(ids) => { setPrintReadyPdfFileId(ids[0]); setCarriedFileName(undefined); setOriginalPdfFileId(undefined); setFontResult(null); autoFontTried.current = ""; }}
             onFileMeta={(results) => applyInteriorMeta(results[0])}
             fillWidth
+            hoverOptions
           />
           <ImageUploadField
             label="Front Cover Only"
@@ -651,6 +652,9 @@ export function PrintSubmissionForm({
             externalLabel="Cover image ready"
             accept="image/png,image/jpeg"
             fillWidth
+            hoverOptions
+            sideWhenFilled
+            showReplaceButton={false}
           />
           <FileUploadField
             label="Custom Cover (Optional)"
@@ -661,6 +665,7 @@ export function PrintSubmissionForm({
             onUploaded={(ids) => { setCustomBackCoverPdfFileId(ids[0]); setBackCoverMode("custom"); }}
             onRemove={() => { setCustomBackCoverPdfFileId(undefined); setBackCoverMode("auto"); }}
             fillWidth
+            hoverOptions
           />
         </div>
         <PrintSpecsPanel

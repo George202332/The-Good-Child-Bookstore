@@ -25,6 +25,9 @@ export function ImageUploadField({
   fillWidth,
   accept = "image/*",
   externalLabel,
+  hoverOptions = false,
+  sideWhenFilled = false,
+  showReplaceButton = true,
 }: {
   label: string;
   recommendedSize?: string;
@@ -47,6 +50,12 @@ export function ImageUploadField({
   accept?: string;
   /** Shown in the "uploaded" badge when the image arrived from outside this card. */
   externalLabel?: string;
+  /** On a computer, hovering the card shows two options: Upload and drag and drop (empty or filled alike). On a touch screen, tapping the card opens the file picker. */
+  hoverOptions?: boolean;
+  /** Once an image is on the card, show its thumbnail on the LEFT with the check and the replace hint on the right. */
+  sideWhenFilled?: boolean;
+  /** The separate "Replace Image" button under the card. Off where replacing is done by uploading another file on the card itself. */
+  showReplaceButton?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,8 +106,8 @@ export function ImageUploadField({
   const hasFile = !!shownUrl;
 
   return (
-    <div style={fillWidth ? { flex: 1, minWidth: 160, marginBottom: 16 } : { maxWidth: 280, marginBottom: 16 }}>
-      <div className={`upload-card ${hasFile ? "has-file" : ""} ${isDragOver ? "drag-over" : ""}`}>
+    <div style={fillWidth ? { flex: 1, minWidth: 160, marginBottom: hoverOptions ? 0 : 16 } : { maxWidth: 280, marginBottom: 16 }}>
+      <div className={`upload-card ${hasFile ? "has-file" : ""} ${isDragOver ? "drag-over" : ""} ${hoverOptions ? "with-hover" : ""}`}>
         <input
           type="file"
           id={inputId}
@@ -109,7 +118,7 @@ export function ImageUploadField({
         />
         <label
           htmlFor={inputId}
-          className="upload-card-inner"
+          className={`upload-card-inner${sideWhenFilled && hasFile ? " upload-card-side" : ""}`}
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragOver(true);
@@ -119,25 +128,34 @@ export function ImageUploadField({
         >
           {hasFile && shownUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- small upload-card preview thumbnail
-            <img src={shownUrl} alt={label} style={{ width: 44, height: 58, objectFit: "cover", borderRadius: 6 }} />
+            <img src={shownUrl} alt={label} style={{ width: 44, height: 58, objectFit: "cover", borderRadius: 6, flex: "none" }} />
           ) : (
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="9" cy="9" r="2" /><path d="M21 15l-5-5L5 21" />
             </svg>
           )}
-          <div className="upload-card-title">{label}</div>
-          <div className="upload-card-sub upload-card-default-label">
-            {uploading ? "Uploading…" : isDragOver ? "Drop to upload" : recommendedSize ?? "Any image format — drag & drop or click"}
+          <div className="upload-card-text">
+            <div className="upload-card-title">{label}</div>
+            <div className="upload-card-sub upload-card-default-label">
+              {uploading ? "Uploading…" : isDragOver ? "Drop to upload" : recommendedSize ?? "Any image format — drag & drop or click"}
+            </div>
+            <div className="upload-card-success-badge">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
+              <span>{fileName ?? externalLabel ?? "Uploaded"}</span>
+            </div>
+            {hasFile && <div style={{ fontSize: 11, color: "#165236", marginTop: 2 }}>{showReplaceButton ? "Click to replace with a different image" : "To replace it, upload another image on this card"}</div>}
           </div>
-          <div className="upload-card-success-badge">
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
-            <span>{fileName ?? externalLabel ?? "Uploaded"}</span>
-          </div>
-          {hasFile && <div style={{ fontSize: 11, color: "#165236", marginTop: 2 }}>Click to replace with a different image</div>}
+          {hoverOptions && (
+            <div className="upload-card-hover" aria-hidden>
+              <span className="upload-card-hover-btn">Upload</span>
+              <span className="upload-card-hover-or">or</span>
+              <span className="upload-card-hover-drop">Drag and drop {hasFile ? "a new file" : "a file"} here</span>
+            </div>
+          )}
         </label>
       </div>
       {error && <div className="field-hint" style={{ color: "var(--coral-deep, var(--admin-danger))" }}>{error}</div>}
-      {hasFile && (
+      {hasFile && showReplaceButton && (
         <button
           type="button"
           className="btn btn-ghost btn-small"

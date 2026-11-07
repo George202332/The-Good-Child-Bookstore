@@ -50,13 +50,14 @@ describe("author side changes (batch 6A)", () => {
     assert.match(r("app/account/books/new/PrintSubmissionForm.tsx"), /books\/published\?kind=print/);
     assert.match(r("app/account/books/published/page.tsx"), /submitted for review for approval/);
   });
-  test("My Books: 15 a page, the new columns, hover edit, no status or edit column", () => {
+  test("My Books: 10 at a time with Load More, the columns, hover edit, no status or edit column", () => {
     const p = r("app/account/books/page.tsx");
-    assert.match(p, /PAGE_SIZE = 15/);
-    for (const h of ["Title", "Author", "Category", "Units Sold", "Royalty", "eBook", "Audiobook", "Paperback", "Hardcover"]) assert.ok(p.includes(`>${h}<ColHelp`), h);
-    assert.ok(!p.includes(">Status<ColHelp") && !p.includes(">Edit<ColHelp"));
+    const t = r("app/account/books/MyBooksTable.tsx");
+    assert.match(t, /const STEP = 10;/);
+    for (const h of ["Title", "Author", "Category", "Units Sold", "Royalty", "eBook", "Audiobook", "Paperback", "Hardcover"]) assert.ok(t.includes(`>${h}<ColHelp`) || t.includes(`{f.label}<ColHelp`), h);
+    assert.ok(!t.includes(">Status<ColHelp") && !t.includes(">Edit<ColHelp"));
     assert.match(p, /Edit eBook\/Audiobook/);
-    assert.match(p, /Edit Print</);
+    assert.match(p, /Edit Print"/);
     assert.match(p, /r\.category/);
   });
   test("editing one edition opens only that edition", () => {
@@ -94,12 +95,14 @@ describe("amendment batch 2, stage 1", () => {
     assert.equal(m.aiDisplayText("some old free text"), "");
     assert.match(r("app/book/[id]/BookDetailClient.tsx"), /AI Use Declaration:/);
   });
-  test("My Books: actions sit in their own last column after Hardcover", () => {
+  test("My Books: the action buttons have no column of their own; they appear over the right end of the row", () => {
     const p = r("app/account/books/page.tsx");
-    assert.match(p, /Edit Print</);
-    assert.match(p, /Add Print</);
-    assert.match(p, /tabIndex=\{0\}/);
-    assert.ok(p.indexOf(">Hardcover<ColHelp") < p.indexOf('aria-label="Actions"'));
+    const t = r("app/account/books/MyBooksTable.tsx");
+    assert.match(p, /Edit Print"/);
+    assert.match(p, /Add Print"/);
+    assert.match(t, /tabIndex=\{0\}/);
+    assert.ok(!t.includes('aria-label="Actions"'));
+    assert.match(t, /\.mybooks-row \.row-actions\{position:absolute;right:8px/);
   });
   test("edit screen: both tabs, edit wording, review note", () => {
     const t = r("app/account/books/[id]/edit/EditBookTabs.tsx");

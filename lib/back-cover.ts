@@ -1,17 +1,19 @@
 /**
- * The writing on the back cover of a print book: the book's description, justified (both edges straight), filling the safe
- * area from the left margin to the right margin, never past it. One layout is used by the print cover PDF sent to Lulu, the
- * on-screen cover preview and the 3D mockups, so all three show the same thing.
+ * The writing on the back cover of a print book: the book's description, left-aligned (the lines end where the words run
+ * out, so the right edge is ragged), inside the safe area from the left margin to the right margin, never past it. One layout
+ * is used by the print cover PDF sent to Lulu, the on-screen cover preview and the 3D mockups, so all three show the same thing.
  *
  * Pure: works in whatever unit the caller uses and measures text with the function it is given.
  */
 
 /** The back cover comfortably holds about this many words. */
 export const BACK_DESCRIPTION_MAX_WORDS = 170;
-/** Text size, in inches (10% larger than the earlier 0.115 in). */
-export const BACK_TEXT_SIZE_IN = 0.1265;
-/** The text may shrink only slightly (to 88%) to make a long description fit. */
-export const BACK_TEXT_MIN_FACTOR = 0.88;
+/** Text size: 11 points on the printed cover (11/72 of an inch). */
+export const BACK_TEXT_SIZE_PT = 11;
+export const BACK_TEXT_SIZE_IN = BACK_TEXT_SIZE_PT / 72;
+/** A long description may shrink to 10 points to fit; beyond that the notice about too many words applies instead. */
+export const BACK_TEXT_MIN_PT = 10;
+export const BACK_TEXT_MIN_FACTOR = BACK_TEXT_MIN_PT / BACK_TEXT_SIZE_PT;
 
 export function backWords(text: string | undefined | null): string[] {
   return (text ?? "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
@@ -72,9 +74,8 @@ export function layoutBackDescription(opts: {
   }
 
   const lines: BackLine[] = rows.map((row, i) => {
-    const natural = row.reduce((s, w) => s + opts.width(w, size), 0);
-    const justify = i < rows.length - 1 && row.length > 1;
-    const gap = justify ? Math.max(0, (opts.boxW - natural) / (row.length - 1)) : opts.width(" ", size);
+    // Left-aligned: the normal space between words, so the right edge is ragged.
+    const gap = opts.width(" ", size);
     let x = 0;
     const placed = row.map((w) => {
       const p = { text: w, x };

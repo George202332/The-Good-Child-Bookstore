@@ -13,7 +13,7 @@
  * PDF drawing itself runs on the server only.
  */
 
-import { planSpineText } from "@/lib/spine-text";
+import { planSpineText, SPINE_CENTRE_K } from "@/lib/spine-text";
 import { layoutBackDescription } from "@/lib/back-cover";
 
 /** The safe margin inside the trim edge: nothing important is printed closer than this (half an inch). */
@@ -78,7 +78,7 @@ export async function buildCoverWrapPdf(opts: {
   frontImage: Buffer;
   title: string;
   author?: string;
-  /** Printed justified on the back cover, inside the safe margins. */
+  /** Printed left-aligned on the back cover at 11 points, inside the safe margins. */
   description?: string;
 }): Promise<Uint8Array> {
   const sharp = (await import("sharp")).default;
@@ -111,10 +111,10 @@ export async function buildCoverWrapPdf(opts: {
   // Spine writing: the shared plan (lib/spine-text.ts). Nothing on a thin spine; otherwise the author's name at the top and
   // the title below it, reading top to bottom. The same plan draws the on-screen preview and the 3D mockups.
   {
-    // A real font file is embedded (Arimo Bold, open licence), never one of the 14 built-in names the
+    // A real font file is embedded (Tinos Bold, the open-licence metric twin of Times New Roman), never one of the 14 built-in names the
     // PDF would only refer to: Lulu rejects covers whose fonts are not stored in the file. The whole font is stored (not a
     // subset): pdf-lib's subsetting drops letters from this font, which left gaps in the spine writing.
-    const font = await doc.embedFont(await readBundledFont("Arimo_700Bold.ttf"), { subset: false });
+    const font = await doc.embedFont(await readBundledFont("Tinos_700Bold.ttf"), { subset: false });
     const plan = planSpineText({
       spine: L.spine, length: L.trimH, unitsPerInch: 72,
       title: opts.title, author: opts.author,
@@ -127,7 +127,7 @@ export async function buildCoverWrapPdf(opts: {
       for (const line of plan.lines) {
         // Rotated 90 degrees clockwise, reading top to bottom, centred across the spine.
         page.drawText(line.text, {
-          x: L.spineX + L.spine / 2 + line.size * 0.35,
+          x: L.spineX + L.spine / 2 - line.size * SPINE_CENTRE_K,
           y: trimTop - line.start,
           size: line.size,
           font,
@@ -138,9 +138,9 @@ export async function buildCoverWrapPdf(opts: {
     }
   }
 
-  // Back cover: the description, justified, filling the safe area from the left margin to the right margin.
+  // Back cover: the description, left-aligned at 11 points (10 at the smallest), inside the safe area from the left margin to the right margin.
   if (opts.description && opts.description.trim()) {
-    const regular = await doc.embedFont(await readBundledFont("Arimo_400Regular.ttf"), { subset: false });
+    const regular = await doc.embedFont(await readBundledFont("Tinos_400Regular.ttf"), { subset: false });
     const boxW = L.trimW - 2 * BACK_SAFE_MARGIN_PT;
     const boxH = L.trimH - 2 * BACK_SAFE_MARGIN_PT;
     const lay = layoutBackDescription({

@@ -86,8 +86,10 @@ export default async function BookBySlugPage({ params }: { params: Promise<{ slu
       [resolved.book.formatBookIds?.paperback ?? resolved.book.id, "paperback"],
       [resolved.book.formatBookIds?.hardcover ?? resolved.book.id, "hardcover"],
     ];
-    const missing = new Set(wanted.filter(([id, f]) => id && !printMockups[f] && resolved.book.formatAvailable?.[f]).map(([id]) => id as string));
-    for (const id of missing) if (shouldMakeMockupsNow(id)) after(() => ensurePrintMockups(id));
+    // Also covers a picture made with older settings (for example before a font change): ensurePrintMockups keeps a current
+    // picture as it is, and redraws only one whose settings code is out of date.
+    const wantedIds = new Set(wanted.filter(([id, f]) => id && resolved.book.formatAvailable?.[f]).map(([id]) => id as string));
+    for (const id of wantedIds) if (shouldMakeMockupsNow(id)) after(() => ensurePrintMockups(id));
   }
   return (
     <BookDetailClient

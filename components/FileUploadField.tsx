@@ -36,6 +36,7 @@ export function FileUploadField({
   externalFileName,
   onRemove,
   checkSizeLimit = false,
+  hoverOptions = false,
 }: {
   label: string;
   sizeHint: string;
@@ -67,6 +68,10 @@ export function FileUploadField({
    * friendly message, before any upload is attempted (the server action
    * body limit would otherwise refuse it with a generic error). */
   checkSizeLimit?: boolean;
+  /** On a computer, hovering the card shows two clear options: Upload (opens the file picker) and drag and drop. Works the
+   * same whether the card is empty or already holds a file, so replacing a file is the same as uploading. On a phone or
+   * tablet there is no hover: tapping the card opens the file picker straight away. */
+  hoverOptions?: boolean;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +146,7 @@ export function FileUploadField({
   return (
     <div style={fillWidth ? { flex: 1, minWidth: 160 } : undefined}>
       <div
-        className={`upload-card ${hasFile ? "has-file" : ""} ${isDragOver ? "drag-over" : ""}`}
+        className={`upload-card ${hasFile ? "has-file" : ""} ${isDragOver ? "drag-over" : ""} ${hoverOptions ? "with-hover" : ""}`}
         style={disabled ? { opacity: 0.55, pointerEvents: "none" } : undefined}
         aria-disabled={disabled || undefined}
       >
@@ -176,6 +181,13 @@ export function FileUploadField({
             <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth={3}><path d="M5 13l4 4L19 7" /></svg>
             <span>{fileNames.length > 1 ? `${fileNames.length} files` : fileNames[0] ?? "Uploaded"}</span>
           </div>
+          {hoverOptions && (
+            <div className="upload-card-hover" aria-hidden>
+              <span className="upload-card-hover-btn">Upload</span>
+              <span className="upload-card-hover-or">or</span>
+              <span className="upload-card-hover-drop">Drag and drop {hasFile ? "a new file" : "a file"} here</span>
+            </div>
+          )}
         </label>
       </div>
       {disabled && disabledNote && <div className="field-hint">{disabledNote}</div>}
