@@ -1,3 +1,4 @@
+import { LiveRefresher } from "@/components/LiveRefresher";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -31,6 +32,7 @@ export default async function PerformancePage() {
 
   return (
     <DashboardShell role={role} activeKey="performance" displayName={session.user.name ?? ""}>
+      <LiveRefresher />
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 15.5 }}>Affiliate</h2>

@@ -1,3 +1,4 @@
+import { LiveRefresher } from "@/components/LiveRefresher";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
@@ -62,6 +63,7 @@ export default async function ReferralsPage() {
 
   return (
     <DashboardShell role={role} activeKey="referrals" displayName={session.user.name ?? ""}>
+      <LiveRefresher />
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 15.5 }}>Referrals</h2>

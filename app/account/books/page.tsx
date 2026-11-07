@@ -44,7 +44,7 @@ const STAGE_LABEL: Record<string, string> = {
 /**
  * "My Books": 10 books at first, then Load More adds 10 each press. Columns: Title, Author, Category, Units Sold, Royalty, then one cell per format (eBook,
  * Audiobook, Paperback, Hardcover) holding that format's copies sold with its status beneath ("Unpublished" when it is not live).
- * One book is one row; hovering (or tapping) a row shows its actions at the right end: Edit eBook/Audiobook, and Edit Print or Add Print.
+ * One book is one row; hovering (or tapping) a row shows its actions at the right end: Edit eBook/Audiobook, and Edit Print Book or Add Print Book.
  */
 const SAVED_NOTICES: Record<string, string> = {
   review: "Your book was sent for review. We will publish it as soon as it is approved.",
@@ -111,8 +111,8 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
     for (const r of group.filter((x) => x.status === "REJECTED" && x.revisionNotes)) notes.push({ text: `"${r.revisionNotes}"`, alert: true });
     const actions: MyBookRow["actions"] = [];
     if (digitalRow) actions.push({ href: `/account/books/${digitalRow.id}/edit?edition=ebook`, label: "Edit eBook/Audiobook" });
-    if (printRow) actions.push({ href: `/account/books/${printRow.id}/edit?edition=print`, label: "Edit Print" });
-    else if (digitalRow) actions.push({ href: `/account/books/${digitalRow.id}/edit?edition=print`, label: "Add Print" });
+    if (printRow) actions.push({ href: `/account/books/${printRow.id}/edit?edition=print`, label: "Edit Print Book" });
+    else if (digitalRow) actions.push({ href: `/account/books/${digitalRow.id}/edit?edition=print`, label: "Add Print Book" });
     if (!digitalRow && printRow) actions.push({ href: `/account/books/${printRow.id}/edit?edition=ebook`, label: "Add eBook/Audiobook" });
     return {
       id: b.id, title: b.title, cover, authorName, category, units, royalty, notes, actions,

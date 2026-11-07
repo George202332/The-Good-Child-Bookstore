@@ -18,6 +18,7 @@ import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { ChoiceChips } from "@/components/ChoiceChips";
 import { ButtonGroup } from "@/components/ButtonGroup";
+import { SpecPicture } from "@/components/SpecPicture";
 import { CoverWrapPreview } from "@/components/CoverWrapPreview";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 import { LULU_CONFIG, buildPodPackageId, labelForCode } from "@/lib/lulu-config";
@@ -29,6 +30,7 @@ import { AiDeclarationField } from "@/components/AiDeclarationField";
 import { aiChoiceOf, isLegacyAiText } from "@/lib/ai-declaration";
 import { detectTrimFromPageSize, formatInches, type DetectedTrim } from "@/lib/trim-size";
 import { printOptionsSummary } from "@/lib/print-options-summary";
+import { PrintingCostNote } from "./PrintingCostNote";
 import { BookSeoAdvice } from "@/components/BookSeoAdvice";
 import { PublishPanel, scrollToFirstMissing, type ChecklistItem, type PublishNotice } from "./PublishPanel";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
@@ -843,8 +845,9 @@ export function PrintSubmissionForm({
       {/* Section 5 */}
       <Card>
         <SectionHeader n={3} title="Book Specifications" sub="Every option here maps directly to a Lulu Print API POD Package code." />
+        <p className="field-hint" style={{ marginTop: 0, marginBottom: 12 }}>The pictures are a guide only. Real paper, ink and finishes vary slightly in print, and trim outlines are drawn to one common scale so sizes can be compared.</p>
         <label className="field-label">Trim Size</label>
-        <ButtonGroup options={LULU_CONFIG.trimSizes} value={trimCode} onChange={setTrimCode} />
+        <ButtonGroup options={LULU_CONFIG.trimSizes} value={trimCode} onChange={setTrimCode} picture={(c) => <SpecPicture kind="trim" code={c} />} />
         {detectedTrim && detectedTrim.code === trimCode && (
           <div className="field-hint">
             Picked automatically from your uploaded PDF ({detectedTrim.label}{detectedTrim.withBleed ? ", with bleed" : ""}).
@@ -863,27 +866,27 @@ export function PrintSubmissionForm({
         {paperbackEnabled && (
           <>
             <label className="field-label">Paperback Binding</label>
-            <ButtonGroup options={PAPERBACK_BINDINGS} value={paperbackBinding} onChange={setPaperbackBinding} />
+            <ButtonGroup options={PAPERBACK_BINDINGS} value={paperbackBinding} onChange={setPaperbackBinding} picture={(c) => <SpecPicture kind="binding" code={c} />} />
           </>
         )}
         <label className="field-label">Interior Color</label>
-        <ButtonGroup options={LULU_CONFIG.interiorColors} value={interiorColor} onChange={setInteriorColor} />
+        <ButtonGroup options={LULU_CONFIG.interiorColors} value={interiorColor} onChange={setInteriorColor} picture={(c) => <SpecPicture kind="interior" code={c} />} />
         <label className="field-label">Print Quality</label>
-        <ButtonGroup options={LULU_CONFIG.printQualities} value={printQuality} onChange={setPrintQuality} />
+        <ButtonGroup options={LULU_CONFIG.printQualities} value={printQuality} onChange={setPrintQuality} picture={(c) => <SpecPicture kind="quality" code={c} />} />
         <label className="field-label">Paper Type</label>
-        <ButtonGroup options={LULU_CONFIG.paperTypes} value={paperType} onChange={setPaperType} />
+        <ButtonGroup options={LULU_CONFIG.paperTypes} value={paperType} onChange={setPaperType} picture={(c) => <SpecPicture kind="paper" code={c} />} />
         {paperbackEnabled && (
           <>
             <label className="field-label">Cover Finish (Paperback/Coil)</label>
-            <ButtonGroup options={LULU_CONFIG.coverFinishes} value={coverFinish} onChange={setCoverFinish} />
+            <ButtonGroup options={LULU_CONFIG.coverFinishes} value={coverFinish} onChange={setCoverFinish} picture={(c) => <SpecPicture kind="finish" code={c} />} />
           </>
         )}
         {hardcoverEnabled && (
           <>
             <label className="field-label">Linen Wrap Color (Hardcover)</label>
-            <ButtonGroup options={LULU_CONFIG.linenColors.filter((l) => l.code !== "X")} value={linenColor} onChange={setLinenColor} />
+            <ButtonGroup options={LULU_CONFIG.linenColors.filter((l) => l.code !== "X")} value={linenColor} onChange={setLinenColor} picture={(c) => <SpecPicture kind="linen" code={c} />} />
             <label className="field-label">Foil Stamp Color (Hardcover Spine)</label>
-            <ButtonGroup options={LULU_CONFIG.foilColors.filter((f) => f.code !== "X")} value={foilColor} onChange={setFoilColor} />
+            <ButtonGroup options={LULU_CONFIG.foilColors.filter((f) => f.code !== "X")} value={foilColor} onChange={setFoilColor} picture={(c) => <SpecPicture kind="foil" code={c} />} />
             <div className="form-grid-2">
               <div>
                 <label className="field-label" htmlFor="p-foiltitle">Foil Stamp: Title Text</label>
@@ -991,7 +994,7 @@ export function PrintSubmissionForm({
         </div>
         {paperbackEnabled && (
           <div className="stat-grid" style={{ marginTop: 12, marginBottom: 0 }}>
-            <div><div className="stat-label">Paperback Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><div className="stat-sub">{costLabel(pbItem)}</div><div className="stat-sub" style={{ marginTop: 4 }}>Based on: {printOptionsSummary({ format: "paperback", pageCount: pagesNum || undefined, trimCode, binding: paperbackBinding, paperCode: paperType, colorCode: interiorColor, qualityCode: printQuality, finishCode: coverFinish }).join(" · ")}</div></div>
+            <div><div className="stat-label">Paperback Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><PrintingCostNote sourceLabel={costLabel(pbItem)} specs={printOptionsSummary({ format: "paperback", pageCount: pagesNum || undefined, trimCode, binding: paperbackBinding, paperCode: paperType, colorCode: interiorColor, qualityCode: printQuality, finishCode: coverFinish })} /></div>
             <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of ${paperbackPricing.balance.toFixed(2)} (price minus printing cost)</div></div>
             <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold, 70% of the balance</div></div>
             <div><div className="stat-label">Royalty Via Affiliate Link</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.royaltyViaAffiliate.toFixed(2)}</div><div className="stat-sub">60% of the balance; the affiliate earns ${paperbackPricing.affiliateCommission.toFixed(2)}</div></div>
@@ -999,7 +1002,7 @@ export function PrintSubmissionForm({
         )}
         {hardcoverEnabled && (
           <div className="stat-grid" style={{ marginTop: paperbackEnabled ? 20 : 12, marginBottom: 0 }}>
-            <div><div className="stat-label">Hardcover Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><div className="stat-sub">{costLabel(hcItem)}</div><div className="stat-sub" style={{ marginTop: 4 }}>Based on: {printOptionsSummary({ format: "hardcover", pageCount: pagesNum || undefined, trimCode, binding: "LW", paperCode: paperType, colorCode: interiorColor, qualityCode: printQuality, finishCode: coverFinish, linenCode: linenColor, foilCode: foilColor }).join(" · ")}</div></div>
+            <div><div className="stat-label">Hardcover Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><PrintingCostNote sourceLabel={costLabel(hcItem)} specs={printOptionsSummary({ format: "hardcover", pageCount: pagesNum || undefined, trimCode, binding: "LW", paperCode: paperType, colorCode: interiorColor, qualityCode: printQuality, finishCode: coverFinish, linenCode: linenColor, foilCode: foilColor })} /></div>
             <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of ${hardcoverPricing.balance.toFixed(2)} (price minus printing cost)</div></div>
             <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold, 70% of the balance</div></div>
             <div><div className="stat-label">Royalty Via Affiliate Link</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.royaltyViaAffiliate.toFixed(2)}</div><div className="stat-sub">60% of the balance; the affiliate earns ${hardcoverPricing.affiliateCommission.toFixed(2)}</div></div>
@@ -1027,7 +1030,6 @@ export function PrintSubmissionForm({
           <label className="toggle-switch"><input type="checkbox" checked={luluGlobalDistribution} onChange={(e) => setLuluGlobalDistribution(e.target.checked)} /><span className="toggle-slider" /></label>
           <span>Lulu Global Distribution</span>
         </div>
-        <p className="field-hint" style={{ marginTop: 4 }}>All published books are available to affiliates.</p>
       </Card>
 
       <PublishPanel

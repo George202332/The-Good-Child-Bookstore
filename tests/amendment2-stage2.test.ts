@@ -81,6 +81,6 @@ test("price form: the red lines and the ISBN/affiliate/promotion controls are go
     assert.ok(!form.includes(gone), gone);
   }
   assert.match(form, /Minimum price for this edition/);
-  assert.match(form, /All published books are available to affiliates\./);
+  assert.doesNotMatch(form, /All published books are available to affiliates/);
   assert.match(form, /Private Printing \(Author Copies Only\)/);
 });

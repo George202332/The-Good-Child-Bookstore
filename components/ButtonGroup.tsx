@@ -9,10 +9,13 @@ export function ButtonGroup({
   options,
   value,
   onChange,
+  picture,
 }: {
   options: { label: string; code: string }[];
   value: string;
   onChange: (code: string) => void;
+  /** An optional small picture drawn above each option's label (see components/SpecPicture.tsx). */
+  picture?: (code: string) => React.ReactNode;
 }) {
   return (
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
@@ -33,7 +36,12 @@ export function ButtonGroup({
             fontFamily: "inherit",
           }}
         >
-          {o.label}
+          {picture ? (
+            <span style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 64 }}>
+              {picture(o.code)}
+              <span>{o.label}</span>
+            </span>
+          ) : o.label}
         </button>
       ))}
     </div>

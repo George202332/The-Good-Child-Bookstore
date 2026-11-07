@@ -50,14 +50,14 @@ describe("author side changes (batch 6A)", () => {
     assert.match(r("app/account/books/new/PrintSubmissionForm.tsx"), /books\/published\?kind=print/);
     assert.match(r("app/account/books/published/page.tsx"), /submitted for review for approval/);
   });
-  test("My Books: 10 at a time with Load More, the columns, hover edit, no status or edit column", () => {
+  test("My Books: 15 per page with arrows, the columns, hover edit, no status or edit column", () => {
     const p = r("app/account/books/page.tsx");
     const t = r("app/account/books/MyBooksTable.tsx");
-    assert.match(t, /const STEP = 10;/);
-    for (const h of ["Title", "Author", "Category", "Units Sold", "Royalty", "eBook", "Audiobook", "Paperback", "Hardcover"]) assert.ok(t.includes(`>${h}<ColHelp`) || t.includes(`{f.label}<ColHelp`), h);
+    assert.match(t, /const PAGE_SIZE = 15;/);
+    for (const h of ["Title", "Author", "Category", "Units Sold", "Royalty", "eBook", "Audiobook", "Paperback", "Hardcover"]) assert.ok(t.includes(`>${h}<ColHelp`) || t.includes(`mybooks-th">${h}<ColHelp`) || t.includes(`{f.label}<ColHelp`), h);
     assert.ok(!t.includes(">Status<ColHelp") && !t.includes(">Edit<ColHelp"));
     assert.match(p, /Edit eBook\/Audiobook/);
-    assert.match(p, /Edit Print"/);
+    assert.match(p, /Edit Print Book"/);
     assert.match(p, /r\.category/);
   });
   test("editing one edition opens only that edition", () => {
@@ -98,18 +98,18 @@ describe("amendment batch 2, stage 1", () => {
   test("My Books: the action buttons have no column of their own; they appear over the right end of the row", () => {
     const p = r("app/account/books/page.tsx");
     const t = r("app/account/books/MyBooksTable.tsx");
-    assert.match(p, /Edit Print"/);
-    assert.match(p, /Add Print"/);
+    assert.match(p, /Edit Print Book"/);
+    assert.match(p, /Add Print Book"/);
     assert.match(t, /tabIndex=\{0\}/);
     assert.ok(!t.includes('aria-label="Actions"'));
-    assert.match(t, /\.mybooks-row \.row-actions\{position:absolute;right:8px/);
+    assert.match(t, /\.mybooks-row \.row-actions\{position:absolute;right:6px/);
   });
   test("edit screen: both tabs, edit wording, review note", () => {
     const t = r("app/account/books/[id]/edit/EditBookTabs.tsx");
     assert.match(t, /Edit eBook\/Audiobook/);
     assert.match(t, /Edit Print Book/);
     assert.match(t, /Add Print Book/);
-    assert.match(r("app/account/books/[id]/edit/page.tsx"), /Add Print Edition/);
+    assert.match(r("app/account/books/[id]/edit/page.tsx"), /Add Print Book/);
     assert.ok(!r("app/account/books/[id]/edit/page.tsx").includes("go live as soon as you save"));
   });
   test("print check: calm fixing state, 'needs fixing' only after the automatic fix finished", () => {

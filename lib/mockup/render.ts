@@ -182,7 +182,7 @@ async function buildTextures(spec: MockupSpec, dims: BookDims, front: Buffer | n
   // with the same plan as the print cover: nothing on a thin spine, otherwise the author at the top and the title below.
   if (!useWrap) {
     const plan = planSpineText({
-      spine: T, length: H, unitsPerInch: PX,
+      spine: T, length: H, unitsPerInch: PX, pages: spec.pages,
       title: hardcover ? spec.foilTitle || spec.title : spec.title,
       author: hardcover ? spec.foilAuthor || spec.author : spec.author,
       width: (text, size) => bold.width(text, size),

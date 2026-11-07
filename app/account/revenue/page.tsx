@@ -1,3 +1,4 @@
+import { LiveRefresher } from "@/components/LiveRefresher";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -258,6 +259,7 @@ export default async function RevenuePage() {
 
   return (
     <DashboardShell role={role} activeKey="revenue" displayName={session.user.name ?? ""}>
+      <LiveRefresher />
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 15.5 }}>Revenue</h2>

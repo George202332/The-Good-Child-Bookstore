@@ -449,6 +449,17 @@ async function resolveCoverUrl(opts: {
     return luluFileUrl(`/api/files/${opts.meta.customBackCoverPdfFileId}`, opts.siteUrl, PRINT_JOB_LINK_SECONDS) ?? "";
   }
 
+  // SENT-FILE GUARD: once a cover has been made for an order that Lulu already received, that exact file is kept. A later
+  // regeneration (a new spine rule, a changed description, a new font) only ever affects orders sent afterwards, never a file
+  // that is already at Lulu or a resend of the same order.
+  {
+    const order = await prisma.order.findUnique({ where: { id: opts.orderId }, select: { printJobStatus: true, printJobId: true } });
+    if (order && (order.printJobId || order.printJobStatus === "SUBMITTED")) {
+      const sent = await prisma.uploadedFile.findFirst({ where: { originalName: `cover-wrap-${opts.orderId.slice(0, 8)}.pdf` }, orderBy: { createdAt: "desc" }, select: { id: true } });
+      if (sent) return luluFileUrl(`/api/files/${sent.id}`, opts.siteUrl, PRINT_JOB_LINK_SECONDS) ?? "";
+    }
+  }
+
   const imageUrl = opts.meta?.frontCoverImageUrl || opts.bookCoverImageUrl;
   const imageId = imageUrl?.startsWith("/api/images/") ? imageUrl.split("/").pop() : undefined;
   const image = imageId ? await prisma.uploadedImage.findUnique({ where: { id: imageId } }) : null;
@@ -460,7 +471,7 @@ async function resolveCoverUrl(opts: {
   const layout = coverLayout(dims.widthPt, dims.heightPt, trim.w, trim.h);
   if (!layout) throw new Error(`"${opts.title}": Lulu's cover size does not fit this trim size.`);
 
-  const pdf = await buildCoverWrapPdf({ layout, frontImage: Buffer.from(image.data), title: opts.title, author: opts.authorName, description: opts.description ?? undefined });
+  const pdf = await buildCoverWrapPdf({ layout, frontImage: Buffer.from(image.data), title: opts.title, author: opts.authorName, description: opts.description ?? undefined, pages: opts.pageCount });
   const saved = await prisma.uploadedFile.create({
     data: { data: Uint8Array.from(pdf), mimeType: "application/pdf", originalName: `cover-wrap-${opts.orderId.slice(0, 8)}.pdf` },
   });
@@ -803,7 +814,7 @@ export async function storeGeneratedCoverWrap(opts: {
     if (!dims) return { ok: false, error: "Lulu could not give the cover size for this book." };
     const layout = coverLayout(dims.widthPt, dims.heightPt, trim.w, trim.h);
     if (!layout) return { ok: false, error: "Lulu's cover size does not fit this trim size." };
-    const pdf = await buildCoverWrapPdf({ layout, frontImage: Buffer.from(image.data), title: opts.title, author: opts.authorName, description: opts.description ?? undefined });
+    const pdf = await buildCoverWrapPdf({ layout, frontImage: Buffer.from(image.data), title: opts.title, author: opts.authorName, description: opts.description ?? undefined, pages: opts.pageCount });
     const saved = await prisma.uploadedFile.create({
       data: { data: Uint8Array.from(pdf), mimeType: "application/pdf", originalName: `cover-check-${Date.now().toString(36)}.pdf` },
     });

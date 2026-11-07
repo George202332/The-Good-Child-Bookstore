@@ -1,3 +1,4 @@
+import { StatusPill } from "@/components/StatusPill";
 import { EndlessTbody } from "@/components/EndlessRows";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
@@ -68,7 +69,7 @@ export default async function AuthorTransactionHistoryPage() {
                     <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{r.detail}</td>
                     <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{r.method}</td>
                     <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", fontWeight: 700 }}>${r.amount.toFixed(2)}</td>
-                    <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{r.status}</td>
+                    <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}><StatusPill status={r.status} /></td>
                   </tr>
                 ))} />
               )}
@@ -126,7 +127,7 @@ export default async function AuthorTransactionHistoryPage() {
                   <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{r.party}</td>
                   <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{r.method}</td>
                   <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)", fontWeight: 700 }}>{r.type === "Payout" ? "-" : ""}${r.amount.toFixed(2)}</td>
-                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}>{r.status}</td>
+                  <td style={{ padding: "10px 16px", borderBottom: "1px solid var(--line)" }}><StatusPill status={r.status} /></td>
                 </tr>
               ))} />
             )}

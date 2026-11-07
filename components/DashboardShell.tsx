@@ -1,4 +1,5 @@
 import { TableLabels } from "@/components/TableLabels";
+import { LiveCardFlash } from "@/components/LiveCardFlash";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
@@ -118,7 +119,7 @@ export async function DashboardShell({
           unreadSidebarKeys={[...unreadSidebarKeys]}
           displayName={displayName}
         />
-        <main className="dashboard-content"><TableLabels />{children}</main>
+        <main className="dashboard-content"><TableLabels /><LiveCardFlash />{children}</main>
       </div>
     </div>
   );

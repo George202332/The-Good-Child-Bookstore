@@ -32,18 +32,21 @@ test("back cover and spine fonts: Tinos everywhere (print file, preview, 3D mock
   assert.doesNotMatch(src("lib/back-cover.ts"), /10% larger|0\.1265/);
 });
 
-test("My Books table: shows 10, Load More adds 10, no action column, prices in brackets, status pills, no numbered pages", () => {
+test("My Books table: 15 per page with arrows, no action column, prices in brackets, status pills", () => {
   const t = src("app/account/books/MyBooksTable.tsx");
-  assert.match(t, /const STEP = 10;/);
-  assert.match(t, /Load More/);
-  assert.match(t, /Showing \{Math\.min\(shown, rows\.length\)\} of \{rows\.length\}/);
+  assert.match(t, /const PAGE_SIZE = 15;/);
+  assert.doesNotMatch(t, /Load More/);
+  assert.match(t, /Showing \{first\} to \{last\} of \{rows\.length\}/);
+  assert.match(t, /Previous/);
+  assert.match(t, /Next →/);
   assert.doesNotMatch(t, /aria-label="Actions"/);
   assert.match(t, /\(\$\{cell\.price\.toFixed\(2\)\}\)/);
   for (const pill of ["Published", "On Review", "Unpublished"]) assert.match(t, new RegExp(`"${pill}"`));
   assert.match(t, /\.mybooks-card\{border-radius:14px/);
-  assert.match(t, /borderRadius: 3/, "cover images keep their square corners exactly as before");
-  const page = src("app/account/books/page.tsx");
-  assert.doesNotMatch(page, /PAGE_SIZE|totalPages/);
+  assert.match(t, /borderRadius: 0/, "cover thumbnails have sharp square corners");
+  assert.doesNotMatch(t, /borderRadius: 3/);
+  assert.match(t, /height: 58/, "thumbnails are about 20% taller (48 to 58)");
+  assert.doesNotMatch(t, /overflow-x:auto/, "no scroll bar of its own");
 });
 
 test("print upload cards: all three have the hover Upload / drag and drop options; Front Cover Only has no separate Replace Image button", () => {

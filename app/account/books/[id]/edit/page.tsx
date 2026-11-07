@@ -78,7 +78,7 @@ export default async function EditBookPage({ params, searchParams }: { params: P
     <DashboardShell role="AUTHOR" activeKey="mybooks" displayName={session.user.name ?? ""}>
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
-          <h2 style={{ fontSize: 15.5 }}>{only === "print" && !printBook ? "Add Print Edition" : only === "ebook" && !ebookBook ? "Add eBook/Audiobook Edition" : "Edit"}: {book.title}</h2>
+          <h2 style={{ fontSize: 15.5 }}>{only === "print" && !printBook ? "Add Print Book" : only === "ebook" && !ebookBook ? "Add eBook/Audiobook Edition" : "Edit"}: {book.title}</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
             {book.status === "PUBLISHED"
               ? "Every change is reviewed before it goes live. Your current approved version stays on sale until the new one is approved."

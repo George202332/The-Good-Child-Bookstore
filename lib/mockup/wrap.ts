@@ -105,7 +105,7 @@ export async function generatedWrapCrops(opts: { frontImage: Buffer; title: stri
   // Spine: the solid colour with the shared writing plan, drawn as outlines of the same font the PDF embeds.
   const sw = Math.max(4, Math.round(L.spine * k)), sh = Math.round(L.trimH * k);
   const bold = await loadFont("Tinos_700Bold.ttf");
-  const plan = planSpineText({ spine: sw, length: sh, unitsPerInch: 72 * k, title: opts.title, author: opts.author, width: (t, s) => bold.width(t, s) });
+  const plan = planSpineText({ spine: sw, length: sh, unitsPerInch: 72 * k, title: opts.title, author: opts.author, pages: opts.pages, width: (t, s) => bold.width(t, s) });
   const lum = (0.299 * back.r + 0.587 * back.g + 0.114 * back.b) / 255;
   const ink = lum > 0.55 ? "#141419" : "#ffffff";
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${sw}" height="${sh}" viewBox="0 0 ${sw} ${sh}"><rect width="${sw}" height="${sh}" fill="rgb(${back.r},${back.g},${back.b})"/>`;

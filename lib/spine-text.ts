@@ -2,7 +2,7 @@
  * Where the writing goes on a book's spine. One plan, used by the print cover PDF sent to Lulu, by the on-screen cover
  * preview and by the 3D mockups, so all three show the same thing.
  *
- *   - A spine thinner than SPINE_TEXT_MIN_IN (about a third of an inch) carries no writing at all.
+ *   - A book under SPINE_TEXT_MIN_PAGES pages, or a spine thinner than SPINE_TEXT_MIN_IN, carries no writing at all.
  *   - Otherwise the author's name sits at the top end and the title toward the bottom end, reading top to bottom (the front
  *     cover facing right, the spine on the left). Both lines are centred across the WIDTH of the spine.
  *   - The first letter of the author's name is 2 millimetres from the top edge of the spine and the last letter of the title is
@@ -14,7 +14,12 @@
  * Pure: it works in whatever unit the caller uses (PDF points, SVG units, pixels) and measures text with the function it is given.
  */
 
-export const SPINE_TEXT_MIN_IN = 0.32;
+export const SPINE_TEXT_MIN_IN = 0.21;
+/**
+ * The fewest pages a book may have for any writing on its spine. Lulu's own spine guidance (help.lulu.com, "spine text") says
+ * books under 100 pages must have a plain spine, so 100 is the real figure. To allow 80 instead, change this one number.
+ */
+export const SPINE_TEXT_MIN_PAGES = 100;
 /** Gap from the top edge to the first letter, and from the last letter to the bottom edge. */
 export const SPINE_EDGE_GAP_MM = 2;
 /** The smallest the two lines may shrink to (70% of the normal size) before the title is shortened instead. */
@@ -48,10 +53,13 @@ export function planSpineText(opts: {
   unitsPerInch: number;
   title: string;
   author?: string;
+  /** The book's page count. Below SPINE_TEXT_MIN_PAGES the spine stays plain. Left out, only the width rule applies. */
+  pages?: number;
   /** Width of the text at that size, in the caller's unit. */
   width: (text: string, size: number) => number;
 }): SpinePlan | null {
   const upi = opts.unitsPerInch;
+  if (opts.pages != null && opts.pages < SPINE_TEXT_MIN_PAGES) return null;
   if (!(opts.spine >= SPINE_TEXT_MIN_IN * upi)) return null;
   const titleText = spineSafe(opts.title);
   if (!titleText) return null;

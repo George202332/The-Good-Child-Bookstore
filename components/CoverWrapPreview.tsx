@@ -170,7 +170,7 @@ export function CoverWrapPreview({
   // ---- Spine ----
   const spineColor = back.spine;
   const spinePlan = useCustom ? null : planSpineText({
-    spine: spineW, length: trimH, unitsPerInch: U, title, author: `${authorFirstName ?? ""} ${authorLastName ?? ""}`,
+    spine: spineW, length: trimH, unitsPerInch: U, pages, title, author: `${authorFirstName ?? ""} ${authorLastName ?? ""}`,
     // Times New Roman Bold letter widths (the print file embeds Tinos, which has the same widths).
     width: (text, size) => timesWidth(text, size, true),
   });

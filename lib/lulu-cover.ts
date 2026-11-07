@@ -80,6 +80,8 @@ export async function buildCoverWrapPdf(opts: {
   author?: string;
   /** Printed left-aligned on the back cover at 11 points, inside the safe margins. */
   description?: string;
+  /** The book's page count: the spine stays plain below the minimum (lib/spine-text.ts). */
+  pages?: number;
 }): Promise<Uint8Array> {
   const sharp = (await import("sharp")).default;
   const { PDFDocument, rgb, degrees } = await import("pdf-lib");
@@ -117,7 +119,7 @@ export async function buildCoverWrapPdf(opts: {
     const font = await doc.embedFont(await readBundledFont("Tinos_700Bold.ttf"), { subset: false });
     const plan = planSpineText({
       spine: L.spine, length: L.trimH, unitsPerInch: 72,
-      title: opts.title, author: opts.author,
+      title: opts.title, author: opts.author, pages: opts.pages,
       width: (text, size) => font.widthOfTextAtSize(text, size),
     });
     if (plan) {

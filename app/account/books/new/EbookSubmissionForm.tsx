@@ -705,7 +705,6 @@ export function EbookSubmissionForm({
           <span>Request Featured Placement</span>
           <span className="field-hint" style={{ margin: "0 0 0 8px" }}>(This feature is not yet available. You will be notified when it becomes available.)</span>
         </div>
-        <p className="field-hint" style={{ marginTop: 4 }}>All published books are available to affiliates.</p>
       </Card>
 
       {/* Section 8 — Rights */}

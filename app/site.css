@@ -2681,6 +2681,27 @@ html.dark-mode .dashboard-content [style*="background"]:not([style*="width"]):no
   .dashboard-content .map-card:has(> div > table), .admin-content .map-card:has(> div > table){background:transparent;border:0;box-shadow:none;padding:0 !important;}
 }
 
+/* ===========================================================================
+   Refined table look for the author, reader and affiliate accounts (styling only; every table keeps its own
+   colours, content and behaviour). Rounded corners and a soft shadow, comfortable rows, a soft hover highlight
+   with a thin accent bar, and headings that all sit on one line with the "?" icon beside the text.
+   The admin back end (.admin-content) is NOT touched. My Books has its own deep-purple look in MyBooksTable.tsx.
+   =========================================================================== */
+.dashboard-content th{vertical-align:middle !important;}
+.dashboard-content th .col-help{width:12px;height:12px;line-height:1;margin:0 0 0 4px;vertical-align:text-bottom;position:relative;top:-1px;}
+@media (min-width:901px){
+  .dashboard-content table:not(.mybooks-table){border-collapse:separate;border-spacing:0;border-radius:12px;box-shadow:0 3px 14px rgba(46,36,64,.10);}
+  .dashboard-content table:not(.mybooks-table) thead th{padding-top:10px !important;padding-bottom:10px !important;letter-spacing:.02em;}
+  .dashboard-content table:not(.mybooks-table) thead tr:first-child th:first-child{border-top-left-radius:12px;}
+  .dashboard-content table:not(.mybooks-table) thead tr:first-child th:last-child{border-top-right-radius:12px;}
+  .dashboard-content table:not(.mybooks-table) tbody tr:last-child td:first-child{border-bottom-left-radius:12px;}
+  .dashboard-content table:not(.mybooks-table) tbody tr:last-child td:last-child{border-bottom-right-radius:12px;}
+  .dashboard-content table:not(.mybooks-table) tbody td{padding-top:11px !important;padding-bottom:11px !important;transition:background-color .12s,box-shadow .12s;}
+  /* A translucent overlay, so each table keeps its own row colours underneath. */
+  .dashboard-content table:not(.mybooks-table) tbody tr:hover td{background-image:linear-gradient(rgba(140,114,214,.09),rgba(140,114,214,.09));}
+  .dashboard-content table:not(.mybooks-table) tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 0 #8C72D6;}
+}
+
 /* ---- Option chips (Round 51) --------------------------------------------------------------
  * Every author-facing set of options sits side by side, wrapping to a new line, and shares ONE
  * near-rectangular look: a corner rounding of a few pixels, never a pill or an oval. The AI use
