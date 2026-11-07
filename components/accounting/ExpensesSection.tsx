@@ -2,14 +2,14 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveExpense, deleteExpense } from "@/actions/accounting";
+import { saveExpense, reverseExpense } from "@/actions/accounting";
 import type { ExpenseRow } from "@/lib/accounting/calc";
 import { EXPENSE_CATEGORIES } from "@/lib/accounting/expense-input";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import { usd, shortDateTime } from "@/lib/accounting/format";
 
 /**
- * Expenses: everyone who can open Accounting can READ this list; only an Admin sees the add / edit / delete controls
+ * Expenses: everyone who can open Accounting can READ this list; only an Admin sees the add / edit / reverse controls
  * (and the server refuses those actions for anyone else regardless of what the page shows).
  */
 export function ExpensesSection({ expenses, readOnly, locked, selection, includeTest }: { expenses: ExpenseRow[]; readOnly: boolean; locked: boolean; selection: string; includeTest: boolean }) {
@@ -33,11 +33,12 @@ export function ExpensesSection({ expenses, readOnly, locked, selection, include
       }
     });
 
-  const remove = (e: ExpenseRow) => {
-    if (!window.confirm(`Delete this expense?\n\n${e.category}: ${e.description} (${usd(e.amount)})\n\nThe deletion is recorded in the change log.`)) return;
+  const reverse = (e: ExpenseRow) => {
+    const why = window.prompt(`Reverse this expense?\n\n${e.category}: ${e.description} (${usd(e.amount)})\n\nThe original line stays on record and a minus entry is added today. Why is it being reversed?`);
+    if (why === null) return;
     start(async () => {
-      const res = await deleteExpense(e.id);
-      setMsg({ ok: res.ok, text: res.ok ? res.message ?? "Deleted." : res.error ?? "Could not delete." });
+      const res = await reverseExpense(e.id, why);
+      setMsg({ ok: res.ok, text: res.ok ? res.message ?? "Reversed." : res.error ?? "Could not reverse." });
       if (res.ok) router.refresh();
     });
   };
@@ -53,7 +54,7 @@ export function ExpensesSection({ expenses, readOnly, locked, selection, include
           </div>
         )}
       </div>
-      {readOnly && <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 6 }}>View only. Only an Admin can add, change or delete expenses.</p>}
+      {readOnly && <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 6 }}>View only. Only an Admin can add, change or reverse expenses.</p>}
       {!readOnly && locked && <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 6 }}>This month is closed, so its expenses are locked. Reopen the month to change them.</p>}
 
       {canWrite && (
@@ -108,8 +109,8 @@ export function ExpensesSection({ expenses, readOnly, locked, selection, include
                 <td style={TD_STYLE}>{e.receiptFileId ? <a href={`/api/accounting/receipt/${e.receiptFileId}`} target="_blank" rel="noopener noreferrer">{e.receiptName ?? "Open"}</a> : <span style={{ color: "var(--ink-faint)" }}>None</span>}</td>
                 {canWrite && (
                   <td style={{ ...TD_STYLE, whiteSpace: "nowrap" }}>
-                    <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={() => { setEditing(e); setMsg(null); }}>Edit</button>{" "}
-                    <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={() => remove(e)}>Delete</button>
+                    {e.amount > 0 && !e.description.includes("[ref ") && <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={() => { setEditing(e); setMsg(null); }}>Edit</button>}{" "}
+                    {e.amount > 0 && <button type="button" className="btn btn-ghost btn-small" disabled={pending} onClick={() => reverse(e)}>Reverse</button>}
                   </td>
                 )}
               </tr>
