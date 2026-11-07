@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
 import { ReviewActions } from "./ReviewActions";
 import { RevisionReviewCard } from "../RevisionReviewCard";
+import { describeChanges } from "@/lib/revision-diff";
+import { revisionStateOf, isAwaitingReview, type HeldFullRevision } from "@/lib/revision-state";
 import { ManuscriptReviewViewer } from "@/components/ManuscriptReviewViewer";
 import { getBookReviewsForModeration } from "@/actions/book-management";
 import { ReviewModerationList } from "../ReviewModerationList";
@@ -103,7 +105,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
         const meta = (row.submissionMetadata as Record<string, unknown> | null) ?? {};
         const preflight = meta.printPreflight as { status?: string } | undefined;
         const title = kind === "print" ? "Print Book" : "eBook / Audiobook";
-        const waiting = row.status === "PENDING_REVIEW" || row.pendingRevisionData != null;
+        const waiting = row.status === "PENDING_REVIEW" || isAwaitingReview(row.pendingRevisionData);
         return (
           <section key={row.id} id={`edition-${kind}`} style={{ marginBottom: 28 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
@@ -190,29 +192,37 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
             </p>
           </div>
 
-          {sections.map(({ row }) => {
-            const pending = row.pendingRevisionData as unknown as { kind?: string; manuscriptFileId?: string; coverImageUrl?: string; input?: { title?: string; description?: string; price?: number } } | null;
+          {sections.map(({ kind, row }) => {
+            const pending = row.pendingRevisionData as unknown as (Omit<Partial<HeldFullRevision>, "kind"> & { kind?: string; manuscriptFileId?: string; coverImageUrl?: string; input?: { title?: string; description?: string; price?: number } }) | null;
             if (!pending) return null;
+            const state = revisionStateOf(pending) as "PENDING" | "DRAFT" | "REJECTED";
+            const editionLabel = kind === "print" ? "Print Book" : "eBook / Audiobook";
             if (pending.kind === "files") {
               return (
                 <RevisionReviewCard
                   key={row.id}
                   bookId={row.id}
+                  state={state}
+                  note={pending.note}
+                  editionLabel={editionLabel}
                   files={{ manuscriptUrl: pending.manuscriptFileId ? `/api/files/${pending.manuscriptFileId}` : undefined, coverUrl: pending.coverImageUrl }}
                 />
               );
             }
             if (!pending.input) return null;
+            const liveFields = { ...row, submissionMetadata: row.submissionMetadata } as unknown as Record<string, unknown>;
+            const changes = pending.projected
+              ? describeChanges(
+                  { fields: liveFields, files: row.files, genreName: row.categories[0]?.category.name, subcategoryName: row.genres[0]?.genre.name },
+                  pending.projected,
+                )
+              : [
+                  ...(pending.input.title !== undefined && pending.input.title !== row.title ? [{ label: "Title", before: row.title, after: pending.input.title }] : []),
+                  ...(pending.input.description !== undefined && pending.input.description !== row.description ? [{ label: "Description", before: row.description ?? "", after: pending.input.description }] : []),
+                  ...(pending.input.price !== undefined && Number(pending.input.price) !== Number(row.price) ? [{ label: "Price", before: `$${Number(row.price).toFixed(2)}`, after: `$${Number(pending.input.price).toFixed(2)}` }] : []),
+                ];
             return (
-              <RevisionReviewCard
-                key={row.id}
-                bookId={row.id}
-                revision={{
-                  title: pending.input.title ?? "",
-                  description: pending.input.description ?? "",
-                  price: pending.input.price ?? 0,
-                }}
-              />
+              <RevisionReviewCard key={row.id} bookId={row.id} state={state} note={pending.note} editionLabel={editionLabel} changes={changes} />
             );
           })}
 

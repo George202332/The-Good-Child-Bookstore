@@ -14,12 +14,12 @@ export interface PublishNotice { kind: "ok" | "error"; text: string }
 /**
  * The live publishing checklist and the action buttons, shared by the eBook / Audiobook tab and the Print tab.
  * The checklist is built from the same rules that decide whether a book can be published (each form passes its
- * own list), so what is shown here and what is enforced never disagree. Save Draft (Save Changes once the book is published) sits on the left, then Publish, and
+ * own list), so what is shown here and what is enforced never disagree. Save Draft sits on the left, then Publish, and
  * Delete Book (passed in as `extraActions`) at the far right of the row, with a gap between them. Messages
  * appear right below the buttons.
  */
 export function PublishPanel({
-  n, sub, items, showMissing, showPublish, busy, onSave, onPublish, notice, extraActions, children, missingIntro = "Please finish these before publishing:",
+  n, sub, items, showMissing, showPublish, publishLabel = "Publish", publishingLabel = "Publishing…", busy, onSave, onPublish, notice, extraActions, children, missingIntro = "Please finish these before publishing:",
 }: {
   missingIntro?: string;
   n: number;
@@ -28,6 +28,9 @@ export function PublishPanel({
   /** True after Publish was pressed with something missing: the error and section outlines show until it is fixed. */
   showMissing: boolean;
   showPublish: boolean;
+  /** "Republish" when the book is already published and this sends an edit for review. */
+  publishLabel?: string;
+  publishingLabel?: string;
   busy: "idle" | "saving" | "publishing";
   onSave: () => void;
   onPublish: () => void;
@@ -56,11 +59,11 @@ export function PublishPanel({
       <div className="publish-row">
         <div className="publish-row-main">
           <button type="button" className="btn btn-ghost btn-small" disabled={working} onClick={onSave}>
-            {busy === "saving" ? "Saving…" : showPublish ? "Save Draft" : "Save Changes"}
+            {busy === "saving" ? "Saving…" : "Save Draft"}
           </button>
           {showPublish && (
             <button type="button" className="btn btn-primary btn-small" disabled={working} onClick={onPublish}>
-              {busy === "publishing" ? "Publishing…" : "Publish"}
+              {busy === "publishing" ? publishingLabel : publishLabel}
             </button>
           )}
         </div>

@@ -1,14 +1,13 @@
 "use server";
 
-import { removeBookPromotions } from "@/lib/promotion-cleanup";
-import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
 import { canModerateContent } from "@/lib/roles";
+import { isAwaitingReview } from "@/lib/revision-state";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
 import { groupEditions } from "@/lib/book-groups";
 import { formatTabsOf, formatPostedFlags, groupIdentifierColumns, type FormatTabView, type FormatViewRow } from "@/lib/book-format-views";
-import { prepareBookNotificationCleanup, prepareReviewNotificationCleanup } from "@/lib/notification-cleanup";
+import { prepareReviewNotificationCleanup } from "@/lib/notification-cleanup";
 
 /**
  * Book Management — a real summary (how many Approved/Under Review/
@@ -31,10 +30,13 @@ export async function getBookStats(): Promise<BookStats> {
   if (!role || !canModerateContent(role)) return { published: 0, pendingReview: 0, draft: 0, rejected: 0 };
 
   const counts = await prisma.book.groupBy({ by: ["status"], _count: { status: true } });
+  // Edits of live books that an author has sent for review also wait on a reviewer.
+  const edits = await prisma.book.findMany({ where: { status: "PUBLISHED", pendingRevisionData: { not: null as unknown as object } }, select: { pendingRevisionData: true } });
+  const editsWaiting = edits.filter((e: { pendingRevisionData: unknown }) => isAwaitingReview(e.pendingRevisionData)).length;
   const get = (s: string) => counts.find((c: { status: string; _count: { status: number } }) => c.status === s)?._count.status ?? 0;
   return {
     published: get("PUBLISHED"),
-    pendingReview: get("PENDING_REVIEW"),
+    pendingReview: get("PENDING_REVIEW") + editsWaiting,
     draft: get("DRAFT"),
     rejected: get("REJECTED"),
   };
@@ -83,7 +85,7 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
     reviews: unknown[];
     ratings: { stars: number }[];
   };
-  const rows = books as unknown as Row[];
+  const rows = (books as unknown as Row[]).filter((r) => status !== "PENDING_REVIEW" || r.status === "PENDING_REVIEW" || isAwaitingReview(r.pendingRevisionData));
 
   // One row per book: editions of the same title by the same author are shown together.
   // Display only; no record is changed.
@@ -101,7 +103,7 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
       id: b.id,
       snNumber: cols.sn,
       isbn: cols.isbn,
-      editions: group.map((r) => ({ id: r.id, label: labelOf(r), status: r.status, hasPendingRevision: r.pendingRevisionData != null })),
+      editions: group.map((r) => ({ id: r.id, label: labelOf(r), status: r.status, hasPendingRevision: isAwaitingReview(r.pendingRevisionData) })),
       tabs,
       posted: formatPostedFlags(tabs),
       title: b.title,
@@ -111,7 +113,7 @@ export async function listBooksForModeration(status: "ALL" | "PUBLISHED" | "PEND
       createdAt: b.createdAt,
       reviewCount: group.reduce((n, r) => n + r.reviews.length, 0),
       averageRating: ratings.length > 0 ? ratings.reduce((sum, r) => sum + r.stars, 0) / ratings.length : null,
-      hasPendingRevision: group.some((r) => r.pendingRevisionData != null),
+      hasPendingRevision: group.some((r) => isAwaitingReview(r.pendingRevisionData)),
     };
   });
 }
@@ -152,31 +154,5 @@ export async function deleteReviewAsModerator(reviewId: string): Promise<{ ok: b
   return { ok: true };
 }
 
-/** Permanently deletes a book from the catalog — Admin only. Only
- * actually possible when the book has no sales history: a real
- * financial record (SaleLine) referencing this book must never be
- * silently orphaned or lost, so a book that's ever sold a copy can't
- * be hard-deleted here — withdraw it instead (removes it from sale
- * while keeping the accounting trail intact). */
-export async function deleteBookFromCatalog(bookId: string): Promise<{ ok: boolean; error?: string }> {
-  const session = await auth();
-  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can delete a book." };
-
-  const saleCount = await prisma.saleLine.count({ where: { bookId } });
-  if (saleCount > 0) {
-    return { ok: false, error: "This book has real sales on record and can't be deleted — withdraw it instead to remove it from sale while keeping its accounting history intact." };
-  }
-
-  try {
-    const cleanupNotifications = await prepareBookNotificationCleanup(bookId);
-    await removeBookPromotions(bookId);
-    await prisma.book.delete({ where: { id: bookId } });
-    // Published / revision / suspended / new-book-by-followed-author and
-    // review notifications for this book are removed with it.
-    await cleanupNotifications();
-    revalidatePath("/admin/books");
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Couldn't delete this book." };
-  }
-}
+/* Books can no longer be deleted from the admin side. A book is deleted only by its own author, from the author's account
+ * (actions/submissions.ts: deleteBook / deleteEdition, which refuse every other role). Sales and earnings are never removed. */

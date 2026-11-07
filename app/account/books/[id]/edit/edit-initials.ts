@@ -4,6 +4,7 @@ import { capitalizeName } from "@/lib/person-name";
 import { canonicalCategory, categoryOfSubcategory, normalizeGenre, isSubcategoryOf } from "@/lib/taxonomy";
 import { parseRestrictedCountries } from "@/lib/book-country-restriction";
 import { identifierFor, printFieldsOf } from "@/lib/identifiers";
+import type { HeldFullRevision } from "@/lib/revision-state";
 import type { SavedPreflight } from "@/lib/print-preflight-result";
 import type { EbookSubmissionInitial } from "../../new/EbookSubmissionForm";
 import type { PrintSubmissionInitial } from "../../new/PrintSubmissionForm";
@@ -29,6 +30,23 @@ export function classify(book: BookWithRelations) {
   const subcategory = category && isSubcategoryOf(category, subcategoryCandidate) ? (subcategoryCandidate as string) : "";
   const genre = normalizeGenre(legacyShelf) ?? "";
   return { category, subcategory, genre };
+}
+
+/** The author's own unfinished edit of a live book (saved as a draft, sent for review, or sent back), laid over the book so the form
+ * shows THEIR edit and not the approved version. The approved book itself is never changed. */
+export function withDraftEdit(book: BookWithRelations): BookWithRelations {
+  const rev = book.pendingRevisionData as unknown as HeldFullRevision | null;
+  if (!rev || rev.kind !== "full" || !rev.projected) return book;
+  const p = rev.projected;
+  return {
+    ...book,
+    ...(p.fields as object),
+    id: book.id,
+    status: book.status,
+    files: p.files.map((f, i) => ({ id: `draft-${i}`, bookId: book.id, kind: f.kind, url: f.url, createdAt: book.createdAt })),
+    categories: [{ category: { name: p.genreName } }] as never,
+    genres: [{ genre: { name: p.subcategoryName } }] as never,
+  } as unknown as BookWithRelations;
 }
 
 function fileIdOf(book: BookWithRelations, kind: string): string | undefined {

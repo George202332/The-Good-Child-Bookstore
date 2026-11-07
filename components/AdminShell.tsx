@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Role } from "@/lib/roles";
 import { SignOutButton } from "./SignOutButton";
+import { countNeedsAction } from "@/lib/review-notify";
 
 /**
  * The backend shell for ADMIN/EDITOR — a new surface with no equivalent in
@@ -61,7 +62,7 @@ function navItemsForRole(role: Role) {
   return [...base, settingsLink];
 }
 
-export function AdminShell({
+export async function AdminShell({
   role,
   activeKey,
   displayName,
@@ -73,6 +74,8 @@ export function AdminShell({
   children: ReactNode;
 }) {
   const items = navItemsForRole(role);
+  // "Needs action": books and edits waiting for a reviewer, shown beside Book Management.
+  const needsAction = items.some((i) => i.key === "books") ? await countNeedsAction() : 0;
   const initials = displayName.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
   return (
@@ -103,6 +106,9 @@ export function AdminShell({
               aria-current={activeKey === it.key ? "page" : undefined}
             >
               <span>{it.label}</span>
+              {it.key === "books" && needsAction > 0 && (
+                <span title="Needs action" aria-label={`Needs action: ${needsAction}`} style={{ marginLeft: "auto", minWidth: 20, padding: "1px 7px", borderRadius: 999, background: "#F5D98F", color: "#6B4503", fontSize: 11.5, fontWeight: 800, textAlign: "center" }}>{needsAction}</span>
+              )}
             </Link>
           ))}
         </nav>

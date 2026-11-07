@@ -6,12 +6,14 @@ import { auth } from "@/lib/auth";
 import { canModerateContent } from "@/lib/roles";
 import { canonicalCategory, isCategory, isGenre, isSubcategoryOf } from "@/lib/taxonomy";
 import { parseRestrictedCountries } from "@/lib/book-country-restriction";
-import { needsReReview, fileRefKey } from "@/lib/revision-trigger";
+import { fileRefKey } from "@/lib/revision-trigger";
+import { notifyReviewers } from "@/lib/review-notify";
+import { revisionStateOf, type HeldFullRevision, type ProjectedBook } from "@/lib/revision-state";
 import { resolveFormats } from "@/lib/submission-formats";
 import { detectTrimFromPageSize, formatInches } from "@/lib/trim-size";
 import { LULU_CONFIG } from "@/lib/lulu-config";
 import { ageGroupProblem } from "@/lib/age-groups";
-import { PRINT_METADATA_KEYS, mergeFormatFields, mergeMetadata, scopeOf } from "@/lib/format-scope";
+import { mergeFormatFields, mergeMetadata, scopeOf } from "@/lib/format-scope";
 import { gatePrintEdition, attachCheckToBook } from "@/lib/print-preflight-server";
 import { printPriceProblem } from "@/lib/print-price-server";
 import { cleanIsbn, isbn13Of, isbnProblem } from "@/lib/identifiers";
@@ -675,14 +677,50 @@ function readPendingFiles(raw: unknown): PendingFilesRevision | null {
 export interface UpdateBookFullResult {
   ok: boolean;
   error?: string;
-  /** "live": a published book's edits are live now. "live_files_pending":
-   * edits are live, a replaced manuscript/cover awaits review.
+  /** "republished": an edit of a published book was sent for review (the approved version stays live until it is approved).
+   * "draft": an edit of a published book was saved as a draft, not sent yet.
    * "resubmitted": a non-published book went (back) to review.
    * "saved": a book that is not published yet was saved as it is, with no change of status. */
-  outcome?: "live" | "live_files_pending" | "resubmitted" | "saved";
-  /** Which replaced file(s) are on hold, when outcome is "live_files_pending". */
-  held?: "manuscript" | "cover" | "both";
+  outcome?: "republished" | "draft" | "resubmitted" | "saved";
   message?: string;
+}
+
+/** What a book row would hold once an edit is approved. Used to keep the author's edit as a draft in the form and to show a reviewer what changed. */
+function projectRevision(
+  book: { hasEbook: boolean; hasPrint: boolean; hasAudiobook: boolean; ebookPrice: unknown; paperbackPrice: unknown; hardcoverPrice: unknown; audiobookPrice: unknown; isbn: string | null; price: unknown; submissionMetadata: unknown },
+  input: SubmitBookInput,
+  files: { kind: string; url: string }[],
+): { ok: true; value: ProjectedBook } | { ok: false; error: string } {
+  const prepared = prepareSubmission(input, { lenient: true });
+  if (!prepared.ok) return { ok: false, error: prepared.error };
+  const prep = prepared.value;
+  const scope = scopeOf(input.formats);
+  const merged = mergeFormatFields(scope, book, {
+    hasEbook: prep.hasEbook, ebookPrice: prep.ebookPrice, hasAudiobook: prep.hasAudiobook, audiobookPrice: prep.audiobookPrice,
+    hasPrint: input.formats.print,
+    paperbackPrice: input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice ? input.metadata.paperbackRetailPrice : null,
+    hardcoverPrice: input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice ? input.metadata.hardcoverRetailPrice : null,
+  });
+  const metadata = book.hasPrint && scope === "digital"
+    ? (mergeMetadata("digital", book.submissionMetadata as Record<string, unknown> | null, prep.metadata as unknown as Record<string, unknown>) as unknown as SubmissionMetadata)
+    : prep.metadata;
+  const fields: Record<string, unknown> = {
+    title: input.title.trim(),
+    subtitle: input.subtitle?.trim() || null,
+    description: input.description.trim(),
+    isbn: scope === "print" ? book.isbn : input.isbn?.trim() || book.isbn,
+    price: scope === "print" ? prep.basePrice : merged.hasEbook ? (prep.ebookPrice ?? prep.basePrice) : merged.hasAudiobook ? (prep.audiobookPrice ?? prep.basePrice) : book.price,
+    ageGroup: input.ageGroup,
+    language: input.language || "en",
+    coverImageUrl: input.coverImageUrl?.trim() || null,
+    coverAltText: input.coverAltText?.trim() || null,
+    hasEbook: merged.hasEbook, hasPrint: merged.hasPrint, hasAudiobook: merged.hasAudiobook,
+    ebookPrice: merged.ebookPrice, paperbackPrice: merged.paperbackPrice, hardcoverPrice: merged.hardcoverPrice, audiobookPrice: merged.audiobookPrice,
+    ...(prep.taxonomyColumns ? { category: prep.category, subcategory: prep.subcategory } : {}),
+    restrictedCountries: prep.restrictedCountries,
+    submissionMetadata: metadata,
+  };
+  return { ok: true, value: { fields: JSON.parse(JSON.stringify(fields)), files, genreName: prep.genre, subcategoryName: prep.subcategory } };
 }
 
 /**
@@ -716,6 +754,8 @@ async function updateBookFullInner(bookId: string, input: SubmitBookInput): Prom
   // "Save Changes" on a book that is not published yet: the details are saved as they are and the book stays
   // where it is (no review, no print-check requirement). Publishing (submitForReview) does the full checks.
   const saveOnly = input.submitForReview === false && existing.status !== "PUBLISHED";
+  // "Save Draft" on an edit of a published book: kept as a draft edit, no checks until Republish.
+  const draftOfLive = input.submitForReview === false && existing.status === "PUBLISHED";
 
   // Publishing or editing one format must never change another. The Print form writes
   // print fields only and the eBook / Audiobook form writes those only (lib/format-scope.ts).
@@ -763,10 +803,10 @@ async function updateBookFullInner(bookId: string, input: SubmitBookInput): Prom
       : true;
     const gate = await gatePrintEdition({
       userId: session.user.id, interiorFileId: input.manuscriptFileId || fileRefKey(liveManuscriptRef) || undefined, coverImageUrl: input.coverImageUrl,
-      metadata: input.metadata, existingMetadata: existingMetaAll, requirePass: filesChanged && !saveOnly,
+      metadata: input.metadata, existingMetadata: existingMetaAll, requirePass: filesChanged && !saveOnly && !draftOfLive,
     });
     if (!gate.ok) return { ok: false, error: gate.error };
-    const priceProblem = saveOnly ? null : await printPriceProblem(input.metadata as Parameters<typeof printPriceProblem>[0]);
+    const priceProblem = saveOnly || draftOfLive ? null : await printPriceProblem(input.metadata as Parameters<typeof printPriceProblem>[0]);
     if (priceProblem) return { ok: false, error: priceProblem };
     savedPreflight = gate.saved;
     if (savedPreflight) (prep.metadata as SubmissionMetadata).printPreflight = savedPreflight;
@@ -795,161 +835,52 @@ async function updateBookFullInner(bookId: string, input: SubmitBookInput): Prom
   for (const url of input.promotionalImageUrls ?? []) bookFiles.push({ kind: "PROMOTIONAL", url });
 
   if (existing.status === "PUBLISHED") {
+    // EVERY edit of a published book (price, description, categories, files, anything) is held as a revision. The approved
+    // version stays live and on sale, untouched, until a reviewer approves the new one; if it is sent back, the live version
+    // stays and the author keeps the edit as a draft. Both versions are stored (the live book row and the held revision).
     const liveFiles = await prisma.bookFile.findMany({ where: { bookId } });
     const liveManuscript = liveFiles.find((f) => f.kind === "MANUSCRIPT");
-    const liveAudio = liveFiles.find((f) => f.kind === "AUDIOBOOK");
     const liveSample = liveFiles.find((f) => f.kind === "SAMPLE");
+    const livePromo = liveFiles.filter((f) => f.kind === "PROMOTIONAL").map((f) => f.url);
 
-    // Server-side decision: only a manuscript/cover that differs from what
-    // is stored triggers review. Re-sending the same file, or sending none,
-    // keeps the live file as it is.
-    const decision = needsReReview({
-      currentManuscriptRef: liveManuscript?.url,
-      newManuscriptRef: input.manuscriptFileId,
-      currentCoverRef: existing.coverImageUrl,
-      newCoverRef: input.coverImageUrl,
-    });
+    // What the form did not send again is carried over from the live book, so approving never drops a live file.
+    const heldInput: SubmitBookInput = {
+      ...input,
+      manuscriptFileId: input.manuscriptFileId || fileRefKey(liveManuscript?.url) || undefined,
+      coverImageUrl: input.coverImageUrl?.trim() || existing.coverImageUrl || undefined,
+      samplePagesFileId: input.samplePagesFileId || fileRefKey(liveSample?.url) || undefined,
+      promotionalImageUrls: input.promotionalImageUrls && input.promotionalImageUrls.length > 0 ? input.promotionalImageUrls : livePromo,
+      isbn: input.isbn?.trim() || existing.isbn || undefined,
+      metadata: savedPreflight ? { ...input.metadata, printPreflight: savedPreflight } : input.metadata,
+    };
+    const heldFiles: { kind: string; url: string }[] = [];
+    if (heldInput.manuscriptFileId) heldFiles.push({ kind: "MANUSCRIPT", url: `/api/files/${fileRefKey(heldInput.manuscriptFileId)}` });
+    if (heldInput.samplePagesFileId) heldFiles.push({ kind: "SAMPLE", url: `/api/files/${fileRefKey(heldInput.samplePagesFileId)}` });
+    if (heldInput.audiobookFileId) heldFiles.push({ kind: "AUDIOBOOK", url: `/api/files/${fileRefKey(heldInput.audiobookFileId)}` });
+    for (const url of heldInput.promotionalImageUrls ?? []) heldFiles.push({ kind: "PROMOTIONAL", url });
 
-    const existingMeta = (existing.submissionMetadata as Partial<SubmissionMetadata> | null) ?? {};
-    const keepPrint = existing.hasPrint && !input.formats.print;
-    let metadata: SubmissionMetadata = prep.metadata;
-    if (keepPrint) {
-      const carried: Record<string, unknown> = {};
-      for (const k of PRINT_METADATA_KEYS) if (existingMeta[k] !== undefined) carried[k] = existingMeta[k];
-      metadata = { ...metadata, ...carried };
-    }
-    if (decision.manuscript) {
-      // These describe the manuscript; they change when it is approved.
-      metadata = { ...metadata, pages: existingMeta.pages, dimensions: existingMeta.dimensions, fileSizeKB: existingMeta.fileSizeKB };
-      if (input.formats.print && existingMeta.trimSizeCode) {
-        // The live print file is still the old one, so the live trim size
-        // and package stay as they are until the new PDF is approved.
-        const newTrim = metadata.trimSizeCode;
-        const livePackage = newTrim && metadata.podPackageId ? metadata.podPackageId.replace(newTrim, existingMeta.trimSizeCode) : metadata.podPackageId;
-        metadata = { ...metadata, trimSizeCode: existingMeta.trimSizeCode, podPackageId: livePackage };
-      }
-    }
+    const projection = projectRevision(existing, heldInput, heldFiles);
+    if (!projection.ok) return { ok: false, error: projection.error };
 
-    if (decision.cover && input.formats.print && typeof existingMeta.frontCoverImageUrl === "string") {
-      // The print edition's live front cover (used when printing) also
-      // stays the old one until the new cover is approved.
-      metadata = { ...metadata, frontCoverImageUrl: existingMeta.frontCoverImageUrl };
-    }
-
-    // The revision that stays on hold: this save's replaced files, plus any
-    // earlier held file this save did not touch (and that still differs
-    // from the live one). Anything else from an older revision is dropped,
-    // exactly as a new save used to overwrite it.
-    const prior = readPendingFiles(existing.pendingRevisionData);
-    const priorManuscript = prior?.manuscriptFileId && fileRefKey(prior.manuscriptFileId) !== fileRefKey(liveManuscript?.url) ? prior.manuscriptFileId : undefined;
-    const priorCover = prior?.coverImageUrl && fileRefKey(prior.coverImageUrl) !== fileRefKey(existing.coverImageUrl) ? prior.coverImageUrl : undefined;
-    const heldManuscript = decision.manuscript ? input.manuscriptFileId : priorManuscript;
-    const heldCover = decision.cover ? input.coverImageUrl?.trim() : priorCover;
-    // The title has no live manuscript (audiobook-only, or print-only), so a
-    // held manuscript would introduce its eBook: that edition only goes on
-    // sale — with its price — once the manuscript is approved.
-    const introducesEbook = !!heldManuscript && !liveManuscript && !existing.hasPrint;
-    const heldEbookPrice = introducesEbook ? (prep.ebookPrice ?? (prior?.ebookPrice ?? null)) : null;
-    const liveHasEbook = keepPrint && !existing.hasEbook ? false : introducesEbook ? existing.hasEbook : prep.hasEbook;
-    const liveBasePrice = liveHasEbook ? (prep.ebookPrice ?? prep.basePrice) : (prep.audiobookPrice ?? (keepPrint ? input.price : prep.basePrice));
-    const held: PendingFilesRevision | null = heldManuscript || heldCover
-      ? {
-          kind: "files",
-          ...(heldManuscript ? { manuscriptFileId: heldManuscript } : {}),
-          ...(introducesEbook && heldEbookPrice !== null ? { introducesEbook: true, ebookPrice: heldEbookPrice } : {}),
-          ...(heldCover ? { coverImageUrl: heldCover } : {}),
-          ...(heldManuscript
-            ? { metadataPatch: decision.manuscript ? { pages: prep.metadata.pages, dimensions: prep.metadata.dimensions, fileSizeKB: prep.metadata.fileSizeKB, ...(input.formats.print ? { trimSizeCode: prep.metadata.trimSizeCode, podPackageId: prep.metadata.podPackageId } : {}) } : prior?.metadataPatch }
-            : {}),
-        }
-      : null;
-
-    // Audiobook, sample and promotional files never trigger review; they
-    // are only rewritten when the incoming reference actually differs.
-    const kindsToReplace: string[] = [];
-    const filesToCreate: { kind: string; url: string }[] = [];
-    if (fileRefKey(input.audiobookFileId) !== fileRefKey(liveAudio?.url)) {
-      kindsToReplace.push("AUDIOBOOK");
-      if (input.audiobookFileId) filesToCreate.push({ kind: "AUDIOBOOK", url: `/api/files/${input.audiobookFileId}` });
-    }
-    if (input.samplePagesFileId && fileRefKey(input.samplePagesFileId) !== fileRefKey(liveSample?.url)) {
-      kindsToReplace.push("SAMPLE");
-      filesToCreate.push({ kind: "SAMPLE", url: `/api/files/${input.samplePagesFileId}` });
-    }
-    if (input.promotionalImageUrls && input.promotionalImageUrls.length > 0) {
-      kindsToReplace.push("PROMOTIONAL");
-      for (const url of input.promotionalImageUrls) filesToCreate.push({ kind: "PROMOTIONAL", url });
-    }
-
-    const [liveCategory, liveGenre] = await Promise.all([
-      prisma.category.upsert({ where: { name: prep.genre }, update: {}, create: { name: prep.genre } }),
-      prisma.genre.upsert({ where: { name: prep.subcategory }, update: {}, create: { name: prep.subcategory } }),
-    ]);
-
-    await prisma.$transaction([
-      ...(kindsToReplace.length > 0 ? [prisma.bookFile.deleteMany({ where: { bookId, kind: { in: kindsToReplace } } })] : []),
-      prisma.categoryOnBook.deleteMany({ where: { bookId } }),
-      prisma.genreOnBook.deleteMany({ where: { bookId } }),
-      prisma.book.update({
-        where: { id: bookId },
-        data: {
-          title: input.title.trim(),
-          subtitle: input.subtitle?.trim() || null,
-          description: input.description.trim(),
-          isbn: input.isbn?.trim() || existing.isbn,
-          price: liveBasePrice,
-          // status stays PUBLISHED; coverImageUrl and the MANUSCRIPT file
-          // are deliberately not written here (live until a held
-          // replacement is approved).
-          ageGroup: input.ageGroup,
-          language: input.language || "en",
-          coverAltText: input.coverAltText?.trim() || null,
-          hasEbook: liveHasEbook,
-          ...(introducesEbook ? {} : { ebookPrice: liveHasEbook ? prep.ebookPrice : null }),
-          hasPrint: keepPrint ? true : input.formats.print,
-          hasAudiobook: prep.hasAudiobook,
-          paperbackPrice: keepPrint
-            ? existing.paperbackPrice
-            : input.formats.print && input.metadata.paperbackEnabled && input.metadata.paperbackRetailPrice
-            ? input.metadata.paperbackRetailPrice
-            : null,
-          hardcoverPrice: keepPrint
-            ? existing.hardcoverPrice
-            : input.formats.print && input.metadata.hardcoverEnabled && input.metadata.hardcoverRetailPrice
-            ? input.metadata.hardcoverRetailPrice
-            : null,
-          audiobookPrice: prep.audiobookPrice,
-          category: prep.category,
-          subcategory: prep.subcategory,
-          restrictedCountries: prep.restrictedCountries,
-          submissionMetadata: JSON.parse(JSON.stringify(metadata)),
-          ...(held
-            ? { pendingRevisionData: JSON.parse(JSON.stringify(held)) }
-            : existing.pendingRevisionData != null
-            ? { pendingRevisionData: null as unknown as object }
-            : {}),
-          files: filesToCreate.length > 0 ? { create: filesToCreate } : undefined,
-          categories: { create: [{ categoryId: liveCategory.id }] },
-          genres: { create: [{ genreId: liveGenre.id }] },
-        },
-      }),
-    ]);
+    const sending = input.submitForReview !== false;
+    const record: HeldFullRevision = {
+      kind: "full",
+      state: sending ? "PENDING" : "DRAFT",
+      submittedAt: new Date().toISOString(),
+      input: heldInput,
+      bookFiles: heldFiles,
+      projected: projection.value,
+    };
+    await prisma.book.update({ where: { id: bookId }, data: { pendingRevisionData: JSON.parse(JSON.stringify(record)) } });
 
     await attachCheckToBook(savedPreflight?.checkId, bookId);
     revalidatePath("/account/books");
     revalidatePath(`/account/books/${bookId}/edit`);
     revalidatePath(`/admin/books/${bookId}/review`);
     revalidatePath("/admin/books");
-    if (!decision.required) {
-      return { ok: true, outcome: "live", message: "Your changes were saved and are live now." };
-    }
-    const what = decision.manuscript && decision.cover ? "new manuscript and cover are" : decision.manuscript ? "new manuscript is" : "new cover is";
-    return {
-      ok: true,
-      outcome: "live_files_pending",
-      held: decision.manuscript && decision.cover ? "both" : decision.manuscript ? "manuscript" : "cover",
-      message: `Your changes were saved. Your ${what} under review and will go live once approved.`,
-    };
+    if (!sending) return { ok: true, outcome: "draft", message: "Your draft was saved. Your approved version is still live. Press Republish when you are ready to send it for review." };
+    await notifyReviewers("edited", input.title.trim(), bookId);
+    return { ok: true, outcome: "republished", message: "Your changes were sent for review. Your approved version stays on sale until the new one is approved." };
   }
 
   const [category, genre] = await Promise.all([
@@ -1037,8 +968,10 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
 
-  const book = await prisma.book.findUnique({ where: { id: bookId } });
+  const book = await prisma.book.findUnique({ where: { id: bookId }, include: { author: { select: { userId: true } } } });
   if (!book?.pendingRevisionData) return { ok: false, error: "No pending revision on this book." };
+  if (revisionStateOf(book.pendingRevisionData) !== "PENDING") return { ok: false, error: "The author has not sent this edit for review (it is a draft, or it was sent back)." };
+  const outcomeMark = { state: "APPROVED", at: new Date().toISOString() };
 
   const rawPending = book.pendingRevisionData as unknown as { kind?: string };
   if (rawPending.kind === "files") {
@@ -1060,6 +993,7 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
             ? {
                 submissionMetadata: JSON.parse(JSON.stringify({
                   ...liveMeta,
+                  lastRevisionOutcome: outcomeMark,
                   ...(held?.manuscriptFileId ? patch : {}),
                   // A print edition's front cover is also recorded in its print settings.
                   ...(held?.coverImageUrl && typeof liveMeta.frontCoverImageUrl === "string" ? { frontCoverImageUrl: held.coverImageUrl } : {}),
@@ -1075,7 +1009,8 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
     revalidatePath(`/admin/books/${bookId}/review`);
     revalidatePath("/account/books");
     after(() => ensurePrintMockups(bookId, { retryFailed: true }));
-  return { ok: true };
+    await notifyAuthorOfDecision(book.author.userId, book.title, "approved");
+    return { ok: true };
   }
 
   const { input, bookFiles } = book.pendingRevisionData as unknown as { input: SubmitBookInput; bookFiles: { kind: string; url: string }[] };
@@ -1132,7 +1067,7 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
         audiobookPrice: merged.audiobookPrice as number | null,
         ...(prep.taxonomyColumns ? { category: prep.category, subcategory: prep.subcategory } : {}),
         restrictedCountries: prep.restrictedCountries,
-        submissionMetadata: JSON.parse(JSON.stringify(approvedMetadata)),
+        submissionMetadata: JSON.parse(JSON.stringify({ ...approvedMetadata, lastRevisionOutcome: outcomeMark })),
         pendingRevisionData: null as unknown as object,
         files: bookFiles.length > 0 ? { create: bookFiles } : undefined,
         categories: { create: [{ categoryId: category.id }] },
@@ -1143,20 +1078,41 @@ export async function approveBookRevision(bookId: string): Promise<{ ok: boolean
 
   revalidatePath("/admin/books");
   revalidatePath(`/admin/books/${bookId}/review`);
+  revalidatePath("/account/books");
   after(() => ensurePrintMockups(bookId, { retryFailed: true }));
+  if (isAiDeclaration(input.metadata?.aiDeclaration)) await syncAiDeclaration(book.authorId, bookId, input.title, (input.metadata?.aiDeclaration ?? "").trim());
+  await notifyAuthorOfDecision(book.author.userId, input.title.trim(), "approved");
   return { ok: true };
 }
 
-/** Rejects a pending revision — the live, published book is completely
- * unaffected; only the proposed changes are discarded. */
-export async function rejectBookRevision(bookId: string): Promise<{ ok: boolean; error?: string }> {
+async function notifyAuthorOfDecision(userId: string, title: string, decision: "approved" | "sent-back", note?: string): Promise<void> {
+  const { createNotification } = await import("@/lib/notify");
+  if (decision === "approved") {
+    await createNotification(userId, title, `Your edit to "${title}" was approved and is now live.`, "BOOK_PUBLISHED");
+  } else {
+    await createNotification(userId, title, `Your edit to "${title}" needs attention. ${note ? `Note from the reviewer: ${note}` : "Open the book to see what to change."} Your approved version is still live.`, "REVISION");
+  }
+}
+
+/** Sends a pending edit back to the author with a note. The live, approved book is completely unaffected, and the author keeps
+ * their edit as a draft ("Needs Attention") to change and republish. */
+export async function rejectBookRevision(bookId: string, note?: string): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   const role = session?.user?.role;
   if (!role || !canModerateContent(role)) return { ok: false, error: "Not authorized." };
 
-  await prisma.book.update({ where: { id: bookId }, data: { pendingRevisionData: null as unknown as object } });
+  const book = await prisma.book.findUnique({ where: { id: bookId }, include: { author: { select: { userId: true } } } });
+  if (!book?.pendingRevisionData) return { ok: false, error: "No pending revision on this book." };
+  const raw = book.pendingRevisionData as unknown as Record<string, unknown>;
+  const cleanNote = (note ?? "").trim().slice(0, 1500);
+  // A held manuscript/cover (older kind) has no draft to keep, so it is kept as it is with the reviewer's note.
+  const sentBack = { ...raw, state: "REJECTED", note: cleanNote || undefined, reviewedAt: new Date().toISOString(), reviewedBy: session?.user?.name ?? "A reviewer" };
+  await prisma.book.update({ where: { id: bookId }, data: { pendingRevisionData: JSON.parse(JSON.stringify(sentBack)) } });
   revalidatePath("/admin/books");
   revalidatePath(`/admin/books/${bookId}/review`);
+  revalidatePath("/account/books");
+  revalidatePath(`/account/books/${bookId}/edit`);
+  await notifyAuthorOfDecision(book.author.userId, book.title, "sent-back", cleanNote);
   return { ok: true };
 }
 
@@ -1434,6 +1390,7 @@ export async function submitBook(input: SubmitBookInput): Promise<{ ok: boolean;
   cleanDescriptionFields(input);
   if (input.submitForReview && !isAiDeclaration(input.metadata?.aiDeclaration)) return { ok: false, error: AI_REQUIRED };
   const res = await submitBookInner(input);
+  if (res.ok && res.bookId && input.submitForReview) await notifyReviewers("posted", input.title.trim(), res.bookId);
   if (res.ok && res.bookId && isAiDeclaration(input.metadata?.aiDeclaration)) {
     const session = await auth();
     const profile = session?.user?.id ? await prisma.authorProfile.findUnique({ where: { userId: session.user.id } }) : null;
@@ -1447,7 +1404,9 @@ export async function updateBookFull(bookId: string, input: SubmitBookInput): Pr
   cleanDescriptionFields(input);
   if (input.submitForReview !== false && !isAiDeclaration(input.metadata?.aiDeclaration)) return { ok: false, error: AI_REQUIRED };
   const res = await updateBookFullInner(bookId, input);
-  if (res.ok) {
+  if (res.ok && res.outcome === "resubmitted") await notifyReviewers("posted", input.title.trim(), bookId);
+  // An edit of a published book is only held: nothing live changes (so no AI-declaration sync and no new mockups) until it is approved.
+  if (res.ok && res.outcome !== "republished" && res.outcome !== "draft") {
     const session = await auth();
     const profile = session?.user?.id ? await prisma.authorProfile.findUnique({ where: { userId: session.user.id } }) : null;
     if (profile) await syncAiDeclaration(profile.id, bookId, input.title, (input.metadata?.aiDeclaration ?? "").trim());

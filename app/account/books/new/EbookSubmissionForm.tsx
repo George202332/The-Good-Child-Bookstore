@@ -307,7 +307,7 @@ export function EbookSubmissionForm({
   async function handleAction(kind: "save" | "publish") {
     setNotice(null);
     const publishing = kind === "publish";
-    if ((publishing || editingPublished) && checklist.some((c) => !c.ok)) {
+    if (publishing && checklist.some((c) => !c.ok)) {
       setShowMissing(true);
       scrollToFirstMissing(checklist);
       return;
@@ -318,8 +318,8 @@ export function EbookSubmissionForm({
       setNotice({ kind: "error", text: ageProblem });
       return;
     }
-    // A published book's edits always go through the live-edit path, so Save Changes uses it too.
-    const submitForReview = publishing || editingPublished;
+    // Save Draft keeps the edit for later; Publish / Republish sends it for review. An edit of a published book never changes the live book until a reviewer approves it.
+    const submitForReview = publishing;
     setBusy(publishing ? "publishing" : "saving");
     const payload = {
       title,
@@ -381,12 +381,11 @@ export function EbookSubmissionForm({
     };
     try {
       let outcome: string | undefined;
-      let held: string | undefined;
       let message: string | undefined;
       if (savedBookId) {
         const res = await updateBookFull(savedBookId, payload);
         if (!res.ok) { setNotice({ kind: "error", text: res.error ?? "Something went wrong. Nothing was lost, so you can try again." }); return; }
-        outcome = res.outcome; held = res.held; message = res.message;
+        outcome = res.outcome; message = res.message;
       } else {
         const res = await submitBook(payload);
         if (!res.ok) { setNotice({ kind: "error", text: res.error ?? "Something went wrong. Nothing was lost, so you can try again." }); return; }
@@ -394,11 +393,10 @@ export function EbookSubmissionForm({
         outcome = publishing ? "resubmitted" : "saved";
       }
       if (!publishing) {
-        setNotice({ kind: "ok", text: outcome === "live_files_pending" ? (message ?? "Changes saved. Your new file is under review.") : "Changes saved." });
+        setNotice({ kind: "ok", text: outcome === "draft" ? (message ?? "Your draft was saved.") : "Draft saved." });
         return;
       }
-      if (outcome === "live") router.push("/account/books?saved=live");
-      else if (outcome === "live_files_pending") router.push(`/account/books?saved=files-review-${held ?? "manuscript"}`);
+      if (outcome === "republished") router.push("/account/books?saved=republished");
       else router.push("/account/books/published?kind=ebook");
     } catch {
       setNotice({ kind: "error", text: "Something went wrong and the action did not finish. Nothing was lost, so you can try again." });
@@ -802,12 +800,14 @@ export function EbookSubmissionForm({
         sub="Everything below is needed before this title can be published. It updates as you fill the form in."
         items={checklist}
         showMissing={showMissing}
-        showPublish={!editingPublished}
+        showPublish
+        publishLabel={editingPublished ? "Republish" : "Publish"}
+        publishingLabel={editingPublished ? "Republishing…" : "Publishing…"}
         busy={busy}
         onSave={() => handleAction("save")}
         onPublish={() => handleAction("publish")}
         notice={notice}
-        missingIntro={editingPublished ? "Please finish these before saving:" : undefined}
+        missingIntro={editingPublished ? "Please finish these before republishing:" : undefined}
         extraActions={extraActions}
       >
         <BookSeoAdvice title={title} subtitle={subtitle} descriptionText={plainTextFromHtml(descriptionHtml)} hasCover={!!coverImageUrl} category={category} subcategory={subcategory} genre={genre} ageGroup={ageGroup} />

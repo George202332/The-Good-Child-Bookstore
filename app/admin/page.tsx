@@ -3,6 +3,8 @@ import { authAdmin } from "@/lib/auth-admin";
 import { AdminShell } from "@/components/AdminShell";
 import { DashboardOverview } from "@/components/admin-views/DashboardOverview";
 import { loadDashboardData } from "@/lib/admin-dashboard-data";
+import { listNeedsAction } from "@/lib/review-notify";
+import Link from "next/link";
 
 /**
  * Admin/Editor dashboard overview — a real summary of the platform's
@@ -22,9 +24,25 @@ export default async function AdminDashboardPage() {
   if (role !== "ADMIN" && role !== "EDITOR" && role !== "ACCOUNTANT") redirect("/account");
 
   const data = await loadDashboardData(role);
+  const needsAction = role === "ADMIN" || role === "EDITOR" ? await listNeedsAction().catch(() => []) : [];
 
   return (
     <AdminShell role={role} activeKey="dashboard" displayName={session.user.name ?? ""}>
+      {needsAction.length > 0 && (
+        <div role="status" style={{ marginBottom: 18, padding: "14px 16px", borderRadius: 12, background: "#F5D98F", color: "#6B4503" }}>
+          <strong style={{ fontSize: 14 }}>Needs action: {needsAction.length}</strong>
+          <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 13.5 }}>
+            {needsAction.slice(0, 8).map((n) => (
+              <li key={n.id}>
+                <Link href={`/admin/books/${n.id}/review`} style={{ color: "inherit", fontWeight: 600 }}>
+                  {n.kind === "posted" ? "A new book has been posted" : "A book has been edited"}: {n.title}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {needsAction.length > 8 && <Link href="/admin/books?status=PENDING_REVIEW" style={{ color: "inherit", fontSize: 13 }}>See all {needsAction.length}</Link>}
+        </div>
+      )}
       <DashboardOverview
         role={role}
         heading={`${role === "ADMIN" ? "Admin" : role === "EDITOR" ? "Editor" : "Accountant"} dashboard`}

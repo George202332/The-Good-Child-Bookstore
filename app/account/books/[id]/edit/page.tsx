@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
 import { getSiteSettings } from "@/actions/site-settings";
 import { EditBookTabs, type EditTab } from "./EditBookTabs";
-import { buildEbookInitial, buildPrintInitial, classify, sharedPrefill, type BookWithRelations } from "./edit-initials";
+import { authorRevisionStatus, type HeldFullRevision } from "@/lib/revision-state";
+import { buildEbookInitial, buildPrintInitial, classify, sharedPrefill, withDraftEdit, type BookWithRelations } from "./edit-initials";
 
 /**
  * Edit an existing book — genuinely the same page used to submit a new
@@ -12,8 +13,7 @@ import { buildEbookInitial, buildPrintInitial, classify, sharedPrefill, type Boo
  * "Print"). Each format of a title is its own edition (its own book
  * record), so each tab edits its own edition: every field pre-filled from
  * that edition, not a separate, simplified form. Saving resubmits an
- * unpublished edition for review; a published edition saves live and only
- * a replaced manuscript or cover goes to review. A format the title does
+ * unpublished edition for review; every edit of a published edition is held for review while the approved version stays live. A format the title does
  * not have yet can be added from its tab.
  */
 export default async function EditBookPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ edition?: string }> }) {
@@ -55,8 +55,17 @@ export default async function EditBookPage({ params, searchParams }: { params: P
 
   const ebookTab: EditTab = ebookBook ? { mode: "edit", status: ebookBook.status, bookId: ebookBook.id } : { mode: "add" };
   const printTab: EditTab = printBook ? { mode: "edit", status: printBook.status, bookId: printBook.id } : { mode: "add" };
-  const ebookInitial = ebookBook ? buildEbookInitial(ebookBook) : undefined;
-  const printInitial = printBook ? buildPrintInitial(printBook) : undefined;
+  // The form shows the author's own edit (draft, awaiting review, or sent back) when there is one, not the approved version.
+  const ebookInitial = ebookBook ? buildEbookInitial(withDraftEdit(ebookBook)) : undefined;
+  const printInitial = printBook ? buildPrintInitial(withDraftEdit(printBook)) : undefined;
+  const statusLines = ([["eBook/Audiobook", ebookBook], ["Print Book", printBook]] as const).flatMap(([label, b]) => {
+    if (!b) return [];
+    const meta = (b.submissionMetadata as { lastRevisionOutcome?: { state?: string } } | null) ?? {};
+    const status = authorRevisionStatus(b.pendingRevisionData, meta.lastRevisionOutcome);
+    if (!status) return [];
+    const note = status === "Needs Attention" ? (b.pendingRevisionData as unknown as HeldFullRevision | null)?.note : undefined;
+    return [{ label, status, note }];
+  });
   const sharedSource = ebookBook ?? printBook ?? book;
   const classification = classify(sharedSource);
   const sharedMeta = (sharedSource.submissionMetadata as Record<string, unknown> | null) ?? {};
@@ -82,13 +91,22 @@ export default async function EditBookPage({ params, searchParams }: { params: P
           )}
         </div>
       </div>
+      {statusLines.map((l) => (
+        <div key={l.label} role="status" style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, fontSize: 13.5, background: l.status === "Needs Attention" ? "#FDECEA" : l.status === "Approved" ? "#E3F4EA" : "#FFF4D6", border: `1px solid ${l.status === "Needs Attention" ? "#F3B6AE" : l.status === "Approved" ? "#B9E0C8" : "#F0DDA0"}`, color: "#3a3226" }}>
+          <strong>{l.label}: {l.status}.</strong>{" "}
+          {l.status === "Awaiting Review" && "Your changes are with our reviewers. Your approved version stays on sale until they are approved."}
+          {l.status === "Draft Saved" && "Your draft is saved here. Your approved version is still on sale. Press Republish when you are ready to send it for review."}
+          {l.status === "Needs Attention" && <>The reviewer sent your changes back{l.note ? <>: &ldquo;{l.note}&rdquo;</> : "."} Your approved version is still on sale. Change what was asked and press Republish.</>}
+          {l.status === "Approved" && "Your last changes were approved and are live."}
+        </div>
+      ))}
       {isCombined ? (
         <EditBookTabs
           startOn="ebook"
           enabledFormats={settings.publishingFormatsEnabled}
           ebookTab={{ mode: "edit", status: book.status, bookId: book.id }}
           printTab={{ mode: "edit", status: book.status, bookId: book.id }}
-          ebookInitial={buildEbookInitial(book)}
+          ebookInitial={buildEbookInitial(withDraftEdit(book))}
           printInitial={undefined}
           addPrefill={sharedPrefill(book, classification, sharedMeta)}
           combined

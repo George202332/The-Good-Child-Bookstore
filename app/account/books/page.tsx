@@ -9,6 +9,7 @@ import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
 import { PAID_ONLY } from "@/lib/paid-sales";
 import { groupEditions } from "@/lib/book-groups";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
+import { authorRevisionStatus, type HeldFullRevision } from "@/lib/revision-state";
 
 interface SaleLineShare {
   authorShare: unknown;
@@ -49,10 +50,7 @@ const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px
  */
 const SAVED_NOTICES: Record<string, string> = {
   review: "Your book was sent for review. We will publish it as soon as it is approved.",
-  live: "Your changes were saved and are live now.",
-  "files-review-manuscript": "Your changes were saved. Your new manuscript is under review and will go live once approved.",
-  "files-review-cover": "Your changes were saved. Your new cover is under review and will go live once approved.",
-  "files-review-both": "Your changes were saved. Your new manuscript and cover are under review and will go live once approved.",
+  republished: "Your changes were sent for review. Your approved version stays on sale until the new one is approved.",
 };
 
 export default async function MyBooksPage({ searchParams }: { searchParams?: Promise<{ saved?: string; page?: string }> }) {
@@ -153,9 +151,18 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                         )}
                         <div>
                           <strong>{b.title}</strong>
-                          {group.some((r) => r.status === "PUBLISHED" && r.pendingRevisionData != null) && (
-                            <div style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 4 }}>New manuscript or cover under review</div>
-                          )}
+                          {group.map((r) => {
+                            const meta = (r as { submissionMetadata?: { lastRevisionOutcome?: { state?: string } } | null }).submissionMetadata ?? {};
+                            const st = r.status === "PUBLISHED" ? authorRevisionStatus(r.pendingRevisionData, meta.lastRevisionOutcome) : null;
+                            if (!st) return null;
+                            const edition = r.hasPrint && !r.hasEbook && !r.hasAudiobook ? "Print Book" : "eBook/Audiobook";
+                            const note = st === "Needs Attention" ? (r.pendingRevisionData as unknown as HeldFullRevision | null)?.note : undefined;
+                            return (
+                              <div key={`rev-${r.id}`} style={{ fontSize: 12, color: st === "Needs Attention" ? "#6F1A28" : "var(--ink-soft)", marginTop: 4, maxWidth: 280 }}>
+                                {edition} edit: {st}{note ? <> &mdash; &quot;{note}&quot;</> : null}
+                              </div>
+                            );
+                          })}
                           {group.filter((r) => r.status === "REJECTED" && r.revisionNotes).map((r) => (
                             <div key={r.id} style={{ fontSize: 12, color: "#6F1A28", marginTop: 4, maxWidth: 260 }}>
                               &quot;{r.revisionNotes}&quot;
