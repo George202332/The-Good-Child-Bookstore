@@ -18,7 +18,7 @@ import { BookViewTracker } from "@/components/AnalyticsTrackers";
 import { useWishlist } from "@/hooks/useWishlist";
 import { categorySlug, isCategory } from "@/lib/taxonomy";
 import { restrictionMessage } from "@/lib/book-country-restriction";
-import { isAiDeclaration } from "@/lib/ai-declaration";
+import { aiDisplayText, isAiDeclaration } from "@/lib/ai-declaration";
 import { topicPath } from "@/lib/seo/topics";
 import { slugify } from "@/lib/seo/text";
 import { bookMetaDescription } from "@/lib/seo/book-meta";
@@ -336,7 +336,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
              everything out of alignment. */}
           {isAiDeclaration(b.aiDeclaration) && (
             // Only one of the two agreed statements is ever shown, as one plain line, and only when the book has one stored.
-            <p className="az-ai-declaration">{(b.aiDeclaration ?? "").trim()}</p>
+            <p className="az-ai-declaration"><strong>AI Use Declaration:</strong> {aiDisplayText(b.aiDeclaration)}</p>
           )}
 
           <div className="az-details-card">

@@ -3,7 +3,9 @@
  * statements (two tick boxes working as a single choice). The text of the chosen statement is
  * what is stored and what the product page shows, so the wording is fixed here, in one place.
  */
-export const AI_USED = "AI tools were used in creating this book, such as for text, artwork, or other parts.";
+export const AI_USED = "AI tools may have been used in creating this book, such as for text, artwork, or other parts.";
+/** The first option's earlier wording. Books saved with it still count as that option, and show the new wording. */
+export const AI_USED_OLD = "AI tools were used in creating this book, such as for text, artwork, or other parts.";
 export const AI_NONE = "No AI tools were used. All content is entirely human-made.";
 
 export type AiChoice = "ai" | "none" | "";
@@ -11,13 +13,18 @@ export type AiChoice = "ai" | "none" | "";
 /** Which box a stored value corresponds to. An older written declaration matches neither box. */
 export function aiChoiceOf(value: string | null | undefined): AiChoice {
   const v = (value ?? "").trim();
-  if (v === AI_USED) return "ai";
+  if (v === AI_USED || v === AI_USED_OLD) return "ai";
   if (v === AI_NONE) return "none";
   return "";
 }
 
 export function aiTextFor(choice: AiChoice): string {
   return choice === "ai" ? AI_USED : choice === "none" ? AI_NONE : "";
+}
+
+/** The wording to show a reader or reviewer for a stored value: always the current wording, even for books saved earlier. */
+export function aiDisplayText(value: string | null | undefined): string {
+  return aiTextFor(aiChoiceOf(value));
 }
 
 export function isAiDeclaration(value: string | null | undefined): boolean {

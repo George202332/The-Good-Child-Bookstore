@@ -1,18 +1,17 @@
-BATCH 6, version 2 (replaces print fix 5; includes it; now also includes the decision buttons file the review page needs). No database change. Staging only.
+AMENDMENT BATCH 2, STAGE 1: items 1, 2, 4, 6, 7. NO database change. Staging only.
 
 1. Copy the app, lib and tests folders from this zip into your bookstore folder (Replace).
-2. In PowerShell inside the bookstore folder:
+2. In PowerShell, inside the bookstore folder:
      git checkout staging
      git add .
-     git commit -m "Batch 6: publish page, My Books table, separate editing, admin review sections, mockups without shadows"
+     git commit -m "Amendment 2 stage 1: row actions, edit screen, calm print check, format layout, AI wording"
      git push origin staging
 3. Wait for staging to be Ready.
 
 STAGING TEST CHECKLIST
- A. Submit a New Title: the two tabs read "Publish eBook/Audiobook" and "Publish Print Book". The buttons at the bottom: Save Draft, Publish (and Delete Book on a saved book).
- B. Press Publish on a complete book: you land on a page "Your ... Was Successfully Published ... submitted for review for approval", then My Books after about 5 seconds (or press Go to My Books).
- C. My Books: 15 books a page with arrows under the table; columns Title, Author, Category (the real category, not the genre), Units Sold, Royalty, eBook, Audiobook, Paperback, Hardcover. No Status or Edit column. Published formats show the number sold with "Published" beneath (0 if none); anything else says "Unpublished".
- D. Hover a book row: "Edit eBook/Audiobook" and "Edit Print Book" appear. Each opens only that edition, with no other tab. Saving a print edit never touches the eBook, and the other way round.
- E. Mockups (author preview and product page, after choosing Paperback or Hardcover): no shadow under the books and no reflection. Old product-page mockups redraw the next time they are opened.
- F. Admin: open a book posted by an author in Book Management > review. There is a section "eBook / Audiobook" (manuscript preview in PDF/EPUB/MOBI plus an audiobook player) and a section "Print Book" (PDF preview and print details), each with its own Approve / Attention / Suspend / Withdraw. In Book Management a yellow banner and a "Needs review" tag mark books waiting.
- G. Print: Autofill from eBook copies details and cover only, never the eBook file; checks show moving dots while running.
+ Item 1  My Books: hover a row (or tap it on a phone): buttons appear in the right-hand column after Hardcover: "Edit eBook/Audiobook" and "Edit Print" (or "Add Print" if there is no print edition). They never cover the figures.
+ Item 2  Click an edit button: the same screen as Submit a New Title opens, on the right tab, with details filled in. Tabs read "Edit eBook/Audiobook" and "Edit Print Book" ("Add Print Book" when none). Heading "Edit: <title>" or "Add Print Edition: <title>". Autofill from eBook still copies everything except the eBook file.
+ Item 4  On a print edition, upload a PDF with fonts that are not embedded: you see a spinner and "Fixing your file automatically. Give us a moment, you don't need to do anything." and never a red "Needs fixing". When done: Passed with the note of what was fixed. "Needs fixing" shows only if the automatic fix finished and could not fix it.
+ Item 6  Print tab, Publication Format: Paperback on the left, "Hardcover (Linen Wrap)" at the far right of the same row.
+ Item 7  AI declaration first option reads "AI tools may have been used in creating this book, such as for text, artwork, or other parts." On the product page: "AI Use Declaration:" then the answer. A book saved earlier with the old wording shows the new wording too (nothing in the database is changed).
+Test this on a book that was already published as well as a new one.

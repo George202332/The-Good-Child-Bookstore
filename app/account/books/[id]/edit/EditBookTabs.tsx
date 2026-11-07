@@ -56,8 +56,8 @@ export function EditBookTabs({
   const aiShared = { value: ai, onChange: setAi };
 
   const tabs: { key: Format; label: string; tab: EditTab }[] = [
-    { key: "ebook", label: "eBook and Audiobook", tab: ebookTab },
-    { key: "print", label: "Print", tab: printTab },
+    { key: "ebook", label: ebookTab.mode === "edit" ? "Edit eBook/Audiobook" : "Add eBook/Audiobook", tab: ebookTab },
+    { key: "print", label: printTab.mode === "edit" ? "Edit Print Book" : "Add Print Book", tab: printTab },
   ];
 
   function hint(key: Format, tab: EditTab): string {
@@ -91,7 +91,6 @@ export function EditBookTabs({
               onClick={() => setActive(t.key)}
             >
               {t.label}
-              {t.tab.mode === "add" ? " (add)" : ""}
             </button>
           ))}
         </div>

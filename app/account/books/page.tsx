@@ -45,7 +45,7 @@ const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px
 /**
  * "My Books": 15 books to a page. Columns: Title, Author, Category, Units Sold, Royalty, then one cell per format (eBook,
  * Audiobook, Paperback, Hardcover) holding that format's copies sold with its status beneath ("Unpublished" when it is not live).
- * One book is one row; hovering a row offers Edit eBook/Audiobook and Edit Print Book, each opening only that edition.
+ * One book is one row; hovering (or tapping) a row shows its actions at the right end: Edit eBook/Audiobook, and Edit Print or Add Print.
  */
 const SAVED_NOTICES: Record<string, string> = {
   review: "Your book was sent for review. We will publish it as soon as it is approved.",
@@ -96,10 +96,11 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
       ) : (
         <>
         <style>{`
-          .mybooks-row .row-edit{position:absolute;left:16px;bottom:4px;display:none;gap:6px;flex-wrap:wrap;z-index:2}
-          .mybooks-row:hover .row-edit,.mybooks-row:focus-within .row-edit{display:flex}
-          @media (hover:none){.mybooks-row .row-edit{display:flex;position:static;margin-top:6px}}
+          .mybooks-row .row-actions{display:flex;flex-direction:column;gap:6px;align-items:stretch;opacity:0;pointer-events:none;transition:opacity .12s}
+          .mybooks-row:hover .row-actions,.mybooks-row:focus .row-actions,.mybooks-row:focus-within .row-actions{opacity:1;pointer-events:auto}
           .mybooks-row:hover{background:var(--cream)}
+          .mybooks-row{outline:none}
+          .mybooks-row .row-actions a{white-space:nowrap;text-align:center}
         `}</style>
         <div className="map-card" style={{ padding: 0, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -114,6 +115,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                 <th style={TABLE_HEAD_STYLE}>Audiobook<ColHelp text="Copies sold of the audiobook. Unpublished means it is not live in the store." /></th>
                 <th style={TABLE_HEAD_STYLE}>Paperback<ColHelp text="Copies sold of the paperback. Unpublished means it is not live in the store." /></th>
                 <th style={TABLE_HEAD_STYLE}>Hardcover<ColHelp text="Copies sold of the hardcover. Unpublished means it is not live in the store." /></th>
+                <th style={{ ...TABLE_HEAD_STYLE, width: 150 }} aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
@@ -140,8 +142,8 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                   { fmt: "hardcover", row: printRow, offered: printOn("hardcoverEnabled", printRow) },
                 ];
                 return (
-                  <tr key={b.id} className="mybooks-row" style={{ position: "relative" }}>
-                    <td style={{ ...TABLE_CELL_STYLE, position: "relative", paddingBottom: 30 }}>
+                  <tr key={b.id} className="mybooks-row" tabIndex={0}>
+                    <td style={TABLE_CELL_STYLE}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         {cover ? (
                           // eslint-disable-next-line @next/next/no-img-element -- author-uploaded cover served from our own file route
@@ -160,12 +162,6 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                             </div>
                           ))}
                         </div>
-                      </div>
-                      <div className="row-edit">
-                        {digitalRow && <Link href={`/account/books/${digitalRow.id}/edit?edition=ebook`} className="btn btn-ghost btn-small">Edit eBook/Audiobook</Link>}
-                        {printRow && <Link href={`/account/books/${printRow.id}/edit?edition=print`} className="btn btn-ghost btn-small">Edit Print Book</Link>}
-                        {!digitalRow && printRow && <Link href={`/account/books/${printRow.id}/edit?edition=ebook`} className="btn btn-ghost btn-small">Add eBook/Audiobook</Link>}
-                        {!printRow && digitalRow && <Link href={`/account/books/${digitalRow.id}/edit?edition=print`} className="btn btn-ghost btn-small">Add Print Book</Link>}
                       </div>
                     </td>
                     <td style={TABLE_CELL_STYLE}>{authorName}</td>
@@ -190,6 +186,17 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
                         </td>
                       );
                     })}
+                    <td style={{ ...TABLE_CELL_STYLE, width: 150 }}>
+                      <div className="row-actions">
+                        {digitalRow && <Link href={`/account/books/${digitalRow.id}/edit?edition=ebook`} className="btn btn-ghost btn-small">Edit eBook/Audiobook</Link>}
+                        {printRow ? (
+                          <Link href={`/account/books/${printRow.id}/edit?edition=print`} className="btn btn-ghost btn-small">Edit Print</Link>
+                        ) : digitalRow ? (
+                          <Link href={`/account/books/${digitalRow.id}/edit?edition=print`} className="btn btn-ghost btn-small">Add Print</Link>
+                        ) : null}
+                        {!digitalRow && printRow && <Link href={`/account/books/${printRow.id}/edit?edition=ebook`} className="btn btn-ghost btn-small">Add eBook/Audiobook</Link>}
+                      </div>
+                    </td>
                   </tr>
                 );
               })}

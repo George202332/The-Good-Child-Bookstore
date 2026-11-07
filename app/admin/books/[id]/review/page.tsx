@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { canonicalCategory, categoryOfSubcategory } from "@/lib/taxonomy";
 import Link from "next/link";
+import { aiDisplayText, firstAiDeclaration } from "@/lib/ai-declaration";
 import { authAdmin } from "@/lib/auth-admin";
 import { prisma } from "@/lib/prisma";
 import { canModerateContent, canRatifyModeration } from "@/lib/roles";
@@ -175,6 +176,7 @@ export default async function BookReviewPage({ params }: { params: Promise<{ id:
               <div><strong>Category</strong><div style={{ color: "var(--admin-text-faint)" }}>{canonicalCategory(book.category) ?? book.category ?? categoryOfSubcategory(book.genres[0]?.genre.name) ?? "—"}</div></div>
               <div><strong>Genre</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.categories[0]?.category.name ?? "—"}</div></div>
               <div><strong>Subcategory</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.subcategory ?? book.genres[0]?.genre.name ?? "—"}</div></div>
+              <div><strong>AI Use Declaration</strong><div style={{ color: "var(--admin-text-faint)" }}>{aiDisplayText(firstAiDeclaration(...sections.map((x) => String(((x.row.submissionMetadata as Record<string, unknown> | null) ?? {}).aiDeclaration ?? "")))) || "Not declared"}</div></div>
               <div><strong>Age group</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.ageGroup ?? "—"}</div></div>
               <div><strong>Language</strong><div style={{ color: "var(--admin-text-faint)" }}>{book.language ?? "en"}</div></div>
               <div><strong>Price</strong><div style={{ color: "var(--admin-text-faint)" }}>${Number(book.price).toFixed(2)}</div></div>

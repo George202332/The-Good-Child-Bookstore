@@ -378,7 +378,6 @@ export function PrintSubmissionForm({
   const preflightPassed = shownPreflight?.status === "PASSED" || (!shownPreflight && unchangedSaved);
   const hasPrintFiles = !!printReadyPdfFileId && (!!frontCoverImageUrl || (backCoverMode === "custom" && !!customBackCoverPdfFileId));
   // Still being checked: running now, waiting to start, or Lulu has not answered yet. Nothing "needs fixing" until a real answer is in.
-  const checkingNow = hasPrintFiles && !unchangedSaved && (preflightBusy || !shownPreflight || shownPreflight.status === "CHECKING");
 
 
   // ---- What we read from the file, fonts, and Lulu's real printing cost ----------------------
@@ -386,6 +385,9 @@ export function PrintSubmissionForm({
   const [specBusy, setSpecBusy] = useState(false);
   const [fontBusy, setFontBusy] = useState(false);
   const [fontResult, setFontResult] = useState<FixFontsResult | null>(null);
+  // True while we are fixing the file ourselves (fonts): nothing is shown as "needs fixing" until that has finished and failed.
+  const fontFixing = fontBusy || (!!specReport?.ok && !!printReadyPdfFileId && !!specReport.fonts?.unembedded.some((f) => f.status === "auto" || f.status === "needs-approval") && !(fontResult && !fontResult.ok));
+  const checkingNow = hasPrintFiles && (fontFixing || (!unchangedSaved && (preflightBusy || !shownPreflight || shownPreflight.status === "CHECKING")));
   const autoFontTried = useRef("");
   const specSettings = useMemo(
     () => ({ paperbackEnabled, hardcoverEnabled, paperbackBinding, interiorColor, printQuality, paperType, coverFinish, linenColor, foilColor }),
@@ -690,6 +692,7 @@ export function PrintSubmissionForm({
         <PreflightPanel
           hasFiles={hasPrintFiles}
           busy={checkingNow}
+          fixing={fontFixing}
           result={shownPreflight}
           savedFromBook={unchangedSaved ? initial?.preflight : undefined}
         />
@@ -711,6 +714,7 @@ export function PrintSubmissionForm({
           )}
           </div>
           <FileVerdictBox
+            fixing={fontFixing}
             title="Interior File Check"
             verdict={printReadyPdfFileId ? (checkingNow ? "CHECKING" : shownPreflight?.interior) : "NONE"}
             issues={checkingNow ? [] : (shownPreflight?.issues ?? []).filter((i) => i.file === "interior")}
@@ -758,6 +762,7 @@ export function PrintSubmissionForm({
           </div>
           </div>
           <FileVerdictBox
+            fixing={fontFixing}
             title="Cover Check"
             verdict={frontCoverImageUrl || customBackCoverPdfFileId ? (checkingNow ? "CHECKING" : shownPreflight?.cover) : "NONE"}
             issues={checkingNow ? [] : (shownPreflight?.issues ?? []).filter((i) => i.file === "cover")}
@@ -789,7 +794,7 @@ export function PrintSubmissionForm({
         <div className="specs-block" style={{ marginTop: 22 }}>
           <h3 className="specs-title" style={{ marginBottom: 6 }}>Publication Format</h3>
           <p className="specs-text">Choose Paperback, Hardcover, or both as separate printable editions of this title.</p>
-          <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 32, flexWrap: "wrap" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 600 }}>
               <input type="checkbox" checked={paperbackEnabled} onChange={(e) => setPaperbackEnabled(e.target.checked)} /> Paperback
             </label>
@@ -1082,12 +1087,13 @@ export function PrintSubmissionForm({
 }
 
 /** Moving dots and a slim progress bar shown while a file is being checked; replaced by the verdict when it arrives. */
-function CheckProgress({ text }: { text: string }) {
+function CheckProgress({ text, fixing }: { text: string; fixing?: boolean }) {
   return (
     <div style={{ margin: "8px 0 0" }} role="status">
-      <style>{`@keyframes gcbDot{0%,80%,100%{opacity:.25}40%{opacity:1}}@keyframes gcbBar{0%{margin-left:-40%}100%{margin-left:100%}}`}</style>
+      <style>{`@keyframes gcbSpin{to{transform:rotate(360deg)}}@keyframes gcbDot{0%,80%,100%{opacity:.25}40%{opacity:1}}@keyframes gcbBar{0%{margin-left:-40%}100%{margin-left:100%}}`}</style>
       <p className="field-hint" style={{ margin: 0 }}>
-        {text}{" "}
+        <span aria-hidden="true" style={{ width: 12, height: 12, borderRadius: "50%", border: "2px solid #cdbfe3", borderTopColor: "#4A3868", display: "inline-block", verticalAlign: "-2px", marginRight: 6, animation: "gcbSpin .8s linear infinite" }} />
+        {fixing ? "Fixing your file automatically. Give us a moment, you don't need to do anything." : text}{" "}
         <span aria-hidden="true">
           {[0, 1, 2].map((n) => <span key={n} style={{ animation: "gcbDot 1.2s infinite", animationDelay: `${n * 0.2}s`, fontWeight: 700 }}>.</span>)}
         </span>
@@ -1107,9 +1113,10 @@ const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = 
 };
 
 /** The print file check result, in plain language, right inside the Print tab. */
-function PreflightPanel({ hasFiles, busy, result, savedFromBook }: {
+function PreflightPanel({ hasFiles, busy, fixing, result, savedFromBook }: {
   hasFiles: boolean;
   busy: boolean;
+  fixing?: boolean;
   result: PrintPreflightView | null;
   savedFromBook?: SavedPreflight;
 }) {
@@ -1126,7 +1133,7 @@ function PreflightPanel({ hasFiles, busy, result, savedFromBook }: {
           As soon as the print-ready PDF and a cover are uploaded, we check them for printing: embedded fonts, page size, page count and cover size, and then our print partner (Lulu) checks them too. Nothing is ordered or printed by this check.
         </p>
       )}
-      {hasFiles && status === "CHECKING" && <CheckProgress text="We and Lulu are checking your files. This usually takes under a minute, and you can keep filling in the form." />}
+      {hasFiles && status === "CHECKING" && <CheckProgress fixing={fixing} text="Checking your file. This usually takes under a minute, and you can keep filling in the form." />}
       {status === "PASSED" && (
         <p className="field-hint" style={{ margin: "8px 0 0", color: "#165236" }}>
           Your print files meet our print partner&apos;s standards. {savedFromBook && !result ? `Checked ${new Date(savedFromBook.checkedAt).toLocaleDateString()}.` : ""}
@@ -1157,8 +1164,9 @@ const VERDICT_STYLE: Record<string, { bg: string; fg: string; label: string }> =
 
 /** The result for ONE file, shown directly under its preview: the site's own checks and
  * Lulu's verdict, with the reasons and how to fix each, in plain language. */
-function FileVerdictBox({ title, verdict, issues, saved }: {
+function FileVerdictBox({ title, verdict, issues, saved, fixing }: {
   title: string;
+  fixing?: boolean;
   verdict?: "PASSED" | "FAILED" | "CHECKING" | "UNAVAILABLE" | "WAITING" | "NONE";
   issues: { source: "site" | "lulu"; message: string; fix: string }[];
   saved?: SavedPreflight;
@@ -1175,7 +1183,7 @@ function FileVerdictBox({ title, verdict, issues, saved }: {
       {shown === "PASSED" && (
         <p className="field-hint" style={{ margin: "8px 0 0", color: "#165236" }}>Our checks and Lulu&apos;s file validation both passed.</p>
       )}
-      {shown === "CHECKING" && <CheckProgress text="We and Lulu are checking this file." />}
+      {shown === "CHECKING" && <CheckProgress fixing={fixing} text="Checking your file." />}
       {shown === "WAITING" && <p className="field-hint" style={{ margin: "8px 0 0" }}>This file is sent to Lulu once the other file&apos;s problems are fixed.</p>}
       {issues.length > 0 && (
         <ul style={{ margin: "10px 0 0", paddingLeft: 18, fontSize: 13 }}>

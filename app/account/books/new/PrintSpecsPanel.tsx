@@ -25,7 +25,9 @@ export function PrintSpecsPanel({
   title?: string;
 }) {
   if (!report && !busy && !fontBusy) return null;
-  const blocked: FontFixItem[] = report?.fonts?.unembedded.filter((f) => f.status === "unavailable") ?? [];
+  // Fonts we can embed ourselves are fixed automatically; "needs fixing" only shows once that has finished and some could not be.
+  const autoPending = !!report?.ok && !!report.fonts?.unembedded.some((f) => f.status === "auto" || f.status === "needs-approval") && !(fontResult && !fontResult.ok);
+  const blocked: FontFixItem[] = autoPending || fontBusy ? [] : report?.fonts?.unembedded.filter((f) => f.status === "unavailable") ?? [];
   const recommendedOther = report?.recommendedTrimCode && report.recommendedTrimCode !== chosenTrimCode ? report.recommendedTrimCode : null;
   const recommendedLabel = report?.candidates?.find((c) => c.code === recommendedOther)?.label;
 
@@ -33,11 +35,15 @@ export function PrintSpecsPanel({
     <div className="form-section specs-panel" style={{ background: "var(--cream)", marginTop: 14 }} aria-live="polite">
       <h3 className="specs-title">What We Read From Your File</h3>
 
-      {(busy || fontBusy) && (
-        <p role="status" className="specs-text" style={{ fontWeight: 600 }}>
-          {fontBusy
-            ? "Embedding the fonts in a copy of your PDF. This usually takes a few seconds, and up to about half a minute for a large file. Please keep this page open. Your file is checked again by itself afterwards."
-            : "Processing: reading your file and asking Lulu about it…"}
+      {(busy || fontBusy || autoPending) && (
+        <p role="status" className="specs-text" style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <style>{`@keyframes gcbSpin{to{transform:rotate(360deg)}}`}</style>
+          <span aria-hidden="true" style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid #cdbfe3", borderTopColor: "#4A3868", display: "inline-block", animation: "gcbSpin .8s linear infinite", flex: "none" }} />
+          <span>
+            {fontBusy || autoPending
+              ? "Fixing your file automatically. Give us a moment, you don't need to do anything. Please keep this page open."
+              : "Checking your file…"}
+          </span>
         </p>
       )}
 
@@ -55,6 +61,8 @@ export function PrintSpecsPanel({
                 <td>
                   {report.fonts && report.fonts.unembedded.length === 0
                     ? `All ${report.fonts.total} embedded`
+                    : autoPending || fontBusy
+                    ? "Being fixed automatically…"
                     : `${report.fonts?.unembedded.length ?? 0} of ${report.fonts?.total ?? 0} not embedded: ${report.fonts?.unembedded.map((f) => f.name).join(", ")}`}
                 </td>
               </tr>

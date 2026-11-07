@@ -20,7 +20,7 @@ describe("while the check runs nothing says 'needs fixing'", () => {
     assert.match(form, /const shownPreflight = preflight && preflightFor === currentKeys/);
     assert.match(form, /const checkingNow = /);
     assert.match(form, /checkingNow \? "CHECKING"/);
-    assert.match(form, /We and Lulu are checking/);
+    assert.match(form, /Checking your file/);
   });
 });
 
@@ -56,7 +56,7 @@ describe("author side changes (batch 6A)", () => {
     for (const h of ["Title", "Author", "Category", "Units Sold", "Royalty", "eBook", "Audiobook", "Paperback", "Hardcover"]) assert.ok(p.includes(`>${h}<ColHelp`), h);
     assert.ok(!p.includes(">Status<ColHelp") && !p.includes(">Edit<ColHelp"));
     assert.match(p, /Edit eBook\/Audiobook/);
-    assert.match(p, /Edit Print Book/);
+    assert.match(p, /Edit Print</);
     assert.match(p, /r\.category/);
   });
   test("editing one edition opens only that edition", () => {
@@ -80,5 +80,42 @@ describe("admin review (batch 6B)", () => {
     const m = r("app/admin/books/page.tsx");
     assert.match(m, /waiting for review/);
     assert.match(m, /Needs review:/);
+  });
+});
+
+describe("amendment batch 2, stage 1", () => {
+  const r = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+  test("AI wording: new first option, old stored wording still counts and shows the new one", async () => {
+    const m = await import("../lib/ai-declaration");
+    assert.equal(m.AI_USED, "AI tools may have been used in creating this book, such as for text, artwork, or other parts.");
+    assert.equal(m.AI_NONE, "No AI tools were used. All content is entirely human-made.");
+    assert.equal(m.aiChoiceOf(m.AI_USED_OLD), "ai");
+    assert.equal(m.aiDisplayText(m.AI_USED_OLD), m.AI_USED);
+    assert.equal(m.aiDisplayText("some old free text"), "");
+    assert.match(r("app/book/[id]/BookDetailClient.tsx"), /AI Use Declaration:/);
+  });
+  test("My Books: actions sit in their own last column after Hardcover", () => {
+    const p = r("app/account/books/page.tsx");
+    assert.match(p, /Edit Print</);
+    assert.match(p, /Add Print</);
+    assert.match(p, /tabIndex=\{0\}/);
+    assert.ok(p.indexOf(">Hardcover<ColHelp") < p.indexOf('aria-label="Actions"'));
+  });
+  test("edit screen: both tabs, edit wording, review note", () => {
+    const t = r("app/account/books/[id]/edit/EditBookTabs.tsx");
+    assert.match(t, /Edit eBook\/Audiobook/);
+    assert.match(t, /Edit Print Book/);
+    assert.match(t, /Add Print Book/);
+    assert.match(r("app/account/books/[id]/edit/page.tsx"), /Add Print Edition/);
+    assert.ok(!r("app/account/books/[id]/edit/page.tsx").includes("go live as soon as you save"));
+  });
+  test("print check: calm fixing state, 'needs fixing' only after the automatic fix finished", () => {
+    const f = r("app/account/books/new/PrintSubmissionForm.tsx");
+    assert.match(f, /const fontFixing = /);
+    assert.match(f, /Fixing your file automatically\. Give us a moment/);
+    assert.match(r("app/account/books/new/PrintSpecsPanel.tsx"), /autoPending \|\| fontBusy \? \[\]/);
+  });
+  test("publication format: hardcover on the far right", () => {
+    assert.match(r("app/account/books/new/PrintSubmissionForm.tsx"), /justifyContent: "space-between", gap: 32, flexWrap: "wrap" \}\}>\s*<label[^>]*>\s*<input type="checkbox" checked=\{paperbackEnabled\}/);
   });
 });
