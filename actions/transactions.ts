@@ -42,6 +42,10 @@ export interface TransactionRow {
   /** Lulu's per-order fulfillment fee the customer paid, shown once per order next to Shipping (on the first printed
    * item); null (a dash) for digital items. A pass-through: never part of anyone's earnings. */
   fulfillment: number | null;
+  /** The Processing Fee the customer paid on this printed order (once per order, on the first printed item); null (a dash) otherwise. */
+  processingFee: number | null;
+  /** What the payment gateway really kept on that order (same placement); null when no fee was charged. */
+  gatewayCost: number | null;
   status: string;
   /** How the money moved: Paystack, PayPal - Card, PayPal - Email, or the payout method. */
   mode: string;
@@ -82,7 +86,7 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       affiliateShare: unknown;
       book: { title: string };
       format: string | null;
-      order: { status: string; shippingAmount: unknown; fulfillmentAmount: unknown; reader: { user: { name: string } }; paymentLogs: { gateway: string; rawPayload: unknown }[]; lines: { id: string; format: string | null; createdAt: Date }[] };
+      order: { status: string; shippingAmount: unknown; fulfillmentAmount: unknown; processingFeeAmount: unknown; gatewayCostActual: unknown; processingFeeBasis: unknown; reader: { user: { name: string } }; paymentLogs: { gateway: string; rawPayload: unknown }[]; lines: { id: string; format: string | null; createdAt: Date }[] };
       affiliateLink: { affiliate: { user: { name: string } } } | null;
     };
 
@@ -100,6 +104,15 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       return firstPrint && firstPrint.id === s.id ? Number(s.order.fulfillmentAmount) : null;
     };
 
+    const firstPrintId = (s: SaleLineRow) => [...s.order.lines].filter((l) => isPrint(l.format)).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime() || a.id.localeCompare(b.id))[0]?.id;
+    const feeShownOn = (s: SaleLineRow): number | null => (isPrint(s.format) && Number(s.order.processingFeeAmount ?? 0) > 0 && firstPrintId(s) === s.id ? Number(s.order.processingFeeAmount) : null);
+    const costShownOn = (s: SaleLineRow): number | null => {
+      if (feeShownOn(s) == null) return null;
+      if (s.order.gatewayCostActual != null) return Number(s.order.gatewayCostActual);
+      const cut = (s.order.processingFeeBasis as { expectedGatewayCut?: number } | null)?.expectedGatewayCut;
+      return typeof cut === "number" ? cut : null;
+    };
+
     const saleRows: TransactionRow[] = (saleLines as SaleLineRow[]).map((s) => {
       const isAffiliateSale = Number(s.affiliateShare) > 0 && !!s.affiliateLink;
       return {
@@ -115,6 +128,8 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
         affiliateName: isAffiliateSale ? s.affiliateLink!.affiliate.user.name : null,
         shipping: shippingShownOn(s),
         fulfillment: fulfillmentShownOn(s),
+        processingFee: feeShownOn(s),
+        gatewayCost: costShownOn(s),
         status: s.order.status,
         mode: saleModeLabel(s.order.paymentLogs[0]),
       };
@@ -140,6 +155,8 @@ export async function getTransactionLedger(): Promise<TransactionRow[]> {
       affiliateName: null,
       shipping: null,
       fulfillment: null,
+      processingFee: null,
+      gatewayCost: null,
       status: p.status,
       mode: payoutModeLabel(p.recipient?.type),
     }));
@@ -174,6 +191,9 @@ export interface TransactionDetail {
   printingCost?: number | null;
   shipping?: number | null;
   fulfillment?: number | null;
+  processingFee?: number | null;
+  gatewayCost?: number | null;
+  gatewayCostSource?: string | null;
   // Payout-only fields.
   currency?: string;
   earningsType?: string;
@@ -228,6 +248,9 @@ export async function getTransactionDetail(id: string, type: "sale" | "payout"):
         printingCost: line.printingCost != null ? Number(line.printingCost) : null,
         shipping: isPrint(line.format) && line.order.shippingAmount != null ? Number(line.order.shippingAmount) : null,
         fulfillment: isPrint(line.format) && line.order.fulfillmentAmount != null ? Number(line.order.fulfillmentAmount) : null,
+        processingFee: isPrint(line.format) && Number(line.order.processingFeeAmount ?? 0) > 0 ? Number(line.order.processingFeeAmount) : null,
+        gatewayCost: isPrint(line.format) && line.order.gatewayCostActual != null ? Number(line.order.gatewayCostActual) : null,
+        gatewayCostSource: line.order.gatewayCostSource ?? null,
       };
     }
 

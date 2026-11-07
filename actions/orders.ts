@@ -53,6 +53,10 @@ const createPendingOrderSchema = z.object({
   shippingQuoteToken: z.string().max(1000).optional(),
   shippingAmountShown: z.number().min(0).max(100000).optional(),
   fulfillmentAmountShown: z.number().min(0).max(100000).optional(),
+  /** How the customer is paying, which decides the gateway's cut and so the Processing Fee on printed copies. */
+  paymentMethod: z.enum(["paystack", "mpesa", "paypal"]).optional(),
+  /** The Processing Fee shown at checkout, so a change between what was shown and what is charged is reported, never silent. */
+  processingFeeShown: z.number().min(0).max(100000).optional(),
 });
 
 /**
@@ -192,6 +196,8 @@ export async function createPendingOrder(input: {
   shippingQuoteToken?: string;
   shippingAmountShown?: number;
   fulfillmentAmountShown?: number;
+  paymentMethod?: "paystack" | "mpesa" | "paypal";
+  processingFeeShown?: number;
 }): Promise<CreateOrderResult> {
   const parsed = createPendingOrderSchema.safeParse(input);
   if (!parsed.success) {
@@ -406,7 +412,22 @@ export async function createPendingOrder(input: {
   // Books plus postage. Postage is not part of any line, so it never enters
   // the author / affiliate / company split.
   const { orderTotalWithShipping } = await import("@/lib/shipping-quote");
-  const totalAmount = orderTotalWithShipping(+subtotal.toFixed(2), shippingAmount ?? 0, fulfillmentAmount ?? 0);
+  const totalBeforeFee = orderTotalWithShipping(+subtotal.toFixed(2), shippingAmount ?? 0, fulfillmentAmount ?? 0);
+  // Processing Fee: printed copies only, worked out by the one shared function (lib/processing-fee.ts) with the saved gateway rates.
+  const { computeProcessingFee, printAmountDue, feeBasis } = await import("@/lib/processing-fee");
+  const { getFeeRates } = await import("@/lib/processing-fee-settings");
+  const feeRoute = input.paymentMethod ?? "paystack";
+  const feeRates = await getFeeRates();
+  const printLinesTotal = lines.filter((l) => l.format === "paperback" || l.format === "hardcover").reduce((sum, l) => sum + l.unitPrice * l.qty, 0);
+  const feeResult = computeProcessingFee(printAmountDue({ printLinesTotal, shipping: shippingAmount ?? 0, fulfillment: fulfillmentAmount ?? 0 }), feeRates[feeRoute]);
+  const processingFee = hasPrintLine && feeResult.fee > 0 ? feeResult.fee : null;
+  if (typeof input.processingFeeShown === "number" && Math.abs((processingFee ?? 0) - input.processingFeeShown) > 0.005) {
+    return {
+      ok: false,
+      error: `The Processing Fee for your order changed from $${input.processingFeeShown.toFixed(2)} to $${(processingFee ?? 0).toFixed(2)}. Please review the new total and try again.`,
+    };
+  }
+  const totalAmount = Math.round((totalBeforeFee + (processingFee ?? 0)) * 100) / 100;
   const commissionRates = await getCommissionRates();
 
   // Referral commission is tiered (Hawk/Falcon/Eagle/Phoenix — see
@@ -446,6 +467,8 @@ export async function createPendingOrder(input: {
       take: 5,
     });
     const wanted = lines.map((l) => ({ bookId: l.bookId, format: l.format as string | null, gross: +(l.unitPrice * l.qty).toFixed(2) }));
+    // The total includes the Processing Fee, which depends on the payment route, so paying by another route is a different order
+    // (an order that may already have a payment under way is never changed underneath it).
     const same = waiting.find((o) => Math.abs(Number(o.totalAmount) - totalAmount) < 0.005
       && sameOrderLines(o.lines.map((l) => ({ bookId: l.bookId, format: l.format, gross: Number(l.grossAmount) })), wanted));
     if (same) return { ok: true, orderId: same.id, totalAmount };
@@ -471,6 +494,9 @@ export async function createPendingOrder(input: {
       luluShippingCost,
       luluFulfillmentCost,
       fulfillmentAmount,
+      processingFeeAmount: processingFee,
+      processingFeeGateway: processingFee ? feeRoute : null,
+      processingFeeBasis: processingFee ? (JSON.parse(JSON.stringify(feeBasis(feeRoute, feeResult))) as object) : undefined,
       lines: {
         create: lines.map((l) => {
           const lineGross = +(l.unitPrice * l.qty).toFixed(2);

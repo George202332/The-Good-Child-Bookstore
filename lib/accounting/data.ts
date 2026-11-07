@@ -75,6 +75,8 @@ export async function loadAccountingSource(): Promise<AccountingSource> {
       where: { status: "PAID", stagingLuluOrder: false },
       select: {
         id: true, createdAt: true, totalAmount: true, shippingAmount: true, fulfillmentAmount: true, isTestData: true,
+        processingFeeAmount: true, processingFeeBasis: true, gatewayCostActual: true,
+        refunds: { select: { processingFeeRefunded: true } },
         printJobId: true, printJobStatus: true, luluStatus: true, luluShippedAt: true, luluShippingCost: true, luluFulfillmentCost: true,
         luluActualProduction: true, luluActualShipping: true, luluActualFulfillment: true,
         lines: { select: { format: true, grossAmount: true, printingCost: true, book: { select: { title: true } } } },
@@ -144,7 +146,12 @@ export async function loadAccountingSource(): Promise<AccountingSource> {
     if (archivedOrderIds.has(o.id)) continue;
     const orderRef = o.id.slice(0, 8).toUpperCase();
     const test = isTest(o.id, o.isTestData);
-    orders.push({ orderId: o.id, orderRef, createdAt: o.createdAt, totalAmount: num(o.totalAmount), shipping: num(o.shippingAmount), fulfillment: num(o.fulfillmentAmount), isTest: test });
+    const feeCharged = num(o.processingFeeAmount);
+    // What the gateway really kept (saved at payment); if it was never saved, the cut expected when the fee was worked out.
+    const basis = o.processingFeeBasis as { expectedGatewayCut?: number } | null;
+    const gatewayCost = feeCharged > 0 ? (o.gatewayCostActual != null ? num(o.gatewayCostActual) : num(basis?.expectedGatewayCut ?? 0)) : 0;
+    const feeRefunded = o.refunds.reduce((s: number, r: { processingFeeRefunded: unknown }) => s + num(r.processingFeeRefunded), 0);
+    orders.push({ orderId: o.id, orderRef, createdAt: o.createdAt, totalAmount: num(o.totalAmount), shipping: num(o.shippingAmount), fulfillment: num(o.fulfillmentAmount), processingFee: feeCharged, processingFeeRefunded: feeRefunded, gatewayCost, isTest: test });
     const printLines = o.lines.filter((x) => x.format === "paperback" || x.format === "hardcover");
     if (printLines.length === 0) continue;
     const lineInputs = printLines.map((x) => ({ paidBooks: num(x.grossAmount), printingCost: numOrNull(x.printingCost) }));

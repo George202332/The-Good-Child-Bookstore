@@ -16,5 +16,6 @@
   "20261105090000_accounting_reports",
   "20261106090000_records_never_deleted",
   "20261107090000_site_health_history",
-  "20261108090000_scaling_indexes_and_rate_limits"
+  "20261108090000_scaling_indexes_and_rate_limits",
+  "20261109090000_processing_fee"
 ]

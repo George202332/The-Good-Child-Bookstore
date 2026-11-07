@@ -112,6 +112,7 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
       { label: "Pass-through to Lulu: printing", value: f.luluPrinting / 100 },
       { label: "Pass-through to Lulu: shipping", value: f.luluShipping / 100 },
       { label: "Pass-through to Lulu: fulfillment fee", value: f.luluFulfillment / 100 },
+      { label: "Processing Fee on printed books", value: f.processingFeeCharged / 100 },
     ],
   });
   const chartC = barChartScene({
@@ -232,6 +233,7 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
           <tbody>
             <CalcRow n="1" label="Company sales revenue" sub={<>30% share of eBook, Audiobook and Print sales {amt(f.companyGrossShare, "companyGrossShare")} minus referral commissions paid out of it {amt(f.referralCommissions, "referralCommissions")}</>} amount={amt(f.salesRevenue, "salesRevenue", true)} />
             <CalcRow n="2" label="Company author account 30000064 (gross)" sub={<>royalties {amt(f.acctRoyalties, "acctRoyalties")}, referral earnings {amt(f.acctReferral, "acctReferral")}, promotion earnings {amt(f.acctPromotion, "acctPromotion")}</>} amount={amt(f.acctGross, "acctGross", true)} />
+            <CalcRow n="2b" label="Processing Fee result (printed books only)" sub={<>collected {amt(f.processingFeesCollected, "processingFeesCollected")} minus payment gateway costs {amt(f.gatewayCosts, "gatewayCosts")}. Only this difference counts.</>} amount={amt(f.processingNet, "processingNet", true)} />
             <CalcRow n="3" label="Total revenue (before tax)" strong amount={amt(f.totalRevenue, "totalRevenue", true)} />
             <CalcRow n="4" label="Royalty to George Otieno (10% of total revenue)" amount={<><span>-</span>{amt(f.georgeRoyalty, "georgeRoyalty")}</>} />
             <CalcRow n="5" label="Other company expenses" sub={<>entered by the admin {amt(f.enteredExpenses, "enteredExpenses")} plus the 10% royalty = <strong>{usdCents(f.otherExpenses)}</strong> (the royalty is counted once)</>} amount={<><span>-</span>{amt(f.enteredExpenses, "enteredExpenses")}</>} />
@@ -266,6 +268,7 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
             <MoneyRow label="Pass-through to Lulu: printing cost" amount={amt(f.luluPrinting, "luluPrinting")} />
             <MoneyRow label="Pass-through to Lulu: shipping" amount={amt(f.luluShipping, "luluShipping")} />
             <MoneyRow label="Pass-through to Lulu: fulfillment fee" amount={amt(f.luluFulfillment, "luluFulfillment")} />
+            <MoneyRow label="Processing Fee charged on printed books" amount={amt(f.processingFeeCharged, "processingFeesCollected")} />
             <MoneyRow label="Difference not explained (should be $0.00)" amount={<span style={{ color: f.unreconciled === 0 ? undefined : "var(--admin-danger)" }}>{usdCents(f.unreconciled)}</span>} />
             <MoneyRow label={`Total paid by customers (${f.orders} orders)`} strong amount={amt(f.customersPaid, "customersPaid", true)} />
           </tbody>
@@ -276,6 +279,14 @@ export function AccountingClient({ view, readOnly, base }: { view: AccountingVie
         <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginTop: 12 }}>
           <div className="stat-card"><div className="stat-label">Paid out in this period</div><div className="stat-value">{usd(view.payoutsPaidTotal)}</div><div className="stat-sub">{view.payouts.length} payouts. Payouts do not reduce company revenue.</div></div>
           <div className="stat-card"><div className="stat-label">Still owed (earned, not paid)</div><div className="stat-value">{usd(view.owed.owed)}</div><div className="stat-sub">{usd(view.owed.onHold)} held back, {usd(view.owed.queued)} queued, {usd(view.owed.available)} available ({usd(view.owed.belowMinimum)} below the {usd(view.minimumPayout)} minimum)</div></div>
+        </div>
+      </Card>
+
+      <Card title={`Processing Fee: ${view.selectionLabel}`}>
+        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+          {tile("Processing Fees Collected", f.processingFeesCollected, "processingFeesCollected", "revenue: charged on printed books, less any refunded")}
+          {tile("Payment Gateway Costs", f.gatewayCosts, "gatewayCosts", "expense: what Paystack or PayPal really kept on those orders")}
+          {tile("Net Result", f.processingNet, "processingNet", "collected minus costs: the only part that affects profit")}
         </div>
       </Card>
 

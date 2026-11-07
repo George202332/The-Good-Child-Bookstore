@@ -20,6 +20,8 @@ const COLUMNS: { label: string; help: string }[] = [
   { label: "Commission", help: "The affiliate's commission on this sale, and which affiliate earned it, if any." },
   { label: "Shipping", help: "The Lulu shipping the customer paid on a printed order, passed through to Lulu. It is charged once per order, so it shows on the order's first printed item. A dash means a digital item. Shipping is never part of anyone's earnings." },
   { label: "Fulfillment Fee", help: "Lulu's per-order fulfillment fee, paid by the customer and passed to Lulu exactly as Lulu quoted it. It is charged once per order, so it shows on the order's first printed item. A dash means a digital item. It is never part of anyone's earnings." },
+  { label: "Processing Fee", help: "The fee the customer paid on a printed order so that the payment company's cut does not reduce what we receive. Shown once per order, on its first printed item. A dash means no fee (eBooks and audiobooks never carry one). It is never part of anyone's earnings." },
+  { label: "Gateway Cost", help: "What Paystack or PayPal really kept on that order, read from the payment company's own confirmation when it gives one, otherwise worked out from the saved rates. Compare it with the Processing Fee." },
 ];
 
 /**
@@ -57,7 +59,7 @@ export function TransactionsTable({ rows }: { rows: TransactionRow[] }) {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
+                <td colSpan={11} style={{ padding: "24px 16px", color: "var(--ink-faint, var(--admin-text-faint))", fontSize: 13, textAlign: "center" }}>
                   No transactions recorded yet — this table will fill in as sales and payouts happen.
                 </td>
               </tr>
@@ -92,6 +94,8 @@ export function TransactionsTable({ rows }: { rows: TransactionRow[] }) {
                     </td>
                     <td style={TD}>{r.shipping !== null ? `$${r.shipping.toFixed(2)}` : "—"}</td>
                     <td style={TD}>{r.fulfillment !== null ? `$${r.fulfillment.toFixed(2)}` : "—"}</td>
+                    <td style={TD}>{r.processingFee != null ? `$${r.processingFee.toFixed(2)}` : "—"}</td>
+                    <td style={TD}>{r.gatewayCost != null ? `$${r.gatewayCost.toFixed(2)}` : "—"}</td>
                   </tr>
                 );
               })
@@ -128,6 +132,8 @@ export function TransactionsTable({ rows }: { rows: TransactionRow[] }) {
                     <DetailRow label="Author share" value={`$${(detail.authorShare ?? 0).toFixed(2)}`} />
                     {detail.printingCost != null && <DetailRow label="Printing cost (Lulu)" value={`$${detail.printingCost.toFixed(2)}`} />}
                     {detail.shipping != null && <DetailRow label="Shipping (paid by customer, passed to Lulu)" value={`$${detail.shipping.toFixed(2)}`} />}
+                    {detail.processingFee != null && <DetailRow label="Processing Fee (paid by customer)" value={`$${detail.processingFee.toFixed(2)}`} />}
+                    {detail.gatewayCost != null && <DetailRow label={`Payment gateway cost (${detail.gatewayCostSource === "gateway" ? "reported by the gateway" : "estimated from saved rates"})`} value={`$${detail.gatewayCost.toFixed(2)}`} />}
                     {detail.fulfillment != null && <DetailRow label="Fulfillment fee (paid by customer, passed to Lulu)" value={`$${detail.fulfillment.toFixed(2)}`} />}
                     <DetailRow label="Affiliate share" value={`$${(detail.affiliateShare ?? 0).toFixed(2)}${detail.affiliateName ? ` — ${detail.affiliateName}` : ""}`} />
                     <DetailRow label="Author referral share" value={`$${(detail.authorReferralShare ?? 0).toFixed(2)}`} />

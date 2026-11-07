@@ -12,6 +12,8 @@ export interface OrderSummary {
   shippingAmount: number;
   /** Lulu's per-order fulfillment fee the customer paid (included in totalAmount); 0 when none. */
   fulfillmentAmount: number;
+  /** The Processing Fee the customer paid on printed copies (included in totalAmount); 0 when none. */
+  processingFeeAmount: number;
   printJobStatus: string | null;
   printJobError: string | null;
   items: { title: string; price: number; downloadUrl: string | null; hasEbook: boolean; hasAudiobook: boolean; isPrint: boolean; coverImageUrl: string | null }[];
@@ -38,6 +40,7 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary | n
       totalAmount: Number(order.totalAmount),
       shippingAmount: order.shippingAmount != null ? Number(order.shippingAmount) : 0,
       fulfillmentAmount: order.fulfillmentAmount != null ? Number(order.fulfillmentAmount) : 0,
+      processingFeeAmount: order.processingFeeAmount != null ? Number(order.processingFeeAmount) : 0,
       printJobStatus: order.printJobStatus,
       printJobError: order.printJobError,
       items: order.lines.map((l) => {

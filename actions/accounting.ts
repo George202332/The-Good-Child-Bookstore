@@ -8,7 +8,7 @@ import { ARCHIVE_PHRASE, clearTestArchive, getTestArchive, saveTestArchive } fro
 import { monthKeyOf } from "@/lib/accounting/period";
 import { buildAccountingView, buildDrill, type AccountingView, type Drill } from "@/lib/accounting/service";
 import { closeMonthNow, reopenMonthNow, resendReportNow, writeChangeLog, type CloseResult } from "@/lib/accounting/close";
-import { receiptProblem, sniffReceiptType, validateExpense } from "@/lib/accounting/expense-input";
+import { monthKeyOfDate, receiptProblem, sniffReceiptType, validateExpense } from "@/lib/accounting/expense-input";
 import { isMonthKey } from "@/lib/accounting/period";
 import type { Metric } from "@/lib/accounting/calc";
 
@@ -23,7 +23,7 @@ const NOT_ADMIN = "Only an Admin can do this.";
 const METRICS: Metric[] = [
   "customersPaid", "companyGrossShare", "referralCommissions", "salesRevenue", "acctRoyalties", "acctReferral", "acctPromotion", "acctGross", "totalRevenue",
   "georgeRoyalty", "enteredExpenses", "authorTax", "profit", "incomeTax", "retained", "authorRoyalties", "referralEarnings", "promotionCommissions",
-  "luluPrinting", "luluShipping", "luluFulfillment",
+  "luluPrinting", "luluShipping", "luluFulfillment", "processingFeesCollected", "gatewayCosts", "processingNet",
 ];
 
 function refresh() {
@@ -68,6 +68,7 @@ export async function saveExpense(formData: FormData): Promise<ActionResult> {
 
   const existing = id ? await prisma.accountingExpense.findUnique({ where: { id } }) : null;
   if (id && !existing) return { ok: false, error: "That expense no longer exists." };
+  if (existing && Number(existing.amount) < 0) return { ok: false, error: "A reversal cannot be edited. Add a new expense instead." };
   if (await monthIsClosed(v.monthKey)) return { ok: false, error: LOCKED };
   if (existing && existing.monthKey !== v.monthKey && (await monthIsClosed(existing.monthKey))) return { ok: false, error: LOCKED };
 
@@ -120,19 +121,34 @@ export async function saveExpense(formData: FormData): Promise<ActionResult> {
   return { ok: true, message: existing ? "Expense updated." : "Expense added." };
 }
 
-export async function deleteExpense(id: string): Promise<ActionResult> {
+/**
+ * Expenses are never deleted. A mistake is corrected by adding a reversing entry (the same expense with a minus sign, dated today),
+ * so the original line and the correction both stay visible and the change log shows who did it and when.
+ */
+export async function reverseExpense(id: string, reason: string): Promise<ActionResult> {
   const actor = await accountingAdmin();
   if (!actor) return { ok: false, error: NOT_ADMIN };
+  const why = typeof reason === "string" ? reason.trim().slice(0, 200) : "";
+  if (why.length < 3) return { ok: false, error: "Please say why this expense is being reversed." };
   const existing = await prisma.accountingExpense.findUnique({ where: { id } });
   if (!existing) return { ok: false, error: "That expense no longer exists." };
-  if (await monthIsClosed(existing.monthKey)) return { ok: false, error: LOCKED };
-  await prisma.accountingExpense.delete({ where: { id } });
-  if (existing.receiptFileId) await prisma.accountingReceipt.deleteMany({ where: { id: existing.receiptFileId } });
-  await writeChangeLog(existing.monthKey, actor, "EXPENSE_DELETED", `Expense deleted: ${existing.category}, ${existing.description}, $${Number(existing.amount).toFixed(2)} (${existing.expenseDate.toISOString().slice(0, 10)}).`, {
-    id, category: existing.category, description: existing.description, amount: Number(existing.amount).toFixed(2), receipt: existing.receiptName,
+  if (Number(existing.amount) <= 0) return { ok: false, error: "That line is already a reversal and cannot be reversed again. Add a new expense instead." };
+  const ref = `[ref ${existing.id}]`;
+  const already = await prisma.accountingExpense.findFirst({ where: { description: { contains: ref }, amount: { lt: 0 } }, select: { id: true } });
+  if (already) return { ok: false, error: "This expense has already been reversed." };
+  const today = new Date().toISOString().slice(0, 10);
+  const monthKey = monthKeyOfDate(today);
+  if (await monthIsClosed(monthKey)) return { ok: false, error: LOCKED };
+  const amount = (-Number(existing.amount)).toFixed(2);
+  const description = `Reversal of ${existing.description} (${why}) ${ref}`.slice(0, 300);
+  const created = await prisma.accountingExpense.create({
+    data: { expenseDate: new Date(`${today}T00:00:00.000Z`), monthKey, category: existing.category, description, amount, enteredById: actor.id, enteredByName: actor.name },
+  });
+  await writeChangeLog(monthKey, actor, "EXPENSE_REVERSED", `Expense reversed: ${existing.category}, ${existing.description}, $${Number(existing.amount).toFixed(2)} from ${existing.expenseDate.toISOString().slice(0, 10)}. Reason: ${why}.`, {
+    originalId: existing.id, reversalId: created.id, amount,
   });
   refresh();
-  return { ok: true, message: "Expense deleted." };
+  return { ok: true, message: "Reversal added. The original line stays on record." };
 }
 
 export async function closeMonth(monthKey: string, includeTest: boolean): Promise<CloseResult> {

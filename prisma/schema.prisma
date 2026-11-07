@@ -807,6 +807,19 @@ model Order {
   /// Refunds are separate records linked to this order; the order itself is never deleted or rewritten.
   refunds               Refund[]
 
+  /// The "Processing Fee" charged to the customer on PRINT orders only (never on eBook/Audiobook), grossed up so the company receives the
+  /// full amount due after the payment gateway takes its cut. Part of totalAmount; a pass-through that never enters any royalty, earning
+  /// or balance. Null on older orders and on orders with no printed copies. The rate, fixed fee and amount it was worked out from are
+  /// kept in processingFeeBasis, so the fee on an order can always be explained exactly as it was charged.
+  processingFeeAmount   Decimal?  @db.Decimal(10, 2)
+  /// paystack, mpesa or paypal: the route the customer chose when the fee was worked out.
+  processingFeeGateway  String?
+  processingFeeBasis    Json?
+  /// What the payment gateway actually kept on this payment, read from the gateway's own confirmation when it reports it
+  /// (gatewayCostSource "gateway"); otherwise worked out from the saved rates ("estimate"). Null until paid.
+  gatewayCostActual     Decimal?  @db.Decimal(10, 2)
+  gatewayCostSource     String?
+
   /// True when this print order was sent to Lulu FROM STAGING (reference "STAGING TEST, CANCEL"). Flagged in Lulu Publishing and
   /// Site Health, and left out of every Accounting figure. It must be cancelled by hand in the Lulu dashboard.
   stagingLuluOrder      Boolean   @default(false)
@@ -1333,6 +1346,9 @@ model Refund {
   processedByName  String
   /// The gateway's own reference for the refund, if there is one.
   gatewayReference String?
+  /// How much of this refund returns the customer's Processing Fee (null/0 when none). The gateway keeps its own fee on a refund, so
+  /// Payment Gateway Costs are not reversed; only "Processing Fees Collected" goes down by this amount.
+  processingFeeRefunded Decimal? @db.Decimal(10, 2)
   createdAt        DateTime @default(now())
 
   @@index([orderId])

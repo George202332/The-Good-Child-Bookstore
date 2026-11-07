@@ -5,6 +5,7 @@ import { getSiteHealthSnapshot } from "@/lib/site-health/checks";
 import { HealthCategoryCard } from "./HealthCategoryCard";
 import { RefreshButton } from "./RefreshButton";
 import { SiteHealthCapacity } from "@/components/SiteHealthCapacity";
+import { SiteHealthProcessingFee } from "@/components/SiteHealthProcessingFee";
 import { SiteHealthServices } from "@/components/SiteHealthServices";
 
 /**
@@ -64,6 +65,7 @@ export default async function SiteHealthPage({ searchParams }: { searchParams?: 
 
       <SiteHealthServices readOnly={false} basePath="/admin/site-health" page={page} service={sp.service} />
       <SiteHealthCapacity />
+      <SiteHealthProcessingFee />
 
       <h3 style={{ fontSize: 16, margin: "0 0 8px" }}>Site checks</h3>
       <div className="stat-grid" style={{ marginBottom: 0, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>

@@ -45,6 +45,7 @@ function navItemsForRole(role: Role) {
       { key: "marketing", label: "Mailing List", href: "/admin/marketing" },
       { key: "library", label: "My Library", href: "/admin/library" },
       { key: "commission-settings", label: "Commission Settings", href: "/admin/commission-settings" },
+      { key: "processing-fee-rates", label: "Processing Fee Rates", href: "/admin/processing-fee-rates" },
       { key: "users", label: "User Profiles", href: "/admin/users" },
       { key: "payouts", label: "Payout Requests", href: "/admin/payouts" },
       { key: "transactions", label: "Transactions", href: "/admin/transactions" },

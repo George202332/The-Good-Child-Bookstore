@@ -435,10 +435,11 @@ const METRIC_TITLES: Record<Metric, string> = {
   profit: "Profit", incomeTax: "Income tax (30% of profit)", retained: "Retained after income tax", authorRoyalties: "Author royalties (all authors)",
   referralEarnings: "Referral earnings (all affiliates)", promotionCommissions: "Promotion commissions (all affiliates)", luluPrinting: "Lulu printing cost (pass-through)",
   luluShipping: "Lulu shipping (pass-through)", luluFulfillment: "Lulu fulfillment fee (pass-through)",
+  processingFeesCollected: "Processing Fees Collected (print orders)", gatewayCosts: "Payment Gateway Costs (print orders)", processingNet: "Net Processing Fee result (collected minus gateway costs)",
 };
 
 const SALE_METRICS: Metric[] = ["companyGrossShare", "referralCommissions", "salesRevenue", "acctRoyalties", "acctReferral", "acctPromotion", "acctGross", "authorRoyalties", "referralEarnings", "promotionCommissions", "luluPrinting"];
-const ORDER_METRICS: Metric[] = ["customersPaid", "luluShipping", "luluFulfillment"];
+const ORDER_METRICS: Metric[] = ["customersPaid", "luluShipping", "luluFulfillment", "processingFeesCollected", "gatewayCosts", "processingNet"];
 
 function saleDesc(s: SaleRow): string {
   return `${s.bookTitle} (${s.format})`;
@@ -485,7 +486,7 @@ export async function buildDrill(selection: string, metric: Metric, includeTest:
   } else if (ORDER_METRICS.includes(metric)) {
     for (const o of orders) {
       const c = orderContribution(o, metric);
-      if (c !== 0 || metric === "customersPaid") rows.push({ key: o.orderId, date: iso(o.createdAt), ref: `#${o.orderRef}`, description: "Order", amount: c / 100, note: o.isTest ? "test money" : undefined });
+      if (c !== 0 || metric === "customersPaid") rows.push({ key: o.orderId, date: iso(o.createdAt), ref: `#${o.orderRef}`, description: metric === "processingFeesCollected" ? "Processing Fee, less any refunded" : metric === "gatewayCosts" ? "What the payment gateway kept" : metric === "processingNet" ? "Fee collected minus gateway cost" : "Order", amount: c / 100, note: o.isTest ? "test money" : undefined });
     }
     explain = "Each row is one paid order.";
   } else if (metric === "enteredExpenses") {
@@ -494,8 +495,12 @@ export async function buildDrill(selection: string, metric: Metric, includeTest:
   } else if (metric === "totalRevenue" || metric === "georgeRoyalty") {
     pushSales("salesRevenue", 1, "s-");
     pushSales("acctGross", 1, "a-");
+    for (const o of orders) {
+      const c = orderContribution(o, "processingNet");
+      if (c !== 0) rows.push({ key: `p-${o.orderId}`, date: iso(o.createdAt), ref: `#${o.orderRef}`, description: "Net Processing Fee result", amount: c / 100, note: o.isTest ? "test money" : undefined });
+    }
     explain = metric === "totalRevenue"
-      ? "Company sales revenue lines (after referral commissions) plus the company author account's gross earnings."
+      ? "Company sales revenue lines (after referral commissions) plus the company author account's gross earnings plus the net Processing Fee result (fees collected minus gateway costs)."
       : "The royalty is 10% of the total revenue, which is the sum of these lines (shown as the total below). The royalty itself is 10% of that.";
   } else if (metric === "authorTax") {
     pushSales("acctGross");

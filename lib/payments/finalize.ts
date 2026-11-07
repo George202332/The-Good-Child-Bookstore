@@ -68,6 +68,26 @@ export async function finalizeOrderPayment(
     await prisma.paymentLog.create({
       data: { orderId, gateway, rawPayload: { ...base, siteGatewayMode } as object, verified: true },
     });
+    // Processing Fee orders only: save what the gateway really kept (read from its own payload) so Accounting and Site Health can
+    // compare it with the fee charged. Never blocks the payment: a failure here is logged and the estimate is used later.
+    try {
+      if (order.processingFeeAmount != null && Number(order.processingFeeAmount) > 0) {
+        const { gatewayFeeFromPayload, estimateGatewayCost, normalizeRates } = await import("@/lib/processing-fee");
+        const actual = gatewayFeeFromPayload(gateway, rawPayload);
+        let cost = actual;
+        let source = "gateway";
+        if (cost == null) {
+          const { getFeeRates } = await import("@/lib/processing-fee-settings");
+          const rates = await getFeeRates().catch(() => normalizeRates(null));
+          const route = (order.processingFeeGateway as keyof typeof rates | null) ?? (gateway === "PAYPAL" ? "paypal" : "paystack");
+          cost = estimateGatewayCost(Number(order.totalAmount), rates[route]);
+          source = "estimate";
+        }
+        await prisma.order.update({ where: { id: orderId }, data: { gatewayCostActual: cost, gatewayCostSource: source } });
+      }
+    } catch (e) {
+      console.error("[finalize] could not save the gateway cost:", e instanceof Error ? e.message : e);
+    }
   } catch (e) {
     // Put the order back to PENDING so Paystack's retry (or the buyer's return) can finish the job.
     if (claimedHere) {

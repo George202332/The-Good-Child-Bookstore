@@ -138,8 +138,8 @@ describe("the calculation (steps 1 to 8)", () => {
     assert.equal(cents(1.005), 101);
   });
 
-  test("the plain-words formulas cover all nine steps", () => {
-    assert.equal(FORMULA_STEPS.length, 9);
+  test("the plain-words formulas cover all ten steps (step 9 is the Processing Fee)", () => {
+    assert.equal(FORMULA_STEPS.length, 10);
     assert.ok(FORMULA_STEPS.some((s) => /30%/.test(s.words) && /profit/i.test(s.words)));
   });
 });
@@ -328,7 +328,7 @@ describe("investors are view-only, enforced on the server", () => {
   const actions = readFileSync(new URL("../actions/accounting.ts", import.meta.url), "utf8");
 
   test("every write action checks for an Admin before doing anything", () => {
-    for (const name of ["saveExpense", "deleteExpense", "closeMonth", "reopenMonth", "resendReport"]) {
+    for (const name of ["saveExpense", "reverseExpense", "closeMonth", "reopenMonth", "resendReport"]) {
       const i = actions.indexOf(`export async function ${name}(`);
       assert.ok(i >= 0, `${name} exists`);
       const body = actions.slice(i, i + 400);

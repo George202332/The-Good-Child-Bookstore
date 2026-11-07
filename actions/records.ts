@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
+import { refundedFeeShare } from "@/lib/processing-fee";
 import { checkPayoutAdjustment, checkRefund, logRecordChange, PAYMENT_STATUSES } from "@/lib/records";
 
 /**
@@ -30,7 +31,7 @@ export async function recordRefund(input: { orderId: string; amount: number; rea
   const who = await admin();
   if (!who) return { ok: false, error: "Only Admins can record a refund." };
   const orderId = input.orderId.trim();
-  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, totalAmount: true, refunds: { select: { amount: true } } } });
+  const order = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true, status: true, totalAmount: true, processingFeeAmount: true, refunds: { select: { amount: true } } } });
   if (!order) return { ok: false, error: "No order with that id." };
   if (order.status !== "PAID") return { ok: false, error: "Only a paid order can be refunded." };
   const check = checkRefund({
@@ -40,11 +41,13 @@ export async function recordRefund(input: { orderId: string; amount: number; rea
     reason: input.reason,
   });
   if (!check.ok) return check;
+  const feeRefunded = refundedFeeShare(Number(order.totalAmount), Number(order.processingFeeAmount ?? 0), Number(input.amount));
   try {
     const refund = await prisma.refund.create({
       data: {
         orderId, amount: Number(input.amount).toFixed(2), currency: "USD", reason: input.reason.trim().slice(0, 1000),
         processedById: who.id, processedByName: who.name, gatewayReference: input.gatewayReference?.trim() || null,
+        processingFeeRefunded: feeRefunded > 0 ? feeRefunded.toFixed(2) : null,
       },
     });
     await logRecordChange({ entityType: "REFUND", entityId: refund.id, action: "REFUND_RECORDED", summary: `Refund of ${Number(input.amount).toFixed(2)} on order ${orderId}`, after: { orderId, amount: Number(input.amount), reason: input.reason.trim() }, actorId: who.id, actorName: who.name });

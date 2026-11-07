@@ -11,6 +11,7 @@ interface OrderLine {
 interface OrderWithLines {
   id: string;
   totalAmount: unknown;
+  processingFeeAmount?: unknown;
   status: string;
   createdAt: Date;
   printJobStatus: string | null;
@@ -59,6 +60,7 @@ export default async function OrdersPage() {
               </div>
               <div style={{ fontSize: 12, color: "var(--ink-faint)", marginBottom: 8 }}>
                 {o.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} · {o.status}
+                {Number(o.processingFeeAmount ?? 0) > 0 && <> · includes ${Number(o.processingFeeAmount).toFixed(2)} Processing Fee</>}
               </div>
               <div style={{ fontSize: 13 }}>{o.lines.map((l: OrderLine) => l.book.title).join(", ")}</div>
               {o.lines.some((l) => l.format === "paperback" || l.format === "hardcover") && (

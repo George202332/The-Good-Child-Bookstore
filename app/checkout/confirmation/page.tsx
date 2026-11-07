@@ -7,6 +7,7 @@ import { AutoRefresh } from "@/components/AutoRefresh";
 import { EnterAccountButton } from "@/components/EnterAccountButton";
 import { confirmationUrl, orderAccessToken, receiptUrl, verifyOrderAccessToken } from "@/lib/order-access";
 import { getOrderAccessInfo } from "@/lib/order-access-info";
+import { ColHelp } from "@/components/ColHelp";
 
 /**
  * Real order confirmation, reached either from demo-mode checkout
@@ -132,7 +133,13 @@ export default async function CheckoutConfirmationPage({
         {order.fulfillmentAmount > 0 && (
           <div className="summary-row" style={{ marginTop: order.shippingAmount > 0 ? 6 : 14 }}><span>Fulfillment Fee (paid by you)</span><span>${order.fulfillmentAmount.toFixed(2)}</span></div>
         )}
-        <div className="summary-row total" style={{ marginTop: order.shippingAmount > 0 || order.fulfillmentAmount > 0 ? 6 : 14 }}><span>Total paid</span><span>${order.totalAmount.toFixed(2)}</span></div>
+        {order.processingFeeAmount > 0 && (
+          <div className="summary-row" style={{ marginTop: order.shippingAmount > 0 || order.fulfillmentAmount > 0 ? 6 : 14 }}>
+            <span>Processing Fee <ColHelp text="The payment company keeps a small cut of every payment. On printed books this fee covers that cut. It is not charged on eBooks or audiobooks." /></span>
+            <span>${order.processingFeeAmount.toFixed(2)}</span>
+          </div>
+        )}
+        <div className="summary-row total" style={{ marginTop: order.shippingAmount > 0 || order.fulfillmentAmount > 0 || order.processingFeeAmount > 0 ? 6 : 14 }}><span>Total paid</span><span>${order.totalAmount.toFixed(2)}</span></div>
         {/* A plain download link: the PDF saves straight away (no new window, no sign-in),
             protected by this order's secret key. */}
         <a href={receiptUrl(order.id)} download style={{ display: "inline-block", marginTop: 10, fontSize: 12.5, fontWeight: 700, color: "var(--coral-deep)" }}>

@@ -24,6 +24,11 @@
  *  9. Every figure is worked out for each month; the LIFETIME figure is the sum of the months (so a month and the
  *     lifetime always agree, to the cent).
  *
+ * 10. Processing Fee (print orders only): the customer pays a fee that covers the payment gateway's cut. Two lines are shown side by
+ *     side: "Processing Fees Collected" (revenue; refunded fees taken off) and "Payment Gateway Costs" (expense; what the gateway
+ *     really kept on those orders). ONLY THE NET DIFFERENCE (collected - costs) is added to total revenue, so only the net moves
+ *     the 10% royalty, the profit and the 30% income tax. It is never in author royalties, affiliate earnings or balances.
+ *
  * Lulu's printing cost, shipping and fulfillment fee are PASS-THROUGH: never company revenue or cost.
  */
 
@@ -65,6 +70,12 @@ export interface OrderRow {
   totalAmount: number;
   shipping: number;
   fulfillment: number;
+  /** The Processing Fee the customer paid on this order (0 when none). */
+  processingFee?: number;
+  /** The part of that fee returned to the customer through refunds. */
+  processingFeeRefunded?: number;
+  /** What the payment gateway really kept on this order (0 when the order had no Processing Fee). */
+  gatewayCost?: number;
   isTest: boolean;
 }
 
@@ -110,7 +121,10 @@ export type Metric =
   | "promotionCommissions"
   | "luluPrinting"
   | "luluShipping"
-  | "luluFulfillment";
+  | "luluFulfillment"
+  | "processingFeesCollected"
+  | "gatewayCosts"
+  | "processingNet";
 
 /** The amount (in cents) one sale line contributes to a sale-based metric; 0 when it does not. */
 export function lineContribution(row: SaleRow, metric: Metric): number {
@@ -136,6 +150,9 @@ export function orderContribution(row: OrderRow, metric: Metric): number {
     case "customersPaid": return cents(row.totalAmount);
     case "luluShipping": return cents(row.shipping);
     case "luluFulfillment": return cents(row.fulfillment);
+    case "processingFeesCollected": return cents(row.processingFee ?? 0) - cents(row.processingFeeRefunded ?? 0);
+    case "gatewayCosts": return cents(row.gatewayCost ?? 0);
+    case "processingNet": return orderContribution(row, "processingFeesCollected") - cents(row.gatewayCost ?? 0);
     default: return 0;
   }
 }
@@ -155,6 +172,15 @@ export interface MonthCents {
   luluShipping: number;
   luluFulfillment: number;
   passThrough: number;
+  /** The Processing Fee customers were charged (before refunds); it is part of what customers paid, so the books tie with it. */
+  processingFeeCharged: number;
+  processingFeeRefunded: number;
+  /** Revenue line: fees charged minus fees refunded. */
+  processingFeesCollected: number;
+  /** Expense line: what the gateway really kept on Processing Fee orders. */
+  gatewayCosts: number;
+  /** Collected minus costs. The only part that reaches total revenue, royalty, profit and income tax. */
+  processingNet: number;
   /** Customers paid minus everything accounted for above. Zero means the books tie exactly. */
   unreconciled: number;
   // Step 1
@@ -180,7 +206,7 @@ export interface MonthCents {
 export function emptyMonth(monthKey: string): MonthCents {
   return {
     monthKey, orders: 0, saleLines: 0, customersPaid: 0, companyNet: 0, authorRoyalties: 0, referralEarnings: 0, promotionCommissions: 0,
-    luluPrinting: 0, luluShipping: 0, luluFulfillment: 0, passThrough: 0, unreconciled: 0, companyGrossShare: 0, referralCommissions: 0,
+    luluPrinting: 0, luluShipping: 0, luluFulfillment: 0, passThrough: 0, processingFeeCharged: 0, processingFeeRefunded: 0, processingFeesCollected: 0, gatewayCosts: 0, processingNet: 0, unreconciled: 0, companyGrossShare: 0, referralCommissions: 0,
     salesRevenue: 0, acctRoyalties: 0, acctReferral: 0, acctPromotion: 0, acctGross: 0, totalRevenue: 0, georgeRoyalty: 0,
     enteredExpenses: 0, otherExpenses: 0, authorTax: 0, profit: 0, incomeTax: 0, retained: 0,
   };
@@ -207,10 +233,15 @@ export function computeMonth(monthKey: string, sales: SaleRow[], orders: OrderRo
     m.customersPaid += cents(o.totalAmount);
     m.luluShipping += cents(o.shipping);
     m.luluFulfillment += cents(o.fulfillment);
+    m.processingFeeCharged += cents(o.processingFee ?? 0);
+    m.processingFeeRefunded += cents(o.processingFeeRefunded ?? 0);
+    m.gatewayCosts += cents(o.gatewayCost ?? 0);
   }
+  m.processingFeesCollected = m.processingFeeCharged - m.processingFeeRefunded;
+  m.processingNet = m.processingFeesCollected - m.gatewayCosts;
   m.salesRevenue = m.companyGrossShare - m.referralCommissions;
   m.acctGross = m.acctRoyalties + m.acctReferral + m.acctPromotion;
-  m.totalRevenue = m.salesRevenue + m.acctGross;
+  m.totalRevenue = m.salesRevenue + m.acctGross + m.processingNet;
   m.georgeRoyalty = Math.round(m.totalRevenue * ROYALTY_RATE);
   m.enteredExpenses = expenses.reduce((s, e) => s + cents(e.amount), 0);
   m.otherExpenses = m.enteredExpenses + m.georgeRoyalty;
@@ -219,7 +250,7 @@ export function computeMonth(monthKey: string, sales: SaleRow[], orders: OrderRo
   m.incomeTax = m.profit > 0 ? Math.round(m.profit * INCOME_TAX_RATE) : 0;
   m.retained = m.profit - m.incomeTax;
   m.passThrough = m.luluPrinting + m.luluShipping + m.luluFulfillment;
-  m.unreconciled = m.customersPaid - (m.companyNet + m.authorRoyalties + m.referralEarnings + m.promotionCommissions + m.passThrough);
+  m.unreconciled = m.customersPaid - (m.companyNet + m.authorRoyalties + m.referralEarnings + m.promotionCommissions + m.passThrough + m.processingFeeCharged);
   return m;
 }
 
@@ -227,7 +258,7 @@ export function computeMonth(monthKey: string, sales: SaleRow[], orders: OrderRo
 export function sumMonths(months: MonthCents[], monthKey = "lifetime"): MonthCents {
   const t = emptyMonth(monthKey);
   const keys = Object.keys(t).filter((k) => k !== "monthKey") as (keyof MonthCents)[];
-  for (const m of months) for (const k of keys) (t[k] as number) += m[k] as number;
+  for (const m of months) for (const k of keys) (t[k] as number) += (m[k] as number) || 0;
   return t;
 }
 
@@ -247,11 +278,12 @@ export interface FormulaStep {
 export const FORMULA_STEPS: FormulaStep[] = [
   { n: 1, title: "Company sales revenue", words: "The company's 30% share of eBook, Audiobook and Print sales (for print, 30% of what is left after Lulu's printing cost), minus the referral commissions paid out of that share." },
   { n: 2, title: "Company author account (30000064)", words: "Its book royalties, referral earnings and promotion earnings, counted in gross, as a separate line." },
-  { n: 3, title: "Total revenue", words: "Step 1 plus step 2, before any tax." },
+  { n: 3, title: "Total revenue", words: "Step 1 plus step 2 plus the net Processing Fee result (fees collected minus payment gateway costs), before any tax." },
   { n: 4, title: "Royalty to George Otieno", words: "10% of total revenue, worked out before tax. This is the intellectual-property royalty for the website and is a company cost." },
   { n: 5, title: "Other company expenses", words: "The expenses entered by the admin plus the 10% royalty, as one total. The royalty is counted once." },
   { n: 6, title: "Tax on the author account", words: "5% of the company author account's earnings (royalties, referral and promotion). It is taken as a cost before profit, so it lowers profit and therefore the income tax." },
   { n: 7, title: "Profit", words: "Total revenue, minus the 10% royalty, minus the entered expenses, minus the 5% author-account tax." },
   { n: 8, title: "Income tax and retained", words: "Income tax is 30% of profit (never of revenue). A month with a loss has no income tax. Retained is profit after income tax." },
-  { n: 9, title: "Month and lifetime", words: "Everything is worked out month by month. Lifetime is the sum of the months. Lulu printing, shipping and fulfillment fee are pass-through money and are never company revenue or cost." },
+  { n: 9, title: "Processing Fee", words: "Printed books only. 'Processing Fees Collected' (what customers paid, less any refunded) and 'Payment Gateway Costs' (what Paystack or PayPal really kept) are shown side by side. Only the difference between them is added to total revenue, so only that difference affects the 10% royalty, profit and income tax. It is never part of author royalties, affiliate earnings or balances." },
+  { n: 10, title: "Month and lifetime", words: "Everything is worked out month by month. Lifetime is the sum of the months. Lulu printing, shipping and fulfillment fee are pass-through money and are never company revenue or cost." },
 ];

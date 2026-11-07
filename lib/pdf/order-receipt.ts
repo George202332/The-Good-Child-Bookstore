@@ -15,6 +15,7 @@ export interface OrderReceiptData {
   shippingAmount?: number;
   /** Lulu's per-order fulfillment fee paid by the customer (already inside totalAmount). */
   fulfillmentAmount?: number;
+  processingFeeAmount?: number;
 }
 
 /**
@@ -84,6 +85,13 @@ export async function generateOrderReceipt(data: OrderReceiptData): Promise<Uint
     text("Fulfillment Fee", margin, y, { size: 11 });
     text("Paid by customer", margin + 320, y, { size: 11, color: INK_SOFT });
     rightText(`$${data.fulfillmentAmount.toFixed(2)}`, margin + pageWidth, y, { size: 11 });
+    y -= 22;
+  }
+
+  if (data.processingFeeAmount && data.processingFeeAmount > 0) {
+    text("Processing Fee", margin, y, { size: 11 });
+    text("Printed books only", margin + 320, y, { size: 11, color: INK_SOFT });
+    rightText(`$${data.processingFeeAmount.toFixed(2)}`, margin + pageWidth, y, { size: 11 });
     y -= 22;
   }
 

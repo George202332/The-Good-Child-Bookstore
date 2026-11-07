@@ -9,6 +9,9 @@ import type { Book } from "@/lib/data/catalog";
 import { Motif } from "@/components/Motif";
 import { useCart, type CartItem } from "@/hooks/useCart";
 import { createPendingOrder } from "@/actions/orders";
+import { getProcessingFeeQuote } from "@/actions/processing-fee";
+import { printAmountDue, type FeeRoute } from "@/lib/processing-fee";
+import { ColHelp } from "@/components/ColHelp";
 import { initiateGatewayCheckout, initiatePayPalCheckout, getPaymentAvailability } from "@/actions/payment-init";
 import { resolveCartBooks } from "@/actions/cart-books";
 import { getShippingOptions, type ShippingOptionsResult } from "@/actions/shipping-options";
@@ -225,9 +228,25 @@ export function CheckoutClient({
   const shippingCost = chosenShipping?.amount ?? 0;
   // Lulu's per-order fulfillment fee, as quoted by Lulu for this order, charged once and passed on to Lulu.
   const fulfillmentFee = chosenShipping?.fulfillment ?? 0;
-  const grandTotal = Math.round((subtotal + shippingCost + fulfillmentFee) * 100) / 100;
+  const totalBeforeFee = Math.round((subtotal + shippingCost + fulfillmentFee) * 100) / 100;
+  // Processing Fee: printed copies only. It depends on how the customer pays (each gateway keeps a different cut), so it is quoted per route,
+  // and quoted again whenever the basket, address or shipping method changes (it is worked out on books + postage + fulfillment of the printed part).
+  const printLinesTotal = lines.filter((l) => l.format === "paperback" || l.format === "hardcover").reduce((sum, l) => sum + priceFor(l.book, l.format) * l.qty, 0);
+  const feeDue = hasPrintItem && chosenShipping ? printAmountDue({ printLinesTotal, shipping: shippingCost, fulfillment: fulfillmentFee }) : 0;
+  const [feeQuote, setFeeQuote] = useState<{ due: number; fees: Record<FeeRoute, number> } | null>(null);
+  useEffect(() => {
+    if (!(feeDue > 0)) return;
+    let live = true;
+    getProcessingFeeQuote(feeDue).then((fees) => { if (live) setFeeQuote({ due: feeDue, fees }); }).catch(() => { if (live) setFeeQuote(null); });
+    return () => { live = false; };
+  }, [feeDue]);
+  const feeReady = feeDue > 0 ? feeQuote?.due === feeDue : true;
+  const feeFor = (route: FeeRoute): number => (feeDue > 0 && feeQuote?.due === feeDue ? feeQuote.fees[route] : 0);
+  const cardRoute: FeeRoute = data.paymentMethod === "mpesa" ? "mpesa" : "paystack";
+  const totalFor = (route: FeeRoute) => Math.round((totalBeforeFee + feeFor(route)) * 100) / 100;
+  const grandTotal = totalFor(cardRoute);
   // The Pay buttons are ready only once Lulu's printing price (and fee) for this exact order is confirmed.
-  const printPriceConfirmed = !hasPrintItem || (!shippingBusy && !!chosenShipping && chosenShipping.source === "lulu" && typeof chosenShipping.fulfillment === "number");
+  const printPriceConfirmed = !hasPrintItem || (!shippingBusy && !!chosenShipping && chosenShipping.source === "lulu" && typeof chosenShipping.fulfillment === "number" && feeReady);
 
   // Why the customer cannot move on, shown right beside the field. Server-side field hints (from Lulu's own complaint) too.
   const blockers = deliveryBlockers({ fullName: data.fullName, email: data.email, country: data.country, phone: data.phone, address: data.billingAddress, city: data.city, state: data.state, postcode: data.postcode }, hasPrintItem);
@@ -303,8 +322,10 @@ export function CheckoutClient({
   const REDIRECTING = Symbol("redirecting");
 
   /** What the order is created with. The same input gives the same pending order. */
-  function orderInput() {
+  function orderInput(route: FeeRoute) {
     return {
+      paymentMethod: route,
+      processingFeeShown: hasPrintItem ? feeFor(route) : undefined,
       items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
       guestEmail: data.email,
       guestName: data.fullName,
@@ -317,8 +338,8 @@ export function CheckoutClient({
   }
 
   /** The pending order for this cart: the one already created when there is one (switching routes or retrying), otherwise a new one. */
-  async function getPendingOrder(): Promise<{ orderId: string; totalAmount: number } | { error: string }> {
-    const input = orderInput();
+  async function getPendingOrder(route: FeeRoute): Promise<{ orderId: string; totalAmount: number } | { error: string }> {
+    const input = orderInput(route);
     const key = JSON.stringify(input);
     const have = pendingOrderRef.current;
     if (have && have.key === key) return { orderId: have.orderId, totalAmount: have.totalAmount };
@@ -356,7 +377,7 @@ export function CheckoutClient({
 
   function payWithSaved(savedMethodId: string) {
     return runRoute("saved", async () => {
-      const order = await getPendingOrder();
+      const order = await getPendingOrder("paystack");
       if ("error" in order) return order.error;
       const result = await payWithSavedCard(savedMethodId, order.orderId, order.totalAmount, data.email);
       if (!result.ok) return result.error ?? "That card couldn't be charged.";
@@ -367,7 +388,7 @@ export function CheckoutClient({
 
   function payWithPayPal() {
     return runRoute("paypal", async (ctl) => {
-      const order = await getPendingOrder();
+      const order = await getPendingOrder("paypal");
       if ("error" in order) return order.error;
       const result = await initiatePayPalCheckout(order.orderId);
       if (!result.ok || !result.redirectUrl) return result.error ?? "Something went wrong starting PayPal.";
@@ -380,7 +401,7 @@ export function CheckoutClient({
 
   function completeOrder() {
     return runRoute("card", async (ctl) => {
-      const order = await getPendingOrder();
+      const order = await getPendingOrder(cardRoute);
       if ("error" in order) return order.error;
       const gateway = await initiateGatewayCheckout(order.orderId, data.paymentMethod, order.totalAmount, data.email);
       if (!gateway.ok) return gateway.error ?? "Something went wrong starting payment.";
@@ -669,6 +690,15 @@ export function CheckoutClient({
             {hasPrintItem && chosenShipping && typeof chosenShipping.fulfillment === "number" && (
               <div className="summary-row"><span>Fulfillment Fee</span><span>${chosenShipping.fulfillment.toFixed(2)}</span></div>
             )}
+            {hasPrintItem && feeDue > 0 && feeReady && (
+              <div className="summary-row">
+                <span>
+                  Processing Fee{" "}
+                  <ColHelp text={`The payment company keeps a small cut of every payment. On printed books this fee covers that cut, so the full price of your books, shipping and fulfillment reaches us. It depends on how you pay: card $${feeFor("paystack").toFixed(2)}${feeFor("mpesa") !== feeFor("paystack") ? `, M-Pesa $${feeFor("mpesa").toFixed(2)}` : ""}, PayPal $${feeFor("paypal").toFixed(2)}. It is not charged on eBooks or audiobooks, and none of it goes to authors or affiliates.`} />
+                </span>
+                <span>${feeFor(cardRoute).toFixed(2)}</span>
+              </div>
+            )}
             <div className="summary-row"><span>Taxes</span><span>Calculated at payment</span></div>
             <div className="summary-row total"><span>Grand total</span><span>${grandTotal.toFixed(2)}</span></div>
           </div>
@@ -692,7 +722,7 @@ export function CheckoutClient({
                     <div style={{ fontSize: 11.5, color: "var(--ink-faint)" }}>{m.bank}</div>
                   </div>
                   <button type="button" className="btn btn-primary btn-small" disabled={activeRoute !== null || hasRestricted || !printPriceConfirmed} onClick={() => payWithSaved(m.id)}>
-                    {activeRoute === "saved" ? workingLabel("saved") : `Pay $${grandTotal.toFixed(2)}`}
+                    {activeRoute === "saved" ? workingLabel("saved") : `Pay $${totalFor("paystack").toFixed(2)}`}
                   </button>
                 </div>
               ))}
@@ -719,8 +749,9 @@ export function CheckoutClient({
                 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "#FFC439", color: "#111", fontWeight: 700 }}
               >
                 <PaymentBadgeIcon type="paypal" width={44} height={28} />
-                {activeRoute === "paypal" ? workingLabel("paypal") : `Pay $${grandTotal.toFixed(2)} with PayPal`}
+                {activeRoute === "paypal" ? workingLabel("paypal") : `Pay $${totalFor("paypal").toFixed(2)} with PayPal`}
               </button>
+              {hasPrintItem && feeFor("paypal") > 0 && <p style={{ textAlign: "center", fontSize: 12, color: "var(--ink-faint)", margin: "6px 0 0" }}>Includes a ${feeFor("paypal").toFixed(2)} Processing Fee on your printed books.</p>}
               {lockNote(activeRoute, "paypal") && <p className="pay-lock-note" role="status">{lockNote(activeRoute, "paypal")}</p>}
               {routeErrors.paypal && (
                 <div className="checkout-error" role="alert" style={{ marginTop: 10 }}>

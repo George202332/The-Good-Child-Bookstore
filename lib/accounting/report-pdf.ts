@@ -194,6 +194,7 @@ export async function buildMonthlyReportPdf(input: ReportInput): Promise<Uint8Ar
     { label: "Pass-through to Lulu: printing", value: dollars(f.luluPrinting) },
     { label: "Pass-through to Lulu: shipping", value: dollars(f.luluShipping) },
     { label: "Pass-through to Lulu: fulfillment fee", value: dollars(f.luluFulfillment) },
+    { label: "Processing Fee charged on printed books", value: dollars(f.processingFeeCharged) },
   ];
   const pie = pieChartScene({ title: `Where customers' money went - ${label}`, slices: pieSlices, width: 720, height: 250 });
   y -= drawScene(page, fonts, pie, M, y, contentW) + 14;
@@ -216,12 +217,25 @@ export async function buildMonthlyReportPdf(input: ReportInput): Promise<Uint8Ar
     ["Pass-through to Lulu: printing cost", usd(f.luluPrinting)],
     ["Pass-through to Lulu: shipping", usd(f.luluShipping)],
     ["Pass-through to Lulu: fulfillment fee", usd(f.luluFulfillment)],
+    ["Processing Fee charged on printed books", usd(f.processingFeeCharged)],
     ["Difference not explained (should be $0.00)", usd(f.unreconciled)],
     ["Total paid by customers (" + f.orders + " orders)", usd(f.customersPaid)],
   ];
   y = drawTable({ fonts, getPage: () => page, onNewPage: newPage, x: M, y, width: contentW, cols: [{ label: "Item", w: 0.74 }, { label: "Amount", w: 0.26, align: "right" }], rows: received, bottom: 56, boldLast: true });
   y -= 6;
   text("Lulu printing, shipping and the fulfillment fee are paid by customers and passed to Lulu. They are never company revenue or cost.", M, y, { size: 7.5, color: SOFT });
+  y -= 24;
+
+  y = ensure(y, 110);
+  y = heading("Processing Fee (printed books only)", y);
+  y = drawTable({
+    fonts, getPage: () => page, onNewPage: newPage, x: M, y, width: contentW,
+    cols: [{ label: "Processing Fees Collected", w: 0.34, align: "right" }, { label: "Payment Gateway Costs", w: 0.34, align: "right" }, { label: "Net Result", w: 0.32, align: "right" }],
+    rows: [[usd(f.processingFeesCollected), usd(-f.gatewayCosts), usd(f.processingNet)]],
+    bottom: 56,
+  });
+  y -= 6;
+  text("Only the net result is added to total revenue, so only it affects the 10% royalty, profit and income tax. It is never part of author or affiliate earnings.", M, y, { size: 7.5, color: SOFT });
   y -= 24;
 
   y = ensure(y, 120);
