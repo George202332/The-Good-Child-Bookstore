@@ -29,6 +29,8 @@ export interface MyBookRow {
   notes: { text: string; alert: boolean }[];
   cells: { ebook: MyBookCell; audiobook: MyBookCell; paperback: MyBookCell; hardcover: MyBookCell };
   actions: { href: string; label: string }[];
+  /** The book's SEO score (the edited draft's while an edit is waiting). */
+  seo?: { score: number; level: "good" | "warn" | "bad"; draft: boolean };
 }
 
 /** Fifteen books are shown at a time; the arrows at the bottom replace the set (nothing loads automatically). */
@@ -63,6 +65,9 @@ const css = `
   }
   .mybooks-row.is-active .row-actions{opacity:1;pointer-events:auto}
   .mb-pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;line-height:1.5;white-space:nowrap}
+  .mb-seo-good{background:#D6F0E0;color:#165236}
+  .mb-seo-warn{background:#FBE7B5;color:#6E4A00}
+  .mb-seo-bad{background:#F8D9D4;color:#8A2418}
   .mb-pill-published{background:#D6F0E0;color:#165236}
   .mb-pill-review{background:#FBE7B5;color:#6E4A00}
   .mb-pill-unpublished{background:#E5E1EC;color:#43385B}
@@ -126,6 +131,7 @@ export function MyBooksTable({ rows }: { rows: MyBookRow[] }) {
                 <th><span className="mybooks-th">Category<ColHelp text="The book's category." /></span></th>
                 <th><span className="mybooks-th">Units Sold<ColHelp text="Total copies sold across every format combined." /></span></th>
                 <th><span className="mybooks-th">Royalty<ColHelp text="Your total lifetime earnings from this book's sales." /></span></th>
+                <th><span className="mybooks-th">SEO<ColHelp text="How well the book's details help readers find it in search, out of 100: the same score as on the publishing screen. While an edit is waiting for review, this shows the edited draft's score." /></span></th>
                 {FORMATS.map((f) => (
                   <th key={f.key}><span className="mybooks-th">{f.label}<ColHelp text={f.help} /></span></th>
                 ))}
@@ -162,6 +168,7 @@ export function MyBooksTable({ rows }: { rows: MyBookRow[] }) {
                   <td>{r.category}</td>
                   <td>{r.units}</td>
                   <td>${r.royalty.toFixed(2)}</td>
+                  <td data-label="SEO">{r.seo ? <span className={`mb-pill mb-seo-${r.seo.level}`} title={r.seo.draft ? "Score of your edited draft" : "Score of the live book"}>{r.seo.score}{r.seo.draft ? " (draft)" : ""}</span> : "—"}</td>
                   {FORMATS.map((f, i) => (
                     <td key={f.key} className={i === FORMATS.length - 1 ? "mybooks-last" : undefined}>
                       <FormatCell cell={r.cells[f.key]} />

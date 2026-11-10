@@ -292,6 +292,12 @@ export interface SubmissionMetadata {
   sellThroughWebsite?: boolean;
   luluGlobalDistribution?: boolean;
   privatePrinting?: boolean;
+  /** Personal Message (print only): the author lets buyers add a short dedication, printed on a reserved blank page of the interior. */
+  personalMessageEnabled?: boolean;
+  /** The interior page (counted from 1) that is left blank for the dedication. */
+  personalMessagePage?: number;
+  /** What that page says when a buyer adds no message (optional, short). */
+  personalMessageDefaultLine?: string;
 }
 
 export interface SubmitBookInput {

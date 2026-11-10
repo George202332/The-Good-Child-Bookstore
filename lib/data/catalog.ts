@@ -165,6 +165,8 @@ export interface Book {
    * author's own ISBN); Paperback and Hardcover each have their own ISBN, or none yet
    * (value null = "ISBN pending"). */
   identifiers?: Partial<Record<"ebook" | "audiobook" | "paperback" | "hardcover", { label: "SN" | "ISBN"; value: string | null }>>;
+  /** Set when the author of the PRINTED edition switched Personal Message on: buyers of a Paperback or Hardcover may add a dedication. */
+  personalMessage?: { defaultLine: string };
   /** Page count and trim size of the printed edition, when it differs from the eBook's. */
   printPages?: number;
   printDimensions?: string;

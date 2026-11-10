@@ -1,4 +1,5 @@
 import { FlashNotice } from "@/components/FlashNotice";
+import { seoScoreForBook } from "@/lib/seo/book-seo-row";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
@@ -34,6 +35,7 @@ interface AuthorBook {
   audiobookPrice?: unknown;
   categories: { category: { name: string } }[];
   category: string | null;
+  genres?: { genre: { name: string } }[];
 }
 
 /** The words shown under a format's figure for a book that is live: "Published". Anything else is "Unpublished" (the stage is shown small beneath). */
@@ -61,7 +63,7 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    include: { authorProfile: { include: { books: { where: { deletedByAuthorAt: null }, include: { saleLines: PAID_ONLY, categories: { include: { category: true } } } } } } },
+    include: { authorProfile: { include: { books: { where: { deletedByAuthorAt: null }, include: { saleLines: PAID_ONLY, categories: { include: { category: true } }, genres: { include: { genre: true } } } } } } },
   });
   const records = (user?.authorProfile?.books ?? []) as unknown as AuthorBook[];
   // One entry per book: the editions of a title (eBook / print / audiobook records) are
@@ -114,8 +116,11 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
     if (printRow) actions.push({ href: `/account/books/${printRow.id}/edit?edition=print`, label: "Edit Print Book" });
     else if (digitalRow) actions.push({ href: `/account/books/${digitalRow.id}/edit?edition=print`, label: "Add Print Book" });
     if (!digitalRow && printRow) actions.push({ href: `/account/books/${printRow.id}/edit?edition=ebook`, label: "Add eBook/Audiobook" });
+    // The same score the publishing screen shows: the edited draft's while an edit is waiting, the live book's otherwise.
+    const seoRow = digitalRow ?? printRow ?? b;
+    const seo = seoScoreForBook(seoRow as unknown as Record<string, unknown>, (seoRow.genres ?? []).map((g) => g.genre.name));
     return {
-      id: b.id, title: b.title, cover, authorName, category, units, royalty, notes, actions,
+      id: b.id, title: b.title, cover, authorName, category, units, royalty, notes, actions, seo,
       cells: {
         ebook: cell("ebook", ebookRow, true, ebookRow?.ebookPrice),
         audiobook: cell("audiobook", audioRow, true, audioRow?.audiobookPrice),

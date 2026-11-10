@@ -5,6 +5,7 @@ import { DashboardOverview } from "@/components/admin-views/DashboardOverview";
 import { loadDashboardData } from "@/lib/admin-dashboard-data";
 import { listNeedsAction } from "@/lib/review-notify";
 import Link from "next/link";
+import { heldCount } from "@/lib/personal-message-db";
 
 /**
  * Admin/Editor dashboard overview — a real summary of the platform's
@@ -25,9 +26,16 @@ export default async function AdminDashboardPage() {
 
   const data = await loadDashboardData(role);
   const needsAction = role === "ADMIN" || role === "EDITOR" ? await listNeedsAction().catch(() => []) : [];
+  const heldMessages = role === "ADMIN" || role === "EDITOR" ? await heldCount() : 0;
 
   return (
     <AdminShell role={role} activeKey="dashboard" displayName={session.user.name ?? ""}>
+      {heldMessages > 0 && (
+        <div role="status" style={{ marginBottom: 12, padding: "12px 16px", borderRadius: 12, background: "#F5D98F", color: "#6B4503" }}>
+          <strong style={{ fontSize: 14 }}>Needs action: {heldMessages}</strong>{" "}
+          <Link href="/admin/personal-messages" style={{ color: "inherit", fontWeight: 600 }}>{heldMessages === 1 ? "A Personal Message is" : "Personal Messages are"} held and waiting for a decision</Link>
+        </div>
+      )}
       {needsAction.length > 0 && (
         <div role="status" style={{ marginBottom: 18, padding: "14px 16px", borderRadius: 12, background: "#F5D98F", color: "#6B4503" }}>
           <strong style={{ fontSize: 14 }}>Needs action: {needsAction.length}</strong>

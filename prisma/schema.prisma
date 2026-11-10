@@ -775,6 +775,9 @@ model Order {
   /// from Lulu's own cost quote when the order is placed. A pass-through like shipping: it never enters any royalty
   /// or commission. Null on older orders and on orders with no printed copies.
   fulfillmentAmount Decimal? @db.Decimal(10, 2)
+  /// The Personal Message fee charged on this order (admin-set; zero or null when none). Part of what the Processing Fee is
+  /// worked out on, and company revenue, never any author royalty or commission.
+  personalMessageFee Decimal? @db.Decimal(10, 2)
   // Real status of the Lulu print-job submission (see
   // lib/payments/lulu.ts) — null if this order has no physical copies,
   // otherwise reflects what actually happened, not an assumption.
@@ -854,6 +857,14 @@ model SaleLine {
    * when the order was placed. Printed copies only; null for eBooks, audiobooks and for
    * print sales made before this was recorded. Shipping is never part of it. */
   printingCost       Decimal? @db.Decimal(10, 2)
+
+  /** Personal Message the buyer wrote for this printed line (every copy on the line carries it). Null when none. */
+  personalMessage       String?
+  personalMessageStyle  String?
+  /** CLEAR (passed the automatic check), HELD (waiting for a reviewer), APPROVED, REJECTED. Null when there is no message. */
+  personalMessageStatus String?
+  /** Set once the per-order interior file for this line was built and handed to Lulu. */
+  personalInteriorBuiltAt DateTime?
 
   /** Lifetime referral commission (5% of the company's share) credited
    * to the affiliate who referred this book's author onto the platform
@@ -1430,4 +1441,31 @@ model RateLimitBucket {
 
   @@id([key, windowStart])
   @@index([windowStart])
+}
+
+/// Every Personal Message a buyer wrote and every decision about it. Rows are never deleted.
+model PersonalMessageRecord {
+  id          String   @id @default(cuid())
+  orderId     String
+  saleLineId  String
+  bookId      String
+  text        String
+  style       String
+  /// CLEAR | HELD | APPROVED | REJECTED
+  status      String
+  /// Why the automatic check held it (plain words), empty when it passed.
+  flagReasons Json?
+  /// Who decided and when (null while HELD or CLEAR).
+  decidedById   String?
+  decidedByName String?
+  decidedAt     DateTime?
+  decisionNote  String?
+  /// Every step in order: [{at, by, action, note}]
+  history     Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([orderId])
+  @@index([saleLineId])
 }

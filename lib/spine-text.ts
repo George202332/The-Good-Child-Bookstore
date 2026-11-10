@@ -5,10 +5,10 @@
  *   - A book under SPINE_TEXT_MIN_PAGES pages, or a spine thinner than SPINE_TEXT_MIN_IN, carries no writing at all.
  *   - Otherwise the author's name sits at the top end and the title toward the bottom end, reading top to bottom (the front
  *     cover facing right, the spine on the left). Both lines are centred across the WIDTH of the spine.
- *   - The first letter of the author's name is 2 millimetres from the top edge of the spine and the last letter of the title is
- *     2 millimetres from the bottom edge.
+ *   - The first letter of the author's name is 5 millimetres from the top edge of the spine and the last letter of the title is
+ *     5 millimetres from the bottom edge.
  *   - The letter size is fixed (a fifth of an inch, or half the spine width on a slimmer spine). If the two lines do not fit
- *     between the 2 millimetre gaps, both shrink together (down to SPINE_MIN_SHRINK); if that is still not enough the title is
+ *     between the 5 millimetre gaps, both shrink together (down to SPINE_MIN_SHRINK); if that is still not enough the title is
  *     shortened with "..." and `notice` says so, so the author is told. Nothing ever runs past an edge.
  *
  * Pure: it works in whatever unit the caller uses (PDF points, SVG units, pixels) and measures text with the function it is given.
@@ -21,7 +21,7 @@ export const SPINE_TEXT_MIN_IN = 0.21;
  */
 export const SPINE_TEXT_MIN_PAGES = 100;
 /** Gap from the top edge to the first letter, and from the last letter to the bottom edge. */
-export const SPINE_EDGE_GAP_MM = 2;
+export const SPINE_EDGE_GAP_MM = 5;
 /** The smallest the two lines may shrink to (70% of the normal size) before the title is shortened instead. */
 export const SPINE_MIN_SHRINK = 0.7;
 /** Half the height of a capital letter in Times New Roman / Tinos (0.662 of the text size, halved): the letters' tops point toward the front cover, so the baseline sits this far BEFORE (toward the back cover from) the middle of the spine and the capitals are centred across it. */

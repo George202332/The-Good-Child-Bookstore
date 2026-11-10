@@ -16,6 +16,10 @@ export interface OrderReceiptData {
   /** Lulu's per-order fulfillment fee paid by the customer (already inside totalAmount). */
   fulfillmentAmount?: number;
   processingFeeAmount?: number;
+  /** The Personal Message fee paid by the customer (already inside totalAmount). */
+  personalMessageFee?: number;
+  /** Each Personal Message on the order, shown on the receipt. */
+  personalMessages?: { title: string; text: string }[];
 }
 
 /**
@@ -85,6 +89,21 @@ export async function generateOrderReceipt(data: OrderReceiptData): Promise<Uint
     text("Fulfillment Fee", margin, y, { size: 11 });
     text("Paid by customer", margin + 320, y, { size: 11, color: INK_SOFT });
     rightText(`$${data.fulfillmentAmount.toFixed(2)}`, margin + pageWidth, y, { size: 11 });
+    y -= 22;
+  }
+
+  if (data.personalMessageFee && data.personalMessageFee > 0) {
+    text("Personal Message", margin, y, { size: 11 });
+    text("Printed copies only", margin + 320, y, { size: 11, color: INK_SOFT });
+    rightText(`$${data.personalMessageFee.toFixed(2)}`, margin + pageWidth, y, { size: 11 });
+    y -= 22;
+  }
+
+  for (const m of data.personalMessages ?? []) {
+    const one = m.text.replace(/\s+/g, " ").slice(0, 120);
+    text(`Personal Message for ${m.title.slice(0, 40)}:`, margin, y, { size: 10, color: INK_SOFT });
+    y -= 14;
+    text(`"${one}"`, margin, y, { size: 10.5 });
     y -= 22;
   }
 

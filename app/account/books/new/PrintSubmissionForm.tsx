@@ -34,6 +34,7 @@ import { PrintingCostNote } from "./PrintingCostNote";
 import { BookSeoAdvice } from "@/components/BookSeoAdvice";
 import { PublishPanel, scrollToFirstMissing, type ChecklistItem, type PublishNotice } from "./PublishPanel";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
+import { StepStrip } from "./StepStrip";
 
 import { CATEGORIES, GENRES, subcategoriesFor } from "@/lib/taxonomy";
 const READING_LEVELS = ["Pre-reader", "Beginner", "Early Reader", "Independent Reader", "Fluent Reader"];
@@ -92,6 +93,9 @@ export interface PrintSubmissionInitial {
   hardcoverRetailPrice?: string;
   luluGlobalDistribution?: boolean;
   privatePrinting?: boolean;
+  personalMessageEnabled?: boolean;
+  personalMessagePage?: number;
+  personalMessageDefaultLine?: string;
 }
 
 
@@ -217,6 +221,9 @@ export function PrintSubmissionForm({
   // longer a choice here (metadata always stores true for both flags).
   const [luluGlobalDistribution, setLuluGlobalDistribution] = useState(initial?.luluGlobalDistribution ?? true);
   const [privatePrinting, setPrivatePrinting] = useState(initial?.privatePrinting ?? false);
+  const [personalMessageEnabled, setPersonalMessageEnabled] = useState(initial?.personalMessageEnabled ?? false);
+  const [personalMessagePage, setPersonalMessagePage] = useState(String(initial?.personalMessagePage ?? 3));
+  const [personalMessageDefaultLine, setPersonalMessageDefaultLine] = useState(initial?.personalMessageDefaultLine ?? "");
 
   const [busy, setBusy] = useState<"idle" | "saving" | "publishing">("idle");
   const [notice, setNotice] = useState<PublishNotice | null>(null);
@@ -569,6 +576,9 @@ export function PrintSubmissionForm({
         sellThroughWebsite: true,
         luluGlobalDistribution,
         privatePrinting,
+        personalMessageEnabled,
+        personalMessagePage: personalMessageEnabled ? Math.max(1, Math.round(Number(personalMessagePage) || 3)) : undefined,
+        personalMessageDefaultLine: personalMessageEnabled ? personalMessageDefaultLine.trim().slice(0, 80) || undefined : undefined,
         interiorColor,
         printQuality,
         binding: paperbackEnabled ? paperbackBinding : "LW",
@@ -608,7 +618,8 @@ export function PrintSubmissionForm({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div className="publish-form" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <StepStrip />
       {prefill && !editing && (
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <button
@@ -765,6 +776,7 @@ export function PrintSubmissionForm({
         </div>
 
         <PrintMockupPreviews
+          bookId={initial?.bookId}
           paperbackEnabled={paperbackEnabled}
           hardcoverEnabled={hardcoverEnabled}
           common={{
@@ -994,7 +1006,7 @@ export function PrintSubmissionForm({
         </div>
         {paperbackEnabled && (
           <div className="stat-grid" style={{ marginTop: 12, marginBottom: 0 }}>
-            <div><div className="stat-label">Paperback Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><PrintingCostNote sourceLabel={costLabel(pbItem)} specs={printOptionsSummary({ format: "paperback", pageCount: pagesNum || undefined, trimCode, binding: paperbackBinding, paperCode: paperType, colorCode: interiorColor, qualityCode: printQuality, finishCode: coverFinish })} /></div>
+            <div><div className="stat-label">Paperback Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.printingCost.toFixed(2)}</div><PrintingCostNote label="Paperback" sourceLabel={costLabel(pbItem)} specs={printOptionsSummary({ format: "paperback", pageCount: pagesNum || undefined, trimCode, binding: paperbackBinding, paperCode: paperType, colorCode: interiorColor, qualityCode: printQuality, finishCode: coverFinish })} /></div>
             <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of ${paperbackPricing.balance.toFixed(2)} (price minus printing cost)</div></div>
             <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold, 70% of the balance</div></div>
             <div><div className="stat-label">Royalty Via Affiliate Link</div><div className="stat-value" style={{ fontSize: 20 }}>${paperbackPricing.royaltyViaAffiliate.toFixed(2)}</div><div className="stat-sub">60% of the balance; the affiliate earns ${paperbackPricing.affiliateCommission.toFixed(2)}</div></div>
@@ -1002,7 +1014,7 @@ export function PrintSubmissionForm({
         )}
         {hardcoverEnabled && (
           <div className="stat-grid" style={{ marginTop: paperbackEnabled ? 20 : 12, marginBottom: 0 }}>
-            <div><div className="stat-label">Hardcover Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><PrintingCostNote sourceLabel={costLabel(hcItem)} specs={printOptionsSummary({ format: "hardcover", pageCount: pagesNum || undefined, trimCode, binding: "LW", paperCode: paperType, colorCode: interiorColor, qualityCode: printQuality, finishCode: coverFinish, linenCode: linenColor, foilCode: foilColor })} /></div>
+            <div><div className="stat-label">Hardcover Printing Cost</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.printingCost.toFixed(2)}</div><PrintingCostNote label="Hardcover" sourceLabel={costLabel(hcItem)} specs={printOptionsSummary({ format: "hardcover", pageCount: pagesNum || undefined, trimCode, binding: "LW", paperCode: paperType, colorCode: interiorColor, qualityCode: printQuality, finishCode: coverFinish, linenCode: linenColor, foilCode: foilColor })} /></div>
             <div><div className="stat-label">Company Revenue</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.companyRevenue.toFixed(2)}</div><div className="stat-sub">30% of ${hardcoverPricing.balance.toFixed(2)} (price minus printing cost)</div></div>
             <div><div className="stat-label">Estimated Royalty</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.estimatedRoyalty.toFixed(2)}</div><div className="stat-sub">Per copy sold, 70% of the balance</div></div>
             <div><div className="stat-label">Royalty Via Affiliate Link</div><div className="stat-value" style={{ fontSize: 20 }}>${hardcoverPricing.royaltyViaAffiliate.toFixed(2)}</div><div className="stat-sub">60% of the balance; the affiliate earns ${hardcoverPricing.affiliateCommission.toFixed(2)}</div></div>
@@ -1030,6 +1042,25 @@ export function PrintSubmissionForm({
           <label className="toggle-switch"><input type="checkbox" checked={luluGlobalDistribution} onChange={(e) => setLuluGlobalDistribution(e.target.checked)} /><span className="toggle-slider" /></label>
           <span>Lulu Global Distribution</span>
         </div>
+        <div className="toggle-row">
+          <label className="toggle-switch"><input type="checkbox" checked={personalMessageEnabled} onChange={(e) => setPersonalMessageEnabled(e.target.checked)} /><span className="toggle-slider" /></label>
+          <span>Personal Message (Let Buyers Add A Dedication To Their Copy)</span>
+        </div>
+        {personalMessageEnabled && (
+          <div className="pm-author-box">
+            <p className="field-hint" style={{ marginTop: 0 }}>
+              Buyers of a printed copy can add a short message that is printed on one page of their own copy. That page must be a blank page near the front of your interior PDF; it is replaced only in personalised copies, so the page count, printing cost and spine do not change. This setting goes through review like any other edit.
+            </p>
+            <div className="pm-author-fields">
+              <label className="field-label">Blank Page Number In Your Interior
+                <input className="input" type="number" min={1} max={20} value={personalMessagePage} onChange={(e) => setPersonalMessagePage(e.target.value)} />
+              </label>
+              <label className="field-label">Line Printed When A Buyer Adds No Message (Optional)
+                <input className="input" maxLength={80} value={personalMessageDefaultLine} onChange={(e) => setPersonalMessageDefaultLine(e.target.value)} placeholder="Leave empty to keep the page blank" />
+              </label>
+            </div>
+          </div>
+        )}
       </Card>
 
       <PublishPanel
@@ -1072,6 +1103,12 @@ function CheckProgress({ text, fixing }: { text: string; fixing?: boolean }) {
   );
 }
 
+/** "10 Nov 2026" from a saved ISO date; empty when it cannot be read. */
+function savedDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "an earlier date" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
   PASSED: { bg: "#E3F5EA", fg: "#165236", label: "Passed" },
   FAILED: { bg: "#FCE4E4", fg: "#6F1A28", label: "Needs fixing" },
@@ -1094,6 +1131,7 @@ function PreflightPanel({ hasFiles, busy, fixing, result, savedFromBook }: {
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <strong style={{ fontSize: 14 }}>Print file check</strong>
         {style && <span style={{ background: style.bg, color: style.fg, borderRadius: 999, padding: "2px 10px", fontSize: 12, fontWeight: 700 }}>{style.label}</span>}
+        {!result && !busy && savedFromBook?.checkedAt && <span className="field-hint" style={{ margin: 0 }}>Saved result, checked on {savedDate(savedFromBook.checkedAt)}</span>}
       </div>
       {!hasFiles && (
         <p className="field-hint" style={{ margin: "8px 0 0" }}>
@@ -1148,7 +1186,9 @@ function FileVerdictBox({ title, verdict, issues, saved, fixing }: {
       </div>
       {!style && <p className="field-hint" style={{ margin: "8px 0 0" }}>Checked automatically as soon as the file is uploaded.</p>}
       {shown === "PASSED" && (
-        <p className="field-hint" style={{ margin: "8px 0 0", color: "#165236" }}>Our checks and Lulu&apos;s file validation both passed.</p>
+        <p className="field-hint" style={{ margin: "8px 0 0", color: "#165236" }}>
+          Our checks and Lulu&apos;s file validation both passed.{(!verdict || verdict === "NONE") && saved?.checkedAt ? ` Saved result, checked on ${savedDate(saved.checkedAt)}. It is checked again only if a file is replaced.` : ""}
+        </p>
       )}
       {shown === "CHECKING" && <CheckProgress fixing={fixing} text="Checking your file." />}
       {shown === "WAITING" && <p className="field-hint" style={{ margin: "8px 0 0" }}>This file is sent to Lulu once the other file&apos;s problems are fixed.</p>}

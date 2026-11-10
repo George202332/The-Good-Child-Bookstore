@@ -54,7 +54,7 @@ const META: { key: string; label: string; fmt?: (v: unknown) => string }[] = [
   { key: "printQuality", label: "Print Quality" }, { key: "paperType", label: "Paper Type" }, { key: "coverFinish", label: "Cover Finish" },
   { key: "linenColor", label: "Linen Color" }, { key: "foilColor", label: "Foil Color" },
   { key: "paperbackEnabled", label: "Paperback Offered" }, { key: "hardcoverEnabled", label: "Hardcover Offered" },
-  { key: "privatePrinting", label: "Private Printing" }, { key: "luluGlobalDistribution", label: "Lulu Global Distribution" },
+  { key: "privatePrinting", label: "Private Printing" }, { key: "personalMessageEnabled", label: "Personal Message" }, { key: "personalMessagePage", label: "Dedication Page Number" }, { key: "personalMessageDefaultLine", label: "Default Dedication Line" }, { key: "luluGlobalDistribution", label: "Lulu Global Distribution" },
   { key: "worldwideRights", label: "Worldwide Rights" }, { key: "taxSetting", label: "Tax Setting" },
 ];
 

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { messagesForOrder, orderMessageFee } from "@/lib/personal-message-db";
 
 // SERVER-ONLY (not a "use server" action): the confirmation page reads an order here only AFTER it has checked the visitor
 // holds the order's secret key or is its signed-in owner. Exposed as an action it could be called with any order number.
@@ -14,6 +15,10 @@ export interface OrderSummary {
   fulfillmentAmount: number;
   /** The Processing Fee the customer paid on printed copies (included in totalAmount); 0 when none. */
   processingFeeAmount: number;
+  /** The Personal Message fee the customer paid (included in totalAmount); 0 when none. */
+  personalMessageFee: number;
+  /** The Personal Messages on this order (printed lines only). */
+  personalMessages: { saleLineId: string; bookTitle: string; text: string; style: string; status: string }[];
   printJobStatus: string | null;
   printJobError: string | null;
   items: { title: string; price: number; downloadUrl: string | null; hasEbook: boolean; hasAudiobook: boolean; isPrint: boolean; coverImageUrl: string | null }[];
@@ -41,6 +46,8 @@ export async function getOrderSummary(orderId: string): Promise<OrderSummary | n
       shippingAmount: order.shippingAmount != null ? Number(order.shippingAmount) : 0,
       fulfillmentAmount: order.fulfillmentAmount != null ? Number(order.fulfillmentAmount) : 0,
       processingFeeAmount: order.processingFeeAmount != null ? Number(order.processingFeeAmount) : 0,
+      personalMessageFee: await orderMessageFee(order.id),
+      personalMessages: await messagesForOrder(order.id),
       printJobStatus: order.printJobStatus,
       printJobError: order.printJobError,
       items: order.lines.map((l) => {

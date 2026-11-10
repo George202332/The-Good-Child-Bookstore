@@ -1,0 +1,60 @@
+BATCH 5 + BATCH 6 + PERSONAL MESSAGE (ITEM 7) - COMBINED, ONE ZIP (replaces every earlier batch 5 and batch 6 zip)
+=============================================================
+DATABASE MIGRATION NEEDED?   YES.
+It adds new, empty columns and one new table. No existing row is changed or removed.
+Migration folder: prisma\migrations\20261110090000_personal_message
+=============================================================
+
+STEP A - STAGING (always first), open the terminal in the bookstore folder
+ 1. Copy the "bookstore" folder from this zip over your project's bookstore folder (choose Replace).
+ 2. git checkout staging
+ 3. git add .
+ 4. git commit -m "Batch 6 and Personal Message"
+ 5. git push origin staging
+ 6. STAGING DATABASE: run  scripts\migrate-staging.ps1
+    It shows the staging endpoint (it must say ep-royal-unit-ax5doypv), lists the migration "20261110090000_personal_message" and ends with
+    "applied" and no red text. If it shows red text, stop and send me a screenshot.
+ 7. In Vercel wait for the Preview deployment to say Ready. (The migration is run BEFORE or right after; the checkout shows
+    "We couldn't save your order" only if the database is behind, never charges anyone.)
+
+STEP B - BEFORE PRODUCTION (only after you tested staging)
+ 1. Neon > your project > Branches > production branch > Create child branch. Name it  backup-before-personal-message  (today's date at the end).
+ 2. Run  scripts\migrate-production.ps1  from the bookstore folder.
+    It prints the endpoint. CHECK it says ep-noisy-recipe-axujb3db. Only then type YES when it asks. If the name differs, type nothing and stop.
+    Success: it lists the migration as applied with no red text.
+ 3. To go back if something is wrong: Neon > Branches > the backup branch > Restore (or tell me and I will guide you).
+ RULE: production is migrated BEFORE the merge to main.
+
+STEP C - PRODUCTION
+ git checkout main
+ git pull origin main
+ git merge staging
+ git push origin main
+ git checkout staging
+Watch Vercel until Production says Ready. If the merge shows a conflict, do not guess: stop and send me a screenshot.
+Healthy check: home page opens, a book page opens, Admin > Site Health shows no "database is behind" warning.
+
+ARTWORK: mockups/spine redraw by themselves the first time each book's page or Edit screen is opened. Nothing to run by hand.
+
+WHAT IS NEW IN PERSONAL MESSAGE (print copies only)
+ - Author: Print screen > Distribution > switch "Personal Message". Choose which blank interior page is the dedication page (default page 3) and an optional line for buyers who add nothing. This goes through review like any edit.
+ - Buyer: product page (Paperback/Hardcover) shows "Personalise Your Copy": message (200 characters), 3 styles, live page preview. The message goes to cart, checkout, confirmation, receipt PDF and receipt e-mail.
+ - Fee: Admin > Personal Messages > Personal Message Fee (default $0.00). When above zero it is its own checkout line, once per personalised book, company revenue, and included in what the Processing Fee is worked out on.
+ - Checks: every message is checked automatically. A flagged one is HELD (book not printed). Admin and Editors see it in Admin > Personal Messages (menu number = "Needs action"; also on the Admin dashboard) and approve or reject. Rejected: the buyer is e-mailed and writes a new message on their order page. Nothing is ever deleted.
+ - Print: the personal interior is built only after the verified payment, inside the same print step. Staging still never sends a real print order.
+
+TEST CHECKLIST (published book AND new book; desktop AND phone)
+ 1. Click sidebar items: the item lights at once and a thin bar/skeleton shows.
+ 2. Print tab pricing: "How This Cost Is Worked Out" pop-up per edition, nothing jumps; minimum price lines still shown.
+ 3. Edit a published book: mockups/wrap/spine appear at once; change page count -> "Updating your preview", old stays; print file check shows saved result and date.
+ 4. Spine text on 3D mockups (100+ pages), 5 mm gaps; plain spine below 100 pages.
+ 5. Description box shorter, scrolls inside, both tabs.
+ 6. Type in title/description: SEO score animates, "+N" chip, changed item highlights; My Books SEO column matches.
+ 7. Publishing pages: step strip on top, compact cards, bottom bar "N checklist items left", Save Draft, Publish/Republish; on a phone it never hides a field.
+ 8. PERSONAL MESSAGE on staging:
+    a. Switch it on for a print book, submit the edit, approve it as admin.
+    b. Product page, choose Paperback: the panel shows; type a message; preview updates; Add to Cart; open checkout: message shown, can Change / Remove Message.
+    c. Set a fee (e.g. 1.00) in Admin > Personal Messages: a "Personal Message" line appears at checkout and the total changes. Set it back to 0.
+    d. Pay with a TEST payment: confirmation page, receipt PDF and e-mail show the message.
+    e. Write a message with a rude word: the order is held, it shows in Admin > Personal Messages and as a number on the dashboard; Reject it, then as the buyer write a new one from the order page.
+    f. Nothing is ever sent to Lulu from staging (that rule is unchanged).

@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, SectionHeader } from "./shared";
+import { StickyActionBar } from "./StickyActionBar";
 
 export interface ChecklistItem {
   label: string;
@@ -56,7 +57,8 @@ export function PublishPanel({
         ))}
       </div>
       {children}
-      <div className="publish-row">
+      {/* The buttons live in a bar that stays in view at the bottom of the screen (see StickyActionBar). */}
+      <StickyActionBar status={missing.length === 0 ? "Everything is ready to publish" : `${missing.length} checklist item${missing.length === 1 ? "" : "s"} left`}>
         <div className="publish-row-main">
           <button type="button" className="btn btn-ghost btn-small" disabled={working} onClick={onSave}>
             {busy === "saving" ? "Saving…" : "Save Draft"}
@@ -68,7 +70,7 @@ export function PublishPanel({
           )}
         </div>
         {extraActions && <div className="publish-row-end">{extraActions}</div>}
-      </div>
+      </StickyActionBar>
       {showMissing && missing.length > 0 && (
         <div role="alert" className="publish-msg is-error">
           {missingIntro}

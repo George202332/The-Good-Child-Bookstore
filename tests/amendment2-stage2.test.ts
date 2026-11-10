@@ -7,20 +7,20 @@ import { buildCoverWrapPdf, coverLayout } from "../lib/lulu-cover";
 
 const width = (t: string, s: number) => t.length * s * 0.5;
 
-test("spine: author 2 mm from the top edge, title's last letter 2 mm from the bottom edge, same letter size as before", () => {
+test("spine: author 5 mm from the top edge, title's last letter 5 mm from the bottom edge, same letter size as before", () => {
   const plan = planSpineText({ spine: 0.7 * 72, length: 612, unitsPerInch: 72, title: "The Friend", author: "Liam Walker", width })!;
   const [author, title] = plan.lines;
-  const mm2 = (2 / 25.4) * 72;
-  assert.ok(Math.abs(author.start - mm2) < 1e-9, "the author's first letter is 2 mm from the top");
+  const mm2 = (5 / 25.4) * 72;
+  assert.ok(Math.abs(author.start - mm2) < 1e-9, "the author's first letter is 5 mm from the top");
   const titleEnd = title.start + width(title.text, title.size);
-  assert.ok(Math.abs(titleEnd - (612 - mm2)) < 1e-9, "the title's last letter is 2 mm from the bottom");
+  assert.ok(Math.abs(titleEnd - (612 - mm2)) < 1e-9, "the title's last letter is 5 mm from the bottom");
   assert.ok(Math.abs(title.size - Math.min(0.2 * 72, 0.7 * 72 * 0.5)) < 1e-9, "letter size unchanged");
   assert.equal(plan.shrink, 1);
   assert.equal(plan.notice, null);
 });
 
-test("spine: a long title shrinks slightly, then is shortened with a notice; nothing passes the 2 mm gaps; very thick and very thin spines", () => {
-  const mm2 = (2 / 25.4) * 72;
+test("spine: a long title shrinks slightly, then is shortened with a notice; nothing passes the 5 mm gaps; very thick and very thin spines", () => {
+  const mm2 = (5 / 25.4) * 72;
   const slightly = planSpineText({ spine: 0.7 * 72, length: 240, unitsPerInch: 72, title: "A Fairly Long Title Here", author: "Liam Walker", width })!;
   assert.ok(slightly.shrink < 1 && slightly.shrink >= 0.7 && !slightly.truncated);
   assert.match(slightly.notice ?? "", /smaller/);

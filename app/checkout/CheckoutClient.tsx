@@ -11,6 +11,9 @@ import { Motif } from "@/components/Motif";
 import { useCart, type CartItem } from "@/hooks/useCart";
 import { createPendingOrder } from "@/actions/orders";
 import { getProcessingFeeQuote } from "@/actions/processing-fee";
+import { getPersonalMessageFeeAction } from "@/actions/personal-message";
+import { PersonalMessagePanel } from "@/components/PersonalMessagePanel";
+import { feeForOrder, canPersonalise } from "@/lib/personal-message";
 import { printAmountDue, type FeeRoute } from "@/lib/processing-fee";
 import { ColHelp } from "@/components/ColHelp";
 import { initiateGatewayCheckout, initiatePayPalCheckout, getPaymentAvailability } from "@/actions/payment-init";
@@ -81,20 +84,24 @@ export function CheckoutClient({
   directBookId,
   directFormat,
   paymentFailed,
+  directMessage,
 }: {
   directBookId: string | null;
   directFormat: CartItem["format"] | null;
   paymentFailed: boolean;
+  /** "Buy Direct" only: the Personal Message chosen on the product page. */
+  directMessage?: { text: string; style: string } | null;
 }) {
-  const { items: cartItems, setQty, removeItem } = useCart();
+  const { items: cartItems, setQty, removeItem, setMessage } = useCart();
+  const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const isDirectBuy = !!directBookId && !!directFormat;
   // A "Buy Direct" purchase never touches the persisted cart — it's an
   // entirely separate, one-item source for this checkout session only,
   // so whatever's already in the real cart is completely unaffected and
   // still there if the customer goes back to /cart afterward.
   const items: CartItem[] = useMemo(
-    () => (isDirectBuy ? [{ bookId: directBookId, format: directFormat, quantity: 1 }] : cartItems),
-    [isDirectBuy, directBookId, directFormat, cartItems]
+    () => (isDirectBuy ? [{ bookId: directBookId, format: directFormat, quantity: 1, ...(directMessage ? { message: directMessage } : {}) }] : cartItems),
+    [isDirectBuy, directBookId, directFormat, cartItems, directMessage]
   );
   const { data: session } = useSession();
   const bookIdsForCount = useMemo(() => items.map((i) => i.bookId), [items]);
@@ -218,8 +225,10 @@ export function CheckoutClient({
   const priceFor = (book: Book, format: string) =>
     format === "ebook" ? book.formats.ebook : format === "hardcover" ? book.formats.print : format === "paperback" ? book.formats.paperback : book.formats.audiobook;
   const lines = items
-    .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity, format: i.format }))
-    .filter((l): l is { book: NonNullable<typeof l.book>; qty: number; format: typeof l.format } => !!l.book);
+    .map((i) => ({ book: bookSource.find((b) => b.id === i.bookId), qty: i.quantity, format: i.format, message: i.message }))
+    .filter((l): l is { book: NonNullable<typeof l.book>; qty: number; format: typeof l.format; message: typeof l.message } => !!l.book)
+    // A message is kept only on a printed line whose author offers it.
+    .map((l) => (l.message?.text.trim() && canPersonalise(l.format) && l.book.personalMessage ? l : { ...l, message: undefined }));
   const subtotal = lines.reduce((sum, l) => sum + priceFor(l.book, l.format) * l.qty, 0);
   const hasPrintItem = lines.some((l) => l.format === "paperback" || l.format === "hardcover");
   // The customer pays postage for printed copies, on top of the books.
@@ -229,11 +238,22 @@ export function CheckoutClient({
   const shippingCost = chosenShipping?.amount ?? 0;
   // Lulu's per-order fulfillment fee, as quoted by Lulu for this order, charged once and passed on to Lulu.
   const fulfillmentFee = chosenShipping?.fulfillment ?? 0;
-  const totalBeforeFee = Math.round((subtotal + shippingCost + fulfillmentFee) * 100) / 100;
+  // Personal Message fee (admin-set, zero by default): once per personalised printed line, company revenue, part of what the Processing Fee is worked out on.
+  const messageLines = lines.filter((l) => !!l.message);
+  const [personalFeeRate, setPersonalFeeRate] = useState<number | null>(null);
+  useEffect(() => {
+    if (messageLines.length === 0 || personalFeeRate !== null) return;
+    let live = true;
+    getPersonalMessageFeeAction().then((f) => { if (live) setPersonalFeeRate(f); }).catch(() => { if (live) setPersonalFeeRate(0); });
+    return () => { live = false; };
+  }, [messageLines.length, personalFeeRate]);
+  const personalFee = feeForOrder(messageLines.length, personalFeeRate ?? 0);
+  const personalFeeReady = messageLines.length === 0 || personalFeeRate !== null;
+  const totalBeforeFee = Math.round((subtotal + shippingCost + fulfillmentFee + personalFee) * 100) / 100;
   // Processing Fee: printed copies only. It depends on how the customer pays (each gateway keeps a different cut), so it is quoted per route,
   // and quoted again whenever the basket, address or shipping method changes (it is worked out on books + postage + fulfillment of the printed part).
   const printLinesTotal = lines.filter((l) => l.format === "paperback" || l.format === "hardcover").reduce((sum, l) => sum + priceFor(l.book, l.format) * l.qty, 0);
-  const feeDue = hasPrintItem && chosenShipping ? printAmountDue({ printLinesTotal, shipping: shippingCost, fulfillment: fulfillmentFee }) : 0;
+  const feeDue = hasPrintItem && chosenShipping ? printAmountDue({ printLinesTotal, shipping: shippingCost, fulfillment: fulfillmentFee + personalFee }) : 0;
   const [feeQuote, setFeeQuote] = useState<{ due: number; fees: Record<FeeRoute, number> } | null>(null);
   useEffect(() => {
     if (!(feeDue > 0)) return;
@@ -247,7 +267,7 @@ export function CheckoutClient({
   const totalFor = (route: FeeRoute) => Math.round((totalBeforeFee + feeFor(route)) * 100) / 100;
   const grandTotal = totalFor(cardRoute);
   // The Pay buttons are ready only once Lulu's printing price (and fee) for this exact order is confirmed.
-  const printPriceConfirmed = !hasPrintItem || (!shippingBusy && !!chosenShipping && chosenShipping.source === "lulu" && typeof chosenShipping.fulfillment === "number" && feeReady);
+  const printPriceConfirmed = !hasPrintItem || (!shippingBusy && !!chosenShipping && chosenShipping.source === "lulu" && typeof chosenShipping.fulfillment === "number" && feeReady && personalFeeReady);
 
   // Why the customer cannot move on, shown right beside the field. Server-side field hints (from Lulu's own complaint) too.
   const blockers = deliveryBlockers({ fullName: data.fullName, email: data.email, country: data.country, phone: data.phone, address: data.billingAddress, city: data.city, state: data.state, postcode: data.postcode }, hasPrintItem);
@@ -327,7 +347,8 @@ export function CheckoutClient({
     return {
       paymentMethod: route,
       processingFeeShown: hasPrintItem ? feeFor(route) : undefined,
-      items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format })),
+      personalMessageFeeShown: messageLines.length > 0 ? personalFee : undefined,
+      items: lines.map((l) => ({ bookId: l.book.id, qty: l.qty, format: l.format, ...(l.message ? { personalMessage: l.message } : {}) })),
       guestEmail: data.email,
       guestName: data.fullName,
       shipName: data.fullName,
@@ -479,6 +500,26 @@ export function CheckoutClient({
                       <div className="cart-item-digital-note">Instant digital delivery — no shipping</div>
                     ) : (
                       <div className="cart-item-digital-note">Fulfilled by Lulu</div>
+                    )}
+                    {!isDigital && l.book.personalMessage && (
+                      <div style={{ marginTop: 6, fontSize: 12.5 }}>
+                        {l.message ? (
+                          <div style={{ overflowWrap: "anywhere" }}>
+                            <strong>Personal Message:</strong> &ldquo;{l.message.text}&rdquo;
+                            {!isDirectBuy && (
+                              <>
+                                {" "}<button type="button" className="cart-remove-btn" onClick={() => setEditingMessage(editingMessage === l.book.id ? null : l.book.id)}>{editingMessage === l.book.id ? "Done" : "Change"}</button>
+                                {" "}<button type="button" className="cart-remove-btn" onClick={() => setMessage(l.book.id, l.format, null)}>Remove Message</button>
+                              </>
+                            )}
+                          </div>
+                        ) : !isDirectBuy ? (
+                          <button type="button" className="cart-remove-btn" onClick={() => setEditingMessage(editingMessage === l.book.id ? null : l.book.id)}>{editingMessage === l.book.id ? "Done" : "Add A Personal Message"}</button>
+                        ) : null}
+                        {!isDirectBuy && editingMessage === l.book.id && (
+                          <PersonalMessagePanel compact value={{ text: l.message?.text ?? "", style: l.message?.style ?? "classic" }} defaultLine={l.book.personalMessage.defaultLine} onChange={(v) => setMessage(l.book.id, l.format, v)} />
+                        )}
+                      </div>
                     )}
                   </div>
                   {isDigital || isDirectBuy ? (
@@ -691,6 +732,7 @@ export function CheckoutClient({
             {hasPrintItem && chosenShipping && typeof chosenShipping.fulfillment === "number" && (
               <div className="summary-row"><span>Fulfillment Fee</span><span>${chosenShipping.fulfillment.toFixed(2)}</span></div>
             )}
+            {personalFee > 0 && <div className="summary-row"><span>Personal Message</span><span>${personalFee.toFixed(2)}</span></div>}
             {hasPrintItem && feeDue > 0 && feeReady && (
               <div className="summary-row">
                 <span>

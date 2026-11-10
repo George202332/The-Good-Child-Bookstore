@@ -11,6 +11,7 @@ import { attributeCategory, countBooksByCategory, type CategoryAttributionInput 
 import { groupEditions } from "@/lib/book-groups";
 import { sanitizeDescriptionHtml } from "@/lib/description-html";
 import { identifierFor, printFieldsOf, type IdentifierFormat } from "@/lib/identifiers";
+import { personalMessageSetup } from "@/lib/personal-message";
 import { genreLabelFromShelfId, shelfIdFromGenreLabel } from "@/lib/shelf-mapping";
 import {
   effectiveRestrictedCountries,
@@ -223,10 +224,21 @@ function descriptionHtmlOf(row: RealBookRow): string | undefined {
 /** Turns the records of ONE title (see lib/book-groups.ts) into the single catalog book
  * the storefront shows: one product page with a price tab per format. Each format keeps
  * the price, identifier and record of its own edition; nothing is shared between formats. */
+/** The Personal Message offer of a title, read from the record that sells its printed copies (never an eBook-only record). */
+function personalOf(rows: RealBookRow[]): Book["personalMessage"] {
+  for (const r of rows) {
+    const one = toCatalogBook(r);
+    if (!one.formatAvailable?.paperback && !one.formatAvailable?.hardcover) continue;
+    const setup = personalMessageSetup(r.submissionMetadata);
+    if (setup.enabled) return { defaultLine: setup.defaultLine };
+  }
+  return undefined;
+}
+
 function toGroupedCatalogBook(rows: RealBookRow[]): Book {
   const main = toCatalogBook(rows[0]);
   const descriptionHtml = rows.map(descriptionHtmlOf).find(Boolean) ?? main.descriptionHtml;
-  if (rows.length === 1) return { ...main, identifiers: identifiersOf(rows[0]) };
+  if (rows.length === 1) return { ...main, identifiers: identifiersOf(rows[0]), personalMessage: personalOf(rows) };
 
   const formats = ["ebook", "audiobook", "paperback", "hardcover"] as const;
   const formatBookIds: NonNullable<Book["formatBookIds"]> = {};
@@ -272,6 +284,7 @@ function toGroupedCatalogBook(rows: RealBookRow[]): Book {
   const labels = [available.ebook && "eBook", (available.paperback || available.hardcover) && "Print", available.audiobook && "Audiobook"].filter(Boolean).join(", ");
   return {
     ...main,
+    personalMessage: personalOf(rows),
     descriptionHtml,
     price,
     formats: prices,

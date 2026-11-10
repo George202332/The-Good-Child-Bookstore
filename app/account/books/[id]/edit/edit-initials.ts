@@ -159,6 +159,9 @@ export function buildPrintInitial(book: BookWithRelations): PrintSubmissionIniti
     hardcoverRetailPrice: price(meta.hardcoverRetailPrice, book.hardcoverPrice),
     luluGlobalDistribution: bool("luluGlobalDistribution", true),
     privatePrinting: bool("privatePrinting", false),
+    personalMessageEnabled: bool("personalMessageEnabled", false),
+    personalMessagePage: typeof meta.personalMessagePage === "number" ? meta.personalMessagePage : undefined,
+    personalMessageDefaultLine: str(meta.personalMessageDefaultLine) || undefined,
   };
 }
 

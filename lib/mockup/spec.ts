@@ -54,5 +54,5 @@ export function bookDimensions(spec: Pick<MockupSpec, "format" | "trimCode" | "p
 
 /** A short code for the settings this picture was made from, so only a changed picture is made again. */
 export function mockupHash(spec: MockupSpec, coverKey: string): string {
-  return createHash("sha1").update(JSON.stringify({ v: 10, spec, coverKey })).digest("hex").slice(0, 20);
+  return createHash("sha1").update(JSON.stringify({ v: 11, spec, coverKey })).digest("hex").slice(0, 20);
 }

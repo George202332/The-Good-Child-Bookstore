@@ -533,6 +533,17 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
     // Already sent: nothing more to decide.
     if (order.printJobStatus === "SUBMITTED" && !opts.resend) return { ok: true, state: "already" };
 
+    // A Personal Message that is waiting for a reviewer (or was not accepted) holds the whole print job: nothing is built or sent
+    // until it is decided. The status stays empty, so the job goes out by itself once the message is approved or replaced.
+    {
+      const { orderHasUnapprovedMessage } = await import("@/lib/personal-message-db");
+      if (await orderHasUnapprovedMessage(orderId)) {
+        const message = "Waiting for a Personal Message to be checked.";
+        await prisma.order.updateMany({ where: { id: orderId, printJobStatus: null }, data: { printJobError: message } });
+        return { ok: false, state: "held", error: message };
+      }
+    }
+
     // Staging: a real print order is created only with the admin switch ON, and (below) only after a confirmed payment.
     // Development never creates one. Checked from the running environment (VERCEL_ENV), not from missing keys.
     const deployment = deploymentOf();
@@ -653,11 +664,20 @@ export async function submitPrintJobsForOrder(orderId: string, opts: { resend?: 
           }
         }
 
+        // A line with a Personal Message gets its OWN interior, built now (the payment is already confirmed and checked above):
+        // the author's PDF with only the reserved dedication page replaced. Every other order keeps the author's file.
+        let interiorLink = luluFileUrl(manuscript?.url, siteUrl, PRINT_JOB_LINK_SECONDS) ?? "";
+        if (prelim.length === 0) {
+          const personal = await personalInteriorLink({ lineId: (l as unknown as { id: string }).id, orderId: order.id, meta, manuscriptUrl: manuscript?.url, siteUrl });
+          if (personal.error) prelim.push(`"${l.book.title}": ${personal.error}`);
+          else if (personal.link) interiorLink = personal.link;
+        }
+
         jobLines.push({
           title: l.book.title,
           podPackageId,
           coverUrl,
-          interiorUrl: luluFileUrl(manuscript?.url, siteUrl, PRINT_JOB_LINK_SECONDS) ?? "",
+          interiorUrl: interiorLink,
           quantity,
         });
       }
@@ -821,5 +841,38 @@ export async function storeGeneratedCoverWrap(opts: {
     return { ok: true, fileId: saved.id };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "The cover could not be prepared." };
+  }
+}
+
+
+/**
+ * The link to this order line's own interior when the buyer wrote a Personal Message (an approved or clear one), otherwise nothing.
+ * The built file is stored like any uploaded file and is signed for Lulu like the author's own file. A problem is returned in plain
+ * words (the job is then not sent) and never silently falls back to the plain file, which would print the dedication page blank.
+ */
+async function personalInteriorLink(opts: { lineId: string; orderId: string; meta: unknown; manuscriptUrl: string | undefined; siteUrl: string }): Promise<{ link?: string; error?: string }> {
+  try {
+    const { messagesForOrder, markInteriorBuilt } = await import("@/lib/personal-message-db");
+    const mine = (await messagesForOrder(opts.orderId)).find((m) => m.saleLineId === opts.lineId);
+    const { personalMessageSetup } = await import("@/lib/personal-message");
+    const setup = personalMessageSetup(opts.meta);
+    if (!setup.enabled) return {}; // not offered (or switched off after the order): print the author's plain file
+    const approved = !!mine && (mine.status === "CLEAR" || mine.status === "APPROVED");
+    // No message from the buyer: the author's own line (if they set one) goes on the page; otherwise the page stays as the author made it.
+    if (!approved && !setup.defaultLine) return {};
+    const message = approved && mine ? { text: mine.text, style: mine.style } : { text: setup.defaultLine, style: "classic" };
+    const id = opts.manuscriptUrl?.startsWith("/api/files/") ? opts.manuscriptUrl.split("/").pop() : undefined;
+    if (!id) return { error: "the interior file for the Personal Message could not be found" };
+    const { readStoredPdf, buildPersonalisedInterior } = await import("@/lib/personal-interior");
+    const source = await readStoredPdf(id);
+    if (!source) return { error: "the interior file for the Personal Message could not be read" };
+    const built = await buildPersonalisedInterior({ source, page: setup.page, text: message.text, style: message.style });
+    if (!built.ok) return { error: built.error };
+    const { prisma } = await import("@/lib/prisma");
+    const stored = await prisma.uploadedFile.create({ data: { data: Buffer.from(built.bytes), mimeType: "application/pdf", originalName: `personal-interior-${opts.orderId}-${opts.lineId}.pdf` } });
+    if (approved) await markInteriorBuilt(opts.lineId);
+    return { link: luluFileUrl(`/api/files/${stored.id}`, opts.siteUrl, PRINT_JOB_LINK_SECONDS) ?? undefined };
+  } catch (e) {
+    return { error: `the Personal Message page could not be built (${e instanceof Error ? e.message.slice(0, 120) : "unknown error"})` };
   }
 }

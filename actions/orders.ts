@@ -39,6 +39,8 @@ const orderItemSchema = z.object({
   bookId: z.string().min(1),
   qty: z.number().int().min(1).max(50),
   format: z.enum(["ebook", "paperback", "hardcover", "audiobook"]),
+  /** Printed copies only: the buyer's Personal Message (checked again on the server; ignored unless the author switched it on). */
+  personalMessage: z.object({ text: z.string().max(1000), style: z.string().max(20) }).optional(),
 });
 const createPendingOrderSchema = z.object({
   items: z.array(orderItemSchema).min(1).max(50),
@@ -57,6 +59,8 @@ const createPendingOrderSchema = z.object({
   paymentMethod: z.enum(["paystack", "mpesa", "paypal"]).optional(),
   /** The Processing Fee shown at checkout, so a change between what was shown and what is charged is reported, never silent. */
   processingFeeShown: z.number().min(0).max(100000).optional(),
+  /** The Personal Message fee shown at checkout, so a change between what was shown and what is charged is reported, never silent. */
+  personalMessageFeeShown: z.number().min(0).max(100000).optional(),
 });
 
 /**
@@ -96,6 +100,8 @@ export interface OrderItemInput {
    * charged (Book.ebookPrice/paperbackPrice/hardcoverPrice/audiobookPrice)
    * and what's recorded on the resulting SaleLine. */
   format: "ebook" | "paperback" | "hardcover" | "audiobook";
+  /** Printed copies only: the buyer's Personal Message and its style. */
+  personalMessage?: { text: string; style: string };
 }
 
 export interface CreateOrderResult {
@@ -198,6 +204,7 @@ export async function createPendingOrder(input: {
   fulfillmentAmountShown?: number;
   paymentMethod?: "paystack" | "mpesa" | "paypal";
   processingFeeShown?: number;
+  personalMessageFeeShown?: number;
 }): Promise<CreateOrderResult> {
   const parsed = createPendingOrderSchema.safeParse(input);
   if (!parsed.success) {
@@ -412,14 +419,31 @@ export async function createPendingOrder(input: {
   // Books plus postage. Postage is not part of any line, so it never enters
   // the author / affiliate / company split.
   const { orderTotalWithShipping } = await import("@/lib/shipping-quote");
-  const totalBeforeFee = orderTotalWithShipping(+subtotal.toFixed(2), shippingAmount ?? 0, fulfillmentAmount ?? 0);
+  // Personal Message: only printed lines whose author switched it on, with a message that is really there. The fee (admin-set,
+  // zero by default) is charged once per personalised line and is company revenue, never royalty; it is part of what the
+  // Processing Fee is worked out on, like Lulu's fulfilment fee.
+  const { personalMessageSetup, canPersonalise, cleanMessage, checkMessage, isStyleId, DEFAULT_STYLE_ID, feeForOrder } = await import("@/lib/personal-message");
+  const messageEntries: { line: (typeof lines)[number]; text: string; style: string }[] = [];
+  for (const item of input.items) {
+    const line = lines.find((l) => l.bookId === item.bookId && l.format === item.format);
+    if (!line || !item.personalMessage || !canPersonalise(line.format)) continue;
+    if (!personalMessageSetup(line.book.submissionMetadata).enabled) continue;
+    const text = cleanMessage(item.personalMessage.text);
+    if (text) messageEntries.push({ line, text, style: isStyleId(item.personalMessage.style) ? item.personalMessage.style : DEFAULT_STYLE_ID });
+  }
+  const { getPersonalMessageFee } = await import("@/lib/personal-message-settings");
+  const messageFee = feeForOrder(messageEntries.length, await getPersonalMessageFee());
+  if (typeof input.personalMessageFeeShown === "number" && Math.abs(messageFee - input.personalMessageFeeShown) > 0.005) {
+    return { ok: false, error: `The Personal Message fee changed from $${input.personalMessageFeeShown.toFixed(2)} to $${messageFee.toFixed(2)}. Please review the new total and try again.` };
+  }
+  const totalBeforeFee = orderTotalWithShipping(+subtotal.toFixed(2), shippingAmount ?? 0, (fulfillmentAmount ?? 0) + messageFee);
   // Processing Fee: printed copies only, worked out by the one shared function (lib/processing-fee.ts) with the saved gateway rates.
   const { computeProcessingFee, printAmountDue, feeBasis } = await import("@/lib/processing-fee");
   const { getFeeRates } = await import("@/lib/processing-fee-settings");
   const feeRoute = input.paymentMethod ?? "paystack";
   const feeRates = await getFeeRates();
   const printLinesTotal = lines.filter((l) => l.format === "paperback" || l.format === "hardcover").reduce((sum, l) => sum + l.unitPrice * l.qty, 0);
-  const feeResult = computeProcessingFee(printAmountDue({ printLinesTotal, shipping: shippingAmount ?? 0, fulfillment: fulfillmentAmount ?? 0 }), feeRates[feeRoute]);
+  const feeResult = computeProcessingFee(printAmountDue({ printLinesTotal, shipping: shippingAmount ?? 0, fulfillment: (fulfillmentAmount ?? 0) + messageFee }), feeRates[feeRoute]);
   const processingFee = hasPrintLine && feeResult.fee > 0 ? feeResult.fee : null;
   if (typeof input.processingFeeShown === "number" && Math.abs((processingFee ?? 0) - input.processingFeeShown) > 0.005) {
     return {
@@ -471,7 +495,8 @@ export async function createPendingOrder(input: {
     // (an order that may already have a payment under way is never changed underneath it).
     const same = waiting.find((o) => Math.abs(Number(o.totalAmount) - totalAmount) < 0.005
       && sameOrderLines(o.lines.map((l) => ({ bookId: l.bookId, format: l.format, gross: Number(l.grossAmount) })), wanted));
-    if (same) return { ok: true, orderId: same.id, totalAmount };
+    // An order carrying a Personal Message is never reused: the message is part of what is bought.
+    if (same && messageEntries.length === 0) return { ok: true, orderId: same.id, totalAmount };
   }
 
   let order: { id: string };
@@ -531,6 +556,23 @@ export async function createPendingOrder(input: {
     const { reportSystemError } = await import("@/lib/site-health/alert");
     await reportSystemError("DATABASE", e instanceof Error ? e : new Error(String(e)), { step: "createPendingOrder", code }).catch(() => undefined);
     return { ok: false, error: "We couldn't save your order just now, so nothing has been charged. Please try again in a few minutes; our team has been told." };
+  }
+
+  // Save each Personal Message with its line (and the record that is never deleted), then run the automatic check: a flagged
+  // message is HELD and the print job waits for a reviewer. If saving fails the order stays unpaid and nothing is charged.
+  if (messageEntries.length > 0) {
+    try {
+      const saved = await prisma.saleLine.findMany({ where: { orderId: order.id }, select: { id: true, bookId: true, format: true } });
+      const { saveOrderMessages } = await import("@/lib/personal-message-db");
+      await saveOrderMessages(order.id, messageFee, messageEntries.flatMap((m) => {
+        const row = saved.find((s) => s.bookId === m.line.bookId && s.format === m.line.format);
+        return row ? [{ saleLineId: row.id, bookId: m.line.bookId, text: m.text, style: m.style, check: checkMessage(m.text) }] : [];
+      }));
+    } catch (e) {
+      console.error("[checkout] the Personal Message could not be saved:", e instanceof Error ? e.message.slice(0, 200) : "unknown");
+      await prisma.order.update({ where: { id: order.id }, data: { status: "CANCELLED" } }).catch(() => undefined);
+      return { ok: false, error: "We couldn't save your Personal Message just now, so nothing has been charged. Please try again in a few minutes." };
+    }
   }
 
   return { ok: true, orderId: order.id, totalAmount };

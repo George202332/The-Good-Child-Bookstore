@@ -9,6 +9,8 @@ import { EnterAccountButton } from "@/components/EnterAccountButton";
 import { confirmationUrl, orderAccessToken, receiptUrl, verifyOrderAccessToken } from "@/lib/order-access";
 import { getOrderAccessInfo } from "@/lib/order-access-info";
 import { ColHelp } from "@/components/ColHelp";
+import { ReplaceMessageForm } from "./ReplaceMessageForm";
+import { statusLabel } from "@/lib/personal-message";
 
 /**
  * Real order confirmation, reached either from demo-mode checkout
@@ -128,6 +130,25 @@ export default async function CheckoutConfirmationPage({
             </div>
           </div>
         ))}
+        {order.personalMessages.map((m) => (
+          <div key={m.saleLineId} style={{ marginTop: 12, padding: "10px 12px", border: "1px solid var(--line)", borderRadius: 12, fontSize: 13 }}>
+            <div style={{ fontWeight: 700, marginBottom: 4 }}>
+              Personal Message for {m.bookTitle}{" "}
+              <span className={`pm-chip${m.status === "HELD" ? " is-held" : m.status === "REJECTED" ? " is-bad" : ""}`}>{statusLabel(m.status)}</span>
+            </div>
+            <div style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>&ldquo;{m.text}&rdquo;</div>
+            {m.status === "HELD" && <p style={{ margin: "6px 0 0", color: "var(--ink-soft)" }}>We check every message before printing. Your book goes to print as soon as it is approved. You do not need to do anything.</p>}
+            {m.status === "REJECTED" && (
+              <>
+                <p style={{ margin: "6px 0 0", color: "#a1262a", fontWeight: 600 }}>We could not print this message. Please write a new one below. Nothing else about your order changes.</p>
+                <ReplaceMessageForm orderId={order.id} accessKey={k ?? null} saleLineId={m.saleLineId} initialStyle={m.style} />
+              </>
+            )}
+          </div>
+        ))}
+        {order.personalMessageFee > 0 && (
+          <div className="summary-row" style={{ marginTop: 14 }}><span>Personal Message (paid by you)</span><span>${order.personalMessageFee.toFixed(2)}</span></div>
+        )}
         {order.shippingAmount > 0 && (
           <div className="summary-row" style={{ marginTop: 14 }}><span>Shipping (paid by you)</span><span>${order.shippingAmount.toFixed(2)}</span></div>
         )}

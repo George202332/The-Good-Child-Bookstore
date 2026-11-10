@@ -8,6 +8,7 @@ import { ImageUploadField } from "@/components/ImageUploadField";
 import { FileUploadField } from "@/components/FileUploadField";
 import { RichTextEditor } from "@/components/RichTextEditor";
 import { SectionHeader, Card, type SharedSubmissionFields } from "./shared";
+import { StepStrip } from "./StepStrip";
 import { BookSeoAdvice } from "@/components/BookSeoAdvice";
 import { PublishPanel, scrollToFirstMissing, type ChecklistItem, type PublishNotice } from "./PublishPanel";
 import { PublisherField } from "./PublisherField";
@@ -411,7 +412,8 @@ export function EbookSubmissionForm({
   const manuscriptRemovable = !(editingPublished && initial?.manuscriptFileId);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+    <div className="publish-form" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <StepStrip />
       {/* Section 1 — Files, first per explicit instruction */}
       <Card id="sec-files" flagged={flag("files")}>
         <SectionHeader n={1} title="Files" sub="Manuscript and/or audiobook, plus your cover — this is where we start." />

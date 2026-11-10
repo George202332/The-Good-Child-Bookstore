@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { SignOutButton } from "./SignOutButton";
 import { NAV_ICONS } from "./nav-icons";
+import { NAV_PENDING_KEY, NAV_SNAPSHOT_KEY } from "./account-nav-keys";
 
 interface NavItem {
   key: string;
@@ -46,6 +47,9 @@ export function DashboardSidebarNav({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  // The menu item you just clicked lights up at once (before the next page has arrived), and stays lit until it does.
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const lit = pendingKey ?? activeKey;
   const unread = new Set(unreadSidebarKeys);
 
   // Close the panel on every navigation — otherwise tapping a nav link
@@ -58,7 +62,13 @@ export function DashboardSidebarNav({
   if (pathname !== lastPathname) {
     setLastPathname(pathname);
     setOpen(false);
+    setPendingKey(null);
   }
+
+  // Remember the menu so the loading screen can draw the very same sidebar while the next page is on its way.
+  useEffect(() => {
+    try { sessionStorage.setItem(NAV_SNAPSHOT_KEY, JSON.stringify({ sections, displayName })); } catch { /* private window: the loading screen just shows plain bars */ }
+  }, [sections, displayName]);
 
   // Close on Escape, same as any other dismissible overlay on the site
   // (see Modal.tsx) — keeps keyboard behavior consistent site-wide.
@@ -115,9 +125,15 @@ export function DashboardSidebarNav({
                 <Link
                   key={it.key}
                   href={it.href}
-                  className={`dashboard-nav-link ${activeKey === it.key ? "active" : ""}`}
+                  className={`dashboard-nav-link ${lit === it.key ? "active" : ""}`}
                   aria-current={activeKey === it.key ? "page" : undefined}
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    setOpen(false);
+                    if (it.key !== activeKey) {
+                      setPendingKey(it.key);
+                      try { sessionStorage.setItem(NAV_PENDING_KEY, it.key); } catch { /* ignore */ }
+                    }
+                  }}
                 >
                   {NAV_ICONS[it.key] ? (
                     <span className={`dashboard-nav-icon ${unread.has(it.key) && activeKey !== it.key ? "has-unread" : ""}`}>

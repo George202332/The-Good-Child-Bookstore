@@ -59,7 +59,7 @@ export const PRINT_METADATA_KEYS = [
   "trimSizeCode", "podPackageId", "paperbackEnabled", "hardcoverEnabled", "paperbackRetailPrice",
   "hardcoverRetailPrice", "foilStampTitleText", "foilStampAuthorText", "printReadyPdfFileId", "printReadyOriginalPdfFileId",
   "frontCoverImageUrl", "customBackCoverPdfFileId", "backCoverMode", "sellThroughWebsite",
-  "luluGlobalDistribution", "privatePrinting", 
+  "luluGlobalDistribution", "privatePrinting", "personalMessageEnabled", "personalMessagePage", "personalMessageDefaultLine",
   "printPreflight", "printIsbns", "printIsbn", "printDescriptionHtml",
 ] as const;
 

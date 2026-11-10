@@ -7,6 +7,7 @@ import { TwoFactorChallengeScreen } from "@/components/TwoFactorChallengeScreen"
 import { SessionInactivityTimer } from "@/components/SessionInactivityTimer";
 import { BackNavigationGuard } from "@/components/BackNavigationGuard";
 import { AccountFontScope } from "@/components/AccountFontScope";
+import { NavProgress } from "@/components/NavProgress";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +72,7 @@ export default async function AccountLayout({ children }: { children: ReactNode 
     <>
       <SessionInactivityTimer sessionStartedAt={session.signedInAt} />
       <BackNavigationGuard />
+      <NavProgress />
       <AccountFontScope userId={session.user.id}>{children}</AccountFontScope>
     </>
   );

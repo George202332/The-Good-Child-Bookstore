@@ -16,6 +16,8 @@ import { ReadSampleViewer } from "@/components/ReadSampleViewer";
 import { bookJsonLd, breadcrumbJsonLd } from "@/lib/seo/json-ld";
 import { getPublicSiteUrl } from "@/lib/seo/site-url";
 import { useCart } from "@/hooks/useCart";
+import { PersonalMessagePanel } from "@/components/PersonalMessagePanel";
+import { DEFAULT_STYLE_ID } from "@/lib/personal-message";
 import { BookViewTracker } from "@/components/AnalyticsTrackers";
 import { useWishlist } from "@/hooks/useWishlist";
 import { categorySlug, isCategory } from "@/lib/taxonomy";
@@ -104,6 +106,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
   const b = book;
   const [chosenFormat, setFormat] = useState<FormatKey | null>(null);
   const { addItem } = useCart();
+  const [personal, setPersonal] = useState<{ text: string; style: string }>({ text: "", style: DEFAULT_STYLE_ID });
   const router = useRouter();
   const { has, toggle } = useWishlist();
   const detailsArrows = useScrollArrows(`details-track-${b?.id}`, `${chosenFormat}|${b?.pubDate}|${b?.publisher}|${b?.series}`);
@@ -155,6 +158,7 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
   // page count / trim size / file size to show.
   // Which record sells the selected format (one product page can be backed by several
   // editions), and that format's own identifier.
+  const offerPersonal = !!b.personalMessage && (effectiveFormat === "print" || effectiveFormat === "paperback");
   const cartFormat = effectiveFormat === "print" ? "hardcover" : effectiveFormat;
   const cartBookId = b.formatBookIds?.[cartFormat] ?? b.id;
   const formatIdentifier = b.identifiers?.[cartFormat];
@@ -433,16 +437,17 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
           <div className="buybox-selected" aria-live="polite">
             Selected: <strong>{fmtLabel}</strong> <span>${selectedPrice.toFixed(2)}</span>
           </div>
-          <button className="btn btn-primary btn-block btn-compact" disabled={restricted} title={restricted ? restrictionMessage : undefined} onClick={() => addItem(cartBookId, cartFormat, 1)}>Add {fmtLabel} to Cart</button>
+          <button className="btn btn-primary btn-block btn-compact" disabled={restricted} title={restricted ? restrictionMessage : undefined} onClick={() => addItem(cartBookId, cartFormat, 1, offerPersonal && personal.text.trim() ? personal : undefined)}>Add {fmtLabel} to Cart</button>
           <button
             className="btn btn-ghost btn-block btn-compact"
             style={{ marginTop: 8 }}
             disabled={restricted}
             title={restricted ? restrictionMessage : undefined}
-            onClick={() => router.push(`/checkout?directBookId=${cartBookId}&directFormat=${cartFormat}`)}
+            onClick={() => router.push(`/checkout?directBookId=${cartBookId}&directFormat=${cartFormat}${offerPersonal && personal.text.trim() ? `&directMessage=${encodeURIComponent(personal.text.trim().slice(0, 200))}&directStyle=${encodeURIComponent(personal.style)}` : ""}`)}
           >
             Buy {fmtLabel} Direct
           </button>
+          {offerPersonal && <PersonalMessagePanel value={personal} onChange={setPersonal} defaultLine={b.personalMessage?.defaultLine} />}
           {effectiveFormat === "print" || effectiveFormat === "paperback" ? (
             <div className="buybox-note">
               You&apos;re adding the {fmtLabel.toLowerCase()} edition. Need more than one? Adjust the quantity from
