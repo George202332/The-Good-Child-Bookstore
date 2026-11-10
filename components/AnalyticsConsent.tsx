@@ -20,6 +20,16 @@ function writeConsent(v: "granted" | "denied") {
   window.dispatchEvent(new Event(CHANGED));
 }
 
+/**
+ * The footer's "Cookie Settings" link: forgets the visitor's earlier choice so the cookie question is shown again.
+ * (Google's cookies are cleared if they choose Decline this time.)
+ */
+export function openCookieSettings() {
+  if (typeof document === "undefined") return;
+  document.cookie = `${CONSENT_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  window.dispatchEvent(new Event(CHANGED));
+}
+
 function removeGoogleCookies() {
   const host = window.location.hostname;
   const parts = host.split(".");
