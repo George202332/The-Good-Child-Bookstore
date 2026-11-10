@@ -118,8 +118,20 @@
   a, button, [role="button"], input, select, textarea, label{touch-action:manipulation;}
   ::selection{background:var(--gold);color:var(--ink);}
 
-  .wrap{max-width:1280px;margin:0 auto;padding:0 40px;}
-  @media (max-width:900px){ .wrap{padding:0 20px;} }
+  /* ONE shared side-spacing rule for the whole site. --gutter grows smoothly with the screen: about 16px on a 320px phone,
+     20px at 390px, 38px on a tablet, 40px from there up. env(safe-area-inset-*) keeps text clear of a notch or rounded
+     corner. Every page sits inside .wrap, and the horizontal padding below is !important on purpose: many pages also set
+     their own "padding: 40px 0 60px" shorthand (inline or in a stylesheet), which used to wipe the side spacing out. A page
+     can still set its own top and bottom padding; only the left and right belong to this rule. New pages get it for free. */
+  :root{--gutter:clamp(16px, 5vw, 40px);}
+  .wrap{max-width:1280px;margin:0 auto;box-sizing:border-box;
+    padding-left:max(var(--gutter), env(safe-area-inset-left)) !important;
+    padding-right:max(var(--gutter), env(safe-area-inset-right)) !important;}
+  /* The header row follows the same gutter (it sets its own padding shorthand too). */
+  .site-header .wrap{padding-left:max(var(--gutter), env(safe-area-inset-left)) !important;padding-right:max(var(--gutter), env(safe-area-inset-right)) !important;}
+  /* Nothing may push the page sideways. */
+  html,body{max-width:100%;overflow-x:clip;}
+  img,video,svg{max-width:100%;}
 
   /* ---------- Header ---------- */
   .site-header{
@@ -149,7 +161,7 @@
        now that the toggle lives inline in this same row, that reserved
        space is freed, so the header can sit a little closer to the
        page content below it. */
-    .header-inner{padding:14px 20px;}
+    .header-inner{padding-top:14px;padding-bottom:14px;}
   }
   /* Plain text wordmark — no icon, no image, no background box of its
      own; it just sits on whatever surface it's placed on (header cream,

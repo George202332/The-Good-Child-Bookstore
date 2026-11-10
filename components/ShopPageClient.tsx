@@ -128,8 +128,8 @@ export function ShopPageClient({ pageBooks, total, availableSubs, query }: { pag
         <main role="main">
           {pageList.length > 0 ? (
             <div className="book-grid book-grid-shop" aria-label="Book listings">
-              {pageList.map((b) => (
-                <BookCard key={b.id} book={b} />
+              {pageList.map((b, i) => (
+                <BookCard key={b.id} book={b} priority={i < 6} />
               ))}
               {/* On a page with fewer books than a full page (usually the last one),
                   invisible copies of a real card fill the empty spaces. Every row

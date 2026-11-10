@@ -22,7 +22,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const headers = {
     "Content-Type": image.mimeType,
-    "Cache-Control": "public, max-age=31536000, immutable",
+    "Cache-Control": "public, max-age=31536000, s-maxage=31536000, immutable",
+    "CDN-Cache-Control": "public, max-age=31536000, immutable",
   };
 
   if (width && image.mimeType !== "image/svg+xml") {

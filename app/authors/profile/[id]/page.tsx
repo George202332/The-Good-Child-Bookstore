@@ -1,4 +1,5 @@
 import { pageMeta } from "@/lib/seo/page-meta";
+import { imageAtWidth } from "@/lib/image-url";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -188,7 +189,7 @@ export default async function AuthorProfilePage({
               <Link key={b.id} href={`/${b.slug}`} style={{ textAlign: "center" }}>
                 {b.coverImageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={b.coverImageUrl} alt={b.title} style={{ width: "100%", aspectRatio: "2/3", objectFit: "cover", borderRadius: 8 }} />
+                  <img src={imageAtWidth(b.coverImageUrl, 480)} alt={b.title} style={{ width: "100%", aspectRatio: "2/3", objectFit: "cover", borderRadius: 8 }} />
                 ) : (
                   <div style={{ width: "100%", aspectRatio: "2/3", background: "var(--lavender)", borderRadius: 8 }} />
                 )}

@@ -10,8 +10,8 @@ import { BookCard } from "./BookCard";
 export function BestSellersCarousel({ books }: { books: Book[] }) {
   return (
     <div className="book-grid-12">
-      {books.map((b) => (
-        <BookCard key={b.id} book={b} />
+      {books.map((b, i) => (
+        <BookCard key={b.id} book={b} priority={i < 6} />
       ))}
     </div>
   );

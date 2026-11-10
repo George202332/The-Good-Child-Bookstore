@@ -1,5 +1,6 @@
 "use client";
 
+import { imageAtWidth } from "@/lib/image-url";
 import { CheckoutStartedTracker } from "@/components/AnalyticsTrackers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -467,7 +468,7 @@ export function CheckoutClient({
                   <div className="mini-cover">
                     {l.book.coverImage && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={l.book.coverImage} alt={`${l.book.title} cover`} />
+                      <img src={imageAtWidth(l.book.coverImage, 240)} alt={`${l.book.title} cover`} />
                     )}
                   </div>
                   <div>
@@ -667,7 +668,7 @@ export function CheckoutClient({
                 <div className="mini-cover">
                   {l.book.coverImage && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={l.book.coverImage} alt={`${l.book.title} cover`} />
+                    <img src={imageAtWidth(l.book.coverImage, 240)} alt={`${l.book.title} cover`} />
                   )}
                 </div>
                 <div style={{ flex: 1 }}>

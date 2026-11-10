@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { imageAtWidth } from "@/lib/image-url";
 import { prisma } from "@/lib/prisma";
 import { Motif } from "@/components/Motif";
 import type { MotifKind } from "@/lib/data/catalog";
@@ -137,7 +138,7 @@ export default async function BlogListPage({ searchParams }: { searchParams: Pro
                   <div className="blog-cover" style={{ background: "var(--lavender)" }}>
                     {p.coverImageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element -- real uploaded blog cover, arbitrary aspect ratio
-                      <img src={p.coverImageUrl} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+                      <img src={imageAtWidth(p.coverImageUrl, 640)} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
                     ) : (
                       <svg className="motif" viewBox="0 0 100 100"><Motif kind={motif} color="#2E2442" /></svg>
                     )}

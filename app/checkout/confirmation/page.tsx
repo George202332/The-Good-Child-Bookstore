@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { imageAtWidth } from "@/lib/image-url";
 import { auth } from "@/lib/auth";
 import { getOrderSummary } from "@/lib/order-summary";
 import { PurchaseTracker } from "@/components/AnalyticsTrackers";
@@ -92,7 +93,7 @@ export default async function CheckoutConfirmationPage({
             <div className="mini-cover">
               {it.coverImageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={it.coverImageUrl} alt={`${it.title} cover`} />
+                <img src={imageAtWidth(it.coverImageUrl, 240)} alt={`${it.title} cover`} />
               )}
             </div>
             <div style={{ flex: 1 }}>

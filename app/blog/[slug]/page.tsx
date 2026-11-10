@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { imageAtWidth } from "@/lib/image-url";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { prisma } from "@/lib/prisma";
@@ -135,7 +136,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <div className="blog-detail-cover">
         {post.coverImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- real uploaded blog cover, hero size
-          <img src={post.coverImageUrl} alt={post.imageAltText || post.title} />
+          <img src={imageAtWidth(post.coverImageUrl, 1280)} alt={post.imageAltText || post.title} />
         ) : (
           <div style={{ width: "100%", height: "100%", background: "var(--lavender)" }} />
         )}
@@ -247,7 +248,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                     <div className="blog-cover" style={{ background: "var(--lavender)" }}>
                       {p.coverImageUrl && (
                         // eslint-disable-next-line @next/next/no-img-element -- related-post thumbnail
-                        <img src={p.coverImageUrl} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
+                        <img src={imageAtWidth(p.coverImageUrl, 640)} alt={p.imageAltText || p.title} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", display: "block" }} />
                       )}
                     </div>
                   </Link>

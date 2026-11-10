@@ -1,3 +1,4 @@
+import { revalidateTag, unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
 import { descriptionToPlainText } from "@/lib/description-html";
@@ -30,7 +31,11 @@ export async function getSavedMockups(bookId: string): Promise<SavedMockups> {
 }
 
 /** The picture addresses for a product page: the record that sells each print format, and the saved picture of that format. */
-export async function getPrintMockupUrls(ids: { paperback?: string; hardcover?: string }): Promise<{ paperback?: string; hardcover?: string }> {
+/** The ready-made print pictures of a book, remembered for a minute (and refreshed at once when a book is published or edited). */
+export const getPrintMockupUrls = (ids: { paperback?: string; hardcover?: string }) =>
+  unstable_cache(() => readPrintMockupUrls(ids), ["print-mockup-urls", ids.paperback ?? "", ids.hardcover ?? ""], { revalidate: 60, tags: ["books"] })();
+
+async function readPrintMockupUrls(ids: { paperback?: string; hardcover?: string }): Promise<{ paperback?: string; hardcover?: string }> {
   const out: { paperback?: string; hardcover?: string } = {};
   try {
     const bookIds = [...new Set([ids.paperback, ids.hardcover].filter((x): x is string => !!x))];
@@ -192,6 +197,9 @@ export async function ensurePrintMockups(bookId: string, opts: { retryFailed?: b
   } catch (e) {
     console.error("[mockup] ensurePrintMockups failed:", e instanceof Error ? e.message : e);
   }
+  // A book was just published or edited (or a picture was just made): public pages show the new details and pictures straight away instead of
+  // waiting for the one-minute memory to run out.
+  if (opts.retryFailed || result.paperback === "made" || result.hardcover === "made") try { revalidateTag("books", { expire: 0 }); } catch { /* outside a request (a script): the minute timer still applies */ }
   return result;
 }
 

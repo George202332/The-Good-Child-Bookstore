@@ -78,7 +78,7 @@ export default async function BrowseTopicPage({ params, searchParams }: { params
         <p style={{ margin: "30px 0", color: "var(--ink-faint)" }}>No books here yet. <Link href="/bookshelf">Browse the whole bookshelf</Link>.</p>
       ) : (
         <div className="book-grid-6" style={{ marginTop: 20 }}>
-          {slice.map((b) => <BookCard key={b.id} book={b} />)}
+          {slice.map((b, i) => <BookCard key={b.id} book={b} priority={i < 6} />)}
         </div>
       )}
 

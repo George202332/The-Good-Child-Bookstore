@@ -1,4 +1,5 @@
 import { LiveRefresher } from "@/components/LiveRefresher";
+import { imageAtWidth } from "@/lib/image-url";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -117,7 +118,7 @@ export default async function ActiveCampaignsPage() {
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           {l.bookCoverUrl ? (
                             // eslint-disable-next-line @next/next/no-img-element -- small promotion-table thumbnail
-                            <img src={l.bookCoverUrl} alt={l.bookTitle} style={{ width: 32, aspectRatio: "2/3", objectFit: "cover", borderRadius: 4, flexShrink: 0 }} />
+                            <img src={imageAtWidth(l.bookCoverUrl, 240)} alt={l.bookTitle} style={{ width: 32, aspectRatio: "2/3", objectFit: "cover", borderRadius: 4, flexShrink: 0 }} />
                           ) : (
                             <div style={{ width: 32, aspectRatio: "2/3", background: "var(--lavender)", borderRadius: 4, flexShrink: 0 }} />
                           )}

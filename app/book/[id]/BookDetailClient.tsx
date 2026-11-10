@@ -3,6 +3,8 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { preload } from "react-dom";
+import { placeholderStyle, responsiveImage } from "@/lib/image-url";
 import { CATS, bookSlug, type Book } from "@/lib/data/catalog";
 import { pickFeaturedBooks } from "@/lib/featured-books";
 import { reviewStats, reviewsForBook } from "@/lib/data/reviews";
@@ -95,6 +97,9 @@ const FORMAT_LABELS: Record<FormatKey, string> = {
  * reviews come from LiveReviewSection, which is actually wired to a
  * working "Write a review" button and persists to the database.
  */
+const MOCKUP_WIDTHS = [480, 640, 960, 1280] as const;
+const MOCKUP_SIZES = "(max-width: 900px) 92vw, 480px";
+
 export function BookDetailClient({ book, isRealBook, allBooks, restricted = false, printMockups = {} }: { book: Book; isRealBook: boolean; allBooks: Book[]; restricted?: boolean; printMockups?: { paperback?: string; hardcover?: string } }) {
   const b = book;
   const [chosenFormat, setFormat] = useState<FormatKey | null>(null);
@@ -168,6 +173,13 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
   const initials = b.author.split(" ").map((w) => w[0]).join("").slice(0, 2);
   const fmtLabel = FORMAT_LABELS[effectiveFormat];
   const selectedPrice = b.formats[effectiveFormat];
+  // The moment the page opens, both ready-made print pictures start downloading quietly, in exactly the size this screen will
+  // use, so tapping Paperback or Hardcover swaps the picture at once with nothing to wait for.
+  for (const m of [printMockups.paperback, printMockups.hardcover]) {
+    if (!m) continue;
+    const r = responsiveImage(m, MOCKUP_WIDTHS);
+    preload(r.src, { as: "image", imageSrcSet: r.srcSet, imageSizes: MOCKUP_SIZES, fetchPriority: "low" });
+  }
   // A mockup shows only after the visitor has chosen Paperback or Hardcover themselves, and only that format's own picture.
   const mockupSrc = chosenFormat === "paperback" && effectiveFormat === "paperback"
     ? printMockups.paperback
@@ -241,14 +253,19 @@ export function BookDetailClient({ book, isRealBook, allBooks, restricted = fals
               // picture only: Paperback never shows the hardcover's, and the other formats show the normal cover.
               <div key={mockupSrc} className="detail-cover detail-cover-mockup cover-fade">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img key={mockupSrc} src={mockupSrc} alt={`${b.title} ${fmtLabel.toLowerCase()} edition, shown as printed copies`} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+                <img key={mockupSrc} {...responsiveImage(mockupSrc, MOCKUP_WIDTHS)} sizes={MOCKUP_SIZES} width={800} height={1200} decoding="async" alt={`${b.title} ${fmtLabel.toLowerCase()} edition, shown as printed copies`} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
               </div>
             ) : (
-            <div key="cover" className="detail-cover cover-fade">
+            <div key="cover" className="detail-cover cover-fade" style={placeholderStyle(b.coverImage)}>
               {b.coverImage && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={b.coverImage}
+                  {...responsiveImage(b.coverImage, MOCKUP_WIDTHS)}
+                  sizes={MOCKUP_SIZES}
+                  width={800}
+                  height={1200}
+                  fetchPriority="high"
+                  decoding="async"
                   alt={b.coverAltText || `${b.title} cover`}
                   style={{ width: "100%", height: "100%", objectFit: "contain", objectPosition: "center", display: "block" }}
                 />

@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import Script from "next/script";
 import { usePathname } from "next/navigation";
 import { CONSENT_COOKIE, CONSENT_MAX_AGE_SECONDS, classifySource, isPrivatePath, parseConsent, type ConsentStatus } from "@/lib/analytics/policy";
 import { trackEvent } from "@/lib/analytics/track";
 
 const CHANGED = "gcb-consent-changed";
-const OPEN = "gcb-open-consent";
 
 function subscribe(cb: () => void) {
   window.addEventListener(CHANGED, cb);
@@ -34,9 +33,6 @@ function removeGoogleCookies() {
   }
 }
 
-/** Opens the cookie choice again (used by the footer link). */
-export function openCookieSettings() { window.dispatchEvent(new Event(OPEN)); }
-
 /**
  * Cookie notice + the only place Google Analytics / Tag Manager are loaded.
  * `enabled` is decided on the server from VERCEL_ENV (true only on the live site). When false nothing loads, nothing is counted,
@@ -46,7 +42,6 @@ export function AnalyticsConsent({ enabled, gaId, gtmId }: { enabled: boolean; g
   const pathname = usePathname() || "/";
   const status = useSyncExternalStore(subscribe, readStatus, () => "unset" as ConsentStatus);
   const hydrated = useSyncExternalStore(() => () => {}, () => true, () => false);
-  const [reopened, setReopened] = useState(false);
   const loadedGoogle = useRef(false);
 
   const priv = isPrivatePath(pathname);
@@ -60,12 +55,6 @@ export function AnalyticsConsent({ enabled, gaId, gtmId }: { enabled: boolean; g
   useEffect(() => {
     (window as unknown as { __gcbAnalytics?: boolean }).__gcbAnalytics = enabled;
   }, [enabled]);
-
-  useEffect(() => {
-    const open = () => setReopened(true);
-    window.addEventListener(OPEN, open);
-    return () => window.removeEventListener(OPEN, open);
-  }, []);
 
   // Tell Google, on every page, whether it may collect: yes on public pages after accepting, never on private pages.
   useEffect(() => {
@@ -94,12 +83,11 @@ export function AnalyticsConsent({ enabled, gaId, gtmId }: { enabled: boolean; g
 
   if (!enabled) return null;
 
-  const showBanner = hydrated && !priv && (status === "unset" || reopened);
+  const showBanner = hydrated && !priv && status === "unset";
 
   const choose = (v: "granted" | "denied") => {
     const wasGranted = status === "granted";
     writeConsent(v);
-    setReopened(false);
     if (v === "denied") {
       removeGoogleCookies();
       // Google's scripts cannot be unloaded, so a fresh page load is the only way to be sure they are gone.
@@ -123,15 +111,26 @@ export function AnalyticsConsent({ enabled, gaId, gtmId }: { enabled: boolean; g
         </Script>
       )}
       {showBanner && (
-        <div role="dialog" aria-label="Cookie choices" aria-live="polite"
-          style={{ position: "fixed", left: 12, right: 12, bottom: 12, zIndex: 9999, maxWidth: 560, margin: "0 auto", background: "#fff", color: "#2E2442", border: "1px solid #d9d2e6", borderRadius: 14, boxShadow: "0 8px 30px rgba(0,0,0,.18)", padding: "16px 18px" }}>
-          <p style={{ margin: "0 0 10px", fontSize: 14, lineHeight: 1.5 }}>
-            May we count visits to improve the bookstore? This uses analytics cookies that never include your name, e-mail or payment details.
-            It stays off unless you accept, and it is never used on checkout, account or library pages. You can change your mind any time from &quot;Cookie settings&quot; in the footer.
+        <div role="dialog" aria-label="Cookie choices" aria-live="polite" className="gcb-cookie">
+          <style>{`
+            .gcb-cookie{position:fixed;z-index:60;left:max(12px, env(safe-area-inset-left));right:max(12px, env(safe-area-inset-right));bottom:max(12px, env(safe-area-inset-bottom));max-width:320px;margin:0 auto;box-sizing:border-box;
+              background:#fff;color:#2E2442;border:1px solid #e4dcf0;border-radius:18px;box-shadow:0 12px 36px rgba(46,36,66,.22);
+              padding:22px 20px 18px;display:flex;flex-direction:column;gap:12px;font-family:inherit}
+            .gcb-cookie-title{margin:0;font-family:Georgia,"Times New Roman",serif;font-size:19px;line-height:1.2;font-weight:700}
+            .gcb-cookie-text{margin:0;font-size:14px;line-height:1.55;color:#4a3f60}
+            .gcb-cookie-actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+            .gcb-cookie-actions button{min-height:44px;border-radius:999px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+            .gcb-cookie-accept{background:#4A3868;color:#fff;border:2px solid #4A3868}
+            .gcb-cookie-decline{background:#fff;color:#4A3868;border:2px solid #cdbfe3}
+            @media (min-width:640px){.gcb-cookie{left:auto;right:20px;bottom:20px;margin:0}}
+          `}</style>
+          <h2 className="gcb-cookie-title">A Quick Cookie Question</h2>
+          <p className="gcb-cookie-text">
+            May we count visits to improve the bookstore? Nothing personal is collected, and it is never used at checkout or in your account.
           </p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button type="button" className="btn btn-primary btn-small" onClick={() => choose("granted")}>Accept analytics</button>
-            <button type="button" className="btn btn-ghost btn-small" onClick={() => choose("denied")}>No thanks</button>
+          <div className="gcb-cookie-actions">
+            <button type="button" className="gcb-cookie-accept" onClick={() => choose("granted")}>Accept</button>
+            <button type="button" className="gcb-cookie-decline" onClick={() => choose("denied")}>Decline</button>
           </div>
         </div>
       )}

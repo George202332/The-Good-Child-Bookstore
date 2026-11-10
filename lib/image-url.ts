@@ -27,6 +27,12 @@ export function responsiveImage(url: string, widths: readonly number[]): { src: 
   };
 }
 
+/** A soft, instantly-available stand-in for a picture: the tiny 24px copy, stretched. Empty for pictures that are not ours. */
+export function placeholderStyle(url: string | null | undefined): { backgroundImage?: string; backgroundSize?: string; backgroundPosition?: string } {
+  if (!isUploadedImage(url)) return {};
+  return { backgroundImage: `url(${imageAtWidth(url, 24)})`, backgroundSize: "cover", backgroundPosition: "center" };
+}
+
 /** Parses the ?w= value the image route receives; null means "send the original". */
 export function parseRequestedWidth(raw: string | null): number | null {
   if (!raw) return null;

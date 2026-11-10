@@ -24,7 +24,7 @@ export default function WishlistPage() {
         </div>
       ) : (
         <div className="book-grid" aria-label="Wishlist">
-          {books.map((b) => <BookCard key={b.id} book={b} />)}
+          {books.map((b, i) => <BookCard key={b.id} book={b} priority={i < 6} />)}
         </div>
       )}
     </div>

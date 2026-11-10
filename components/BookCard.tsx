@@ -1,4 +1,4 @@
-import { imageAtWidth } from "@/lib/image-url";
+import { placeholderStyle, responsiveImage } from "@/lib/image-url";
 import Link from "next/link";
 import { CATS, bookSlug, type Book } from "@/lib/data/catalog";
 
@@ -14,16 +14,26 @@ function catName(id: string): string {
  * stands alone now, with no icons on top of it. Those actions are
  * still available from the book's own product page.
  */
-export function BookCard({ book }: { book: Book }) {
+export function BookCard({ book, priority = false }: { book: Book; priority?: boolean }) {
   const pct = Math.max(0, Math.min(100, (parseFloat(book.rating) / 5) * 100));
 
   return (
     <div className="book-card fade-in-section visible">
       <Link href={`/${bookSlug(book)}`}>
-        <div className="cover">
+        <div className="cover" style={placeholderStyle(book.coverImage)}>
           {book.coverImage && (
             // eslint-disable-next-line @next/next/no-img-element -- demo/user-uploaded covers, not static assets
-            <img src={imageAtWidth(book.coverImage, 480)} width={300} height={400} alt={book.coverAltText || `${book.title} cover`} loading="lazy" decoding="async" />
+            <img
+              {...responsiveImage(book.coverImage, [240, 480, 640])}
+              sizes="(max-width: 480px) 45vw, (max-width: 860px) 30vw, 220px"
+              width={300}
+              height={450}
+              alt={book.coverAltText || `${book.title} cover`}
+              // The first few covers on a page are downloaded straight away and first; the rest just before they scroll into view.
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "auto"}
+              decoding="async"
+            />
           )}
         </div>
       </Link>

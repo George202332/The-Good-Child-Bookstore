@@ -1,5 +1,6 @@
 "use client";
 
+import { imageAtWidth } from "@/lib/image-url";
 import { useState } from "react";
 import Link from "next/link";
 import { ColHelp } from "@/components/ColHelp";
@@ -145,7 +146,7 @@ export function MyBooksTable({ rows }: { rows: MyBookRow[] }) {
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       {r.cover ? (
                         // eslint-disable-next-line @next/next/no-img-element -- author-uploaded cover served from our own file route
-                        <img src={r.cover} alt="" height={58} style={{ height: 58, width: "auto", minWidth: 36, maxWidth: 64, objectFit: "contain", borderRadius: 0, flex: "none", background: "var(--cream)" }} />
+                        <img src={imageAtWidth(r.cover, 240)} alt="" height={58} style={{ height: 58, width: "auto", minWidth: 36, maxWidth: 64, objectFit: "contain", borderRadius: 0, flex: "none", background: "var(--cream)" }} />
                       ) : (
                         <span aria-hidden style={{ width: 43, height: 58, borderRadius: 0, background: "var(--cream)", flex: "none" }} />
                       )}
