@@ -9,8 +9,6 @@ export interface CartItem {
   bookId: string;
   format: CartFormat;
   quantity: number;
-  /** Printed copies only: the buyer's Personal Message for this line (the server checks it again). */
-  message?: { text: string; style: string };
 }
 
 const CART_KEY = "gcb_cart";
@@ -51,17 +49,17 @@ export function useCart() {
     };
   }, []);
 
-  const addItem = useCallback((bookId: string, format: CartFormat, quantity = 1, message?: { text: string; style: string }) => {
+  const addItem = useCallback((bookId: string, format: CartFormat, quantity = 1) => {
     const isDigital = format === "ebook" || format === "audiobook";
     const current = readCart();
     const existing = current.find((i) => i.bookId === bookId && i.format === format);
     const next = existing
       ? current.map((i) =>
           i.bookId === bookId && i.format === format
-            ? { ...i, quantity: isDigital ? 1 : i.quantity + quantity, ...(message && !isDigital ? { message } : {}) }
+            ? { ...i, quantity: isDigital ? 1 : i.quantity + quantity }
             : i
         )
-      : [...current, { bookId, format, quantity: isDigital ? 1 : quantity, ...(message && !isDigital ? { message } : {}) }];
+      : [...current, { bookId, format, quantity: isDigital ? 1 : quantity }];
     writeCart(next);
     setItems(next);
     // Anonymous count, only after the visitor accepted analytics (see lib/analytics/track.ts).
@@ -87,17 +85,6 @@ export function useCart() {
     setItems(next);
   }, []);
 
-  /** Sets, changes or (with null) removes the Personal Message on one printed line. */
-  const setMessage = useCallback((bookId: string, format: CartFormat, message: { text: string; style: string } | null) => {
-    const next = readCart().map((i) => {
-      if (!(i.bookId === bookId && i.format === format)) return i;
-      const { message: _old, ...rest } = i; // eslint-disable-line @typescript-eslint/no-unused-vars
-      return message && message.text.trim() ? { ...rest, message } : rest;
-    });
-    writeCart(next);
-    setItems(next);
-  }, []);
-
   const count = items.reduce((sum, i) => sum + i.quantity, 0);
 
   const clear = useCallback(() => {
@@ -105,5 +92,5 @@ export function useCart() {
     setItems([]);
   }, []);
 
-  return { items, count, addItem, removeItem, setQty, setMessage, clear };
+  return { items, count, addItem, removeItem, setQty, clear };
 }

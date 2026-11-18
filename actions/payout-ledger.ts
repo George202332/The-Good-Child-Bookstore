@@ -644,7 +644,7 @@ export async function getPayoutLedger(): Promise<PayoutLedgerRow[] | { error: st
     const pendingRows = await getPendingUnqueuedRows();
 
     // ROOT-CAUSE FIX + FINAL GUARANTEE (Amendment 4, the duplicate
-    // "otieno29" rows). This used to merge only same-day, same-status
+    // duplicate test-account rows). This used to merge only same-day, same-status
     // AUTHOR+AFFILIATE pairs of REAL rows, and nothing at all across the
     // three row sources, so an account could still appear twice with
     // identical figures: (1) two real payouts of the same type (a double

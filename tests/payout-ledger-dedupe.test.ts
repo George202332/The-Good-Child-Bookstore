@@ -12,7 +12,7 @@ import {
 
 /**
  * The "one row per account per payout period" guarantee for the admin
- * payout ledger (the duplicate otieno29@gmail.com rows). See the module
+ * payout ledger (the duplicate test-account rows). See the module
  * comment in lib/payout-ledger-dedupe.ts for the rules these pin down.
  */
 

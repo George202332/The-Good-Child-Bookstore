@@ -18,7 +18,7 @@ import { wrapEmailHtml } from "@/lib/email/template";
  * order confirmation or any other flow that calls this.
  *
  * Staging safety: on the staging (Preview) site nothing is ever sent to a
- * real recipient: every email goes only to otieno29@gmail.com with a
+ * real recipient: every email goes only to thegoodchildbookstore@gmail.com with a
  * [STAGING] subject prefix. Only the live site (Production) sends to real people.
  *
  * From address: must be on a domain verified in the Resend dashboard

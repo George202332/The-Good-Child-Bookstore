@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
 import { listAuthorsDirectoryRows } from "@/actions/authors-directory";
 import { AuthorsTable } from "./AuthorsTable";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Authors — a directory of every author name (pen names included) with
@@ -20,7 +21,10 @@ export default async function AuthorsDirectoryPage() {
   if (!session?.user) redirect("/login");
   if (session.user.role !== "AUTHOR") redirect("/account");
 
-  const authors = await listAuthorsDirectoryRows();
+  // Only the author names that belong to THIS account (its own published books, pen names included). Names that live in another
+  // account, the company author account included, never appear here, and two accounts may use the same name without clashing.
+  const mine = await prisma.authorProfile.findUnique({ where: { userId: session.user.id }, select: { id: true } });
+  const authors = mine ? (await listAuthorsDirectoryRows()).filter((r) => r.authorId === mine.id) : [];
 
   return (
     <DashboardShell role="AUTHOR" activeKey="authors" displayName={session.user.name ?? ""}>
@@ -28,14 +32,14 @@ export default async function AuthorsDirectoryPage() {
         <div>
           <h2 style={{ fontSize: 15.5 }}>Authors</h2>
           <p style={{ color: "var(--ink-soft)", fontSize: 13.5, marginTop: 2 }}>
-            Every author name with a published book on the shelf right now, pen names included.
+            The author names you have published under, pen names included.
           </p>
         </div>
       </div>
 
       {authors.length === 0 ? (
         <div style={{ padding: "20px 0", color: "var(--ink-faint)", fontSize: 13 }}>
-          No published authors yet.
+          None of your author names has a published book yet.
         </div>
       ) : (
         <AuthorsTable authors={authors} />

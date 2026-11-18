@@ -42,10 +42,11 @@ function SocialLinksRow({ links }: { links: SocialLinks }) {
 // itself got a cleaner card treatment — see .footer-payment-badges in
 // app/site.css.
 const PAYMENT_BADGE_LABELS: { key: keyof PaymentBadgeUrls; label: string }[] = [
+  { key: "paypal", label: "PayPal" },
   { key: "mastercard", label: "Mastercard" },
   { key: "visa", label: "Visa" },
   { key: "amex", label: "American Express" },
-  { key: "paypal", label: "PayPal" },
+  { key: "verve", label: "Verve" },
 ];
 
 /** Renders each payment badge as an admin-uploaded image if one is set
@@ -62,7 +63,11 @@ const PAYMENT_BADGE_LABELS: { key: keyof PaymentBadgeUrls; label: string }[] = [
 function PaymentBadges({ badges }: { badges: PaymentBadgeUrls }) {
   return (
     <div className="footer-payment-badges">
-      {PAYMENT_BADGE_LABELS.map(({ key, label }) => (
+      {PAYMENT_BADGE_LABELS.map(({ key, label }) => {
+        // Verve has no built-in picture on purpose (no drawn or placeholder logo): it appears once its real logo is uploaded in
+        // Site Management > Payment Badges.
+        if (key === "verve" && !badges.verve) return null;
+        return (
         <div key={key} className="payment-badge-slot">
           {badges[key] ? (
             // eslint-disable-next-line @next/next/no-img-element -- admin-uploaded badge image, not a static asset
@@ -71,7 +76,8 @@ function PaymentBadges({ badges }: { badges: PaymentBadgeUrls }) {
             <PaymentBadgeIcon type={key} />
           )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

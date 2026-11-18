@@ -84,7 +84,7 @@ test("staging print jobs still need a confirmed payment, and test-money orders a
 
 test("emails: the live site sends, staging and development go only to the one test inbox", () => {
   assert.deepEqual(emailRouteFor("production"), { action: "send" });
-  assert.deepEqual(emailRouteFor("preview"), { action: "sink", to: "otieno29@gmail.com" });
+  assert.deepEqual(emailRouteFor("preview"), { action: "sink", to: "thegoodchildbookstore@gmail.com" });
   assert.deepEqual(emailRouteFor("development"), { action: "sink", to: STAGING_EMAIL_ADDRESS });
 });
 

@@ -19,7 +19,7 @@ const BADGE_FIELDS: { key: keyof SiteSettings["paymentBadges"]; label: string }[
   // Not shown in the footer (M-Pesa was removed from there and PayPal
   // took its place among the four footer badges), but still used on the
   // checkout page's accepted-card-brands row, so still manageable here.
-  { key: "verve", label: "Verve (checkout only)" },
+  { key: "verve", label: "Verve" },
 ];
 
 export function SiteSettingsForm({ initial }: { initial: SiteSettings }) {

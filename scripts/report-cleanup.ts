@@ -96,7 +96,7 @@ async function main() {
     const sent = await tx.order.findMany({ where: { printJobStatus: "SUBMITTED" }, select: { id: true } });
     const realEmail = await tx.$queryRawUnsafe<{ id: string }[]>(`
       SELECT o."id" FROM "Order" o JOIN "ReaderProfile" r ON r."id"=o."readerId" JOIN "User" u ON u."id"=r."userId"
-      WHERE u."email" !~* '(@example\\.|^test|\\+test|@test\\.|@mailinator|@yopmail|otieno29@gmail\\.com)'`);
+      WHERE u."email" !~* '(@example\\.|^test|\\+test|@test\\.|@mailinator|@yopmail|thegoodchildbookstore@gmail\\.com)'`);
     console.log(`    Paid through a LIVE key: ${live.size}   |   paid, mode not recorded: ${unknown.size}   |   created on/after the live day: ${after.length}`);
     console.log(`    Sent to Lulu as real print jobs: ${sent.length}   |   placed by an account whose email does not look like a test address: ${realEmail.length}`);
     const suspect = new Set<string>([...live, ...unknown, ...after.map((o) => o.id), ...sent.map((o) => o.id), ...realEmail.map((o) => o.id)]);

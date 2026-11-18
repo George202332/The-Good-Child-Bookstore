@@ -124,7 +124,7 @@ export function printBlockedMessage(deployment: Deployment): string {
 export const STAGING_LULU_REFERENCE = "STAGING TEST, CANCEL";
 
 /** The only inbox staging ever emails. */
-export const STAGING_EMAIL_ADDRESS = "otieno29@gmail.com";
+export const STAGING_EMAIL_ADDRESS = "thegoodchildbookstore@gmail.com";
 
 export type EmailRoute = { action: "send" } | { action: "sink"; to: string };
 

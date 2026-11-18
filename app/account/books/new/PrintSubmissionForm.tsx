@@ -93,9 +93,6 @@ export interface PrintSubmissionInitial {
   hardcoverRetailPrice?: string;
   luluGlobalDistribution?: boolean;
   privatePrinting?: boolean;
-  personalMessageEnabled?: boolean;
-  personalMessagePage?: number;
-  personalMessageDefaultLine?: string;
 }
 
 
@@ -221,9 +218,6 @@ export function PrintSubmissionForm({
   // longer a choice here (metadata always stores true for both flags).
   const [luluGlobalDistribution, setLuluGlobalDistribution] = useState(initial?.luluGlobalDistribution ?? true);
   const [privatePrinting, setPrivatePrinting] = useState(initial?.privatePrinting ?? false);
-  const [personalMessageEnabled, setPersonalMessageEnabled] = useState(initial?.personalMessageEnabled ?? false);
-  const [personalMessagePage, setPersonalMessagePage] = useState(String(initial?.personalMessagePage ?? 3));
-  const [personalMessageDefaultLine, setPersonalMessageDefaultLine] = useState(initial?.personalMessageDefaultLine ?? "");
 
   const [busy, setBusy] = useState<"idle" | "saving" | "publishing">("idle");
   const [notice, setNotice] = useState<PublishNotice | null>(null);
@@ -576,9 +570,6 @@ export function PrintSubmissionForm({
         sellThroughWebsite: true,
         luluGlobalDistribution,
         privatePrinting,
-        personalMessageEnabled,
-        personalMessagePage: personalMessageEnabled ? Math.max(1, Math.round(Number(personalMessagePage) || 3)) : undefined,
-        personalMessageDefaultLine: personalMessageEnabled ? personalMessageDefaultLine.trim().slice(0, 80) || undefined : undefined,
         interiorColor,
         printQuality,
         binding: paperbackEnabled ? paperbackBinding : "LW",
@@ -1042,25 +1033,6 @@ export function PrintSubmissionForm({
           <label className="toggle-switch"><input type="checkbox" checked={luluGlobalDistribution} onChange={(e) => setLuluGlobalDistribution(e.target.checked)} /><span className="toggle-slider" /></label>
           <span>Lulu Global Distribution</span>
         </div>
-        <div className="toggle-row">
-          <label className="toggle-switch"><input type="checkbox" checked={personalMessageEnabled} onChange={(e) => setPersonalMessageEnabled(e.target.checked)} /><span className="toggle-slider" /></label>
-          <span>Personal Message (Let Buyers Add A Dedication To Their Copy)</span>
-        </div>
-        {personalMessageEnabled && (
-          <div className="pm-author-box">
-            <p className="field-hint" style={{ marginTop: 0 }}>
-              Buyers of a printed copy can add a short message that is printed on one page of their own copy. That page must be a blank page near the front of your interior PDF; it is replaced only in personalised copies, so the page count, printing cost and spine do not change. This setting goes through review like any other edit.
-            </p>
-            <div className="pm-author-fields">
-              <label className="field-label">Blank Page Number In Your Interior
-                <input className="input" type="number" min={1} max={20} value={personalMessagePage} onChange={(e) => setPersonalMessagePage(e.target.value)} />
-              </label>
-              <label className="field-label">Line Printed When A Buyer Adds No Message (Optional)
-                <input className="input" maxLength={80} value={personalMessageDefaultLine} onChange={(e) => setPersonalMessageDefaultLine(e.target.value)} placeholder="Leave empty to keep the page blank" />
-              </label>
-            </div>
-          </div>
-        )}
       </Card>
 
       <PublishPanel

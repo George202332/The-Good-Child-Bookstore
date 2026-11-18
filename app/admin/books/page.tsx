@@ -8,6 +8,7 @@ import { PublishingFormatToggles } from "./PublishingFormatToggles";
 import { ColHelp } from "@/components/ColHelp";
 import { BookFormatTabs } from "@/components/BookFormatTabs";
 import { listPrintBookIssues } from "@/lib/print-book-issues";
+import { NeedsActionBanner } from "@/components/NeedsActionBanner";
 
 const STATUS_TABS: { key: "ALL" | "PUBLISHED" | "PENDING_REVIEW" | "DRAFT" | "REJECTED"; label: string }[] = [
   { key: "ALL", label: "All" },
@@ -61,10 +62,12 @@ export default async function BookManagementPage({
         </div>
       </div>
 
+      <NeedsActionBanner />
+
       {role === "ADMIN" && <PublishingFormatToggles initial={siteSettings.publishingFormatsEnabled} />}
 
       {stats.pendingReview > 0 && (
-        <Link href="/admin/books?status=PENDING_REVIEW" role="alert" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "12px 16px", borderRadius: 12, background: "#F5D98F", color: "#6B4503", fontWeight: 700, fontSize: 13.5, textDecoration: "none" }}>
+        <Link href="/admin/books?status=PENDING_REVIEW" role="alert" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "12px 16px", borderRadius: 12, background: "#FFD66B", color: "#1F1300", border: "1px solid #C89300", fontWeight: 700, fontSize: 13.5, textDecoration: "none" }}>
           <span aria-hidden="true" style={{ fontSize: 16 }}>!</span>
           {stats.pendingReview} {stats.pendingReview === 1 ? "edition is" : "editions are"} waiting for review. Open the Under Review list.
         </Link>

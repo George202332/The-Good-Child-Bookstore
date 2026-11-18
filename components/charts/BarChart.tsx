@@ -28,15 +28,15 @@ export function BarChart({ data, color = "var(--coral)", height = 140, valueSuff
     // the right edge of the card, reading as the chart being skewed/
     // leaning right instead of centered. Forcing minWidth:0 lets flex:1
     // actually shrink each bar down to the available width.
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 10, height: height + 30, width: "100%", maxWidth: "100%" }}>
+    <div className="bar-chart" style={{ height: height + 30 }}>
       {data.map((d) => (
         <div key={d.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", flex: 1, minWidth: 0, height: "100%", justifyContent: "flex-end" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>{d.value}{valueSuffix}</div>
+          <div className="bar-chart-value">{d.value}{valueSuffix}</div>
           <div
             title={`${d.label}: ${d.value}${valueSuffix}`}
             style={{ width: "100%", background: color, borderRadius: "4px 4px 0 0", height: `${Math.max(4, (d.value / max) * height)}px` }}
           />
-          <div style={{ fontSize: 10, color: "var(--ink-faint)", marginTop: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.label}</div>
+          <div className="bar-chart-label">{d.label}</div>
         </div>
       ))}
     </div>
