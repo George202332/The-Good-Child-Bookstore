@@ -19,5 +19,6 @@
   "20261108090000_scaling_indexes_and_rate_limits",
   "20261109090000_processing_fee",
   "20261110090000_personal_message",
-  "20261118090000_amendment_batch"
+  "20261118090000_amendment_batch",
+  "20261118150000_departments_and_order_updates"
 ]

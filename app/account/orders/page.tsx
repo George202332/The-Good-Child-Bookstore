@@ -1,3 +1,4 @@
+import { ON_HOLD_TEXT } from "@/lib/lulu-order-updates";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
@@ -15,6 +16,7 @@ interface OrderWithLines {
   status: string;
   createdAt: Date;
   printJobStatus: string | null;
+  luluRejectedAt?: Date | null;
   lines: OrderLine[];
 }
 
@@ -64,10 +66,11 @@ export default async function OrdersPage() {
               </div>
               <div style={{ fontSize: 13 }}>{o.lines.map((l: OrderLine) => l.book.title).join(", ")}</div>
               {o.lines.some((l) => l.format === "paperback" || l.format === "hardcover") && (
-                <div style={{ fontSize: 12, marginTop: 6, fontWeight: 600, color: o.printJobStatus === "FAILED" ? "var(--coral-deep)" : "#165236" }}>
-                  {o.printJobStatus === "SUBMITTED" && "✓ Sent to our print partner for production"}
-                  {o.printJobStatus === "FAILED" && "We hit an issue sending this to our print partner — our team has been notified"}
-                  {(!o.printJobStatus || o.printJobStatus === "SUBMITTING" || o.printJobStatus === "HELD_TEST") && "Preparing to send to our print partner"}
+                <div style={{ fontSize: 12, marginTop: 6, fontWeight: 600, color: o.printJobStatus === "FAILED" && !o.luluRejectedAt ? "var(--coral-deep)" : "#165236" }}>
+                  {o.luluRejectedAt && ON_HOLD_TEXT}
+                  {!o.luluRejectedAt && o.printJobStatus === "SUBMITTED" && "✓ Sent to our print partner for production"}
+                  {!o.luluRejectedAt && o.printJobStatus === "FAILED" && "We hit an issue sending this to our print partner — our team has been notified"}
+                  {!o.luluRejectedAt && (!o.printJobStatus || o.printJobStatus === "SUBMITTING" || o.printJobStatus === "HELD_TEST") && "Preparing to send to our print partner"}
                 </div>
               )}
             </div>

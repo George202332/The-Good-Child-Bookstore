@@ -192,3 +192,18 @@ export async function updatePayoutSchedule(input: PayoutScheduleInput): Promise<
     return { ok: false, error: e instanceof Error ? `Couldn't save: ${e.message}` : "Couldn't save — please try again." };
   }
 }
+
+/** Admin only: how many days between reminders to an author whose print file was rejected (1 to 30; default 3). */
+export async function updateLuluReminderDays(days: number): Promise<{ ok: boolean; error?: string }> {
+  const session = await auth();
+  if (session?.user?.role !== "ADMIN") return { ok: false, error: "Only Admins can change this." };
+  const n = Number(days);
+  if (!Number.isInteger(n) || n < 1 || n > 30) return { ok: false, error: "Use a whole number of days from 1 to 30." };
+  try {
+    await prisma.setting.upsert({ where: { key: "lulu_reminder_days" }, update: { value: { days: n } }, create: { key: "lulu_reminder_days", value: { days: n } } });
+    revalidatePath("/admin/site-settings");
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "Couldn't save. Please try again." };
+  }
+}

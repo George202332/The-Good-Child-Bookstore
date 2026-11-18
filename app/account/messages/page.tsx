@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
-import { loadInbox, listSentMessages, listDraftMessages } from "@/actions/messages";
+import { loadInbox, listSentMessages, listDraftMessages, listMyBooksForMessage } from "@/actions/messages";
 import { MessagesApp } from "./MessagesApp";
 
 /** Messages: a two-panel inbox (conversation list, open conversation, reply box). Everything arrives in one trip, so
@@ -13,7 +13,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
   if (role !== "READER" && role !== "AUTHOR") redirect("/admin");
   const { c } = await searchParams;
 
-  const [conversations, sent, drafts] = await Promise.all([loadInbox(), listSentMessages(), listDraftMessages()]);
+  const [conversations, sent, drafts, books] = await Promise.all([loadInbox(), listSentMessages(), listDraftMessages(), role === "AUTHOR" ? listMyBooksForMessage() : Promise.resolve([])]);
 
   return (
     <DashboardShell role={role} activeKey="messages" displayName={session.user.name ?? ""}>
@@ -28,6 +28,8 @@ export default async function MessagesPage({ searchParams }: { searchParams: Pro
         sent={sent.map((m) => ({ ...m, createdAt: m.createdAt.toISOString() }))}
         drafts={drafts.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() }))}
         initialCounterpartId={c ?? null}
+        isAuthor={role === "AUTHOR"}
+        books={books}
       />
     </DashboardShell>
   );

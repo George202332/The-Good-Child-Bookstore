@@ -3,10 +3,13 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  findUserToMessage, getSupportRecipient, markConversationRead, saveDraft, sendDraft, sendMessage, updateDraft, deleteDraft,
+  findUserToMessage, getSupportRecipient, markMessagesRead, saveDraft, sendDraft, sendMessage, updateDraft, deleteDraft,
   type InboxConversation, type SentMessageRow, type DraftMessageRow,
 } from "@/actions/messages";
 import { DEPARTMENTS, departmentOf, type DepartmentKey } from "@/lib/message-departments";
+import type { BookRef } from "@/lib/book-reference";
+
+const BOOK_DEPTS: string[] = ["EDITOR", "CHIEF_EDITOR"];
 
 type SentRow = Omit<SentMessageRow, "createdAt"> & { createdAt: string };
 type DraftRow = Omit<DraftMessageRow, "createdAt"> & { createdAt: string };
@@ -53,8 +56,8 @@ const BackArrow = () => (
 );
 
 export function MessagesApp({
-  conversations, sent, drafts, initialCounterpartId,
-}: { conversations: InboxConversation[]; sent: SentRow[]; drafts: DraftRow[]; initialCounterpartId: string | null }) {
+  conversations, sent, drafts, initialCounterpartId, isAuthor, books,
+}: { conversations: InboxConversation[]; sent: SentRow[]; drafts: DraftRow[]; initialCounterpartId: string | null; isAuthor: boolean; books: BookRef[] }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("inbox");
   const [query, setQuery] = useState("");
@@ -77,7 +80,7 @@ export function MessagesApp({
 
   useEffect(() => {
     if (selected && selected.unread > 0) {
-      markConversationRead(selected.counterpartId).then(() => router.refresh());
+      markMessagesRead(selected.messages.filter((m) => !m.fromMe).map((m) => m.id)).then(() => router.refresh());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKey]);
@@ -136,7 +139,7 @@ export function MessagesApp({
       </div>
       {notice && <div className="msg-notice" role="status">{notice}</div>}
 
-      <div className={`msg-app${mobileChat ? " msg-show-chat" : ""}`}>
+      <div className={`msg-app${mobileChat ? " msg-show-chat" : ""}${composing ? " msg-composing" : ""}`}>
         {/* ---------- Left: list ---------- */}
         <aside className="msg-list-panel">
           <div className="msg-search">
@@ -201,6 +204,8 @@ export function MessagesApp({
             <ComposeInline
               key={composing.draft?.id ?? "new"}
               draft={composing.draft}
+              isAuthor={isAuthor}
+              books={books}
               onLeave={leaveCompose}
               onSent={() => { setComposing(null); setTab("inbox"); setMobileChat(false); router.refresh(); }}
               onDraftSaved={() => { setNotice("Your draft was saved. You can find it under Drafts."); router.refresh(); }}
@@ -229,6 +234,7 @@ export function MessagesApp({
                   <div key={m.id} className={`msg-bubble-row ${m.fromMe ? "me" : "them"}`}>
                     <div className={`msg-bubble ${m.fromMe ? "me" : "them"}`}>
                       {m.automatic && <div className="msg-bubble-tags"><AutoTag /></div>}
+                      {m.bookTitle && <div className="msg-bubble-book">Book: {m.bookTitle} · SN {m.bookSn ?? "—"}</div>}
                       <div className="msg-bubble-text">{m.body}</div>
                       <div className="msg-bubble-time">{tidyTime(m.createdAt)}</div>
                     </div>
@@ -277,10 +283,13 @@ export function MessagesApp({
  * arrow, opening another conversation or tab, or closing the page) saves a draft that appears under Drafts. Sending it
  * does not. Messages to our team need a department and a subject; messages to a person need a person.
  */
-function ComposeInline({ draft, onLeave, onSent, onDraftSaved }: { draft: DraftRow | null; onLeave: () => void; onSent: () => void; onDraftSaved: () => void }) {
+function ComposeInline({ draft, isAuthor, books, onLeave, onSent, onDraftSaved }: { draft: DraftRow | null; isAuthor: boolean; books: BookRef[]; onLeave: () => void; onSent: () => void; onDraftSaved: () => void }) {
   const [mode, setMode] = useState<"team" | "person">(draft && !draft.department ? "person" : "team");
   const [department, setDepartment] = useState<DepartmentKey | "">((draft?.department as DepartmentKey | null) ?? "");
   const [subject, setSubject] = useState(draft?.subject ?? "");
+  const [bookId, setBookId] = useState(draft?.bookId ?? "");
+  const deptChoices = DEPARTMENTS.filter((d) => isAuthor || !BOOK_DEPTS.includes(d.key));
+  const needsBook = mode === "team" && BOOK_DEPTS.includes(department);
   const [body, setBody] = useState(draft?.body ?? "");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ id: string; name: string; role: string }[]>([]);
@@ -290,8 +299,8 @@ function ComposeInline({ draft, onLeave, onSent, onDraftSaved }: { draft: DraftR
   const [busy, setBusy] = useState(false);
 
   // Latest values for the "leave and save" paths, which run outside normal renders.
-  const live = useRef({ mode, department, subject, body, person, supportId, draftId: draft?.id ?? null as string | null });
-  useEffect(() => { live.current = { mode, department, subject, body, person, supportId, draftId: draft?.id ?? null }; });
+  const live = useRef({ mode, department, subject, bookId, body, person, supportId, draftId: draft?.id ?? null as string | null });
+  useEffect(() => { live.current = { mode, department, subject, bookId, body, person, supportId, draftId: draft?.id ?? null }; });
   const draftIdRef = useRef<string | null>(draft?.id ?? null);
   const finished = useRef(false);
   const onDraftSavedRef = useRef(onDraftSaved);
@@ -309,7 +318,7 @@ function ComposeInline({ draft, onLeave, onSent, onDraftSaved }: { draft: DraftR
     if (!v.body.trim()) return false;
     const recipientId = v.mode === "team" ? v.supportId : v.person?.id ?? null;
     if (!recipientId) return false;
-    const extra = v.mode === "team" && v.department ? { department: v.department, subject: v.subject } : undefined;
+    const extra = v.mode === "team" && v.department ? { department: v.department, subject: v.subject, ...(v.bookId ? { bookId: v.bookId } : {}) } : undefined;
     const res: { ok: boolean; error?: string; draftId?: string } = draftIdRef.current
       ? await updateDraft(draftIdRef.current, recipientId, v.body, extra)
       : await saveDraft(recipientId, v.body, extra);
@@ -343,12 +352,13 @@ function ComposeInline({ draft, onLeave, onSent, onDraftSaved }: { draft: DraftR
     if (mode === "team") {
       if (!department) { setBusy(false); setError("Choose a department."); return; }
       if (!subject.trim()) { setBusy(false); setError("Add a subject."); return; }
+      if (BOOK_DEPTS.includes(department) && !bookId) { setBusy(false); setError("Choose the book this message is about."); return; }
       const sid = supportId ?? (await getSupportRecipient())?.id;
       if (!sid) { setBusy(false); setError("Our team inbox is not set up yet."); return; }
       if (draftIdRef.current) {
-        const u = await updateDraft(draftIdRef.current, sid, body, { department, subject });
+        const u = await updateDraft(draftIdRef.current, sid, body, { department, subject, bookId: bookId || undefined });
         res = u.ok ? await sendDraft(draftIdRef.current) : u;
-      } else res = await sendMessage(sid, body, undefined, { department, subject });
+      } else res = await sendMessage(sid, body, undefined, { department, subject, bookId: bookId || undefined });
     } else {
       if (!person) { setBusy(false); setError("Choose who this message is for."); return; }
       if (draftIdRef.current) {
@@ -385,8 +395,17 @@ function ComposeInline({ draft, onLeave, onSent, onDraftSaved }: { draft: DraftR
             <label className="field-label" htmlFor="msg-dept">Department</label>
             <select id="msg-dept" className="field" value={department} onChange={(e) => setDepartment(e.target.value as DepartmentKey)}>
               <option value="">Choose a department…</option>
-              {DEPARTMENTS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+              {deptChoices.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
             </select>
+            {needsBook && (
+              <>
+                <label className="field-label" htmlFor="msg-book">Book</label>
+                <select id="msg-book" className="field" value={bookId} onChange={(e) => setBookId(e.target.value)}>
+                  <option value="">{books.length === 0 ? "You have no books yet" : "Choose one of your books…"}</option>
+                  {books.map((b) => <option key={b.id} value={b.id}>{b.title} · SN {b.sn}</option>)}
+                </select>
+              </>
+            )}
             <label className="field-label" htmlFor="msg-subject">Subject</label>
             <input id="msg-subject" className="field" type="text" maxLength={140} value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="What is this about?" />
           </>
@@ -404,10 +423,10 @@ function ComposeInline({ draft, onLeave, onSent, onDraftSaved }: { draft: DraftR
           </>
         )}
         <label className="field-label" htmlFor="msg-body">Message</label>
-        <textarea id="msg-body" className="field" rows={7} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your message…" />
+        <textarea id="msg-body" className="field" rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write your message…" />
         {error && <div className="field-hint msg-error">{error}</div>}
         <div className="msg-compose-actions">
-          <button type="button" className="btn btn-primary btn-small" disabled={busy} onClick={send}>Send</button>
+          <button type="button" className="btn btn-primary btn-small" disabled={busy || (needsBook && !bookId)} onClick={send}>Send</button>
           <button type="button" className="btn btn-ghost btn-small" disabled={busy} onClick={cancel}>Cancel</button>
         </div>
       </div>

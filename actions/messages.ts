@@ -8,6 +8,7 @@ import { sendEmail } from "@/lib/email";
 import { SUPPORT_CATEGORIES, type SupportCategory } from "@/lib/support-categories";
 import { DEPARTMENTS, categoryForDepartment, departmentForCategory, departmentOf, type DepartmentKey } from "@/lib/message-departments";
 import { getMessageMeta, setMessageMeta } from "@/lib/message-meta";
+import { bookRefOwnedBy, listBooksOfAuthor, type BookRef } from "@/lib/book-reference";
 
 const SUPPORT_INBOX = process.env.SUPPORT_INBOX_EMAIL || "support@thegoodchildbookstore.com";
 
@@ -111,6 +112,9 @@ export interface DraftMessageRow {
   /** Set when the draft is a message to one of our departments. */
   department: string | null;
   subject: string | null;
+  bookId: string | null;
+  bookTitle: string | null;
+  bookSn: string | null;
 }
 
 /** Saved-but-unsent messages — a real, persistent draft, not anything
@@ -134,6 +138,9 @@ export async function listDraftMessages(): Promise<DraftMessageRow[]> {
       createdAt: m.createdAt,
       department: meta.get(m.id)?.department ?? null,
       subject: meta.get(m.id)?.subject ?? null,
+      bookId: meta.get(m.id)?.bookId ?? null,
+      bookTitle: meta.get(m.id)?.bookTitle ?? null,
+      bookSn: meta.get(m.id)?.bookSn ?? null,
     }));
   } catch {
     return [];
@@ -194,12 +201,38 @@ export async function getSupportRecipient(): Promise<{ id: string; name: string 
   return { id: admin.id, name: "Support Team" };
 }
 
-export async function sendMessage(recipientId: string, body: string, category?: SupportCategory, extra?: { department?: DepartmentKey; subject?: string }): Promise<{ ok: boolean; error?: string }> {
+const BOOK_DEPARTMENTS: DepartmentKey[] = ["EDITOR", "CHIEF_EDITOR"];
+
+/**
+ * The book rule, checked on the server (hiding a button is not enough):
+ *  - Readers cannot write to the Editor or Chief Editor at all.
+ *  - An author writing to either must pick one of THEIR OWN books; the title and SN come from the book itself.
+ *  - Payouts, Accounting and Operations need no book.
+ */
+async function checkBookRule(userId: string, role: string | undefined, department: DepartmentKey | undefined, bookId: string | undefined): Promise<{ ok: true; book: BookRef | undefined } | { ok: false; error: string }> {
+  if (!department || !BOOK_DEPARTMENTS.includes(department)) return { ok: true, book: undefined };
+  if (role !== "AUTHOR") return { ok: false, error: "Only authors can write to the Editor or Chief Editor." };
+  if (!bookId) return { ok: false, error: "Choose the book this message is about." };
+  const book = await bookRefOwnedBy(userId, bookId);
+  if (!book) return { ok: false, error: "Choose one of your own books." };
+  return { ok: true, book };
+}
+
+/** The author's own books for the message form's book selector (empty for readers). */
+export async function listMyBooksForMessage(): Promise<BookRef[]> {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "AUTHOR") return [];
+  return listBooksOfAuthor(session.user.id);
+}
+
+export async function sendMessage(recipientId: string, body: string, category?: SupportCategory, extra?: { department?: DepartmentKey; subject?: string; bookId?: string }): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   if (extra?.department && !DEPARTMENTS.some((d) => d.key === extra.department)) return { ok: false, error: "Choose a department." };
   if (extra?.department && !category) category = categoryForDepartment(extra.department);
   if (!session?.user) return { ok: false, error: "You need to be signed in." };
   if (!body.trim()) return { ok: false, error: "Message can't be empty." };
+  const bookCheck = await checkBookRule(session.user.id, session.user.role, extra?.department, extra?.bookId);
+  if (!bookCheck.ok) return { ok: false, error: bookCheck.error };
   if (recipientId === session.user.id) return { ok: false, error: "You can't message yourself." };
 
   const recipient = await prisma.user.findUnique({ where: { id: recipientId } });
@@ -221,7 +254,7 @@ export async function sendMessage(recipientId: string, body: string, category?: 
     select: { id: true },
   });
   if (isSupportMessage && extra?.department) {
-    await setMessageMeta(created.id, { department: extra.department, subject: extra.subject?.trim().slice(0, 140) || null });
+    await setMessageMeta(created.id, { department: extra.department, subject: extra.subject?.trim().slice(0, 140) || null, book: bookCheck.book });
   }
   const { createNotification } = await import("@/lib/notify");
   await createNotification(recipientId, `New message from ${session.user.name}`, body.trim().slice(0, 140), "MESSAGE");
@@ -255,7 +288,7 @@ export async function sendMessage(recipientId: string, body: string, category?: 
 
 /** Saves a draft for later — same shape as sendMessage, but marked
  * isDraft so it never reaches the recipient. */
-export async function saveDraft(recipientId: string, body: string, extra?: { department?: DepartmentKey; subject?: string }): Promise<{ ok: boolean; error?: string; draftId?: string }> {
+export async function saveDraft(recipientId: string, body: string, extra?: { department?: DepartmentKey; subject?: string; bookId?: string }): Promise<{ ok: boolean; error?: string; draftId?: string }> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "You need to be signed in." };
   if (!recipientId) return { ok: false, error: "Choose who this draft is for." };
@@ -268,14 +301,15 @@ export async function saveDraft(recipientId: string, body: string, extra?: { dep
     data: { senderId: session.user.id, recipientId, body: body.trim(), isDraft: true },
   });
   if (extra?.department && DEPARTMENTS.some((d) => d.key === extra.department)) {
-    await setMessageMeta(draft.id, { department: extra.department, subject: extra.subject?.trim().slice(0, 140) || null });
+    const bk = extra.bookId && BOOK_DEPARTMENTS.includes(extra.department) && session.user.role === "AUTHOR" ? await bookRefOwnedBy(session.user.id, extra.bookId) : null;
+    await setMessageMeta(draft.id, { department: extra.department, subject: extra.subject?.trim().slice(0, 140) || null, book: bk });
   }
   revalidatePath("/account/messages");
   return { ok: true, draftId: draft.id };
 }
 
 /** Updates an existing draft's text/recipient without sending it. */
-export async function updateDraft(draftId: string, recipientId: string, body: string, extra?: { department?: DepartmentKey; subject?: string }): Promise<{ ok: boolean; error?: string }> {
+export async function updateDraft(draftId: string, recipientId: string, body: string, extra?: { department?: DepartmentKey; subject?: string; bookId?: string }): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "You need to be signed in." };
 
@@ -285,7 +319,8 @@ export async function updateDraft(draftId: string, recipientId: string, body: st
 
   await prisma.message.update({ where: { id: draftId }, data: { recipientId, body: body.trim() } });
   if (extra?.department && DEPARTMENTS.some((d) => d.key === extra.department)) {
-    await setMessageMeta(draftId, { department: extra.department, subject: extra.subject?.trim().slice(0, 140) || null });
+    const bk = extra.bookId && BOOK_DEPARTMENTS.includes(extra.department) && session.user.role === "AUTHOR" ? await bookRefOwnedBy(session.user.id, extra.bookId) : null;
+    await setMessageMeta(draftId, { department: extra.department, subject: extra.subject?.trim().slice(0, 140) || null, book: bk });
   }
   revalidatePath("/account/messages");
   return { ok: true };
@@ -306,6 +341,8 @@ export async function sendDraft(draftId: string): Promise<{ ok: boolean; error?:
   if (draftRecipient && BACKEND_ROLES.includes(draftRecipient.role) && !draftMeta?.department) {
     return { ok: false, error: "Open this draft with Edit and choose a department before sending it." };
   }
+  const bookCheck = await checkBookRule(session.user.id, session.user.role, (draftMeta?.department as DepartmentKey | undefined) ?? undefined, draftMeta?.bookId ?? undefined);
+  if (!bookCheck.ok) return { ok: false, error: bookCheck.error };
   const draftCategory = draftMeta?.department && DEPARTMENTS.some((d) => d.key === draftMeta.department) ? categoryForDepartment(draftMeta.department as DepartmentKey) : undefined;
   await prisma.message.update({ where: { id: draftId }, data: { isDraft: false, createdAt: new Date(), ...(draftCategory ? { category: draftCategory } : {}) } });
   const { createNotification } = await import("@/lib/notify");
@@ -367,6 +404,8 @@ export interface InboxMessage {
   automatic: boolean;
   department: string | null;
   subject: string | null;
+  bookTitle: string | null;
+  bookSn: string | null;
 }
 
 export interface InboxConversation {
@@ -397,6 +436,8 @@ export async function loadInbox(): Promise<InboxConversation[]> {
       take: 400,
     });
     const meta = await getMessageMeta(rows.map((r: { id: string }) => r.id));
+    // Every staff member who answers speaks for the department, so a department is ONE conversation however many people replied.
+    const support = await getSupportRecipient();
     const groups = new Map<string, InboxConversation>();
     const lastDept = new Map<string, string | null>();
     // Oldest first, so each conversation's messages read top to bottom and the last one seen is the latest.
@@ -406,19 +447,20 @@ export async function loadInbox(): Promise<InboxConversation[]> {
     }[]) {
       const fromMe = m.senderId === me;
       const other = fromMe ? m.recipient : m.sender;
-      const counterpartId = fromMe ? m.recipientId : m.senderId;
+      const personId = fromMe ? m.recipientId : m.senderId;
       const isTeam = BACKEND_ROLES.includes(other.role as never);
+      const counterpartId = isTeam && support ? support.id : personId;
       const mm = meta.get(m.id);
       // An admin reply carries no department of its own: it joins the department of the conversation it answers.
-      const department = isTeam ? (mm?.department ?? departmentForCategory(m.category) ?? lastDept.get(counterpartId) ?? null) : null;
-      if (isTeam) lastDept.set(counterpartId, department);
+      const department = isTeam ? (mm?.department ?? departmentForCategory(m.category) ?? lastDept.get(personId) ?? null) : null;
+      if (isTeam) lastDept.set(personId, department);
       const key = `${counterpartId}|${department ?? ""}`;
       let g = groups.get(key);
       if (!g) {
         g = { key, counterpartId, name: isTeam ? (departmentOf(department)?.label ? `${departmentOf(department)!.label} Team` : "Support Team") : other.name, isTeam, department, subject: null, automatic: false, lastAt: "", lastBody: "", unread: 0, messages: [] };
         groups.set(key, g);
       }
-      g.messages.push({ id: m.id, body: m.body, createdAt: m.createdAt.toISOString(), fromMe, automatic: !!mm?.automatic, department, subject: mm?.subject ?? null });
+      g.messages.push({ id: m.id, body: m.body, createdAt: m.createdAt.toISOString(), fromMe, automatic: !!mm?.automatic, department, subject: mm?.subject ?? null, bookTitle: mm?.bookTitle ?? null, bookSn: mm?.bookSn ?? null });
       g.lastAt = m.createdAt.toISOString();
       g.lastBody = m.body;
       g.automatic = !!mm?.automatic;
@@ -437,6 +479,18 @@ export async function markConversationRead(counterpartId: string): Promise<void>
   if (!session?.user) return;
   try {
     await prisma.message.updateMany({ where: { senderId: counterpartId, recipientId: session.user.id, readAt: null, isDraft: false }, data: { readAt: new Date() } });
+    revalidatePath("/account/messages");
+  } catch {
+    // not critical
+  }
+}
+
+/** Marks these messages (only ones sent TO you) as read: used when a conversation is opened. */
+export async function markMessagesRead(ids: string[]): Promise<void> {
+  const session = await auth();
+  if (!session?.user || ids.length === 0) return;
+  try {
+    await prisma.message.updateMany({ where: { id: { in: ids.slice(0, 500) }, recipientId: session.user.id, readAt: null, isDraft: false }, data: { readAt: new Date() } });
     revalidatePath("/account/messages");
   } catch {
     // not critical

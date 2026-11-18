@@ -110,14 +110,14 @@ describe("payout statement PDF: original layout plus the small tax section at th
     authorName: "Test Reader", monthLabel: "Oct 2026", payoutDate: new Date(2026, 10, 15), status: "Pending payout",
     organicRevenue: 0, affiliateChannelRevenue: 0, referralCommission: 0, promotionCommission: 0, rolloverAmount: 0, totalPayout: 0,
     organicRows: [], affiliateRows: [], referralRows: [], promotionRows: [],
-    tax: { rate: null, withholdingTax: 0, transactionCost: 0, netPaid: 0 },
+    tax: { gross: 0, rate: null, withholdingTax: 0, transactionCost: 0, netPaid: 0 },
   };
   test("no payout that month: a valid PDF with zeros in the tax section", async () => {
     const bytes = await buildPayoutStatementPdf(base);
     assert.equal(Buffer.from(bytes.slice(0, 5)).toString(), "%PDF-");
   });
   test("a payout with tax recorded renders", async () => {
-    const bytes = await buildPayoutStatementPdf({ ...base, totalPayout: 100, tax: { rate: 20, withholdingTax: 20, transactionCost: 1.5, netPaid: 78.5 } });
+    const bytes = await buildPayoutStatementPdf({ ...base, totalPayout: 100, tax: { gross: 100, rate: 20, withholdingTax: 20, transactionCost: 1.5, netPaid: 78.5 } });
     assert.equal(Buffer.from(bytes.slice(0, 5)).toString(), "%PDF-");
   });
 });

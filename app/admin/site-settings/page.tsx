@@ -6,6 +6,8 @@ import { getPagesContent } from "@/actions/page-content";
 import { SiteSettingsForm } from "./SiteSettingsForm";
 import { PageContentForm } from "./PageContentForm";
 import { ShippingLevelsForm } from "./ShippingLevelsForm";
+import { LuluReminderSetting } from "./LuluReminderSetting";
+import { getLuluReminderDays } from "@/lib/lulu-reminder-setting";
 
 /**
  * Site Management — branding (logo, favicon, footer, payment badge
@@ -21,9 +23,10 @@ export default async function SiteSettingsPage() {
   if (!session?.user) redirect("/admin/login");
   if (session.user.role !== "ADMIN") redirect("/admin");
 
-  const [{ settings }, pagesContent] = await Promise.all([
+  const [{ settings }, pagesContent, reminderDays] = await Promise.all([
     getSiteSettingsForEditing(),
     getPagesContent(),
+    getLuluReminderDays(),
   ]);
 
   return (
@@ -39,6 +42,8 @@ export default async function SiteSettingsPage() {
       </div>
 
       <SiteSettingsForm initial={settings} />
+
+      <LuluReminderSetting initialDays={reminderDays} />
 
       <h2 style={{ fontSize: 18, margin: "32px 0 12px" }}>Shipping methods</h2>
       <ShippingLevelsForm initial={settings.apiKeys.luluShippingLevels ?? []} />

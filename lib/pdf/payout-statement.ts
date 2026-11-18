@@ -22,7 +22,6 @@ const GOLD = rgb(0.62, 0.48, 0.18); // matches the seal's gold linework
 const INK = rgb(0.165, 0.141, 0.22);
 const INK_SOFT = rgb(0.42, 0.39, 0.47);
 const LINE = rgb(0.906, 0.878, 0.937);
-const PANEL = rgb(0.973, 0.961, 0.984);
 const CREAM = rgb(0.980, 0.965, 0.941); // report background, per explicit instruction
 const PAID_GREEN = rgb(0.12, 0.42, 0.28);
 const PENDING_AMBER = rgb(0.54, 0.35, 0.04);
@@ -180,22 +179,24 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
 
   // ---- Total payout box ----
   const boxH = 78;
-  rect(margin, y, pageWidth, boxH, PANEL, LINE);
-  text("TOTAL PAYOUT", margin + 16, y - 16, { font: bold, size: 8.5, color: INK_SOFT });
-  text(money(data.totalPayout), margin + 16, y - 38, { font: bold, size: 22, color: PLUM });
+  const WHITE = rgb(1, 1, 1);
+  rect(margin, y, pageWidth, boxH, PLUM);
+  text("NET PAYOUT", margin + 16, y - 16, { font: bold, size: 8.5, color: WHITE });
+  text(money(data.tax.netPaid), margin + 16, y - 38, { font: bold, size: 22, color: WHITE });
 
   const col2 = margin + 280, col3 = margin + 420;
-  text("PERIOD", col2, y - 16, { font: bold, size: 8, color: INK_SOFT });
-  text("PAYOUT DATE", col3, y - 16, { font: bold, size: 8, color: INK_SOFT });
-  text(data.monthLabel, col2, y - 30, { size: 10 });
-  text(data.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), col3, y - 30, { size: 10 });
-  text("STATUS", col2, y - 52, { font: bold, size: 8, color: INK_SOFT });
-  text("AUTHOR", col3, y - 52, { font: bold, size: 8, color: INK_SOFT });
+  text("PERIOD", col2, y - 16, { font: bold, size: 8, color: WHITE });
+  text("PAYOUT DATE", col3, y - 16, { font: bold, size: 8, color: WHITE });
+  text(data.monthLabel, col2, y - 30, { size: 10, color: WHITE });
+  text(data.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), col3, y - 30, { size: 10, color: WHITE });
+  text("STATUS", col2, y - 52, { font: bold, size: 8, color: WHITE });
+  text("AUTHOR", col3, y - 52, { font: bold, size: 8, color: WHITE });
   const statusLabel = authorStatusLabel(data.status);
   const statusKey = authorStatusKey(data.status);
   const statusColor = statusKey === "live" ? LIVE_BLUE : statusKey === "paid" ? PAID_GREEN : statusKey === "rolled" ? ROLLED_COLOR : PENDING_AMBER;
-  text(statusLabel, col2, y - 66, { font: bold, size: 10, color: statusColor });
-  text(data.authorName, col3, y - 66, { size: 10 });
+  void statusColor;
+  text(statusLabel, col2, y - 66, { font: bold, size: 10, color: WHITE });
+  text(data.authorName, col3, y - 66, { size: 10, color: WHITE });
   y -= boxH + 26;
 
   // ---- Revenue breakdown (summary) ----
@@ -243,6 +244,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
   drawTable(
     [{ label: "Item", w: 0.5 }, { label: "Rate Used", w: 0.2, align: "right" }, { label: "Amount", w: 0.3, align: "right" }],
     [
+      ["Gross", "—", money(data.tax.gross)],
       ["Withholding Tax", data.tax.rate === null ? "—" : `${data.tax.rate}%`, money(data.tax.withholdingTax)],
       ["Transaction Cost", "—", money(data.tax.transactionCost)],
     ],

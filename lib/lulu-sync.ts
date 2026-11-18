@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { parsePrintJob } from "@/lib/lulu-report";
 import { isRejectedStatus, reasonFromPrintJob } from "@/lib/lulu-rejection";
 import { recordRejectionAndNotify } from "@/lib/lulu-rejection-notify";
+import { notifyBuyerOfStatus } from "@/lib/order-updates";
+import { trackingFromPrintJob } from "@/lib/lulu-order-updates";
 
 /**
  * Applies what Lulu says about one print job (the JSON from GET /print-jobs/{id}) to our order:
@@ -38,5 +40,7 @@ export async function applyLuluJob(orderId: string, json: unknown): Promise<{ ap
   if (isRejectedStatus(job.status)) {
     notified = await recordRejectionAndNotify(orderId, reasonFromPrintJob(json) ?? "Lulu rejected this print job and did not say why.");
   }
+  // The buyer hears about each step once (On Hold, In Progress, Shipped). Repeats are ignored by the once-only claim.
+  await notifyBuyerOfStatus(orderId, job.status, trackingFromPrintJob(json));
   return { applied: true, notified };
 }

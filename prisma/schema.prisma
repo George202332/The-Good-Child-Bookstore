@@ -808,6 +808,8 @@ model Order {
   luluRejectionReason   String?   @db.Text
   luluRejectedAt        DateTime?
   luluAuthorNotifiedAt  DateTime?
+  /// When the author was last reminded to fix a rejected print file.
+  luluReminderAt        DateTime?
 
   /// Refunds are separate records linked to this order; the order itself is never deleted or rewritten.
   refunds               Refund[]
@@ -1064,7 +1066,14 @@ model Message {
   threadId   String?
   /// True for messages the system sends by itself (for example a failed payout).
   automatic  Boolean  @default(false)
+  /// The book a message to the Editor or Chief Editor is about (title and SN saved with the message).
+  bookId     String?
+  bookTitle  String?
+  bookSn     String?
+  /// Staff status: NEW, IN_PROGRESS or RESOLVED. Resolved messages are kept, never deleted.
+  workflowStatus String @default("NEW")
 
+  @@index([department, createdAt])
   @@index([recipientId, isDraft, createdAt])
   @@index([senderId, isDraft, createdAt])
 }
@@ -1491,4 +1500,22 @@ model PersonalMessageRecord {
   @@index([status])
   @@index([orderId])
   @@index([saleLineId])
+}
+
+/// Which departments a staff member belongs to. A person can hold several.
+model StaffDepartment {
+  userId     String
+  department String
+  createdAt  DateTime @default(now())
+
+  @@id([userId, department])
+}
+
+/// One row per automatic order update sent to the buyer: the primary key makes each update go out once.
+model OrderUpdateSent {
+  orderId String
+  kind    String
+  sentAt  DateTime @default(now())
+
+  @@id([orderId, kind])
 }

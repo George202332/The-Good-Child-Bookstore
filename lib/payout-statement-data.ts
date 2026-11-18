@@ -62,6 +62,8 @@ export interface PayoutStatementData {
   promotionRows: PayoutStatementFormatRow[];
   /** The small tax section at the very bottom of the PDF. Zero for each when there was no payout that month. */
   tax: {
+    /** Total earnings before tax and transaction cost. */
+    gross: number;
     /** Withholding tax rate used, in percent (20 outside Kenya, 5 for Kenya); null when no payout/tax was recorded. */
     rate: number | null;
     withholdingTax: number;
@@ -212,8 +214,8 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
   const [taxRows, taxCtx] = await Promise.all([listPayoutTaxRows(userId), loadTaxContext(userId)]);
   const line = taxLineForMonth(payoutMonthKey, totalForTax, status, taxRows, taxCtx);
   const tax = line.basis === "recorded"
-    ? { rate: line.rate, withholdingTax: line.tax, transactionCost: line.transactionCost, netPaid: line.net }
-    : { rate: null, withholdingTax: 0, transactionCost: 0, netPaid: 0 };
+    ? { gross: line.gross, rate: line.rate, withholdingTax: line.tax, transactionCost: line.transactionCost, netPaid: line.net }
+    : { gross: 0, rate: null, withholdingTax: 0, transactionCost: 0, netPaid: 0 };
 
   return {
     authorName: user.name,

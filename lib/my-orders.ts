@@ -8,6 +8,7 @@ export interface MyOrder {
   status: string;
   createdAt: Date;
   printJobStatus: string | null;
+  luluRejectedAt: Date | null;
   lines: MyOrderLine[];
 }
 
@@ -20,7 +21,7 @@ export async function loadMyOrders(userId: string): Promise<{ orders: MyOrder[];
     const orders = await prisma.order.findMany({
       where: { readerId: profile.id },
       select: {
-        id: true, totalAmount: true, processingFeeAmount: true, status: true, createdAt: true, printJobStatus: true,
+        id: true, totalAmount: true, processingFeeAmount: true, status: true, createdAt: true, printJobStatus: true, luluRejectedAt: true,
         lines: { select: { format: true, book: { select: { title: true } } } },
       },
       orderBy: { createdAt: "desc" },
@@ -28,7 +29,7 @@ export async function loadMyOrders(userId: string): Promise<{ orders: MyOrder[];
     });
     return {
       orders: orders.map((o) => ({
-        id: o.id, totalAmount: o.totalAmount, processingFeeAmount: o.processingFeeAmount, status: o.status, createdAt: o.createdAt, printJobStatus: o.printJobStatus,
+        id: o.id, totalAmount: o.totalAmount, processingFeeAmount: o.processingFeeAmount, status: o.status, createdAt: o.createdAt, printJobStatus: o.printJobStatus, luluRejectedAt: o.luluRejectedAt,
         lines: o.lines.filter((l) => !!l.book).map((l) => ({ format: l.format, book: { title: l.book.title } })),
       })),
       failed: false,

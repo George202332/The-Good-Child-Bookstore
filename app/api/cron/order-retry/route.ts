@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   if (!same(req.headers.get("authorization") ?? "", `Bearer ${secret}`)) return NextResponse.json({ error: "Not allowed." }, { status: 401 });
 
   const now = Date.now();
-  let printRetried = 0, receiptsChecked = 0;
+  let printRetried = 0, receiptsChecked = 0, remindersSent = 0;
   try {
     const printOrders = await prisma.order.findMany({
       where: {
@@ -49,9 +49,14 @@ export async function GET(req: Request) {
     });
     const { sendOrderReceiptEmail } = await import("@/actions/order-emails");
     for (const o of recent) { await sendOrderReceiptEmail(o.id, { onlyIfRecent: true }); receiptsChecked++; }
+
+    // Reminders to authors whose rejected print file is still not fixed (the interval is an admin setting, 3 days by default).
+    const { remindAuthorsOfRejections } = await import("@/lib/lulu-rejection-notify");
+    const { getLuluReminderDays } = await import("@/lib/lulu-reminder-setting");
+    remindersSent = await remindAuthorsOfRejections(await getLuluReminderDays());
   } catch (e) {
     await reportSystemError("CHECKOUT", e, { stage: "order-retry" });
   }
   await purgeOldBuckets();
-  return NextResponse.json({ printRetried, receiptsChecked });
+  return NextResponse.json({ printRetried, receiptsChecked, remindersSent });
 }
