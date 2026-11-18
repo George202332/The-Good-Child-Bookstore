@@ -7,6 +7,8 @@ import { BOOKS } from "@/lib/data/catalog";
 import { getVisitorCountries } from "@/lib/visitor-country";
 import { pageMeta } from "@/lib/seo/page-meta";
 import type { Metadata } from "next";
+import { permanentRedirect } from "next/navigation";
+import { legacyCategorySlugTarget } from "@/lib/taxonomy";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +29,15 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
   // so the shelf is part of the very first page the server sends instead of
   // waiting for the browser to read the address bar and fill in afterwards.
   const sp = await searchParams;
+  // An old category address is sent, permanently, to the closest current category so no link breaks.
+  const seriesParam = ([] as string[]).concat(sp.series ?? []);
+  if (seriesParam.some((v) => legacyCategorySlugTarget(v))) {
+    const fixed = new URLSearchParams();
+    for (const [key, value] of Object.entries(sp)) {
+      for (const v of ([] as string[]).concat(value ?? [])) fixed.append(key, key === "series" ? (legacyCategorySlugTarget(v) ?? v) : v);
+    }
+    permanentRedirect(`/bookshelf?${fixed.toString()}`);
+  }
   const query = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) {
     if (Array.isArray(v)) v.forEach((x) => query.append(k, x));

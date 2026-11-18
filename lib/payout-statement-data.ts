@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { computeMonthlyPayoutRows } from "@/lib/payout-monthly";
 import { buildRevenueBreakdown } from "@/lib/payout-statement-breakdown";
+import { listPayoutTaxRows, loadTaxContext, taxLineForMonth, type PayoutTaxLine } from "@/lib/payout-tax";
+import { isKenya } from "@/lib/withholding";
 
 /**
  * Deliberately does NOT use lib/earnings-lines.ts's shared
@@ -59,6 +61,12 @@ export interface PayoutStatementData {
   /** Promotion Commission — one row per title sold through this
    * person's own promotional links. */
   promotionRows: PayoutStatementFormatRow[];
+  /** "Author" or "Reader": drives the report title ("Author Account Payout Report" / "Reader Account Payout Report"). */
+  accountType: "Author" | "Reader";
+  /** True when the country on the profile is Kenya (5% withholding); otherwise 20%. */
+  inKenya: boolean;
+  /** Withholding tax, transaction cost and net paid for this month's payout. */
+  tax: PayoutTaxLine;
 }
 
 /** A short, stable, human-looking account number derived from the
@@ -197,7 +205,14 @@ export async function getPayoutStatementData(userId: string, monthKey: string): 
   const status: PayoutStatementData["status"] =
     monthlyRow?.status ?? (isCurrentMonth ? "Live" : matching?.status === "PAID" ? "Paid" : "Pending payout");
 
+  const totalPayout = buildRevenueBreakdown({ organicRevenue, affiliateChannelRevenue, referralCommission, promotionCommission, rolloverAmount }).total;
+  const [taxRows, taxCtx] = await Promise.all([listPayoutTaxRows(userId), loadTaxContext(userId)]);
+  const tax = taxLineForMonth(payoutMonthKey, totalPayout, status, taxRows, taxCtx);
+
   return {
+    accountType: user.role === "AUTHOR" ? "Author" : "Reader",
+    inKenya: isKenya(user.country),
+    tax,
     authorName: user.name,
     monthLabel: start.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
     payoutDate,

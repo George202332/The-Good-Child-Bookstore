@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DashboardShell } from "@/components/DashboardShell";
+import { PayoutBankNotice } from "@/components/PayoutBankNotice";
 import { loadMyOrders } from "@/lib/my-orders";
 import { getReaderAffiliateStatus } from "@/actions/reader-affiliate";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
@@ -110,6 +111,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
     return (
       <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
         <LiveRefresher />
+        <PayoutBankNotice userId={session.user.id} />
         {payoutStatCards && payoutStatCards.pendingPayout > 0 && payoutStatCards.pendingStatus !== "Paid" && (
           <PayoutHoldBanner amount={payoutStatCards.pendingPayout} />
         )}
@@ -305,6 +307,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
     return (
       <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
         <LiveRefresher />
+        <PayoutBankNotice userId={session.user.id} />
         <div className="section-head" style={{ marginBottom: 16 }}>
           <div>
             <h2 style={{ fontSize: 15.5 }}>Dashboard</h2>
@@ -509,6 +512,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   return (
     <DashboardShell role={role} activeKey="dashboard" displayName={displayName}>
       <LiveRefresher />
+        <PayoutBankNotice userId={session.user.id} />
       <div className="section-head" style={{ marginBottom: 16 }}>
         <div>
           <h2 style={{ fontSize: 15.5 }}>Dashboard</h2>

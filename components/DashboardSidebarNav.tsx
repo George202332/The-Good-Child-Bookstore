@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { SignOutButton } from "./SignOutButton";
 import { NAV_ICONS } from "./nav-icons";
 import { NAV_PENDING_KEY, NAV_SNAPSHOT_KEY } from "./account-nav-keys";
@@ -47,6 +47,15 @@ export function DashboardSidebarNav({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  // Full prefetch of a page the moment a visitor hovers, focuses or touches its menu item (once per page). The cheap page
+  // shell is already prefetched for every item by the Link itself as the menu appears.
+  const prefetched = useRef<Set<string>>(new Set());
+  const warm = (href: string) => {
+    if (prefetched.current.has(href)) return;
+    prefetched.current.add(href);
+    try { router.prefetch(href); } catch { /* ignore */ }
+  };
   // The menu item you just clicked lights up at once (before the next page has arrived), and stays lit until it does.
   const [pendingKey, setPendingKey] = useState<string | null>(null);
   const lit = pendingKey ?? activeKey;
@@ -127,6 +136,9 @@ export function DashboardSidebarNav({
                   href={it.href}
                   className={`dashboard-nav-link ${lit === it.key ? "active" : ""}`}
                   aria-current={activeKey === it.key ? "page" : undefined}
+                  onMouseEnter={() => warm(it.href)}
+                  onFocus={() => warm(it.href)}
+                  onTouchStart={() => warm(it.href)}
                   onClick={() => {
                     setOpen(false);
                     if (it.key !== activeKey) {

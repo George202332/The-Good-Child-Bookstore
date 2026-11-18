@@ -277,10 +277,8 @@ export const SUBCATEGORIES: Record<BookCategory, readonly string[]> = {
 
 /**
  * Before Round 39 six categories carried the word "Series" ("Fun and Humor
- * Series"). Books already saved in the database, and links people have
- * bookmarked, still use those names. They are recognised here and treated as the
- * current names, so nothing breaks whether or not the stored values have been
- * tidied up (see docs/category-rename.sql for the optional tidy-up).
+ * Series"). This list exists ONLY to (1) read a book that still has an old name stored as its current category, and
+ * (2) permanently redirect old links to the current category. Nothing on any screen, menu or filter offers these names.
  */
 export const LEGACY_CATEGORY_NAMES: Readonly<Record<string, BookCategory>> = {
   "Interactive Activity Series": "Interactive Activity",
@@ -333,14 +331,23 @@ export function categorySlug(cat: BookCategory): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/** Current categories only. An old address is turned into the current one by legacyCategorySlugTarget (permanent redirect). */
 export function categoryFromSlug(slug: string | null | undefined): BookCategory | undefined {
   if (!slug) return undefined;
   const s = slug.trim().toLowerCase();
-  const current = CATEGORIES.find((c) => categorySlug(c) === s);
-  if (current) return current;
-  // Old bookmarked links such as ?series=fun-and-humor-series still work.
-  const legacy = Object.keys(LEGACY_CATEGORY_NAMES).find((old) => categorySlug(old as BookCategory) === s);
-  return legacy ? LEGACY_CATEGORY_NAMES[legacy] : undefined;
+  return CATEGORIES.find((c) => categorySlug(c) === s);
+}
+
+/**
+ * An old category address (for example "fun-and-humor-series") maps to the slug of the closest CURRENT category, so a
+ * permanent redirect can send old links there and nothing breaks. Returns undefined for anything that is not an old name.
+ */
+export function legacyCategorySlugTarget(slug: string | null | undefined): string | undefined {
+  if (!slug) return undefined;
+  const s = slug.trim().toLowerCase();
+  if (CATEGORIES.some((c) => categorySlug(c) === s)) return undefined;
+  const old = Object.keys(LEGACY_CATEGORY_NAMES).find((name) => categorySlug(name as BookCategory) === s);
+  return old ? categorySlug(LEGACY_CATEGORY_NAMES[old]) : undefined;
 }
 
 /** Fuzzy match of a legacy shelf/category label to one of the five genres.

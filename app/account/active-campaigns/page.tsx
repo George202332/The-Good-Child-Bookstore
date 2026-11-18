@@ -42,7 +42,7 @@ export default async function ActiveCampaignsPage() {
   const allBooks = [...realBooks, ...BOOKS];
   const browsable = allBooks
     .filter((b) => b.affiliateEnabled && !promotedBookIds.has(b.id))
-    .map((b) => ({ id: b.id, slug: bookSlug(b), sn: b.isbn, title: b.title, author: b.author, price: b.price, category: b.category, genre: b.genre, pubDate: b.pubDate }));
+    .map((b) => ({ id: b.id, slug: bookSlug(b), sn: b.isbn, title: b.title, author: b.author, price: b.price, category: b.series || "", genre: b.genre, pubDate: b.pubDate }));
 
   return (
     <DashboardShell role={role} activeKey="active-campaigns" displayName={session.user.name ?? ""}>

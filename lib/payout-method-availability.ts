@@ -1,41 +1,31 @@
 /**
- * Which payout methods a user may currently choose. Bank transfer is
- * always available. PayPal (stored type "email") and M-Pesa (stored type
- * "mpesa") are available only when an admin switches them on in Site
- * Settings (stored as paypalPayoutsEnabled / mpesaPayoutsEnabled in the
- * site settings JSON, both OFF by default). These are PAYOUT toggles and
- * are unrelated to the checkout payment settings (Paystack etc).
+ * Which payout methods a user may choose. The ONLY payout method is Bank
+ * Transfer (stored type "bank"), paid through Verto.
  *
- * Pure so it can be shared by the UI, the server actions and the tests.
- * Records a user already saved for a switched-off method are never
- * deleted; they just can't be newly added, activated or edited.
+ * PayPal as a PAYOUT method is switched off here (the code is kept, so it can
+ * be switched back on in one place). This has nothing to do with PayPal as a
+ * CHECKOUT method for customers, its keys, webhooks or the footer card, which
+ * are not touched. M-Pesa is removed completely.
+ *
+ * Records a user already saved for PayPal or M-Pesa are never deleted; they
+ * just cannot be added, activated or edited, and the user is asked to choose
+ * Bank Transfer.
  */
 
-export const PAYOUT_METHOD_UNAVAILABLE_MESSAGE = "Currently, we do not accept payouts using this method.";
+export const PAYOUT_METHOD_UNAVAILABLE_MESSAGE = "Bank Transfer is now the only way to receive payouts. Please add your bank details.";
 
-export interface PayoutMethodToggles {
-  paypalPayoutsEnabled: boolean;
-  mpesaPayoutsEnabled: boolean;
-}
+/** The single switch for PayPal as a payout method. */
+export const PAYPAL_PAYOUTS_ENABLED = false;
 
-export const DEFAULT_PAYOUT_METHOD_TOGGLES: PayoutMethodToggles = {
-  paypalPayoutsEnabled: false,
-  mpesaPayoutsEnabled: false,
-};
-
-/** Anything other than a literal `true` counts as OFF. */
-export function resolvePayoutMethodToggles(stored: { paypalPayoutsEnabled?: unknown; mpesaPayoutsEnabled?: unknown } | null | undefined): PayoutMethodToggles {
-  return {
-    paypalPayoutsEnabled: stored?.paypalPayoutsEnabled === true,
-    mpesaPayoutsEnabled: stored?.mpesaPayoutsEnabled === true,
-  };
-}
-
-/** `type` is the stored recipient type: "email" = PayPal, "mpesa" = M-Pesa,
- * "bank" (and the older bank-style keys) = bank transfer. */
-export function isPayoutMethodTypeAvailable(type: string, toggles: PayoutMethodToggles): boolean {
+export function isPayoutMethodTypeAvailable(type: string): boolean {
   const t = type.trim().toLowerCase();
-  if (t === "email") return toggles.paypalPayoutsEnabled;
-  if (t === "mpesa") return toggles.mpesaPayoutsEnabled;
+  if (t === "email") return PAYPAL_PAYOUTS_ENABLED;
+  if (t === "mpesa") return false;
   return true;
+}
+
+/** True for the old payout types that now need the user to choose Bank Transfer. */
+export function isLegacyPayoutType(type: string): boolean {
+  const t = type.trim().toLowerCase();
+  return t === "email" || t === "mpesa";
 }

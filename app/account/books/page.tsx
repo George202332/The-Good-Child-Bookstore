@@ -1,6 +1,7 @@
 import { FlashNotice } from "@/components/FlashNotice";
 import { seoScoreForBook } from "@/lib/seo/book-seo-row";
 import { redirect } from "next/navigation";
+import { attributeCategory } from "@/lib/category-counts";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -78,7 +79,8 @@ export default async function MyBooksPage({ searchParams }: { searchParams?: Pro
     const royalty = group.reduce((sum, r) => sum + r.saleLines.reduce((s2, l) => s2 + Number(l.authorShare), 0), 0);
     const authorName = bookAuthorDisplayName({ submissionMetadata: b.submissionMetadata, author: { penName: authorPenName, user: { name: accountName } } });
     const cover = group.map((r) => r.coverImageUrl).find(Boolean) ?? null;
-    const category = group.map((r) => r.category).find(Boolean) ?? group.map((r) => r.categories[0]?.category.name).find(Boolean) ?? "—";
+    // Only the CURRENT main category is shown (an old stored name is read as its current name). "Not Set" when none can be worked out; nothing is changed.
+    const category = group.map((r) => attributeCategory({ category: r.category, subcategory: (r as unknown as { subcategory?: string | null }).subcategory, legacySubcategory: r.genres?.[0]?.genre.name })).find(Boolean) ?? "Not Set";
     const digitalRow = group.find((r) => r.hasEbook || r.hasAudiobook);
     const printRow = group.find((r) => r.hasPrint);
     const soldOf = (fmt: string) => group.reduce((n, r) => n + r.saleLines.filter((l) => String(l.format ?? "").toLowerCase() === fmt).length, 0);

@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
   CATEGORIES, GENRES, SUBCATEGORIES, GENRE_SHELF_ID, isCategory, isGenre, subcategoriesFor,
-  isSubcategoryOf, categoryOfSubcategory, categorySlug, categoryFromSlug, normalizeGenre,
+  isSubcategoryOf, categoryOfSubcategory, categorySlug, categoryFromSlug, legacyCategorySlugTarget, normalizeGenre,
 } from "../lib/taxonomy";
 
 describe("taxonomy", () => {
@@ -68,8 +68,12 @@ describe("category names (no 'Series' except Adventure and Education)", () => {
     assert.equal(canonicalCategory(" Fun and Humor "), "Fun and Humor");
     assert.equal(canonicalCategory("Adventure Series"), "Adventure Series");
     assert.equal(canonicalCategory("nope"), undefined);
-    assert.equal(categoryFromSlug("fun-and-humor-series"), "Fun and Humor");
+    // Addresses: only the CURRENT slug is a category; an old one is sent (permanently) to the current slug.
+    assert.equal(categoryFromSlug("fun-and-humor-series"), undefined);
     assert.equal(categoryFromSlug("fun-and-humor"), "Fun and Humor");
+    assert.equal(legacyCategorySlugTarget("fun-and-humor-series"), "fun-and-humor");
+    assert.equal(legacyCategorySlugTarget("fun-and-humor"), undefined);
+    assert.equal(legacyCategorySlugTarget("adventure-series"), undefined);
     assert.deepEqual(subcategoriesFor("Fun and Humor Series"), subcategoriesFor("Fun and Humor"));
     for (const v of Object.values(LEGACY_CATEGORY_NAMES)) assert.ok(isCategory(v));
   });

@@ -56,10 +56,13 @@ export interface SiteSettings {
    * it does not affect books already submitted in that format. */
   publishingFormatsEnabled: PublishingFormatsEnabled;
   apiKeys: ApiKeys;
-  /** Whether PayPal may be chosen as a PAYOUT method (not checkout). Default OFF. */
-  paypalPayoutsEnabled: boolean;
-  /** Whether M-Pesa may be chosen as a PAYOUT method (not checkout). Default OFF. */
-  mpesaPayoutsEnabled: boolean;
+  /** Payout calendar: details lock from this day of the month (default 10)… */
+  payoutLockDay: number;
+  /** …until the payout is released on this day (default 15). Details unlock the day after. */
+  payoutReleaseDay: number;
+  /** Withholding tax rates in percent: Kenya (default 5) and everywhere else (default 20), by profile country. */
+  withholdingRateKenya: number;
+  withholdingRateOther: number;
 }
 
 /**
@@ -91,6 +94,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   },
   publishingFormatsEnabled: { ebook: true, print: false, audiobook: true },
   apiKeys: {},
-  paypalPayoutsEnabled: false,
-  mpesaPayoutsEnabled: false,
+  payoutLockDay: 10,
+  payoutReleaseDay: 15,
+  withholdingRateKenya: 5,
+  withholdingRateOther: 20,
 };

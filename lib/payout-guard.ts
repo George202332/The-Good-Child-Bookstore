@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { isBelowMinimumPayout } from "@/lib/payout-threshold";
+import { recordPayoutTax } from "@/lib/payout-tax";
 
 /**
  * The ONE place a PayoutRequest is ever created (actions/payouts.ts
@@ -47,7 +48,7 @@ export async function createPayoutOnce(args: {
   const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
   try {
-    return await prisma.$transaction(
+    const outcome = await prisma.$transaction(
       async (tx: Prisma.TransactionClient): Promise<CreatePayoutOutcome> => {
         const existing = await tx.payoutRequest.findFirst({
           where: {
@@ -76,6 +77,9 @@ export async function createPayoutOnce(args: {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
     );
+    // Withholding tax (20% outside Kenya, 5% Kenya, by profile country) is recorded on the new payout.
+    if (outcome.created) await recordPayoutTax(outcome.id, args.userId, args.amount);
+    return outcome;
   } catch (e) {
     // P2034: a concurrent transaction won the race (serialization failure).
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2034") return { created: false, reason: "conflict" };

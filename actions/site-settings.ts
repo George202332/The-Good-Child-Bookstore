@@ -4,7 +4,8 @@ import { cache } from "react";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { authEither as auth } from "@/lib/auth-either";
-import { resolvePayoutMethodToggles, type PayoutMethodToggles } from "@/lib/payout-method-availability";
+import { resolvePayoutSchedule } from "@/lib/payout-schedule";
+import { resolveWithholdingRates } from "@/lib/withholding";
 import { normaliseEnabledLevels } from "@/lib/lulu-order";
 import { DEFAULT_SITE_SETTINGS, type SiteSettings, type ApiKeys, type PublishingFormatsEnabled } from "@/lib/site-settings";
 
@@ -52,8 +53,11 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
         // Only the plain shipping choice is read. Any old stored key fields are ignored (and removed by the cleanup migration).
         apiKeys: { ...(stored.apiKeys?.luluShippingLevels ? { luluShippingLevels: stored.apiKeys.luluShippingLevels } : {}) },
         publishingFormatsEnabled: { ...DEFAULT_SITE_SETTINGS.publishingFormatsEnabled, ...(stored.publishingFormatsEnabled ?? {}) },
-        // Payout-method toggles: only a literal true counts as ON.
-        ...resolvePayoutMethodToggles(stored),
+        // Payout calendar and withholding rates: unusable values fall back to the defaults.
+        payoutLockDay: resolvePayoutSchedule(stored).lockDay,
+        payoutReleaseDay: resolvePayoutSchedule(stored).releaseDay,
+        withholdingRateKenya: resolveWithholdingRates(stored).kenya,
+        withholdingRateOther: resolveWithholdingRates(stored).other,
       };
     }
   } catch {
@@ -122,15 +126,17 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
     const existing = await getSiteSettings();
     const apiKeys: ApiKeys = { luluShippingLevels: existing.apiKeys.luluShippingLevels };
 
-    // The payout-method toggles have their own action
-    // (updatePayoutMethodToggles). Always keep the saved values here so a
+    // The payout calendar and tax rates have their own action
+    // (updatePayoutSchedule). Always keep the saved values here so a
     // stale copy of this form (or the API Management form) can't undo them.
     const value = JSON.parse(
       JSON.stringify({
         ...settings,
         apiKeys,
-        paypalPayoutsEnabled: existing.paypalPayoutsEnabled,
-        mpesaPayoutsEnabled: existing.mpesaPayoutsEnabled,
+        payoutLockDay: existing.payoutLockDay,
+        payoutReleaseDay: existing.payoutReleaseDay,
+        withholdingRateKenya: existing.withholdingRateKenya,
+        withholdingRateOther: existing.withholdingRateOther,
       })
     );
     await prisma.setting.upsert({
@@ -146,25 +152,33 @@ export async function updateSiteSettings(settings: SiteSettings): Promise<{ ok: 
   }
 }
 
+export interface PayoutScheduleInput {
+  payoutLockDay: number;
+  payoutReleaseDay: number;
+  withholdingRateKenya: number;
+  withholdingRateOther: number;
+}
+
 /**
- * Admin-only: switch PayPal / M-Pesa on or off as selectable PAYOUT
- * methods (separate from the checkout payment settings). Saved in the
- * same Setting JSON row as the rest of the site settings; no schema change.
+ * Admin-only: the payout calendar (lock day and release day) and the two withholding tax rates.
+ * Saved in the same Setting JSON row as the rest of the site settings; no schema change.
  */
-export async function updatePayoutMethodToggles(toggles: PayoutMethodToggles): Promise<{ ok: boolean; error?: string }> {
+export async function updatePayoutSchedule(input: PayoutScheduleInput): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   if (session?.user?.role !== "ADMIN") {
-    return { ok: false, error: "Only Admins can change payout method availability." };
+    return { ok: false, error: "Only Admins can change the payout schedule." };
+  }
+  const lock = Number(input.payoutLockDay), release = Number(input.payoutReleaseDay);
+  const rk = Number(input.withholdingRateKenya), ro = Number(input.withholdingRateOther);
+  if (!Number.isInteger(lock) || !Number.isInteger(release) || lock < 1 || release > 28 || lock >= release) {
+    return { ok: false, error: "The lock day must come before the release day, and both must be between 1 and 28." };
+  }
+  if (![rk, ro].every((n) => Number.isFinite(n) && n >= 0 && n <= 100)) {
+    return { ok: false, error: "Tax rates must be between 0 and 100." };
   }
   try {
     const existing = await getSiteSettings();
-    const value = JSON.parse(
-      JSON.stringify({
-        ...existing,
-        paypalPayoutsEnabled: toggles.paypalPayoutsEnabled === true,
-        mpesaPayoutsEnabled: toggles.mpesaPayoutsEnabled === true,
-      })
-    );
+    const value = JSON.parse(JSON.stringify({ ...existing, payoutLockDay: lock, payoutReleaseDay: release, withholdingRateKenya: rk, withholdingRateOther: ro }));
     await prisma.setting.upsert({
       where: { key: SITE_SETTINGS_KEY },
       update: { value },

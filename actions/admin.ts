@@ -401,6 +401,11 @@ export async function rejectPayoutRequest(payoutId: string | string[]): Promise<
     for (const payout of payouts) {
       await clearPayoutNotices(payout.id);
       await createNotification(payout.userId, "Payout rejected", `Your $${Number(payout.amount).toFixed(2)} payout request was not approved.`, "PAYOUT", payout.id);
+      // Failed-payout rule: the balance stays with the user; correcting details by the lock day pays automatically on the release day.
+      const { sendAutomaticMessage } = await import("@/lib/automatic-message");
+      const { failedPayoutMessage, resolvePayoutSchedule } = await import("@/lib/payout-schedule");
+      const { getSiteSettings } = await import("@/actions/site-settings");
+      await sendAutomaticMessage(payout.userId, "PAYOUTS", "Your Payout Could Not Be Sent", failedPayoutMessage(resolvePayoutSchedule(await getSiteSettings())));
     }
     revalidatePath("/admin/payouts");
     return { ok: true };

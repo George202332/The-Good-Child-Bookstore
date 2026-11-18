@@ -6,6 +6,8 @@ import { auth } from "@/lib/auth";
 import { BACKEND_ROLES } from "@/lib/roles";
 import { sendEmail } from "@/lib/email";
 import { SUPPORT_CATEGORIES, type SupportCategory } from "@/lib/support-categories";
+import { DEPARTMENTS, categoryForDepartment, departmentForCategory, departmentOf, type DepartmentKey } from "@/lib/message-departments";
+import { getMessageMeta, setMessageMeta } from "@/lib/message-meta";
 
 const SUPPORT_INBOX = process.env.SUPPORT_INBOX_EMAIL || "support@thegoodchildbookstore.com";
 
@@ -186,8 +188,10 @@ export async function getSupportRecipient(): Promise<{ id: string; name: string 
   return { id: admin.id, name: "Support Team" };
 }
 
-export async function sendMessage(recipientId: string, body: string, category?: SupportCategory): Promise<{ ok: boolean; error?: string }> {
+export async function sendMessage(recipientId: string, body: string, category?: SupportCategory, extra?: { department?: DepartmentKey; subject?: string }): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
+  if (extra?.department && !DEPARTMENTS.some((d) => d.key === extra.department)) return { ok: false, error: "Choose a department." };
+  if (extra?.department && !category) category = categoryForDepartment(extra.department);
   if (!session?.user) return { ok: false, error: "You need to be signed in." };
   if (!body.trim()) return { ok: false, error: "Message can't be empty." };
   if (recipientId === session.user.id) return { ok: false, error: "You can't message yourself." };
@@ -206,9 +210,13 @@ export async function sendMessage(recipientId: string, body: string, category?: 
     return { ok: false, error: "Choose what this is about before sending." };
   }
 
-  await prisma.message.create({
+  const created = await prisma.message.create({
     data: { senderId: session.user.id, recipientId, body: body.trim(), category: isSupportMessage ? category : null },
+    select: { id: true },
   });
+  if (isSupportMessage && extra?.department) {
+    await setMessageMeta(created.id, { department: extra.department, subject: extra.subject?.trim().slice(0, 140) || null });
+  }
   const { createNotification } = await import("@/lib/notify");
   await createNotification(recipientId, `New message from ${session.user.name}`, body.trim().slice(0, 140), "MESSAGE");
 
@@ -327,4 +335,91 @@ export async function findUserToMessage(query: string): Promise<{ id: string; na
     take: 8,
   });
   return users.map((u: { id: string; name: string; role: string }) => ({ id: u.id, name: u.name, role: u.role }));
+}
+
+
+/* ---------- The redesigned inbox: everything the page needs in ONE trip, so switching conversations is instant ---------- */
+
+export interface InboxMessage {
+  id: string;
+  body: string;
+  createdAt: string;
+  fromMe: boolean;
+  automatic: boolean;
+  department: string | null;
+  subject: string | null;
+}
+
+export interface InboxConversation {
+  key: string;
+  counterpartId: string;
+  name: string;
+  /** True when the other side is our team (a backend account) rather than another reader or author. */
+  isTeam: boolean;
+  department: string | null;
+  subject: string | null;
+  automatic: boolean;
+  lastAt: string;
+  lastBody: string;
+  unread: number;
+  messages: InboxMessage[];
+}
+
+/** Conversations with their messages. Our team's messages are grouped by department; people are grouped by person. */
+export async function loadInbox(): Promise<InboxConversation[]> {
+  const session = await auth();
+  if (!session?.user) return [];
+  const me = session.user.id;
+  try {
+    const rows = await prisma.message.findMany({
+      where: { isDraft: false, OR: [{ senderId: me }, { recipientId: me }] },
+      include: { sender: { select: { name: true, role: true } }, recipient: { select: { name: true, role: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 400,
+    });
+    const meta = await getMessageMeta(rows.map((r: { id: string }) => r.id));
+    const groups = new Map<string, InboxConversation>();
+    const lastDept = new Map<string, string | null>();
+    // Oldest first, so each conversation's messages read top to bottom and the last one seen is the latest.
+    for (const m of [...rows].reverse() as {
+      id: string; senderId: string; recipientId: string; body: string; createdAt: Date; readAt: Date | null; category: string | null;
+      sender: { name: string; role: string }; recipient: { name: string; role: string };
+    }[]) {
+      const fromMe = m.senderId === me;
+      const other = fromMe ? m.recipient : m.sender;
+      const counterpartId = fromMe ? m.recipientId : m.senderId;
+      const isTeam = BACKEND_ROLES.includes(other.role as never);
+      const mm = meta.get(m.id);
+      // An admin reply carries no department of its own: it joins the department of the conversation it answers.
+      const department = isTeam ? (mm?.department ?? departmentForCategory(m.category) ?? lastDept.get(counterpartId) ?? null) : null;
+      if (isTeam) lastDept.set(counterpartId, department);
+      const key = `${counterpartId}|${department ?? ""}`;
+      let g = groups.get(key);
+      if (!g) {
+        g = { key, counterpartId, name: isTeam ? (departmentOf(department)?.label ? `${departmentOf(department)!.label} Team` : "Support Team") : other.name, isTeam, department, subject: null, automatic: false, lastAt: "", lastBody: "", unread: 0, messages: [] };
+        groups.set(key, g);
+      }
+      g.messages.push({ id: m.id, body: m.body, createdAt: m.createdAt.toISOString(), fromMe, automatic: !!mm?.automatic, department, subject: mm?.subject ?? null });
+      g.lastAt = m.createdAt.toISOString();
+      g.lastBody = m.body;
+      g.automatic = !!mm?.automatic;
+      if (mm?.subject) g.subject = mm.subject;
+      if (!fromMe && !m.readAt) g.unread += 1;
+    }
+    return Array.from(groups.values()).sort((a, b) => (a.lastAt < b.lastAt ? 1 : -1));
+  } catch {
+    return [];
+  }
+}
+
+/** Marks everything the other side sent you as read (called when a conversation is opened). */
+export async function markConversationRead(counterpartId: string): Promise<void> {
+  const session = await auth();
+  if (!session?.user) return;
+  try {
+    await prisma.message.updateMany({ where: { senderId: counterpartId, recipientId: session.user.id, readAt: null, isDraft: false }, data: { readAt: new Date() } });
+    revalidatePath("/account/messages");
+  } catch {
+    // not critical
+  }
 }

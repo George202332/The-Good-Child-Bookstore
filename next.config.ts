@@ -23,6 +23,9 @@ const nextConfig: NextConfig = {
     return [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }];
   },
   experimental: {
+    /* Pages the visitor's own browser already fetched ahead of time (hover/touch on a menu item) may be reused for 30
+     * seconds, never longer, so an account page can never look stale. This is per browser; nothing is shared between users. */
+    staleTimes: { dynamic: 0, static: 30 },
     /* The actual root cause of "no image upload works at all": Next.js
      * Server Actions default to a 1MB request body limit. Every image
      * upload (logo, favicon, book covers, library uploads, everything

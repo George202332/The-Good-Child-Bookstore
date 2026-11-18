@@ -1,6 +1,6 @@
 /**
  * The fixed list of issue categories a reader/author picks from when
- * contacting Support (see app/account/messages/ComposeMessageForm.tsx)
+ * contacting Support (see app/account/messages/MessagesApp.tsx)
  * and that the admin backend's Messages tab shows on each thread (see
  * app/admin/messages/AdminMessagesList.tsx and AdminThreadView.tsx).
  *

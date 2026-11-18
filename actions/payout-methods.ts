@@ -4,16 +4,18 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
-import { isPayoutMethodLocked, payoutLockMessage } from "@/lib/payout-lock";
+import { isPayoutDetailsLocked, payoutLockMessage, resolvePayoutSchedule, type PayoutSchedule } from "@/lib/payout-schedule";
 import { getSiteSettings } from "@/actions/site-settings";
 import { isPayoutMethodTypeAvailable, PAYOUT_METHOD_UNAVAILABLE_MESSAGE } from "@/lib/payout-method-availability";
+import { getCountrySupport } from "@/lib/verto-support";
+import { validateBankDetails } from "@/lib/payout-bank-fields";
 import { isPayoutRestrictedCountry, payoutRestrictionMessage } from "@/lib/payout-country-restriction";
 import { logSelfServiceEvent } from "@/lib/audit-log";
 import { payoutMethodLabel } from "@/lib/payout-method-label";
 import { PAYOUT_METHOD_FIELDS, buildChangeMetadata, diffFields, payoutSnapshot } from "@/lib/activity-diff";
 
 /**
- * Manage payout destinations — PayPal, bank transfer, or M-Pesa. Every
+ * Manage payout destinations — Bank Transfer only (paid through Verto). Every
  * author/affiliate payout is executed manually by an admin outside this
  * system (see actions/admin.ts approvePayoutRequest and
  * actions/payouts.ts queueDuePayouts); these rows just record where
@@ -47,8 +49,18 @@ async function requirePayoutEligibleUser(): Promise<{ userId: string; country: s
 /** Server-side check that a method type is currently selectable (admin
  * toggles in Site Settings; bank transfer is always allowed). */
 async function isMethodTypeAvailableNow(type: string): Promise<boolean> {
-  const settings = await getSiteSettings();
-  return isPayoutMethodTypeAvailable(type, settings);
+  return isPayoutMethodTypeAvailable(type);
+}
+
+/** The payout calendar from the admin setting (lock day and release day). */
+async function currentSchedule(): Promise<PayoutSchedule> {
+  return resolvePayoutSchedule(await getSiteSettings());
+}
+
+/** The lock window: from the lock day until the payout is released, and nothing else. Null when changes are allowed. */
+async function lockedMessageNow(): Promise<string | null> {
+  const schedule = await currentSchedule();
+  return isPayoutDetailsLocked(schedule) ? payoutLockMessage(schedule) : null;
 }
 
 export async function listMyPayoutMethods(): Promise<PayoutMethodRow[]> {
@@ -70,7 +82,7 @@ export async function listMyPayoutMethods(): Promise<PayoutMethodRow[]> {
 }
 
 export interface AddPayoutMethodInput {
-  type: string; // "email" (PayPal), "bank", or "mpesa"
+  type: string; // only "bank" (Bank Transfer, paid through Verto) is accepted
   currency: string;
   accountHolderName: string;
   details: Record<string, string>;
@@ -83,7 +95,7 @@ export interface AddPayoutMethodInput {
  * NOT an exception that's carved out here — first-time setup is still
  * blocked for a restricted country, since "setup" in the brief means
  * configuring any payout destination at all; what's always allowed
- * regardless of date is the payout-method LOCK (see isPayoutMethodLocked),
+ * regardless of date is the payout-method LOCK (see lib/payout-schedule.ts),
  * a separate rule from the country restriction.
  */
 export async function addPayoutMethod(input: AddPayoutMethodInput): Promise<{ ok: boolean; error?: string }> {
@@ -103,6 +115,14 @@ export async function addPayoutMethod(input: AddPayoutMethodInput): Promise<{ ok
   if (!input.currency.trim()) return { ok: false, error: "Currency is required." };
   if (!input.type.trim()) return { ok: false, error: "Account type is required." };
   if (!(await isMethodTypeAvailableNow(input.type))) return { ok: false, error: PAYOUT_METHOD_UNAVAILABLE_MESSAGE };
+
+  const lockedNow = await lockedMessageNow();
+  if (lockedNow) return { ok: false, error: lockedNow };
+  const bankCountry = input.details.country ?? "";
+  const support = await getCountrySupport(bankCountry);
+  if (support.state !== "supported") return { ok: false, error: support.message };
+  const missing = validateBankDetails(bankCountry, input.details);
+  if (missing) return { ok: false, error: missing };
 
   const existingCount = await prisma.wiseRecipient.count({ where: { userId } });
   const created = await prisma.wiseRecipient.create({
@@ -168,9 +188,8 @@ export async function deletePayoutMethod(recipientId: string): Promise<{ ok: boo
 }
 
 /**
- * Switches which method is active for payouts — blocked after the 10th
- * of the month (see lib/payout-lock.ts), UNLESS the user doesn't have an
- * active method yet at all (first-time setup is always allowed).
+ * Switches which method is active for payouts — blocked only inside the
+ * lock window (lock day until the release day, see lib/payout-schedule.ts).
  */
 export async function setActivePayoutMethod(recipientId: string): Promise<{ ok: boolean; error?: string }> {
   let userId: string;
@@ -189,9 +208,8 @@ export async function setActivePayoutMethod(recipientId: string): Promise<{ ok: 
   if (!(await isMethodTypeAvailableNow(recipient.type))) return { ok: false, error: PAYOUT_METHOD_UNAVAILABLE_MESSAGE };
 
   const hasActiveAlready = await prisma.wiseRecipient.findFirst({ where: { userId, isDefault: true } });
-  if (hasActiveAlready && hasActiveAlready.id !== recipientId && isPayoutMethodLocked()) {
-    return { ok: false, error: payoutLockMessage() };
-  }
+  const lockedNow = await lockedMessageNow();
+  if (lockedNow) return { ok: false, error: lockedNow };
 
   // A restricted-country user can keep using an already-active method
   // as-is (never blocked), but can't switch TO a different one — that's
@@ -235,9 +253,8 @@ export interface UpdatePayoutMethodInput {
  * recipient had payout history and deletePayoutMethod correctly
  * refused), the old code pressed ahead and created a brand-new row
  * anyway, leaving both the orphaned original AND a duplicate behind.
- * Editing the currently-active method's details is blocked after the
- * 10th of the month (same lock as switching which method is active);
- * editing a non-active method is always allowed.
+ * Editing details is blocked only inside the lock window (lock day until
+ * the release day, see lib/payout-schedule.ts).
  */
 export async function updatePayoutMethod(recipientId: string, input: UpdatePayoutMethodInput): Promise<{ ok: boolean; error?: string }> {
   let userId: string;
@@ -255,9 +272,13 @@ export async function updatePayoutMethod(recipientId: string, input: UpdatePayou
 
   if (!(await isMethodTypeAvailableNow(recipient.type))) return { ok: false, error: PAYOUT_METHOD_UNAVAILABLE_MESSAGE };
 
-  if (recipient.isDefault && isPayoutMethodLocked()) {
-    return { ok: false, error: payoutLockMessage() };
-  }
+  const lockedNow = await lockedMessageNow();
+  if (lockedNow) return { ok: false, error: lockedNow };
+  const updCountry = input.details.country ?? "";
+  const support = await getCountrySupport(updCountry);
+  if (support.state !== "supported") return { ok: false, error: support.message };
+  const missing = validateBankDetails(updCountry, input.details);
+  if (missing) return { ok: false, error: missing };
 
   const updated = await prisma.wiseRecipient.update({
     where: { id: recipientId },
@@ -284,4 +305,20 @@ export async function updatePayoutMethod(recipientId: string, input: UpdatePayou
   revalidatePath("/account/payout-settings");
   revalidatePath("/account/profile");
   return { ok: true };
+}
+
+export interface BankCountryCheck {
+  state: "supported" | "unsupported" | "unreachable";
+  message?: string;
+  fields: { key: string; label: string; placeholder?: string; required: boolean }[];
+}
+
+/** Which fields Bank Transfer needs for a country, or why it cannot be used (Verto decides once it can answer). */
+export async function checkBankCountry(iso2: string): Promise<BankCountryCheck> {
+  const session = await auth();
+  if (!session?.user) return { state: "unsupported", message: "You need to be signed in.", fields: [] };
+  const support = await getCountrySupport(iso2);
+  if (support.state !== "supported") return { state: support.state, message: support.message, fields: [] };
+  const { bankFieldsForCountry } = await import("@/lib/payout-bank-fields");
+  return { state: "supported", fields: bankFieldsForCountry(iso2) };
 }

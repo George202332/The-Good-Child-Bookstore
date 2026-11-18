@@ -1,3 +1,4 @@
+import { attributeCategory } from "@/lib/category-counts";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { bookAuthorDisplayName } from "@/lib/book-author-name";
@@ -31,6 +32,7 @@ export async function getAuthorBooksTable(): Promise<AuthorBookTableRow[]> {
             include: {
               saleLines: PAID_ONLY,
               categories: { include: { category: true } },
+              genres: { include: { genre: true } },
             },
           },
         },
@@ -43,6 +45,9 @@ export async function getAuthorBooksTable(): Promise<AuthorBookTableRow[]> {
     title: string;
     submissionMetadata: unknown;
     categories: { category: { name: string } }[];
+    category?: string | null;
+    subcategory?: string | null;
+    genres?: { genre: { name: string } }[];
     saleLines: { saleType: string; format: string | null }[];
   }[];
 
@@ -65,7 +70,7 @@ export async function getAuthorBooksTable(): Promise<AuthorBookTableRow[]> {
       // author account can submit different books under different pen
       // names, rather than one name reused for every row.
       authorDisplayName: bookAuthorDisplayName({ submissionMetadata: b.submissionMetadata, author }),
-      category: b.categories[0]?.category.name ?? "—",
+      category: attributeCategory({ category: b.category, subcategory: b.subcategory, legacySubcategory: b.genres?.[0]?.genre.name }) ?? "Not Set",
       ebook,
       audiobook,
       paperback,

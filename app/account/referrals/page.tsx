@@ -73,7 +73,7 @@ export default async function ReferralsPage() {
         </div>
       </div>
 
-      <div className="stat-grid" style={{ marginBottom: 24 }}>
+      <div className="stat-grid" style={{ marginBottom: 20 }}>
         <div className="stat-card stat-card-referral">
           <div className="stat-label">Lifetime Referral Commission</div>
           <div className="stat-value">${summary.referralEarnings.toFixed(2)}</div>
@@ -149,7 +149,7 @@ export default async function ReferralsPage() {
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
+      <div className="stat-grid" style={{ marginBottom: 20 }}>
         {tiers.map((t, i) => {
           const isCurrent = t.name === currentTier.name;
           const rangeLabel = t.maxReferrals === null ? `${t.minReferrals}+` : `${t.minReferrals}–${t.maxReferrals}`;
@@ -158,7 +158,6 @@ export default async function ReferralsPage() {
               key={t.name}
               className={`stat-card ${TIER_CARD_CLASS[t.name] ?? ""}`}
               style={{
-                padding: 14,
                 border: isCurrent ? `2px solid ${TIER_ACCENT[t.name] ?? "var(--coral)"}` : undefined,
                 position: "relative",
               }}

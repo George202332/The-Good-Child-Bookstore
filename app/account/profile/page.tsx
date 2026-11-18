@@ -8,6 +8,8 @@ import { PaymentDetailsSection } from "./PaymentDetailsSection";
 import { listMyPayoutMethods } from "@/actions/payout-methods";
 import { getSiteSettings } from "@/actions/site-settings";
 import { hasAffiliateCapability } from "@/lib/affiliate-capability";
+import { isPayoutDetailsLocked, payoutLockMessage, resolvePayoutSchedule } from "@/lib/payout-schedule";
+import { isLegacyPayoutType } from "@/lib/payout-method-availability";
 
 export default async function ProfilePage() {
   const session = await auth();
@@ -22,11 +24,9 @@ export default async function ProfilePage() {
   const recipients = isPayoutEligible ? await listMyPayoutMethods() : [];
   const user = isPayoutEligible ? await prisma.user.findUnique({ where: { id: session.user.id }, select: { country: true } }) : null;
 
-  const siteSettings = await getSiteSettings();
-  const payoutToggles = {
-    paypalPayoutsEnabled: siteSettings.paypalPayoutsEnabled,
-    mpesaPayoutsEnabled: siteSettings.mpesaPayoutsEnabled,
-  };
+  const schedule = resolvePayoutSchedule(await getSiteSettings());
+  const lockMessage = isPayoutDetailsLocked(schedule) ? payoutLockMessage(schedule) : null;
+  const needsBankChoice = recipients.some((r) => isLegacyPayoutType(r.type)) && !recipients.some((r) => r.type === "bank");
 
   return (
     <DashboardShell role={role} activeKey="profile" displayName={session.user.name ?? ""}>
@@ -39,7 +39,7 @@ export default async function ProfilePage() {
       <ProfileForm initial={profile} />
       {isPayoutEligible && (
         <div style={{ marginTop: 20 }}>
-          <PaymentDetailsSection initial={recipients} country={user?.country ?? null} toggles={payoutToggles} />
+          <PaymentDetailsSection initial={recipients} country={user?.country ?? null} lockMessage={lockMessage} needsBankChoice={needsBankChoice} />
         </div>
       )}
     </DashboardShell>

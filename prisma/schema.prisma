@@ -438,6 +438,7 @@ model Address {
   country         String
   isDefault       Boolean       @default(false)
   createdAt       DateTime      @default(now())
+  @@index([readerId])
 }
 
 /**
@@ -578,6 +579,7 @@ model BookFile {
   kind     String   // PDF | EPUB | SAMPLE | COVER
   url      String
   createdAt DateTime @default(now())
+  @@index([bookId])
 }
 
 model Category {
@@ -913,6 +915,9 @@ model AffiliateLink {
   clicks       AffiliateClick[]
   saleLines    SaleLine[]
   createdAt    DateTime @default(now())
+  @@index([affiliateId])
+  @@index([bookId])
+  @@index([campaignId])
 }
 
 /** A named grouping of referral links for a marketing push (e.g. "Back
@@ -925,6 +930,7 @@ model Campaign {
   name        String
   links       AffiliateLink[]
   createdAt   DateTime @default(now())
+  @@index([affiliateId])
 }
 
 model AffiliateClick {
@@ -935,6 +941,7 @@ model AffiliateClick {
   country         String?
   region          String?
   createdAt       DateTime @default(now())
+  @@index([affiliateLinkId])
 }
 
 model PayoutRequest {
@@ -959,12 +966,17 @@ model PayoutRequest {
   failureReason  String?
   requestedAt    DateTime     @default(now())
   resolvedAt     DateTime?
+  /// Withholding tax rate (percent) and amount taken from this payout, and the transaction cost charged to withdraw it. Set when the payout is created; empty on older payouts.
+  withholdingRate Decimal?     @db.Decimal(5, 2)
+  withholdingTax  Decimal?     @db.Decimal(10, 2)
+  transactionCost Decimal?     @db.Decimal(10, 2)
 
   /// A mistake in a payout is fixed with a reversing entry here, never by changing or deleting the payout.
   adjustments    PayoutAdjustment[]
 
   @@index([userId])
   @@index([status])
+  @@index([userId, requestedAt])
 }
 
 /**
@@ -990,6 +1002,7 @@ model WiseRecipient {
   isDefault         Boolean  @default(false)
   createdAt         DateTime @default(now())
   payoutRequests    PayoutRequest[]
+  @@index([userId])
 }
 
 // ---------- Support / comms / admin ----------
@@ -1021,6 +1034,7 @@ model Notification {
 
   @@index([userId])
   @@index([relatedRecordId])
+  @@index([userId, read, createdAt])
 }
 
 model Message {
@@ -1044,6 +1058,15 @@ model Message {
    * without reading the whole thread first. Null for ordinary
    * person-to-person messages, which have no such category. */
   category   String?
+  /// Department badge: EDITOR, CHIEF_EDITOR, PAYOUTS, ACCOUNTING or OPERATIONS. Empty on person-to-person messages.
+  department String?
+  subject    String?
+  threadId   String?
+  /// True for messages the system sends by itself (for example a failed payout).
+  automatic  Boolean  @default(false)
+
+  @@index([recipientId, isDraft, createdAt])
+  @@index([senderId, isDraft, createdAt])
 }
 
 model AuditLog {

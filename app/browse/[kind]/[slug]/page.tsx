@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import { legacyCategorySlugTarget } from "@/lib/taxonomy";
 import type { Metadata } from "next";
 import { BookCard } from "@/components/BookCard";
 import { getRealPublishedBooks } from "@/lib/data/real-books-adapter";
@@ -43,6 +44,9 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
 export default async function BrowseTopicPage({ params, searchParams }: { params: Promise<{ kind: string; slug: string }>; searchParams: Promise<{ page?: string }> }) {
   const { kind, slug } = await params;
   const { page: pageRaw } = await searchParams;
+  // An old category address goes, permanently, to the closest current category.
+  const current = kind === "category" ? legacyCategorySlugTarget(slug) : undefined;
+  if (current) permanentRedirect(`/browse/category/${current}`);
   const data = await load(kind, slug, pageRaw);
   if (!data) notFound();
   const { topic, books, page, pages, slice } = data;

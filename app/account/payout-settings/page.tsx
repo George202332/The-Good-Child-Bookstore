@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DashboardShell } from "@/components/DashboardShell";
@@ -10,6 +11,7 @@ import { ColHelp } from "@/components/ColHelp";
 import { formatMinimumPayout, getMinPayoutAmount } from "@/lib/payout-threshold";
 import { authorStatusLabel, authorStatusHelp, authorStatusPillStyle, statusColumnHelp, LIVE_LABEL, ROLLED_LABEL, PENDING_LABEL } from "@/lib/payout-status";
 import { TH_STYLE, TD_STYLE } from "@/components/admin-table";
+import { listPayoutTaxRows, loadTaxContext, taxLineForMonth } from "@/lib/payout-tax";
 
 const TABLE_HEAD_STYLE: React.CSSProperties = { ...TH_STYLE, padding: "12px 16px", fontSize: 11, letterSpacing: undefined };
 const TABLE_CELL_STYLE: React.CSSProperties = { ...TD_STYLE, padding: "10px 16px", fontSize: undefined, verticalAlign: undefined };
@@ -51,10 +53,28 @@ export default async function PayoutSettingsPage() {
   const isAffiliateToo = await hasAffiliateCapability(session.user.id);
   if (role !== "AUTHOR" && !isAffiliateToo) redirect("/account");
 
-  const [monthlyRows, statCards] = await Promise.all([
+  const [monthlyRows, statCards, taxRows, taxCtx] = await Promise.all([
     computeMonthlyPayoutRows(session.user.id),
     computePayoutStatCards(session.user.id),
+    listPayoutTaxRows(session.user.id),
+    loadTaxContext(session.user.id),
   ]);
+  // Each month's payout is created in the FOLLOWING month, so its tax figures are looked up under that month.
+  const taxByMonth = new Map(
+    monthlyRows.map((r) => {
+      const [y, m] = r.monthKey.split("-").map(Number);
+      const next = new Date(y, m, 1);
+      const payoutMonthKey = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+      const gross = r.status === "Live" && r.liveTotal !== undefined ? r.liveTotal : r.amount;
+      return [r.monthKey, taxLineForMonth(payoutMonthKey, gross, r.status, taxRows, taxCtx)] as const;
+    })
+  );
+  const taxTotals = Array.from(taxByMonth.values()).reduce(
+    (acc, t) => t.basis === "recorded"
+      ? { ...acc, withheld: acc.withheld + t.tax, cost: acc.cost + t.transactionCost, net: acc.net + t.net }
+      : t.basis === "estimated" ? { ...acc, estimated: acc.estimated + t.tax } : acc,
+    { withheld: 0, cost: 0, net: 0, estimated: 0 }
+  );
 
   let available = 0;
   let onHold = 0;
@@ -157,8 +177,9 @@ export default async function PayoutSettingsPage() {
                   </td>
                 </tr>
               ) : (
-                monthlyRows.map((r) => (
-                  <tr key={r.monthKey}>
+                monthlyRows.map((r) => { const t = taxByMonth.get(r.monthKey)!; return (
+                  <Fragment key={r.monthKey}>
+                  <tr>
                     <td style={TABLE_CELL_STYLE}>{r.monthLabel}</td>
                     <td style={TABLE_CELL_STYLE}>{r.unitsSold}</td>
                     <td style={TABLE_CELL_STYLE}>${r.organicRevenue.toFixed(2)}</td>
@@ -185,11 +206,35 @@ export default async function PayoutSettingsPage() {
                       </a>
                     </td>
                   </tr>
-                ))
+                  <tr>
+                    <td colSpan={9} style={{ padding: "0 16px 14px", borderBottom: "1px solid var(--line, #e7e0ef)" }}>
+                      <div className="payout-breakdown" aria-label={`Payout breakdown for ${r.monthLabel}`}>
+                        <div><span>Gross Earnings</span><strong>${t.gross.toFixed(2)}</strong></div>
+                        <div><span>{t.basis === "none" ? "Withholding Tax Withheld" : `Withholding Tax Withheld (${t.rate}% Rate Used)`}</span><strong>{t.basis === "none" ? "Not Applied" : `$${t.tax.toFixed(2)}`}</strong></div>
+                        <div><span>Transaction Cost</span><strong>${t.transactionCost.toFixed(2)}</strong></div>
+                        <div><span>Net Paid{t.basis === "estimated" ? " (Estimate)" : ""}</span><strong>${t.net.toFixed(2)}</strong></div>
+                      </div>
+                    </td>
+                  </tr>
+                  </Fragment>
+                ); })
               )}
             </tbody>
           </table>
         </div>
+      </div>
+
+      <h3 style={{ fontSize: 16, margin: "28px 0 14px" }}>Taxes For The Period</h3>
+      <div className="map-card payout-taxes" style={{ padding: 20 }}>
+        <div className="payout-breakdown">
+          <div><span>Total Withholding Tax Withheld</span><strong>${taxTotals.withheld.toFixed(2)}</strong></div>
+          <div><span>Total Transaction Cost</span><strong>${taxTotals.cost.toFixed(2)}</strong></div>
+          <div><span>Total Net Paid</span><strong>${taxTotals.net.toFixed(2)}</strong></div>
+          <div><span>Estimated Tax On Open Months</span><strong>${taxTotals.estimated.toFixed(2)}</strong></div>
+        </div>
+        <p style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 10 }}>
+          Withholding tax is {taxCtx.rates.kenya}% for Kenya and {taxCtx.rates.other}% outside Kenya, by the country on your profile. Payouts made before withholding tax started show no tax.
+        </p>
       </div>
     </DashboardShell>
   );
