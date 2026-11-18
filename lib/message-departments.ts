@@ -1,10 +1,11 @@
 /** The five departments a message can belong to. Client-safe (no database). */
+/* Soft, low-saturation tints that sit with the site's cream, lavender and muted purple. Text is always dark. */
 export const DEPARTMENTS = [
-  { key: "EDITOR", label: "Editor", color: "#6B3FA0", bg: "#EFE6F8", icon: "pen" },
-  { key: "CHIEF_EDITOR", label: "Chief Editor", color: "#4B2A7A", bg: "#E4D8F2", icon: "crown" },
-  { key: "PAYOUTS", label: "Payouts", color: "#1F6B4A", bg: "#DDF1E6", icon: "wallet" },
-  { key: "ACCOUNTING", label: "Accounting", color: "#9A5B00", bg: "#FCEFD2", icon: "calc" },
-  { key: "OPERATIONS", label: "Operations", color: "#1F5C8A", bg: "#DCEBF7", icon: "gear" },
+  { key: "EDITOR", label: "Editor", color: "#4A3A7A", bg: "#E4DCF3", icon: "pen" },
+  { key: "CHIEF_EDITOR", label: "Chief Editor", color: "#3A2C62", bg: "#D9CEEC", icon: "crown" },
+  { key: "PAYOUTS", label: "Payouts", color: "#2F5A45", bg: "#D6EBDF", icon: "wallet" },
+  { key: "ACCOUNTING", label: "Accounting", color: "#6E4A00", bg: "#F1E4C4", icon: "calc" },
+  { key: "OPERATIONS", label: "Operations", color: "#4A4A63", bg: "#E1E0EA", icon: "gear" },
 ] as const;
 
 export type DepartmentKey = (typeof DEPARTMENTS)[number]["key"];

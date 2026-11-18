@@ -19,10 +19,9 @@ import type { PayoutStatementData, PayoutStatementFormatRow } from "../payout-st
 
 const PLUM = rgb(0.20, 0.03, 0.26); // dark purple, matches the seal's ring
 const GOLD = rgb(0.62, 0.48, 0.18); // matches the seal's gold linework
-// Darker text and slightly stronger lines than before, for readability (colours stay purple and cream; no font size changed).
-const INK = rgb(0.07, 0.05, 0.11);
-const INK_SOFT = rgb(0.27, 0.24, 0.33);
-const LINE = rgb(0.80, 0.76, 0.86);
+const INK = rgb(0.165, 0.141, 0.22);
+const INK_SOFT = rgb(0.42, 0.39, 0.47);
+const LINE = rgb(0.906, 0.878, 0.937);
 const PANEL = rgb(0.973, 0.961, 0.984);
 const CREAM = rgb(0.980, 0.965, 0.941); // report background, per explicit instruction
 const PAID_GREEN = rgb(0.12, 0.42, 0.28);
@@ -90,7 +89,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     const colWidths = cols.map((c) => c.w * pageWidth);
     const colX = colWidths.reduce<number[]>((acc, w, i) => [...acc, i === 0 ? x0 : acc[i - 1] + colWidths[i - 1]], []);
 
-    ensureSpace(20 + rows.length * 24 + 40);
+    ensureSpace(20 + rows.length * 20 + 40);
     rect(x0, y, pageWidth, 20, PLUM);
     cols.forEach((c, i) => {
       const align = c.align ?? "left";
@@ -108,10 +107,10 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
         const size = 8.5;
         const maxChars = Math.floor((colWidths[i] - 10) / (size * 0.5));
         const clipped = cell.length > maxChars ? cell.slice(0, maxChars - 1) + "…" : cell;
-        if (align === "right") rightText(clipped, colX[i] + colWidths[i] - 6, y - 17, { size });
-        else text(clipped, colX[i] + 6, y - 17, { size });
+        if (align === "right") rightText(clipped, colX[i] + colWidths[i] - 6, y - 15, { size });
+        else text(clipped, colX[i] + 6, y - 15, { size });
       });
-      y -= 24;
+      y -= 20;
     });
 
     if (totals) {
@@ -127,26 +126,8 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
     y -= 16;
   }
 
-  /** A faint line that separates one section from the next. */
-  function sectionDivider() {
-    ensureSpace(40);
-    hLine(margin, margin + pageWidth, y + 6, LINE, 0.75);
-    y -= 12;
-  }
-
-  function mergeRows(a: PayoutStatementFormatRow[], b: PayoutStatementFormatRow[]): PayoutStatementFormatRow[] {
-    const map = new Map<string, PayoutStatementFormatRow>();
-    for (const r of [...a, ...b]) {
-      const k = `${r.title}|${r.format}`;
-      const m = map.get(k);
-      if (!m) map.set(k, { ...r });
-      else { m.copies += r.copies; m.gross += r.gross; m.printingCost += r.printingCost; m.companyShare += r.companyShare; m.yourEarnings += r.yourEarnings; }
-    }
-    return Array.from(map.values());
-  }
-
   function drawFormatSection(heading: string, sub: string, rows: PayoutStatementFormatRow[], totalLabel: string, hideCompanyColumn = false) {
-    sectionDivider();
+    if (rows.length === 0) return;
     ensureSpace(60);
     text(heading, margin, y, { font: bold, size: 13, color: PLUM });
     text(sub, margin, y - 15, { size: 8, color: INK_SOFT });
@@ -167,12 +148,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
           { label: "Gross", w: 0.13, align: "right" as const }, { label: "Printing Cost", w: 0.13, align: "right" as const },
           { label: "Company", w: 0.09, align: "right" as const }, { label: "Earnings", w: 0.09, align: "right" as const },
         ];
-    // A table with no data still shows, with zeros, so nothing is ever missing from the statement.
-    const rowValues = rows.length === 0
-      ? [hideCompanyColumn
-          ? ["No Sales This Month", "—", money(0), "0", money(0), money(0)]
-          : ["No Sales This Month", "—", money(0), "0", money(0), money(0), money(0), money(0)]]
-      : rows.map((r) =>
+    const rowValues = rows.map((r) =>
       hideCompanyColumn
         ? [r.title, r.format, money(r.price), String(r.copies), money(r.gross), money(r.yourEarnings)]
         : [r.title, r.format, money(r.price), String(r.copies), money(r.gross), r.printingCost > 0 ? money(r.printingCost) : "—", money(r.companyShare), money(r.yourEarnings)]
@@ -182,7 +158,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
 
   // ---- Header: Company name (left) — Seal (middle) — Statement info (right), all aligned on one line ----
   text("The Good Child Bookstore LTD", margin, y - 10, { font: bold, size: 9.5, color: PLUM });
-  text(`${data.accountType} Account Payout Report`, margin, y - 24, { font: bold, size: 9.5 });
+  text("Monthly Payout Statement", margin, y - 24, { font: bold, size: 9.5 });
 
   if (sealImage) {
     const sealSize = 90; // 64 * 1.4, per explicit instruction
@@ -205,9 +181,8 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
   // ---- Total payout box ----
   const boxH = 78;
   rect(margin, y, pageWidth, boxH, PANEL, LINE);
-  text("NET PAID", margin + 16, y - 16, { font: bold, size: 8.5, color: INK_SOFT });
-  text(money(data.tax.net), margin + 16, y - 38, { font: bold, size: 22, color: PLUM });
-  text(`Gross ${money(data.tax.gross)}  |  Tax ${money(data.tax.tax)}  |  Transaction Cost ${money(data.tax.transactionCost)}`, margin + 16, y - 62, { size: 8, color: INK_SOFT });
+  text("TOTAL PAYOUT", margin + 16, y - 16, { font: bold, size: 8.5, color: INK_SOFT });
+  text(money(data.totalPayout), margin + 16, y - 38, { font: bold, size: 22, color: PLUM });
 
   const col2 = margin + 280, col3 = margin + 420;
   text("PERIOD", col2, y - 16, { font: bold, size: 8, color: INK_SOFT });
@@ -215,7 +190,7 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
   text(data.monthLabel, col2, y - 30, { size: 10 });
   text(data.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), col3, y - 30, { size: 10 });
   text("STATUS", col2, y - 52, { font: bold, size: 8, color: INK_SOFT });
-  text(data.accountType.toUpperCase(), col3, y - 52, { font: bold, size: 8, color: INK_SOFT });
+  text("AUTHOR", col3, y - 52, { font: bold, size: 8, color: INK_SOFT });
   const statusLabel = authorStatusLabel(data.status);
   const statusKey = authorStatusKey(data.status);
   const statusColor = statusKey === "live" ? LIVE_BLUE : statusKey === "paid" ? PAID_GREEN : statusKey === "rolled" ? ROLLED_COLOR : PENDING_AMBER;
@@ -236,54 +211,42 @@ export async function buildPayoutStatementPdf(data: PayoutStatementData): Promis
   drawTable(
     [{ label: "Revenue source", w: 0.28 }, { label: "Description", w: 0.5 }, { label: "Amount", w: 0.22, align: "right" }],
     breakdown.rows.map((r) => [r.source, r.description, money(r.amount)]),
-    [{ label: "GROSS EARNINGS", sub: data.status === "Rolled" ? ROLLED_HELP : `Payable on ${data.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, value: money(breakdown.total) }]
+    [{ label: "TOTAL PAYOUT", sub: data.status === "Rolled" ? ROLLED_HELP : `Payable on ${data.payoutDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`, value: money(breakdown.total) }]
   );
 
-  // ---- The six tables, ALWAYS all shown, in this order ----
-  drawFormatSection("Direct Sales", `All sales of your own books for ${data.monthLabel} (Organic and Direct Sales Affiliate shown separately below)`, mergeRows(data.organicRows, data.affiliateRows), "TOTALS");
-  drawFormatSection("Organic", `Individual book performance for ${data.monthLabel} — readers who found your book directly`, data.organicRows, "TOTALS");
-  drawFormatSection("Direct Sales Affiliate", `Individual book performance for ${data.monthLabel} — readers who arrived via an affiliate link`, data.affiliateRows, "TOTALS");
+  // ---- Four independent sections ----
+  drawFormatSection("Direct Sales: Organic", `Individual book performance for ${data.monthLabel} — readers who found your book directly`, data.organicRows, "TOTALS");
+  drawFormatSection("Direct Sales: Affiliate", `Individual book performance for ${data.monthLabel} — readers who arrived via an affiliate link`, data.affiliateRows, "TOTALS");
 
-  sectionDivider();
-  ensureSpace(60);
-  text("Referral Commission", margin, y, { font: bold, size: 13, color: PLUM });
-  text(`Your tiered commission on the company's revenue from authors you referred (${data.monthLabel})`, margin, y - 15, { size: 8, color: INK_SOFT });
-  y -= 32;
-  drawTable(
-    [
-      { label: "Account ID", w: 0.25 },
-      { label: "Gross", w: 0.25, align: "right" }, { label: "Company", w: 0.25, align: "right" }, { label: "Commission", w: 0.25, align: "right" },
-    ],
-    data.referralRows.length === 0
-      ? [["None This Month", money(0), money(0), money(0)]]
-      : data.referralRows.map((r) => [r.accountId, money(r.grossRevenue), money(r.companyRevenue), money(r.commission)]),
-    [{ label: "TOTAL", value: money(data.referralCommission) }]
-  );
+  if (data.referralRows.length > 0) {
+    ensureSpace(60);
+    text("Referral Commission", margin, y, { font: bold, size: 13, color: PLUM });
+    text(`Your tiered commission on the company's revenue from authors you referred (${data.monthLabel})`, margin, y - 15, { size: 8, color: INK_SOFT });
+    y -= 32;
+    drawTable(
+      [
+        { label: "Account ID", w: 0.25 },
+        { label: "Gross", w: 0.25, align: "right" }, { label: "Company", w: 0.25, align: "right" }, { label: "Commission", w: 0.25, align: "right" },
+      ],
+      data.referralRows.map((r) => [r.accountId, money(r.grossRevenue), money(r.companyRevenue), money(r.commission)]),
+      [{ label: "TOTAL", value: money(data.referralCommission) }]
+    );
+  }
 
-  drawFormatSection("Promotional Commission", `Copies sold through your own promotional links for ${data.monthLabel}`, data.promotionRows, "TOTALS", true);
+  drawFormatSection("Promotion Commission", `Copies sold through your own promotional links for ${data.monthLabel}`, data.promotionRows, "TOTALS", true);
 
-  // ---- Taxes, with the Transaction Cost line directly below ----
-  sectionDivider();
+  // ---- Tax and net paid: the one small section at the very bottom ----
   ensureSpace(110);
-  text("Taxes", margin, y, { font: bold, size: 13, color: PLUM });
-  text(`Withholding tax is ${data.inKenya ? "5% for Kenya" : "20% outside Kenya"}, by the country on your profile`, margin, y - 15, { size: 8, color: INK_SOFT });
+  text("Tax And Net Paid", margin, y, { font: bold, size: 13, color: PLUM });
+  text(`Withholding tax is 5% for Kenya and 20% outside Kenya, by the country on your profile (${data.monthLabel})`, margin, y - 15, { size: 8, color: INK_SOFT });
   y -= 32;
   drawTable(
-    [{ label: "Description", w: 0.5 }, { label: "Rate Used", w: 0.2, align: "right" }, { label: "Amount", w: 0.3, align: "right" }],
-    [[`Withholding Tax (${data.inKenya ? "Kenya" : "Outside Kenya"})`, `${data.tax.rate}%`, money(data.tax.tax)]],
-    [{ label: "Transaction Cost", sub: "Charged to withdraw your money, paid by you and deducted from your balance. Zero if there was no payout.", value: money(data.tax.transactionCost) }]
-  );
-
-  // ---- Closing totals ----
-  sectionDivider();
-  ensureSpace(120);
-  text("Closing Totals", margin, y, { font: bold, size: 13, color: PLUM });
-  text(`How your figures for ${data.monthLabel} add up`, margin, y - 15, { size: 8, color: INK_SOFT });
-  y -= 32;
-  drawTable(
-    [{ label: "Item", w: 0.7 }, { label: "Amount", w: 0.3, align: "right" }],
-    [["Gross Earnings", money(data.tax.gross)], ["Tax Withheld", money(data.tax.tax)], ["Transaction Cost", money(data.tax.transactionCost)]],
-    [{ label: "NET PAID", sub: data.tax.basis === "estimated" ? "Estimate: the tax is confirmed when your payout is created." : data.tax.basis === "none" ? "No withholding tax was taken on this payout (it was made before withholding tax started)." : undefined, value: money(data.tax.net) }]
+    [{ label: "Item", w: 0.5 }, { label: "Rate Used", w: 0.2, align: "right" }, { label: "Amount", w: 0.3, align: "right" }],
+    [
+      ["Withholding Tax", data.tax.rate === null ? "—" : `${data.tax.rate}%`, money(data.tax.withholdingTax)],
+      ["Transaction Cost", "—", money(data.tax.transactionCost)],
+    ],
+    [{ label: "NET PAID", sub: "What you actually receive after tax and transaction cost. The transaction cost is paid by the receiver and deducted from the balance.", value: money(data.tax.netPaid) }]
   );
 
   // ---- Footer (on every page) ----

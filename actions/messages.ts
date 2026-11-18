@@ -108,6 +108,9 @@ export interface DraftMessageRow {
   recipientName: string;
   body: string;
   createdAt: Date;
+  /** Set when the draft is a message to one of our departments. */
+  department: string | null;
+  subject: string | null;
 }
 
 /** Saved-but-unsent messages — a real, persistent draft, not anything
@@ -122,12 +125,15 @@ export async function listDraftMessages(): Promise<DraftMessageRow[]> {
       include: { recipient: true },
       orderBy: { createdAt: "desc" },
     });
+    const meta = await getMessageMeta(drafts.map((d: { id: string }) => d.id));
     return (drafts as { id: string; recipientId: string; recipient: { name: string }; body: string; createdAt: Date }[]).map((m) => ({
       id: m.id,
       recipientId: m.recipientId,
       recipientName: m.recipient.name,
       body: m.body,
       createdAt: m.createdAt,
+      department: meta.get(m.id)?.department ?? null,
+      subject: meta.get(m.id)?.subject ?? null,
     }));
   } catch {
     return [];
@@ -249,7 +255,7 @@ export async function sendMessage(recipientId: string, body: string, category?: 
 
 /** Saves a draft for later — same shape as sendMessage, but marked
  * isDraft so it never reaches the recipient. */
-export async function saveDraft(recipientId: string, body: string): Promise<{ ok: boolean; error?: string; draftId?: string }> {
+export async function saveDraft(recipientId: string, body: string, extra?: { department?: DepartmentKey; subject?: string }): Promise<{ ok: boolean; error?: string; draftId?: string }> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "You need to be signed in." };
   if (!recipientId) return { ok: false, error: "Choose who this draft is for." };
@@ -261,12 +267,15 @@ export async function saveDraft(recipientId: string, body: string): Promise<{ ok
   const draft = await prisma.message.create({
     data: { senderId: session.user.id, recipientId, body: body.trim(), isDraft: true },
   });
+  if (extra?.department && DEPARTMENTS.some((d) => d.key === extra.department)) {
+    await setMessageMeta(draft.id, { department: extra.department, subject: extra.subject?.trim().slice(0, 140) || null });
+  }
   revalidatePath("/account/messages");
   return { ok: true, draftId: draft.id };
 }
 
 /** Updates an existing draft's text/recipient without sending it. */
-export async function updateDraft(draftId: string, recipientId: string, body: string): Promise<{ ok: boolean; error?: string }> {
+export async function updateDraft(draftId: string, recipientId: string, body: string, extra?: { department?: DepartmentKey; subject?: string }): Promise<{ ok: boolean; error?: string }> {
   const session = await auth();
   if (!session?.user) return { ok: false, error: "You need to be signed in." };
 
@@ -275,6 +284,9 @@ export async function updateDraft(draftId: string, recipientId: string, body: st
   if (!body.trim()) return { ok: false, error: "Draft can't be empty." };
 
   await prisma.message.update({ where: { id: draftId }, data: { recipientId, body: body.trim() } });
+  if (extra?.department && DEPARTMENTS.some((d) => d.key === extra.department)) {
+    await setMessageMeta(draftId, { department: extra.department, subject: extra.subject?.trim().slice(0, 140) || null });
+  }
   revalidatePath("/account/messages");
   return { ok: true };
 }
@@ -288,7 +300,14 @@ export async function sendDraft(draftId: string): Promise<{ ok: boolean; error?:
   if (!draft || draft.senderId !== session.user.id || !draft.isDraft) return { ok: false, error: "Draft not found." };
   if (!draft.body.trim()) return { ok: false, error: "Draft can't be empty." };
 
-  await prisma.message.update({ where: { id: draftId }, data: { isDraft: false, createdAt: new Date() } });
+  // A draft written to one of our departments keeps its department and gets the matching support category when it is sent.
+  const draftMeta = (await getMessageMeta([draftId])).get(draftId);
+  const draftRecipient = await prisma.user.findUnique({ where: { id: draft.recipientId }, select: { role: true } });
+  if (draftRecipient && BACKEND_ROLES.includes(draftRecipient.role) && !draftMeta?.department) {
+    return { ok: false, error: "Open this draft with Edit and choose a department before sending it." };
+  }
+  const draftCategory = draftMeta?.department && DEPARTMENTS.some((d) => d.key === draftMeta.department) ? categoryForDepartment(draftMeta.department as DepartmentKey) : undefined;
+  await prisma.message.update({ where: { id: draftId }, data: { isDraft: false, createdAt: new Date(), ...(draftCategory ? { category: draftCategory } : {}) } });
   const { createNotification } = await import("@/lib/notify");
   const sender = await prisma.user.findUnique({ where: { id: session.user.id } });
   await createNotification(draft.recipientId, `New message from ${sender?.name ?? "someone"}`, draft.body.trim().slice(0, 140), "MESSAGE");

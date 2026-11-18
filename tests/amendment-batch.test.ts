@@ -105,16 +105,19 @@ describe("message departments", () => {
   });
 });
 
-describe("payout statement PDF always shows every table", () => {
-  const empty: PayoutStatementData = {
-    accountType: "Reader", inKenya: false, authorName: "Test Reader", monthLabel: "Oct 2026", payoutDate: new Date(2026, 10, 15), status: "Pending payout",
+describe("payout statement PDF: original layout plus the small tax section at the bottom", () => {
+  const base: PayoutStatementData = {
+    authorName: "Test Reader", monthLabel: "Oct 2026", payoutDate: new Date(2026, 10, 15), status: "Pending payout",
     organicRevenue: 0, affiliateChannelRevenue: 0, referralCommission: 0, promotionCommission: 0, rolloverAmount: 0, totalPayout: 0,
     organicRows: [], affiliateRows: [], referralRows: [], promotionRows: [],
-    tax: { gross: 0, rate: 20, tax: 0, transactionCost: 0, net: 0, basis: "estimated" },
+    tax: { rate: null, withholdingTax: 0, transactionCost: 0, netPaid: 0 },
   };
-  test("a user with no data still gets a valid PDF with all sections", async () => {
-    const bytes = await buildPayoutStatementPdf(empty);
-    assert.ok(bytes.length > 3000);
+  test("no payout that month: a valid PDF with zeros in the tax section", async () => {
+    const bytes = await buildPayoutStatementPdf(base);
+    assert.equal(Buffer.from(bytes.slice(0, 5)).toString(), "%PDF-");
+  });
+  test("a payout with tax recorded renders", async () => {
+    const bytes = await buildPayoutStatementPdf({ ...base, totalPayout: 100, tax: { rate: 20, withholdingTax: 20, transactionCost: 1.5, netPaid: 78.5 } });
     assert.equal(Buffer.from(bytes.slice(0, 5)).toString(), "%PDF-");
   });
 });
